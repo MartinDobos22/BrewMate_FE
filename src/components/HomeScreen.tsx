@@ -186,6 +186,26 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.appBar}>
+        <Text style={styles.appTitle}>BrewMate</Text>
+        <View style={styles.appBarActions}>
+          <TouchableOpacity onPress={onProfilePress} style={styles.appAvatar}>
+            <Text style={styles.avatarText}>
+              {userName.charAt(0).toUpperCase()}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.appLogout}
+            onPress={handleLogoutPress}
+            onLongPress={() =>
+              Alert.alert('Odhlásiť', 'Kliknutím sa odhlásiš z aplikácie')
+            }
+          >
+            <Text style={styles.logoutIcon}>🚪</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -193,36 +213,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.userSection}>
-            <TouchableOpacity onPress={onProfilePress} style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {userName.charAt(0).toUpperCase()}
-              </Text>
-            </TouchableOpacity>
-            <View style={styles.greeting}>
-              <Text style={styles.greetingText}>
-                {getGreeting()}, {userName}!
-              </Text>
-              <Text style={styles.subGreeting}>{getTimeBasedMessage()}</Text>
-            </View>
-          </View>
-          <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.notificationBtn}>
-              <Text style={styles.notificationIcon}>🔔</Text>
-              <View style={styles.notificationBadge}>
-                <Text style={styles.badgeText}>2</Text>
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.logoutBtn}
-              onPress={handleLogoutPress}
-              onLongPress={() => Alert.alert('Odhlásiť', 'Kliknutím sa odhlásiš z aplikácie')}
-            >
-              <Text style={styles.logoutIcon}>🚪</Text>
-            </TouchableOpacity>
-          </View>
+        {/* Hero Greeting */}
+        <View style={styles.heroCard}>
+          <Text style={styles.heroGreeting}>
+            {getGreeting()}, {userName}!
+          </Text>
+          <Text style={styles.heroSub}>{getTimeBasedMessage()}</Text>
         </View>
 
         {/* Daily Tip Card */}

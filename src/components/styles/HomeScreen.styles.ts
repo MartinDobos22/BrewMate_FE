@@ -5,22 +5,22 @@ const { width } = Dimensions.get('window');
 
 export const homeStyles = (isDarkMode: boolean) => {
   const colors = {
-    // Základné farby
-    background: isDarkMode ? '#0a0a0a' : '#f8f9fa',
-    cardBackground: isDarkMode ? 'rgba(255,255,255,0.05)' : '#ffffff',
-    text: isDarkMode ? '#ffffff' : '#212529',
-    textSecondary: isDarkMode ? '#adb5bd' : '#6c757d',
+    // Základné farby v kávových tónoch
+    background: isDarkMode ? '#3E2723' : '#EFEBE9',
+    cardBackground: isDarkMode ? '#4E342E' : '#FFFFFF',
+    text: isDarkMode ? '#FFFBF2' : '#3E2723',
+    textSecondary: isDarkMode ? '#D7CCC8' : '#6D4C41',
 
     // Akcentové farby
-    primary: '#8B4513', // Hnedá káva
-    primaryLight: '#D2691E',
-    secondary: '#28a745',
-    danger: '#dc3545',
-    warning: '#ffc107',
+    primary: '#6F4E37', // kávová hnedá
+    primaryLight: '#A1887F',
+    secondary: '#8BC34A',
+    danger: '#D32F2F',
+    warning: '#FFA000',
 
     // Hranice a tiene
     border: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-    shadow: isDarkMode ? '#000000' : '#000000',
+    shadow: '#000000',
   };
 
   return StyleSheet.create({
@@ -33,109 +33,71 @@ export const homeStyles = (isDarkMode: boolean) => {
       flex: 1,
     },
 
-    // Header sekcia
-    header: {
+    // Top App Bar
+    appBar: {
+      height: 56,
+      backgroundColor: colors.primary,
       flexDirection: 'row',
+      alignItems: 'center',
       justifyContent: 'space-between',
-      alignItems: 'center',
       paddingHorizontal: 20,
-      paddingTop: 20,
-      paddingBottom: 10,
     },
 
-    userSection: {
+    appTitle: {
+      color: '#ffffff',
+      fontSize: 20,
+      fontWeight: '600',
+    },
+
+    appBarActions: {
       flexDirection: 'row',
       alignItems: 'center',
-      flex: 1,
     },
 
-    avatar: {
-      width: 45,
-      height: 45,
-      borderRadius: 22.5,
-      backgroundColor: `${colors.primary}88`,
+    appAvatar: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.primaryLight,
       justifyContent: 'center',
       alignItems: 'center',
       marginRight: 12,
-      borderWidth: 2,
-      borderColor: colors.primary,
     },
 
     avatarText: {
       color: '#ffffff',
-      fontSize: 20,
-      fontWeight: 'bold',
-    },
-
-    greeting: {
-      flex: 1,
-    },
-
-    greetingText: {
-      fontSize: 20,
+      fontSize: 18,
       fontWeight: '600',
-      color: colors.text,
-      marginBottom: 2,
     },
 
-    subGreeting: {
-      fontSize: 14,
-      color: colors.textSecondary,
-    },
-
-    headerActions: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-    },
-
-    notificationBtn: {
-      width: 40,
-      height: 40,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: colors.cardBackground,
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: colors.border,
-      position: 'relative',
-    },
-
-    notificationIcon: {
-      fontSize: 20,
-    },
-
-    notificationBadge: {
-      position: 'absolute',
-      top: -5,
-      right: -5,
-      backgroundColor: colors.danger,
-      borderRadius: 10,
-      width: 20,
-      height: 20,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-
-    badgeText: {
-      color: '#ffffff',
-      fontSize: 11,
-      fontWeight: 'bold',
-    },
-
-    logoutBtn: {
-      width: 40,
-      height: 40,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: `${colors.danger}22`,
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: `${colors.danger}44`,
+    appLogout: {
+      padding: 4,
     },
 
     logoutIcon: {
       fontSize: 20,
+      color: '#ffffff',
+    },
+
+    // Hero greeting card
+    heroCard: {
+      margin: 20,
+      marginTop: 16,
+      padding: 20,
+      backgroundColor: colors.primary,
+      borderRadius: 16,
+    },
+
+    heroGreeting: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: '#ffffff',
+      marginBottom: 4,
+    },
+
+    heroSub: {
+      fontSize: 14,
+      color: '#ffffff',
     },
 
     // Daily Tip Card
@@ -368,13 +330,12 @@ export const homeStyles = (isDarkMode: boolean) => {
       left: 0,
       right: 0,
       flexDirection: 'row',
-      backgroundColor: isDarkMode ? 'rgba(10,10,10,0.95)' : 'rgba(255,255,255,0.98)',
+      backgroundColor: colors.cardBackground,
       paddingVertical: 12,
       paddingHorizontal: 20,
       paddingBottom: 20,
       borderTopWidth: 1,
       borderTopColor: colors.border,
-      // Blur efekt
       ...(isDarkMode && {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: -2 },
@@ -401,7 +362,7 @@ export const homeStyles = (isDarkMode: boolean) => {
     },
 
     activeNav: {
-      color: colors.primaryLight,
+      color: colors.primary,
     },
 
     // Empty states
