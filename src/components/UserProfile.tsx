@@ -1,5 +1,5 @@
 // UserProfile.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -49,11 +49,7 @@ const UserProfile = ({
     const [recommendation, setRecommendation] = useState<string | null>(null);
     const [coffeeStats, setCoffeeStats] = useState<Stat[]>([]);
 
-    useEffect(() => {
-      fetchProfile();
-    }, []);
-
-    const fetchProfile = async () => {
+    const fetchProfile = useCallback(async () => {
     try {
       const user = auth().currentUser;
       if (!user) throw new Error('Not authenticated');
@@ -86,7 +82,11 @@ const UserProfile = ({
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
+
+    useEffect(() => {
+      fetchProfile();
+    }, [fetchProfile]);
 
   const generateStats = (data: ProfileData) => {
     const stats: Stat[] = [];

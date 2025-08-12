@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   SafeAreaView,
-  useColorScheme,
   Alert,
   RefreshControl,
 } from 'react-native';
@@ -17,6 +16,7 @@ import {
   toggleFavorite,
   getDailyTip
 } from '../services/homePagesService.ts';
+import { useTheme } from '../theme/ThemeProvider';
 
 // const { width } = Dimensions.get('window');
 
@@ -60,7 +60,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                                                  onFavoritesPress,
                                                  onLogout,
                                                }) => {
-  const isDarkMode = useColorScheme() === 'dark';
+  const { isDark: isDarkMode } = useTheme();
   const [userName, setUserName] = useState('');
   const [coffeeCount, setCoffeeCount] = useState(0);
   const [avgRating, setAvgRating] = useState(0);
