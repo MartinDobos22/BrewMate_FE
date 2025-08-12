@@ -1,23 +1,12 @@
 // ProfessionalOCRScanner.styles.ts
 import { StyleSheet, Dimensions } from 'react-native';
+import { getColors } from '../../theme/colors';
 
 const { width, height } = Dimensions.get('window');
 
 export const scannerStyles = (isDarkMode: boolean) => {
-  const colors = {
-    background: isDarkMode ? '#0a0a0a' : '#f8f9fa',
-    cardBackground: isDarkMode ? 'rgba(255,255,255,0.05)' : '#ffffff',
-    text: isDarkMode ? '#ffffff' : '#212529',
-    textSecondary: isDarkMode ? '#adb5bd' : '#6c757d',
-    primary: '#8B4513',
-    primaryLight: '#D2691E',
-    secondary: '#28a745',
-    danger: '#dc3545',
-    warning: '#ffc107',
-    info: '#17a2b8',
-    border: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-    shadow: '#000000',
-  };
+  const colors = getColors(isDarkMode);
+  const shadow = '#000000';
 
   return StyleSheet.create({
     container: {
@@ -68,7 +57,7 @@ export const scannerStyles = (isDarkMode: boolean) => {
       borderWidth: 1,
       borderColor: colors.border,
       ...(!isDarkMode && {
-        shadowColor: colors.shadow,
+        shadowColor: shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 8,
