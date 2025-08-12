@@ -1,16 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Text,
-  TextInput,
-  StyleSheet,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  ScrollView,
-} from 'react-native';
-import auth from '@react-native-firebase/auth';
+    Text,
+    TextInput,
+    StyleSheet,
+    TouchableOpacity,
+    Alert,
+    ActivityIndicator,
+    ScrollView,
+    useColorScheme,
+  } from 'react-native';
+  import auth from '@react-native-firebase/auth';
+  import { getColors, Colors } from '../theme/colors';
 
-const EditUserProfile = ({ onBack }: { onBack: () => void }) => {
+  const EditUserProfile = ({ onBack }: { onBack: () => void }) => {
+    const isDarkMode = useColorScheme() === 'dark';
+    const colors = getColors(isDarkMode);
+    const styles = createStyles(colors);
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
@@ -63,7 +68,7 @@ const EditUserProfile = ({ onBack }: { onBack: () => void }) => {
     }
   };
 
-  if (loading) return <ActivityIndicator style={{ marginTop: 40 }} size="large" color="#ff6b35" />;
+    if (loading) return <ActivityIndicator style={{ marginTop: 40 }} size="large" color={colors.primary} />;
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -101,37 +106,53 @@ const EditUserProfile = ({ onBack }: { onBack: () => void }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: { padding: 30 },
-  title: { fontSize: 26, fontWeight: 'bold', marginBottom: 20 },
-  label: { fontSize: 16, fontWeight: '600', marginTop: 10 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 12,
-    padding: 10,
-    marginTop: 5,
-  },
-  multiline: {
-    height: 100,
-    textAlignVertical: 'top',
-  },
-  saveButton: {
-    backgroundColor: '#28a745',
-    padding: 15,
-    borderRadius: 20,
-    marginTop: 30,
-    alignItems: 'center',
-  },
-  saveButtonText: { color: 'white', fontWeight: 'bold' },
-  backButton: {
-    marginTop: 20,
-    alignItems: 'center',
-  },
-  backButtonText: {
-    color: '#007bff',
-    fontSize: 16,
-  },
-});
+  const createStyles = (colors: Colors) =>
+    StyleSheet.create({
+      container: {
+        padding: 30,
+        backgroundColor: colors.background,
+      },
+      title: {
+        fontSize: 26,
+        fontWeight: 'bold',
+        marginBottom: 20,
+        color: colors.text,
+      },
+      label: {
+        fontSize: 16,
+        fontWeight: '600',
+        marginTop: 10,
+        color: colors.text,
+      },
+      input: {
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: 12,
+        padding: 10,
+        marginTop: 5,
+        backgroundColor: colors.cardBackground,
+        color: colors.text,
+      },
+      multiline: {
+        height: 100,
+        textAlignVertical: 'top',
+      },
+      saveButton: {
+        backgroundColor: colors.secondary,
+        padding: 15,
+        borderRadius: 20,
+        marginTop: 30,
+        alignItems: 'center',
+      },
+      saveButtonText: { color: '#fff', fontWeight: 'bold' },
+      backButton: {
+        marginTop: 20,
+        alignItems: 'center',
+      },
+      backButtonText: {
+        color: colors.primary,
+        fontSize: 16,
+      },
+    });
 
 export default EditUserProfile;

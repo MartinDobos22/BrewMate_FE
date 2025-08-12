@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   useColorScheme,
 } from 'react-native';
+import { getColors, Colors } from '../theme/colors';
 import {
   Camera,
   useCameraDevice,
@@ -27,14 +28,8 @@ const TextScanner = () => {
   const device = useCameraDevice('back');
   const { hasPermission, requestPermission } = useCameraPermission();
   const isDarkMode = useColorScheme() === 'dark';
-
-  const textStyle = {
-    color: isDarkMode ? '#ffffff' : '#333333',
-  };
-
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? '#1a1a1a' : '#f5f5f5',
-  };
+  const colors = getColors(isDarkMode);
+  const styles = createStyles(colors);
 
   useEffect(() => {
     if (!hasPermission) {
@@ -125,8 +120,8 @@ const TextScanner = () => {
 
   if (!device) {
     return (
-      <View style={[styles.container, backgroundStyle]}>
-        <Text style={[styles.errorText, textStyle]}>No camera device found</Text>
+      <View style={styles.container}>
+        <Text style={styles.errorText}>No camera device found</Text>
       </View>
     );
   }
@@ -170,10 +165,10 @@ const TextScanner = () => {
   }
 
   return (
-    <ScrollView style={[styles.container, backgroundStyle]}>
+    <ScrollView style={styles.container}>
       <View style={styles.content}>
-        <Text style={[styles.title, textStyle]}>📄 Text Scanner</Text>
-        <Text style={[styles.subtitle, textStyle]}>
+        <Text style={styles.title}>📄 Text Scanner</Text>
+        <Text style={styles.subtitle}>
           Scan text from images using your camera or gallery
         </Text>
 
@@ -188,21 +183,21 @@ const TextScanner = () => {
         {scannedText ? (
           <View style={styles.resultContainer}>
             <View style={styles.resultHeader}>
-              <Text style={[styles.resultTitle, textStyle]}>Scanned Text:</Text>
+              <Text style={styles.resultTitle}>Scanned Text:</Text>
               <TouchableOpacity style={styles.clearButton} onPress={clearText}>
                 <Text style={styles.clearButtonText}>Clear</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.textContainer}>
-              <Text style={[styles.scannedText, textStyle]} selectable>
+              <Text style={styles.scannedText} selectable>
                 {scannedText}
               </Text>
             </View>
           </View>
         ) : (
           <View style={styles.placeholderContainer}>
-            <Text style={[styles.placeholderText, textStyle]}>
+            <Text style={styles.placeholderText}>
               No text scanned yet. Use the camera or gallery to scan text from images.
             </Text>
           </View>
@@ -210,8 +205,8 @@ const TextScanner = () => {
 
         {isLoading && (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#ff6b35" />
-            <Text style={[styles.loadingText, textStyle]}>Processing image...</Text>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>Processing image...</Text>
           </View>
         )}
       </View>
@@ -219,161 +214,169 @@ const TextScanner = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    opacity: 0.7,
-    marginBottom: 30,
-  },
-  scanButton: {
-    backgroundColor: '#ff6b35',
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 25,
-    alignItems: 'center',
-    marginBottom: 15,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  galleryButton: {
-    backgroundColor: '#28a745',
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 25,
-    alignItems: 'center',
-    marginBottom: 30,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  cameraContainer: {
-    flex: 1,
-  },
-  camera: {
-    flex: 1,
-  },
-  cameraControls: {
-    position: 'absolute',
-    bottom: 50,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  closeButton: {
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  captureButton: {
-    backgroundColor: '#ff6b35',
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  captureText: {
-    fontSize: 30,
-  },
-  instructions: {
-    position: 'absolute',
-    top: 50,
-    left: 20,
-    right: 20,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    padding: 15,
-    borderRadius: 10,
-  },
-  instructionText: {
-    color: 'white',
-    textAlign: 'center',
-    fontSize: 16,
-  },
-  resultContainer: {
-    marginTop: 20,
-  },
-  resultHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  resultTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  clearButton: {
-    backgroundColor: '#dc3545',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 15,
-  },
-  clearButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  textContainer: {
-    backgroundColor: 'rgba(255, 107, 53, 0.1)',
-    padding: 15,
-    borderRadius: 10,
-    borderLeftWidth: 4,
-    borderLeftColor: '#ff6b35',
-  },
-  scannedText: {
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  placeholderContainer: {
-    backgroundColor: 'rgba(128, 128, 128, 0.1)',
-    padding: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  placeholderText: {
-    fontSize: 16,
-    textAlign: 'center',
-    opacity: 0.6,
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-  },
-  errorText: {
-    fontSize: 18,
-    textAlign: 'center',
-    marginTop: 50,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      padding: 20,
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      textAlign: 'center',
+      marginBottom: 10,
+      color: colors.text,
+    },
+    subtitle: {
+      fontSize: 16,
+      textAlign: 'center',
+      color: colors.textSecondary,
+      marginBottom: 30,
+    },
+    scanButton: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 30,
+      paddingVertical: 15,
+      borderRadius: 25,
+      alignItems: 'center',
+      marginBottom: 15,
+      elevation: 3,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+    },
+    galleryButton: {
+      backgroundColor: colors.secondary,
+      paddingHorizontal: 30,
+      paddingVertical: 15,
+      borderRadius: 25,
+      alignItems: 'center',
+      marginBottom: 30,
+      elevation: 3,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+    },
+    buttonText: {
+      color: '#fff',
+      fontSize: 18,
+      fontWeight: 'bold',
+    },
+    cameraContainer: {
+      flex: 1,
+      backgroundColor: '#000',
+    },
+    camera: {
+      flex: 1,
+    },
+    cameraControls: {
+      position: 'absolute',
+      bottom: 50,
+      left: 0,
+      right: 0,
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+    },
+    closeButton: {
+      backgroundColor: 'rgba(0,0,0,0.7)',
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: 20,
+    },
+    captureButton: {
+      backgroundColor: colors.primary,
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    captureText: {
+      fontSize: 30,
+    },
+    instructions: {
+      position: 'absolute',
+      top: 50,
+      left: 20,
+      right: 20,
+      backgroundColor: 'rgba(0,0,0,0.7)',
+      padding: 15,
+      borderRadius: 10,
+    },
+    instructionText: {
+      color: '#fff',
+      textAlign: 'center',
+      fontSize: 16,
+    },
+    resultContainer: {
+      marginTop: 20,
+    },
+    resultHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 15,
+    },
+    resultTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: colors.text,
+    },
+    clearButton: {
+      backgroundColor: colors.danger,
+      paddingHorizontal: 15,
+      paddingVertical: 8,
+      borderRadius: 15,
+    },
+    clearButtonText: {
+      color: '#fff',
+      fontWeight: 'bold',
+    },
+    textContainer: {
+      backgroundColor: 'rgba(139,69,19,0.1)',
+      padding: 15,
+      borderRadius: 10,
+      borderLeftWidth: 4,
+      borderLeftColor: colors.primary,
+    },
+    scannedText: {
+      fontSize: 16,
+      lineHeight: 24,
+      color: colors.text,
+    },
+    placeholderContainer: {
+      backgroundColor: colors.cardBackground,
+      padding: 20,
+      borderRadius: 10,
+      alignItems: 'center',
+    },
+    placeholderText: {
+      fontSize: 16,
+      textAlign: 'center',
+      color: colors.textSecondary,
+    },
+    loadingContainer: {
+      alignItems: 'center',
+      marginTop: 20,
+    },
+    loadingText: {
+      marginTop: 10,
+      fontSize: 16,
+      color: colors.text,
+    },
+    errorText: {
+      fontSize: 18,
+      textAlign: 'center',
+      marginTop: 50,
+      color: colors.text,
+    },
+  });
 
 export default TextScanner;

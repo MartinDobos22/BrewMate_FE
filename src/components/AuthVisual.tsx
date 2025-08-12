@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, useColorScheme } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import GoogleLogin from './GoogleAuth.tsx';
+import { getColors, Colors } from '../theme/colors';
 
 const AuthScreen = () => {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -9,6 +10,9 @@ const AuthScreen = () => {
   const [password, setPassword] = useState('');
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
+  const isDarkMode = useColorScheme() === 'dark';
+  const colors = getColors(isDarkMode);
+  const styles = createStyles(colors);
   const handleAuth = async () => {
     try {
       console.log('🔧 handleAuth spustený. isRegistering:', isRegistering);
@@ -161,50 +165,53 @@ const AuthScreen = () => {
 );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: '#f7f7f7',
-  },
-  socialLoginContainer: {
-    marginTop: 20,
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#ddd',
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    backgroundColor: '#fff',
-  },
-  button: {
-    backgroundColor: '#333',
-    padding: 14,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  buttonText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  link: {
-    color: '#007bff',
-    textAlign: 'center',
-    marginTop: 12,
-  },
-});
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      justifyContent: 'center',
+      padding: 24,
+      backgroundColor: colors.background,
+    },
+    socialLoginContainer: {
+      marginTop: 20,
+      paddingVertical: 10,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      alignItems: 'center',
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      marginBottom: 24,
+      textAlign: 'center',
+      color: colors.text,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 16,
+      backgroundColor: colors.cardBackground,
+      color: colors.text,
+    },
+    button: {
+      backgroundColor: colors.primary,
+      padding: 14,
+      borderRadius: 8,
+      marginBottom: 12,
+    },
+    buttonText: {
+      color: '#fff',
+      textAlign: 'center',
+      fontWeight: '600',
+    },
+    link: {
+      color: colors.primary,
+      textAlign: 'center',
+      marginTop: 12,
+    },
+  });
 
 export default AuthScreen;
