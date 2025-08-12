@@ -1,4 +1,6 @@
 // HomeScreen.styles.ts
+import { StyleSheet } from 'react-native';
+import { getColors } from '../../theme/colors';
 import { StyleSheet, Dimensions } from 'react-native';
 import { getColors } from '../../theme/colors';
 
@@ -7,24 +9,6 @@ const { width } = Dimensions.get('window');
 export const homeStyles = (isDarkMode: boolean) => {
   const colors = getColors(isDarkMode);
   const shadow = '#000000';
-  const colors = {
-    // Základné farby v kávových tónoch
-    background: isDarkMode ? '#3E2723' : '#EFEBE9',
-    cardBackground: isDarkMode ? '#4E342E' : '#FFFFFF',
-    text: isDarkMode ? '#FFFBF2' : '#3E2723',
-    textSecondary: isDarkMode ? '#D7CCC8' : '#6D4C41',
-
-    // Akcentové farby
-    primary: '#6F4E37', // kávová hnedá
-    primaryLight: '#A1887F',
-    secondary: '#8BC34A',
-    danger: '#D32F2F',
-    warning: '#FFA000',
-
-    // Hranice a tiene
-    border: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-    shadow: '#000000',
-  };
 
   return StyleSheet.create({
     container: {
