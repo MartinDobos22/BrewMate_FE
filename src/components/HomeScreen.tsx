@@ -17,6 +17,7 @@ import {
   toggleFavorite,
   getDailyTip
 } from '../services/homePagesService.ts';
+import { FAB } from 'react-native-paper';
 
 // const { width } = Dimensions.get('window');
 
@@ -369,6 +370,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
           )}
         </View>
       </ScrollView>
+
+      <FAB icon="camera" style={styles.fab} onPress={onScanPress} />
 
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>

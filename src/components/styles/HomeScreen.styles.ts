@@ -361,6 +361,18 @@ export const homeStyles = (isDarkMode: boolean) => {
       color: colors.textSecondary,
     },
 
+    fab: {
+      position: 'absolute',
+      right: 20,
+      bottom: 80,
+      backgroundColor: colors.primary,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+      elevation: 5,
+    },
+
     // Bottom Navigation
     bottomNav: {
       position: 'absolute',
