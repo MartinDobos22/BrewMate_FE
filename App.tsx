@@ -5,7 +5,6 @@ import {
   StatusBar,
   StyleSheet,
   Text,
-  useColorScheme,
   View,
   TouchableOpacity,
   Alert,
@@ -17,6 +16,8 @@ import ProfessionalOCRScanner from './src/components/ProfessionalOCRScanner';
 import UserProfile from './src/components/UserProfile';
 import EditUserProfile from './src/components/EditUserProfile';
 import CoffeePreferenceForm from './src/components/CoffeePreferenceForm';
+import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
+import { scale } from './src/theme/responsive';
 
 type ScreenName =
   | 'home'
@@ -29,10 +30,10 @@ type ScreenName =
   | 'recipes'
   | 'favorites';
 
-function App(): React.JSX.Element {
+const AppContent = (): React.JSX.Element => {
   const [currentScreen, setCurrentScreen] = useState<ScreenName>('home');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const isDarkMode = useColorScheme() === 'dark';
+  const { isDark, colors } = useTheme();
 
   useEffect(() => {
     const unsubscribe = auth().onAuthStateChanged((user) => {
@@ -42,7 +43,7 @@ function App(): React.JSX.Element {
   }, []);
 
   const backgroundStyle = {
-    backgroundColor: isDarkMode ? '#0a0a0a' : '#f8f9fa',
+    backgroundColor: colors.background,
     flex: 1,
   };
 
@@ -51,9 +52,7 @@ function App(): React.JSX.Element {
   };
 
   const handleBrewPress = () => {
-    // Tu bude navigácia na obrazovku prípravy kávy
     Alert.alert('BrewMate', 'Funkcia prípravy kávy bude čoskoro dostupná!');
-    // setCurrentScreen('brew');
   };
 
   const handleProfilePress = () => {
@@ -62,17 +61,14 @@ function App(): React.JSX.Element {
 
   const handleDiscoverPress = () => {
     Alert.alert('Objaviť', 'Sekcia objavovania nových káv bude čoskoro!');
-    // setCurrentScreen('discover');
   };
 
   const handleRecipesPress = () => {
     Alert.alert('Recepty', 'Vaše obľúbené recepty budú čoskoro dostupné!');
-    // setCurrentScreen('recipes');
   };
 
   const handleFavoritesPress = () => {
     Alert.alert('Obľúbené', 'Vaše obľúbené kávy budú čoskoro dostupné!');
-    // setCurrentScreen('favorites');
   };
 
   const handleBackPress = () => {
@@ -114,17 +110,17 @@ function App(): React.JSX.Element {
     }
   };
 
-  // Ak používateľ nie je prihlásený
   if (!isAuthenticated) {
     return <AuthScreen />;
   }
 
-  // Scanner obrazovka
   if (currentScreen === 'scanner') {
     return (
       <SafeAreaView style={backgroundStyle}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
+          <TouchableOpacity
+            style={[styles.backButton, { backgroundColor: colors.primary }]}
+            onPress={handleBackPress}>
             <Text style={styles.backButtonText}>← Späť</Text>
           </TouchableOpacity>
         </View>
@@ -133,13 +129,14 @@ function App(): React.JSX.Element {
     );
   }
 
-  // Profil používateľa
   if (currentScreen === 'profile') {
     return (
       <SafeAreaView style={backgroundStyle}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={handleBackPress}>
-            <Text style={styles.backButtonText}>← Späť</Text>
+          <TouchableOpacity
+            style={[styles.backButton, { backgroundColor: colors.primary }]}
+            onPress={handleBackPress}>
+            <Text style={styles.backButtonText}>← Spť</Text>
           </TouchableOpacity>
         </View>
         <UserProfile
@@ -150,7 +147,6 @@ function App(): React.JSX.Element {
     );
   }
 
-  // Editácia profilu
   if (currentScreen === 'edit-profile') {
     return (
       <SafeAreaView style={backgroundStyle}>
@@ -159,7 +155,6 @@ function App(): React.JSX.Element {
     );
   }
 
-  // Preferencie kávy
   if (currentScreen === 'preferences') {
     return (
       <SafeAreaView style={backgroundStyle}>
@@ -168,12 +163,11 @@ function App(): React.JSX.Element {
     );
   }
 
-  // Hlavná obrazovka
   return (
     <SafeAreaView style={backgroundStyle}>
       <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.background}
       />
       <HomeScreen
         onScanPress={handleScannerPress}
@@ -186,27 +180,32 @@ function App(): React.JSX.Element {
       />
     </SafeAreaView>
   );
-}
+};
 
 const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: scale(20),
+    paddingVertical: scale(10),
   },
   backButton: {
-    backgroundColor: '#8B4513',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 15,
+    paddingHorizontal: scale(15),
+    paddingVertical: scale(8),
+    borderRadius: scale(15),
   },
   backButtonText: {
     color: 'white',
     fontWeight: 'bold',
-    fontSize: 14,
+    fontSize: scale(14),
   },
 });
 
-export default App;
+export default function App(): React.JSX.Element {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
+  );
+}

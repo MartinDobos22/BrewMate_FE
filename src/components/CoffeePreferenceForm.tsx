@@ -11,12 +11,10 @@ import {
   useColorScheme,
   SafeAreaView,
   Animated,
-  Dimensions,
   } from 'react-native';
   import auth from '@react-native-firebase/auth';
   import { getColors } from '../theme/colors';
 
-const { width } = Dimensions.get('window');
 const OPENAI_API_KEY = "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";
 
 interface Question {

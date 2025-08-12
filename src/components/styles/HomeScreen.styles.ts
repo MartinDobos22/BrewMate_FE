@@ -1,10 +1,7 @@
 // HomeScreen.styles.ts
 import { StyleSheet } from 'react-native';
 import { getColors } from '../../theme/colors';
-import { StyleSheet, Dimensions } from 'react-native';
-import { getColors } from '../../theme/colors';
-
-const { width } = Dimensions.get('window');
+import { scale } from '../../theme/responsive';
 
 export const homeStyles = (isDarkMode: boolean) => {
   const colors = getColors(isDarkMode);
@@ -22,17 +19,17 @@ export const homeStyles = (isDarkMode: boolean) => {
 
     // Top App Bar
     appBar: {
-      height: 56,
+      height: scale(56),
       backgroundColor: colors.primary,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 20,
+      paddingHorizontal: scale(20),
     },
 
     appTitle: {
       color: '#ffffff',
-      fontSize: 20,
+      fontSize: scale(20),
       fontWeight: '600',
     },
 
@@ -68,46 +65,46 @@ export const homeStyles = (isDarkMode: boolean) => {
 
     // Hero greeting card
     heroCard: {
-      margin: 20,
-      marginTop: 16,
-      padding: 20,
+      margin: scale(20),
+      marginTop: scale(16),
+      padding: scale(20),
       backgroundColor: colors.primary,
       borderRadius: 16,
     },
 
     heroGreeting: {
-      fontSize: 22,
+      fontSize: scale(22),
       fontWeight: '700',
       color: '#ffffff',
-      marginBottom: 4,
+      marginBottom: scale(4),
     },
 
     heroSub: {
-      fontSize: 14,
+      fontSize: scale(14),
       color: '#ffffff',
     },
 
     // Daily Tip Card
     tipCard: {
-      marginHorizontal: 20,
-      marginTop: 15,
-      marginBottom: 20,
-      padding: 18,
+      marginHorizontal: scale(20),
+      marginTop: scale(15),
+      marginBottom: scale(20),
+      padding: scale(18),
       backgroundColor: `${colors.primary}22`,
       borderRadius: 16,
-      borderLeftWidth: 4,
+      borderLeftWidth: scale(4),
       borderLeftColor: colors.primary,
     },
 
     tipTitle: {
-      fontSize: 16,
+      fontSize: scale(16),
       fontWeight: '600',
       color: colors.text,
-      marginBottom: 6,
+      marginBottom: scale(6),
     },
 
     tipText: {
-      fontSize: 14,
+      fontSize: scale(14),
       color: colors.textSecondary,
       fontStyle: 'italic',
     },
@@ -115,9 +112,9 @@ export const homeStyles = (isDarkMode: boolean) => {
     // Main Actions
     mainActions: {
       flexDirection: 'row',
-      paddingHorizontal: 20,
-      marginBottom: 20,
-      gap: 15,
+      paddingHorizontal: scale(20),
+      marginBottom: scale(20),
+      gap: scale(15),
     },
 
     actionCard: {
@@ -318,9 +315,9 @@ export const homeStyles = (isDarkMode: boolean) => {
       right: 0,
       flexDirection: 'row',
       backgroundColor: colors.cardBackground,
-      paddingVertical: 12,
-      paddingHorizontal: 20,
-      paddingBottom: 20,
+      paddingVertical: scale(12),
+      paddingHorizontal: scale(20),
+      paddingBottom: scale(20),
       borderTopWidth: 1,
       borderTopColor: colors.border,
       ...(isDarkMode && {
@@ -339,12 +336,12 @@ export const homeStyles = (isDarkMode: boolean) => {
     },
 
     navIcon: {
-      fontSize: 24,
+      fontSize: scale(24),
       marginBottom: 4,
     },
 
     navLabel: {
-      fontSize: 11,
+      fontSize: scale(11),
       color: colors.textSecondary,
     },
 
