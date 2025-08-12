@@ -1,9 +1,12 @@
 // HomeScreen.styles.ts
 import { StyleSheet, Dimensions } from 'react-native';
+import { getColors } from '../../theme/colors';
 
 const { width } = Dimensions.get('window');
 
 export const homeStyles = (isDarkMode: boolean) => {
+  const colors = getColors(isDarkMode);
+  const shadow = '#000000';
   const colors = {
     // Základné farby v kávových tónoch
     background: isDarkMode ? '#3E2723' : '#EFEBE9',
@@ -143,7 +146,7 @@ export const homeStyles = (isDarkMode: boolean) => {
       borderColor: colors.border,
       // Tiene pre svetlý režim
       ...(!isDarkMode && {
-        shadowColor: colors.shadow,
+        shadowColor: shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 8,
@@ -253,7 +256,7 @@ export const homeStyles = (isDarkMode: boolean) => {
       borderWidth: 1,
       borderColor: colors.border,
       ...(!isDarkMode && {
-        shadowColor: colors.shadow,
+        shadowColor: shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.08,
         shadowRadius: 6,

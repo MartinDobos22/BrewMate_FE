@@ -12,8 +12,9 @@ import {
   SafeAreaView,
   Animated,
   Dimensions,
-} from 'react-native';
-import auth from '@react-native-firebase/auth';
+  } from 'react-native';
+  import auth from '@react-native-firebase/auth';
+  import { getColors } from '../theme/colors';
 
 const { width } = Dimensions.get('window');
 const OPENAI_API_KEY = "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";
@@ -31,6 +32,9 @@ const CoffeePreferenceForm = ({ onBack }: { onBack: () => void }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const slideAnim = useState(new Animated.Value(0))[0];
+
+  const colors = getColors(isDarkMode);
+  const styles = createStyles(isDarkMode);
 
   // Odpovede používateľa
   const [experienceLevel, setExperienceLevel] = useState<'beginner' | 'intermediate' | 'expert'>('beginner');
@@ -520,8 +524,6 @@ Píš jednoducho, zrozumiteľne a priateľsky v slovenčine.
     return value !== null && value !== undefined;
   };
 
-  const styles = createStyles(isDarkMode);
-
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -577,8 +579,8 @@ Píš jednoducho, zrozumiteľne a priateľsky v slovenčine.
                 <Switch
                   value={getValue(currentQuestion.id) as boolean}
                   onValueChange={(value) => handleAnswer(value)}
-                  trackColor={{ false: '#767577', true: '#8B4513' }}
-                  thumbColor={getValue(currentQuestion.id) ? '#D2691E' : '#f4f3f4'}
+                  trackColor={{ false: '#767577', true: colors.primary }}
+                  thumbColor={getValue(currentQuestion.id) ? colors.primaryLight : '#f4f3f4'}
                 />
                 <Text style={styles.switchLabel}>Áno</Text>
               </View>
@@ -660,15 +662,7 @@ Píš jednoducho, zrozumiteľne a priateľsky v slovenčine.
 };
 
 const createStyles = (isDarkMode: boolean) => {
-  const colors = {
-    background: isDarkMode ? '#0a0a0a' : '#f8f9fa',
-    cardBackground: isDarkMode ? 'rgba(255,255,255,0.05)' : '#ffffff',
-    text: isDarkMode ? '#ffffff' : '#212529',
-    textSecondary: isDarkMode ? '#adb5bd' : '#6c757d',
-    primary: '#8B4513',
-    primaryLight: '#D2691E',
-    border: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-  };
+  const colors = getColors(isDarkMode);
 
   return StyleSheet.create({
     container: {

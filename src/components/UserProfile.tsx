@@ -12,8 +12,9 @@ import {
   useColorScheme,
   RefreshControl,
   Dimensions,
-} from 'react-native';
-import auth from '@react-native-firebase/auth';
+  } from 'react-native';
+  import auth from '@react-native-firebase/auth';
+  import { getColors } from '../theme/colors';
 
 const { width } = Dimensions.get('window');
 
@@ -39,19 +40,20 @@ const UserProfile = ({
   onEdit: () => void;
   onPreferences: () => void;
   onBack?: () => void;
-}) => {
-  const isDarkMode = useColorScheme() === 'dark';
-  const [profile, setProfile] = useState<ProfileData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [recommendation, setRecommendation] = useState<string | null>(null);
-  const [coffeeStats, setCoffeeStats] = useState<Stat[]>([]);
+  }) => {
+    const isDarkMode = useColorScheme() === 'dark';
+    const colors = getColors(isDarkMode);
+    const [profile, setProfile] = useState<ProfileData | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [recommendation, setRecommendation] = useState<string | null>(null);
+    const [coffeeStats, setCoffeeStats] = useState<Stat[]>([]);
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
+    useEffect(() => {
+      fetchProfile();
+    }, []);
 
-  const fetchProfile = async () => {
+    const fetchProfile = async () => {
     try {
       const user = auth().currentUser;
       if (!user) throw new Error('Not authenticated');
@@ -188,15 +190,15 @@ const UserProfile = ({
     return 'U';
   };
 
-  const styles = createStyles(isDarkMode);
+    const styles = createStyles(isDarkMode);
 
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#8B4513" />
-        <Text style={styles.loadingText}>Načítavam profil...</Text>
-      </View>
-    );
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Načítavam profil...</Text>
+        </View>
+      );
   }
 
   if (!profile) {
@@ -344,16 +346,7 @@ const UserProfile = ({
 };
 
 const createStyles = (isDarkMode: boolean) => {
-  const colors = {
-    background: isDarkMode ? '#0a0a0a' : '#f8f9fa',
-    cardBackground: isDarkMode ? 'rgba(255,255,255,0.05)' : '#ffffff',
-    text: isDarkMode ? '#ffffff' : '#212529',
-    textSecondary: isDarkMode ? '#adb5bd' : '#6c757d',
-    primary: '#8B4513',
-    primaryLight: '#D2691E',
-    secondary: '#28a745',
-    border: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-  };
+  const colors = getColors(isDarkMode);
 
   return StyleSheet.create({
     container: {
@@ -491,7 +484,7 @@ const createStyles = (isDarkMode: boolean) => {
     actionButtonText: {
       fontSize: 14,
       fontWeight: '600',
-      color: isDarkMode || colors.primary === '#8B4513' ? '#ffffff' : colors.text,
+      color: isDarkMode ? '#ffffff' : colors.text,
     },
     statsSection: {
       paddingHorizontal: 20,
