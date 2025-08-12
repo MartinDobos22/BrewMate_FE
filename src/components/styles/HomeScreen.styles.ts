@@ -1,6 +1,10 @@
 // HomeScreen.styles.ts
 import { StyleSheet } from 'react-native';
 import { getColors } from '../../theme/colors';
+import { StyleSheet, Dimensions } from 'react-native';
+import { getColors } from '../../theme/colors';
+
+const { width } = Dimensions.get('window');
 
 export const homeStyles = (isDarkMode: boolean) => {
   const colors = getColors(isDarkMode);
