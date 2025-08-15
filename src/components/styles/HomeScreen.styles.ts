@@ -1,7 +1,5 @@
 // HomeScreen.styles.ts
-import { StyleSheet, Dimensions, Platform } from 'react-native';
-
-const { width, height } = Dimensions.get('window');
+import { StyleSheet, Platform } from 'react-native';
 
 const colors = {
   primary: '#6B4423',

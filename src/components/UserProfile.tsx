@@ -7,17 +7,16 @@ import {
   Alert,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   RefreshControl,
   Dimensions,
-  StatusBar,
   KeyboardAvoidingView,
-  StyleSheet, Platform,
+  StyleSheet,
+  Platform,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import { getSafeAreaTop, getSafeAreaBottom, scale } from './utils/safeArea';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 interface ProfileData {
   email: string;
@@ -342,9 +341,7 @@ const UserProfile = ({
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#6B4423" />
-
+    <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         {onBack && (
@@ -363,7 +360,7 @@ const UserProfile = ({
       >
         {loading ? <LoadingView /> : !profile ? <ErrorView /> : <ProfileContent />}
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 };
 

@@ -1,7 +1,7 @@
 // utils/safeArea.ts
 import { Platform, Dimensions, StatusBar } from 'react-native';
 
-const { height: screenHeight, width: screenWidth } = Dimensions.get('window');
+const { height: screenHeight } = Dimensions.get('window');
 
 // Pomocné funkcie pre bezpečné zóny (bez externých dependencies)
 export const getSafeAreaTop = () => {

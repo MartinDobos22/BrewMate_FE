@@ -41,6 +41,7 @@ const ResponsiveWrapper: React.FC<ResponsiveWrapperProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    paddingTop: getSafeAreaTop(),
   },
   content: {
     flex: 1,
