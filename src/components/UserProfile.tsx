@@ -24,6 +24,7 @@ interface ProfileData {
   coffee_preferences?: any;
   experience_level?: string;
   ai_recommendation?: string;
+  manual_input?: string;
 }
 
 interface Stat {
@@ -77,6 +78,7 @@ const UserProfile = ({
       // Generuj štatistiky z preferencií
       generateStats(data);
     } catch (err: any) {
+      console.error('Failed to load profile:', err);
       Alert.alert('Chyba', err.message);
     } finally {
       setLoading(false);

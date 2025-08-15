@@ -16,6 +16,7 @@ import ProfessionalOCRScanner from './src/components/ProfessionalOCRScanner';
 import UserProfile from './src/components/UserProfile';
 import EditUserProfile from './src/components/EditUserProfile';
 import CoffeePreferenceForm from './src/components/CoffeePreferenceForm';
+import EditPreferences from './src/components/EditPreferences';
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 import { scale } from './src/theme/responsive';
 
@@ -25,6 +26,7 @@ type ScreenName =
   | 'profile'
   | 'edit-profile'
   | 'preferences'
+  | 'edit-preferences'
   | 'brew'
   | 'discover'
   | 'recipes'
@@ -141,7 +143,7 @@ const AppContent = (): React.JSX.Element => {
         </View>
         <UserProfile
           onEdit={handleEditProfilePress}
-          onPreferences={() => setCurrentScreen('preferences')}
+          onPreferences={() => setCurrentScreen('edit-preferences')}
         />
       </SafeAreaView>
     );
@@ -159,6 +161,14 @@ const AppContent = (): React.JSX.Element => {
     return (
       <SafeAreaView style={backgroundStyle}>
         <CoffeePreferenceForm onBack={() => setCurrentScreen('profile')} />
+      </SafeAreaView>
+    );
+  }
+
+  if (currentScreen === 'edit-preferences') {
+    return (
+      <SafeAreaView style={backgroundStyle}>
+        <EditPreferences onBack={() => setCurrentScreen('profile')} />
       </SafeAreaView>
     );
   }
