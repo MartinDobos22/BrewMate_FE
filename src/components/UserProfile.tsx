@@ -24,6 +24,7 @@ interface ProfileData {
   coffee_preferences?: any;
   experience_level?: string;
   ai_recommendation?: string;
+  manual_input?: string;
 }
 
 interface Stat {

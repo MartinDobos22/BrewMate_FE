@@ -43,7 +43,7 @@ app.get('/api/profile', async (req, res) => {
     const uid = decoded.uid;
 
     const result = await db.query(
-        'SELECT id, email, name, coffee_preferences, experience_level, ai_recommendation FROM user_profiles WHERE id = $1',
+        'SELECT id, email, name, coffee_preferences, experience_level, ai_recommendation, manual_input FROM user_profiles WHERE id = $1',
         [uid]
     );
 
@@ -82,6 +82,7 @@ app.put('/api/profile', async (req, res) => {
       coffee_preferences,
       experience_level,
       ai_recommendation,
+      manual_input,
     } = req.body;
 
     console.log('🧩 Extrahované polia:');
@@ -91,6 +92,7 @@ app.put('/api/profile', async (req, res) => {
     console.log('experience_level:', experience_level);
     console.log('coffee_preferences:', coffee_preferences);
     console.log('ai_recommendation:', ai_recommendation);
+    console.log('manual_input:', manual_input);
 
     const safe = (val) => typeof val !== 'undefined' ? val : null;
 
@@ -103,8 +105,9 @@ app.put('/api/profile', async (req, res) => {
                                coffee_preferences = $4,
                                experience_level = $5,
                                ai_recommendation = $6,
+                               manual_input = $7,
                                updated_at = now()
-        WHERE id = $7
+        WHERE id = $8
       `,
       [
         safe(name),
@@ -113,6 +116,7 @@ app.put('/api/profile', async (req, res) => {
         coffee_preferences,
         experience_level,
         ai_recommendation,
+        manual_input,
         uid
       ]
     );
@@ -124,6 +128,8 @@ app.put('/api/profile', async (req, res) => {
 ${JSON.stringify(coffee_preferences, null, 2)}
 --- AI ---
 ${ai_recommendation}
+--- Manual ---
+${manual_input}
 --- Meta ---
 name: ${name}, bio: ${bio}, avatar_url: ${avatar_url}
 `;
