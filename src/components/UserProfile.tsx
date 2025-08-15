@@ -3,20 +3,20 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ActivityIndicator,
   Alert,
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
-  useColorScheme,
   RefreshControl,
   Dimensions,
-  } from 'react-native';
-  import auth from '@react-native-firebase/auth';
-  import { getColors } from '../theme/colors';
+  Platform,
+  StatusBar,
+} from 'react-native';
+import auth from '@react-native-firebase/auth';
+import { userProfileStyles } from './styles/UserProfile.styles';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 interface ProfileData {
   email: string;
@@ -40,16 +40,16 @@ const UserProfile = ({
   onEdit: () => void;
   onPreferences: () => void;
   onBack?: () => void;
-  }) => {
-    const isDarkMode = useColorScheme() === 'dark';
-    const colors = getColors(isDarkMode);
-    const [profile, setProfile] = useState<ProfileData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-    const [recommendation, setRecommendation] = useState<string | null>(null);
-    const [coffeeStats, setCoffeeStats] = useState<Stat[]>([]);
+}) => {
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [recommendation, setRecommendation] = useState<string | null>(null);
+  const [coffeeStats, setCoffeeStats] = useState<Stat[]>([]);
 
-    const fetchProfile = useCallback(async () => {
+  const styles = userProfileStyles();
+
+  const fetchProfile = useCallback(async () => {
     try {
       const user = auth().currentUser;
       if (!user) throw new Error('Not authenticated');
@@ -84,9 +84,9 @@ const UserProfile = ({
     }
   }, []);
 
-    useEffect(() => {
-      fetchProfile();
-    }, [fetchProfile]);
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
 
   const generateStats = (data: ProfileData) => {
     const stats: Stat[] = [];
@@ -171,12 +171,12 @@ const UserProfile = ({
     fetchProfile();
   };
 
-  const getExperienceLevelColor = (level?: string) => {
+  const getExperienceLevelStyle = (level?: string) => {
     switch (level) {
-      case 'beginner': return '#4CAF50';
-      case 'intermediate': return '#FF9800';
-      case 'expert': return '#9C27B0';
-      default: return '#757575';
+      case 'beginner': return styles.experienceBeginner;
+      case 'intermediate': return styles.experienceIntermediate;
+      case 'expert': return styles.experienceExpert;
+      default: return styles.experienceDefault;
     }
   };
 
@@ -190,399 +190,224 @@ const UserProfile = ({
     return 'U';
   };
 
-    const styles = createStyles(isDarkMode);
+  const getResponsiveStyle = () => {
+    return width < 375 ? styles.smallScreen : width > 414 ? styles.largeScreen : {};
+  };
 
   if (loading) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Načítavam profil...</Text>
-        </View>
-      );
+    return (
+        <SafeAreaView style={styles.container}>
+          <StatusBar
+              barStyle="light-content"
+              backgroundColor="#6B4423"
+              translucent={false}
+          />
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Profil</Text>
+            <View style={styles.headerPlaceholder} />
+
+          </View>
+
+          <View style={styles.loadingContainer}>
+            <View style={styles.loadingCard}>
+              <ActivityIndicator size="large" color="#6B4423" />
+              <Text style={styles.loadingText}>Načítavam profil...</Text>
+            </View>
+          </View>
+        </SafeAreaView>
+    );
   }
 
   if (!profile) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorEmoji}>😕</Text>
-        <Text style={styles.errorText}>Nepodarilo sa načítať profil</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={fetchProfile}>
-          <Text style={styles.retryButtonText}>Skúsiť znova</Text>
-        </TouchableOpacity>
-      </View>
+        <SafeAreaView style={styles.container}>
+          <StatusBar
+              barStyle="light-content"
+              backgroundColor="#6B4423"
+              translucent={false}
+          />
+          {/* Header */}
+          <View style={styles.header}>
+
+            <Text style={styles.headerTitle}>Profil</Text>
+            <View style={styles.headerPlaceholder} />
+          </View>
+
+          <View style={styles.errorContainer}>
+            <View style={styles.errorCard}>
+              <Text style={styles.errorEmoji}>😕</Text>
+              <Text style={styles.errorText}>Nepodarilo sa načítať profil</Text>
+              <TouchableOpacity style={styles.retryButton} onPress={fetchProfile}>
+                <Text style={styles.retryButtonText}>Skúsiť znova</Text>
+              </TouchableOpacity>
+            </View>
+            {onBack && (
+                <TouchableOpacity style={styles.backButton} onPress={onBack}>
+                  <Text style={styles.backButtonText}>←</Text>
+                </TouchableOpacity>
+            )}
+          </View>
+        </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      {onBack && (
+      <SafeAreaView style={styles.container}>
+        <StatusBar
+            barStyle="light-content"
+            backgroundColor="#6B4423"
+            translucent={false}
+        />
+        {/* Header - will be positioned properly below status bar */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={onBack}>
-            <Text style={styles.backButtonText}>← Späť</Text>
-          </TouchableOpacity>
+
+          <Text style={styles.headerTitle}>Profil</Text>
+          <View style={styles.headerPlaceholder} />
         </View>
-      )}
 
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        {/* Profile Header */}
-        <View style={styles.profileHeader}>
-          <View style={[
-            styles.avatar,
-            { backgroundColor: getExperienceLevelColor(profile.experience_level) }
-          ]}>
-            <Text style={styles.avatarText}>
-              {getInitials(profile.name, profile.email)}
-            </Text>
-          </View>
-
-          <Text style={styles.profileName}>
-            {profile.name || 'Milovník kávy'}
-          </Text>
-
-          <Text style={styles.profileEmail}>{profile.email}</Text>
-
-          {profile.experience_level && (
+        <ScrollView
+            style={[styles.scrollView, getResponsiveStyle()]}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+        >
+          {/* Profile Header Card */}
+          <View style={styles.profileHeaderCard}>
             <View style={[
-              styles.levelBadge,
-              { backgroundColor: getExperienceLevelColor(profile.experience_level) }
+              styles.avatar,
+              getExperienceLevelStyle(profile.experience_level)
             ]}>
-              <Text style={styles.levelBadgeText}>
-                {profile.experience_level === 'beginner' && '🌱 Začiatočník'}
-                {profile.experience_level === 'intermediate' && '☕ Milovník kávy'}
-                {profile.experience_level === 'expert' && '🎯 Kávový nadšenec'}
+              <Text style={styles.avatarText}>
+                {getInitials(profile.name, profile.email)}
               </Text>
             </View>
-          )}
-        </View>
 
-        {/* Quick Actions */}
-        <View style={styles.quickActions}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.primaryButton]}
-            onPress={onPreferences}
-          >
-            <Text style={styles.actionEmoji}>☕</Text>
-            <Text style={styles.actionButtonText}>Upraviť preferencie</Text>
-          </TouchableOpacity>
+            <Text style={styles.profileName}>
+              {profile.name || 'Milovník kávy'}
+            </Text>
 
-          <TouchableOpacity
-            style={[styles.actionButton, styles.secondaryButton]}
-            onPress={onEdit}
-          >
-            <Text style={styles.actionEmoji}>✏️</Text>
-            <Text style={styles.actionButtonText}>Upraviť profil</Text>
-          </TouchableOpacity>
-        </View>
+            <Text style={styles.profileEmail}>{profile.email}</Text>
 
-        {/* Coffee Stats */}
-        {coffeeStats.length > 0 && (
-          <View style={styles.statsSection}>
-            <Text style={styles.sectionTitle}>📊 Tvoj kávový profil</Text>
-            <View style={styles.statsGrid}>
-              {coffeeStats.map((stat, index) => (
-                <View key={index} style={styles.statCard}>
-                  <Text style={styles.statEmoji}>{stat.emoji}</Text>
-                  <Text style={styles.statValue}>{stat.value}</Text>
-                  <Text style={styles.statLabel}>{stat.label}</Text>
+            {profile.experience_level && (
+                <View style={[
+                  styles.levelBadge,
+                  getExperienceLevelStyle(profile.experience_level)
+                ]}>
+                  <Text style={styles.levelBadgeText}>
+                    {profile.experience_level === 'beginner' && '🌱 Začiatočník'}
+                    {profile.experience_level === 'intermediate' && '☕ Milovník kávy'}
+                    {profile.experience_level === 'expert' && '🎯 Kávový nadšenec'}
+                  </Text>
                 </View>
-              ))}
-            </View>
+            )}
           </View>
-        )}
 
-        {/* AI Recommendation */}
-        {recommendation && (
-          <View style={styles.recommendationSection}>
-            <View style={styles.recommendationHeader}>
-              <Text style={styles.sectionTitle}>🤖 Personalizované odporúčanie</Text>
-              <TouchableOpacity
-                style={styles.refreshButton}
-                onPress={onRefresh}
-              >
-                <Text style={styles.refreshText}>🔄</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.recommendationCard}>
-              <ScrollView
-                style={styles.recommendationScroll}
-                nestedScrollEnabled={true}
-              >
-                <Text style={styles.recommendationText}>
-                  {recommendation}
-                </Text>
-              </ScrollView>
-            </View>
+          {/* Quick Actions */}
+          <View style={styles.quickActions}>
+            <TouchableOpacity
+                style={[styles.actionButton, styles.primaryActionButton]}
+                onPress={onPreferences}
+                activeOpacity={0.8}
+            >
+              <View style={[styles.actionIcon, styles.actionIconPrimary]}>
+                <Text style={styles.actionEmoji}>☕</Text>
+              </View>
+              <Text style={[styles.actionButtonText, styles.actionButtonTextPrimary]}>
+                Upraviť preferencie
+              </Text>
+            </TouchableOpacity>
+            {onBack && (
+                <TouchableOpacity style={styles.backButton} onPress={onBack}>
+                  <Text style={styles.backButtonText}>←</Text>
+                </TouchableOpacity>
+            )}
+            <TouchableOpacity
+                style={[styles.actionButton, styles.secondaryActionButton]}
+                onPress={onEdit}
+                activeOpacity={0.8}
+            >
+              <View style={styles.actionIcon}>
+                <Text style={styles.actionEmoji}>✏️</Text>
+              </View>
+              <Text style={styles.actionButtonText}>Upraviť profil</Text>
+            </TouchableOpacity>
           </View>
-        )}
 
-        {/* Tips Section */}
-        <View style={styles.tipsSection}>
-          <Text style={styles.sectionTitle}>💡 Tip dňa</Text>
-          <View style={styles.tipCard}>
-            <Text style={styles.tipText}>
-              Vedel si, že ideálna teplota vody pre prípravu kávy je medzi 90-96°C?
-              Príliš horúca voda môže spáliť kávu a spôsobiť horkú chuť.
+          {/* Coffee Stats */}
+          {coffeeStats.length > 0 && (
+              <View style={styles.statsSection}>
+                <View style={styles.sectionCard}>
+                  <Text style={styles.sectionTitle}>📊 Tvoj kávový profil</Text>
+                  <View style={styles.statsGrid}>
+                    {coffeeStats.map((stat, index) => (
+                        <View key={index} style={styles.statCard}>
+                          <Text style={styles.statEmoji}>{stat.emoji}</Text>
+                          <Text style={styles.statValue}>{stat.value}</Text>
+                          <Text style={styles.statLabel}>{stat.label}</Text>
+                        </View>
+                    ))}
+                  </View>
+                </View>
+              </View>
+          )}
+
+          {/* AI Recommendation */}
+          {recommendation && (
+              <View style={styles.recommendationSection}>
+                <View style={styles.sectionCard}>
+                  <View style={styles.recommendationHeader}>
+                    <Text style={styles.sectionTitle}>🤖 Personalizované odporúčanie</Text>
+                    <TouchableOpacity
+                        style={styles.refreshButton}
+                        onPress={onRefresh}
+                    >
+                      <Text style={styles.refreshText}>🔄</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.recommendationCard}>
+                    <ScrollView
+                        style={styles.recommendationScroll}
+                        nestedScrollEnabled={true}
+                    >
+                      <Text style={styles.recommendationText}>
+                        {recommendation}
+                      </Text>
+                    </ScrollView>
+                  </View>
+                </View>
+              </View>
+          )}
+
+          {/* Tips Section */}
+          <View style={styles.tipsSection}>
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionTitle}>💡 Tip dňa</Text>
+            </View>
+            <View style={styles.tipCard}>
+              <Text style={styles.tipText}>
+                Vedel si, že ideálna teplota vody pre prípravu kávy je medzi 90-96°C?
+                Príliš horúca voda môže spáliť kávu a spôsobiť horkú chuť. ☕
+              </Text>
+            </View>
+            {onBack && (
+                <TouchableOpacity style={styles.backButton} onPress={onBack}>
+                  <Text style={styles.backButtonText}>BACK</Text>
+                </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Footer */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>
+              Členstvo od: {new Date().toLocaleDateString('sk-SK')}
             </Text>
           </View>
-        </View>
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Členstvo od: {new Date().toLocaleDateString('sk-SK')}
-          </Text>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
   );
-};
-
-const createStyles = (isDarkMode: boolean) => {
-  const colors = getColors(isDarkMode);
-
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    header: {
-      paddingHorizontal: 20,
-      paddingVertical: 10,
-    },
-    backButton: {
-      backgroundColor: colors.primary,
-      paddingHorizontal: 15,
-      paddingVertical: 8,
-      borderRadius: 15,
-      alignSelf: 'flex-start',
-    },
-    backButtonText: {
-      color: '#ffffff',
-      fontWeight: 'bold',
-      fontSize: 14,
-    },
-    scrollView: {
-      flex: 1,
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: colors.background,
-    },
-    loadingText: {
-      marginTop: 15,
-      fontSize: 16,
-      color: colors.textSecondary,
-    },
-    errorContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: colors.background,
-      padding: 20,
-    },
-    errorEmoji: {
-      fontSize: 60,
-      marginBottom: 20,
-    },
-    errorText: {
-      fontSize: 18,
-      color: colors.text,
-      marginBottom: 20,
-      textAlign: 'center',
-    },
-    retryButton: {
-      backgroundColor: colors.primary,
-      paddingHorizontal: 30,
-      paddingVertical: 12,
-      borderRadius: 25,
-    },
-    retryButtonText: {
-      color: '#ffffff',
-      fontWeight: 'bold',
-      fontSize: 16,
-    },
-    profileHeader: {
-      alignItems: 'center',
-      paddingVertical: 30,
-      paddingHorizontal: 20,
-    },
-    avatar: {
-      width: 100,
-      height: 100,
-      borderRadius: 50,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginBottom: 15,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 8,
-      elevation: 5,
-    },
-    avatarText: {
-      fontSize: 36,
-      fontWeight: 'bold',
-      color: '#ffffff',
-    },
-    profileName: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      color: colors.text,
-      marginBottom: 5,
-    },
-    profileEmail: {
-      fontSize: 16,
-      color: colors.textSecondary,
-      marginBottom: 15,
-    },
-    levelBadge: {
-      paddingHorizontal: 20,
-      paddingVertical: 8,
-      borderRadius: 20,
-    },
-    levelBadgeText: {
-      color: '#ffffff',
-      fontWeight: '600',
-      fontSize: 14,
-    },
-    quickActions: {
-      flexDirection: 'row',
-      paddingHorizontal: 20,
-      marginBottom: 30,
-      gap: 12,
-    },
-    actionButton: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 15,
-      borderRadius: 16,
-      gap: 8,
-    },
-    primaryButton: {
-      backgroundColor: colors.primary,
-    },
-    secondaryButton: {
-      backgroundColor: colors.cardBackground,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    actionEmoji: {
-      fontSize: 20,
-    },
-    actionButtonText: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: isDarkMode ? '#ffffff' : colors.text,
-    },
-    statsSection: {
-      paddingHorizontal: 20,
-      marginBottom: 30,
-    },
-    sectionTitle: {
-      fontSize: 20,
-      fontWeight: 'bold',
-      color: colors.text,
-      marginBottom: 15,
-    },
-    statsGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 12,
-    },
-    statCard: {
-      width: (width - 52) / 3,
-      backgroundColor: colors.cardBackground,
-      borderRadius: 16,
-      padding: 15,
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    statEmoji: {
-      fontSize: 24,
-      marginBottom: 8,
-    },
-    statValue: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      color: colors.text,
-      marginBottom: 4,
-    },
-    statLabel: {
-      fontSize: 11,
-      color: colors.textSecondary,
-      textAlign: 'center',
-    },
-    recommendationSection: {
-      paddingHorizontal: 20,
-      marginBottom: 30,
-    },
-    recommendationHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 15,
-    },
-    refreshButton: {
-      padding: 8,
-    },
-    refreshText: {
-      fontSize: 20,
-    },
-    recommendationCard: {
-      backgroundColor: colors.cardBackground,
-      borderRadius: 16,
-      padding: 20,
-      borderWidth: 1,
-      borderColor: colors.border,
-      maxHeight: 300,
-    },
-    recommendationScroll: {
-      maxHeight: 250,
-    },
-    recommendationText: {
-      fontSize: 15,
-      lineHeight: 24,
-      color: colors.text,
-    },
-    tipsSection: {
-      paddingHorizontal: 20,
-      marginBottom: 30,
-    },
-    tipCard: {
-      backgroundColor: isDarkMode ? 'rgba(139,69,19,0.2)' : 'rgba(139,69,19,0.1)',
-      borderRadius: 16,
-      padding: 20,
-      borderWidth: 1,
-      borderColor: `${colors.primary}33`,
-    },
-    tipText: {
-      fontSize: 14,
-      lineHeight: 22,
-      color: colors.text,
-    },
-    footer: {
-      paddingHorizontal: 20,
-      paddingVertical: 30,
-      alignItems: 'center',
-    },
-    footerText: {
-      fontSize: 12,
-      color: colors.textSecondary,
-    },
-  });
 };
 
 export default UserProfile;

@@ -10,10 +10,9 @@ import {
   Alert,
   useColorScheme,
   SafeAreaView,
-  Animated,
-  } from 'react-native';
-  import auth from '@react-native-firebase/auth';
-  import { getColors } from '../theme/colors';
+} from 'react-native';
+import auth from '@react-native-firebase/auth';
+import { getColors } from '../theme/colors';
 
 const OPENAI_API_KEY = "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";
 
@@ -23,13 +22,12 @@ interface Question {
   subtitle: string;
   type: 'single' | 'multiple' | 'switch';
   options?: { value: string; label: string; emoji?: string; description?: string }[];
+  section: 'basic' | 'intermediate' | 'expert';
 }
 
 const CoffeePreferenceForm = ({ onBack }: { onBack: () => void }) => {
   const isDarkMode = useColorScheme() === 'dark';
-  const [currentStep, setCurrentStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
-  const slideAnim = useState(new Animated.Value(0))[0];
 
   const colors = getColors(isDarkMode);
   const styles = createStyles(isDarkMode);
@@ -48,246 +46,241 @@ const CoffeePreferenceForm = ({ onBack }: { onBack: () => void }) => {
   const [acidity, setAcidity] = useState<'low' | 'medium' | 'high'>('medium');
   const [body, setBody] = useState<'light' | 'medium' | 'full'>('medium');
 
-  // Definícia otázok podľa úrovne
-  const getQuestions = (): Question[] => {
-    const baseQuestions: Question[] = [
-      {
-        id: 'experience',
-        title: '👋 Aká je tvoja skúsenosť s kávou?',
-        subtitle: 'Pomôže nám to prispôsobiť otázky',
-        type: 'single',
-        options: [
-          {
-            value: 'beginner',
-            label: 'Začiatočník',
-            emoji: '🌱',
-            description: 'Pijem kávu občas, nerozumiem pojmom'
-          },
-          {
-            value: 'intermediate',
-            label: 'Milovník kávy',
-            emoji: '☕',
-            description: 'Mám obľúbené druhy, poznám rozdiely'
-          },
-          {
-            value: 'expert',
-            label: 'Kávový nadšenec',
-            emoji: '🎯',
-            description: 'Rozumiem detailom, mám vlastný mlynček'
-          },
-        ],
-      },
-      {
-        id: 'intensity',
-        title: '💪 Ako silnú kávu preferuješ?',
-        subtitle: 'Ovplyvňuje to chuť a obsah kofeínu',
-        type: 'single',
-        options: [
-          {
-            value: 'light',
-            label: 'Jemnú',
-            emoji: '🌤️',
-            description: 'Ľahká, osviežujúca'
-          },
-          {
-            value: 'medium',
-            label: 'Strednú',
-            emoji: '⚖️',
-            description: 'Vyvážená chuť'
-          },
-          {
-            value: 'strong',
-            label: 'Silnú',
-            emoji: '💥',
-            description: 'Výrazná, intenzívna'
-          },
-        ],
-      },
-      {
-        id: 'sweetness',
-        title: '🍯 Máš rád sladkú kávu?',
-        subtitle: 'Niektoré kávy majú prirodzenú sladkosť',
-        type: 'single',
-        options: [
-          { value: 'none', label: 'Bez sladkosti', emoji: '🚫' },
-          { value: 'little', label: 'Mierne sladká', emoji: '🤏' },
-          { value: 'medium', label: 'Stredne sladká', emoji: '👌' },
-          { value: 'sweet', label: 'Sladká', emoji: '🍬' },
-        ],
-      },
-      {
-        id: 'milk',
-        title: '🥛 Piješ kávu s mliekom?',
-        subtitle: 'Mlieko zjemňuje chuť a znižuje horkosť',
-        type: 'switch',
-      },
-      {
-        id: 'temperature',
-        title: '🌡️ Aká teplota kávy ti vyhovuje?',
-        subtitle: 'Teplota ovplyvňuje chuť',
-        type: 'single',
-        options: [
-          { value: 'hot', label: 'Horúca', emoji: '🔥' },
-          { value: 'iced', label: 'Ľadová', emoji: '🧊' },
-          { value: 'both', label: 'Oboje', emoji: '🔄' },
-        ],
-      },
-    ];
+  // Všetky otázky
+  const allQuestions: Question[] = [
+    {
+      id: 'experience',
+      title: '👋 Aká je tvoja skúsenosť s kávou?',
+      subtitle: 'Pomôže nám to prispôsobiť otázky',
+      type: 'single',
+      section: 'basic',
+      options: [
+        {
+          value: 'beginner',
+          label: 'Začiatočník',
+          emoji: '🌱',
+          description: 'Pijem kávu občas, nerozumiem pojmom'
+        },
+        {
+          value: 'intermediate',
+          label: 'Milovník kávy',
+          emoji: '☕',
+          description: 'Mám obľúbené druhy, poznám rozdiely'
+        },
+        {
+          value: 'expert',
+          label: 'Kávový nadšenec',
+          emoji: '🎯',
+          description: 'Rozumiem detailom, mám vlastný mlynček'
+        },
+      ],
+    },
+    {
+      id: 'intensity',
+      title: '💪 Ako silnú kávu preferuješ?',
+      subtitle: 'Ovplyvňuje to chuť a obsah kofeínu',
+      type: 'single',
+      section: 'basic',
+      options: [
+        {
+          value: 'light',
+          label: 'Jemnú',
+          emoji: '🌤️',
+          description: 'Ľahká, osviežujúca'
+        },
+        {
+          value: 'medium',
+          label: 'Strednú',
+          emoji: '⚖️',
+          description: 'Vyvážená chuť'
+        },
+        {
+          value: 'strong',
+          label: 'Silnú',
+          emoji: '💥',
+          description: 'Výrazná, intenzívna'
+        },
+      ],
+    },
+    {
+      id: 'sweetness',
+      title: '🍯 Máš rád sladkú kávu?',
+      subtitle: 'Niektoré kávy majú prirodzenú sladkosť',
+      type: 'single',
+      section: 'basic',
+      options: [
+        { value: 'none', label: 'Bez sladkosti', emoji: '🚫' },
+        { value: 'little', label: 'Mierne sladká', emoji: '🤏' },
+        { value: 'medium', label: 'Stredne sladká', emoji: '👌' },
+        { value: 'sweet', label: 'Sladká', emoji: '🬸' },
+      ],
+    },
+    {
+      id: 'milk',
+      title: '🥛 Piješ kávu s mliekom?',
+      subtitle: 'Mlieko zjemňuje chuť a znižuje horkosť',
+      type: 'switch',
+      section: 'basic',
+    },
+    {
+      id: 'temperature',
+      title: '🌡️ Aká teplota kávy ti vyhovuje?',
+      subtitle: 'Teplota ovplyvňuje chuť',
+      type: 'single',
+      section: 'basic',
+      options: [
+        { value: 'hot', label: 'Horúca', emoji: '🔥' },
+        { value: 'iced', label: 'Ľadová', emoji: '🧊' },
+        { value: 'both', label: 'Oboje', emoji: '🔄' },
+      ],
+    },
+    {
+      id: 'roast',
+      title: '🔥 Aké praženie preferuješ?',
+      subtitle: 'Ovplyvňuje chuť a arómu',
+      type: 'single',
+      section: 'intermediate',
+      options: [
+        {
+          value: 'light',
+          label: 'Svetlé',
+          emoji: '🌅',
+          description: 'Ovocné, kyslé tóny'
+        },
+        {
+          value: 'medium',
+          label: 'Stredné',
+          emoji: '🌤️',
+          description: 'Vyvážené, karamelové'
+        },
+        {
+          value: 'dark',
+          label: 'Tmavé',
+          emoji: '🌑',
+          description: 'Čokoládové, dymové'
+        },
+      ],
+    },
+    {
+      id: 'drinks',
+      title: '☕ Aké kávové nápoje máš rád?',
+      subtitle: 'Môžeš vybrať viacero',
+      type: 'multiple',
+      section: 'intermediate',
+      options: [
+        { value: 'espresso', label: 'Espresso', emoji: '🔵' },
+        { value: 'americano', label: 'Americano', emoji: '💧' },
+        { value: 'cappuccino', label: 'Cappuccino', emoji: '☁️' },
+        { value: 'latte', label: 'Latte', emoji: '🥛' },
+        { value: 'flatwhite', label: 'Flat White', emoji: '⚪' },
+        { value: 'filtercoffee', label: 'Prekvapkávaná', emoji: '📌' },
+      ],
+    },
+    {
+      id: 'brewing',
+      title: '⚙️ Ako pripravuješ kávu?',
+      subtitle: 'Aké metódy používaš alebo by si chcel skúsiť',
+      type: 'multiple',
+      section: 'intermediate',
+      options: [
+        { value: 'espresso_machine', label: 'Kávovar', emoji: '🔧' },
+        { value: 'french_press', label: 'French Press', emoji: '🍺' },
+        { value: 'moka', label: 'Moka kanvička', emoji: '🫖' },
+        { value: 'v60', label: 'V60/Chemex', emoji: '📻' },
+        { value: 'aeropress', label: 'Aeropress', emoji: '💉' },
+        { value: 'instant', label: 'Instantná', emoji: '⚡' },
+      ],
+    },
+    {
+      id: 'grind',
+      title: '⚙️ Aká hrúbka mletia ti vyhovuje?',
+      subtitle: 'Pre tvoju preferovanú metódu',
+      type: 'single',
+      section: 'expert',
+      options: [
+        {
+          value: 'coarse',
+          label: 'Hrubé',
+          emoji: '🪨',
+          description: 'Pre French Press'
+        },
+        {
+          value: 'medium',
+          label: 'Stredné',
+          emoji: '🎯',
+          description: 'Pre prekvapkávanú'
+        },
+        {
+          value: 'fine',
+          label: 'Jemné',
+          emoji: '✨',
+          description: 'Pre espresso'
+        },
+      ],
+    },
+    {
+      id: 'flavors',
+      title: '🎨 Aké chutové profily vyhľadávaš?',
+      subtitle: 'Pomôže nám odporučiť správne odrody',
+      type: 'multiple',
+      section: 'expert',
+      options: [
+        { value: 'chocolate', label: 'Čokoládové', emoji: '🫘' },
+        { value: 'fruity', label: 'Ovocné', emoji: '🍓' },
+        { value: 'nutty', label: 'Oriešky', emoji: '🥜' },
+        { value: 'floral', label: 'Kvetinové', emoji: '🌸' },
+        { value: 'caramel', label: 'Karamelové', emoji: '🍮' },
+        { value: 'spicy', label: 'Korenisté', emoji: '🌶️' },
+        { value: 'wine', label: 'Vínové', emoji: '🍷' },
+        { value: 'citrus', label: 'Citrusové', emoji: '🍋' },
+      ],
+    },
+    {
+      id: 'acidity',
+      title: '🍋 Aká kyslosť ti vyhovuje?',
+      subtitle: 'Prirodzená vlastnosť kávy',
+      type: 'single',
+      section: 'expert',
+      options: [
+        { value: 'low', label: 'Nízka', description: 'Hladká, jemná' },
+        { value: 'medium', label: 'Stredná', description: 'Vyvážená' },
+        { value: 'high', label: 'Vysoká', description: 'Jasná, ovocná' },
+      ],
+    },
+    {
+      id: 'body',
+      title: '💫 Aké telo kávy preferuješ?',
+      subtitle: 'Pocit v ústach',
+      type: 'single',
+      section: 'expert',
+      options: [
+        { value: 'light', label: 'Ľahké', description: 'Ako čaj' },
+        { value: 'medium', label: 'Stredné', description: 'Vyvážené' },
+        { value: 'full', label: 'Plné', description: 'Krémové, husté' },
+      ],
+    },
+  ];
 
-    const intermediateQuestions: Question[] = [
-      {
-        id: 'roast',
-        title: '🔥 Aké praženie preferuješ?',
-        subtitle: 'Ovplyvňuje chuť a arómu',
-        type: 'single',
-        options: [
-          {
-            value: 'light',
-            label: 'Svetlé',
-            emoji: '🌅',
-            description: 'Ovocné, kyslé tóny'
-          },
-          {
-            value: 'medium',
-            label: 'Stredné',
-            emoji: '🌤️',
-            description: 'Vyvážené, karamelové'
-          },
-          {
-            value: 'dark',
-            label: 'Tmavé',
-            emoji: '🌑',
-            description: 'Čokoládové, dymové'
-          },
-        ],
-      },
-      {
-        id: 'drinks',
-        title: '☕ Aké kávové nápoje máš rád?',
-        subtitle: 'Môžeš vybrať viacero',
-        type: 'multiple',
-        options: [
-          { value: 'espresso', label: 'Espresso', emoji: '🔵' },
-          { value: 'americano', label: 'Americano', emoji: '💧' },
-          { value: 'cappuccino', label: 'Cappuccino', emoji: '☁️' },
-          { value: 'latte', label: 'Latte', emoji: '🥛' },
-          { value: 'flatwhite', label: 'Flat White', emoji: '⚪' },
-          { value: 'filtercoffee', label: 'Prekvapkávaná', emoji: '📍' },
-        ],
-      },
-      {
-        id: 'brewing',
-        title: '⚙️ Ako pripravuješ kávu?',
-        subtitle: 'Aké metódy používaš alebo by si chcel skúsiť',
-        type: 'multiple',
-        options: [
-          { value: 'espresso_machine', label: 'Kávovar', emoji: '🔧' },
-          { value: 'french_press', label: 'French Press', emoji: '🏺' },
-          { value: 'moka', label: 'Moka kanvička', emoji: '🫖' },
-          { value: 'v60', label: 'V60/Chemex', emoji: '🔻' },
-          { value: 'aeropress', label: 'Aeropress', emoji: '💉' },
-          { value: 'instant', label: 'Instantná', emoji: '⚡' },
-        ],
-      },
-    ];
-
-    const expertQuestions: Question[] = [
-      {
-        id: 'grind',
-        title: '⚙️ Aká hrúbka mletia ti vyhovuje?',
-        subtitle: 'Pre tvoju preferovanú metódu',
-        type: 'single',
-        options: [
-          {
-            value: 'coarse',
-            label: 'Hrubé',
-            emoji: '🪨',
-            description: 'Pre French Press'
-          },
-          {
-            value: 'medium',
-            label: 'Stredné',
-            emoji: '🎯',
-            description: 'Pre prekvapkávanú'
-          },
-          {
-            value: 'fine',
-            label: 'Jemné',
-            emoji: '✨',
-            description: 'Pre espresso'
-          },
-        ],
-      },
-      {
-        id: 'flavors',
-        title: '🎨 Aké chutové profily vyhľadávaš?',
-        subtitle: 'Pomôže nám odporučiť správne odrody',
-        type: 'multiple',
-        options: [
-          { value: 'chocolate', label: 'Čokoládové', emoji: '🍫' },
-          { value: 'fruity', label: 'Ovocné', emoji: '🍓' },
-          { value: 'nutty', label: 'Oriešky', emoji: '🥜' },
-          { value: 'floral', label: 'Kvetinové', emoji: '🌸' },
-          { value: 'caramel', label: 'Karamelové', emoji: '🍮' },
-          { value: 'spicy', label: 'Korenisté', emoji: '🌶️' },
-          { value: 'wine', label: 'Vínové', emoji: '🍷' },
-          { value: 'citrus', label: 'Citrusové', emoji: '🍋' },
-        ],
-      },
-      {
-        id: 'acidity',
-        title: '🍋 Aká kyslosť ti vyhovuje?',
-        subtitle: 'Prirodzená vlastnosť kávy',
-        type: 'single',
-        options: [
-          { value: 'low', label: 'Nízka', description: 'Hladká, jemná' },
-          { value: 'medium', label: 'Stredná', description: 'Vyvážená' },
-          { value: 'high', label: 'Vysoká', description: 'Jasná, ovocná' },
-        ],
-      },
-      {
-        id: 'body',
-        title: '💫 Aké telo kávy preferuješ?',
-        subtitle: 'Pocit v ústach',
-        type: 'single',
-        options: [
-          { value: 'light', label: 'Ľahké', description: 'Ako čaj' },
-          { value: 'medium', label: 'Stredné', description: 'Vyvážené' },
-          { value: 'full', label: 'Plné', description: 'Krémové, husté' },
-        ],
-      },
-    ];
-
-    // Zostavenie otázok podľa úrovne
-    let questions = [...baseQuestions];
+  // Filtrovanie otázok podľa úrovne
+  const getVisibleQuestions = () => {
+    let visibleQuestions = allQuestions.filter(q => q.section === 'basic');
 
     if (experienceLevel === 'intermediate' || experienceLevel === 'expert') {
-      questions = [...questions, ...intermediateQuestions];
+      visibleQuestions = [...visibleQuestions, ...allQuestions.filter(q => q.section === 'intermediate')];
     }
 
     if (experienceLevel === 'expert') {
-      questions = [...questions, ...expertQuestions];
+      visibleQuestions = [...visibleQuestions, ...allQuestions.filter(q => q.section === 'expert')];
     }
 
-    return questions;
+    return visibleQuestions;
   };
 
-  const questions = getQuestions();
-  const currentQuestion = questions[currentStep];
-  const progress = ((currentStep + 1) / questions.length) * 100;
+  const visibleQuestions = getVisibleQuestions();
 
   useEffect(() => {
     loadPreferences();
   }, []);
-
-  useEffect(() => {
-    // Animácia pri zmene kroku
-    Animated.timing(slideAnim, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [currentStep, slideAnim]);
 
   const loadPreferences = async () => {
     try {
@@ -322,10 +315,8 @@ const CoffeePreferenceForm = ({ onBack }: { onBack: () => void }) => {
     }
   };
 
-  const handleAnswer = (value: any) => {
-    const q = currentQuestion;
-
-    switch (q.id) {
+  const handleAnswer = (questionId: string, value: any) => {
+    switch (questionId) {
       case 'experience':
         setExperienceLevel(value);
         break;
@@ -346,27 +337,22 @@ const CoffeePreferenceForm = ({ onBack }: { onBack: () => void }) => {
         break;
       case 'drinks':
         toggleArrayValue(value, preferredDrinks, setPreferredDrinks);
-        return; // Don't auto-advance for multiple choice
+        break;
       case 'brewing':
         toggleArrayValue(value, brewMethod, setBrewMethod);
-        return;
+        break;
       case 'grind':
         setGrind(value);
         break;
       case 'flavors':
         toggleArrayValue(value, flavorNotes, setFlavorNotes);
-        return;
+        break;
       case 'acidity':
         setAcidity(value);
         break;
       case 'body':
         setBody(value);
         break;
-    }
-
-    // Auto pokračovanie pre single choice
-    if (q.type === 'single' || q.type === 'switch') {
-      handleNext();
     }
   };
 
@@ -378,19 +364,21 @@ const CoffeePreferenceForm = ({ onBack }: { onBack: () => void }) => {
     }
   };
 
-  const handleNext = () => {
-    if (currentStep < questions.length - 1) {
-      slideAnim.setValue(0);
-      setCurrentStep(currentStep + 1);
-    } else {
-      handleSubmit();
-    }
-  };
-
-  const handlePrevious = () => {
-    if (currentStep > 0) {
-      slideAnim.setValue(0);
-      setCurrentStep(currentStep - 1);
+  const getValue = (questionId: string) => {
+    switch (questionId) {
+      case 'experience': return experienceLevel;
+      case 'intensity': return intensity;
+      case 'sweetness': return sweetness;
+      case 'milk': return milk;
+      case 'temperature': return temperature;
+      case 'roast': return roast;
+      case 'drinks': return preferredDrinks;
+      case 'brewing': return brewMethod;
+      case 'grind': return grind;
+      case 'flavors': return flavorNotes;
+      case 'acidity': return acidity;
+      case 'body': return body;
+      default: return null;
     }
   };
 
@@ -485,9 +473,9 @@ Píš jednoducho, zrozumiteľne a priateľsky v slovenčine.
       if (!res.ok) throw new Error('Failed to save preferences');
 
       Alert.alert(
-        '✅ Hotovo!',
-        'Tvoj kávový profil bol uložený. Teraz ti vieme odporučiť perfektnú kávu!',
-        [{ text: 'Skvelé', onPress: onBack }]
+          '✅ Hotovo!',
+          'Tvoj kávový profil bol uložený. Teraz ti vieme odporučiť perfektnú kávu!',
+          [{ text: 'Skvelé', onPress: onBack }]
       );
     } catch (err) {
       Alert.alert('Chyba', 'Nepodarilo sa uložiť preferencie');
@@ -496,166 +484,102 @@ Píš jednoducho, zrozumiteľne a priateľsky v slovenčine.
     }
   };
 
-  const getValue = (questionId: string) => {
-    switch (questionId) {
-      case 'experience': return experienceLevel;
-      case 'intensity': return intensity;
-      case 'sweetness': return sweetness;
-      case 'milk': return milk;
-      case 'temperature': return temperature;
-      case 'roast': return roast;
-      case 'drinks': return preferredDrinks;
-      case 'brewing': return brewMethod;
-      case 'grind': return grind;
-      case 'flavors': return flavorNotes;
-      case 'acidity': return acidity;
-      case 'body': return body;
-      default: return null;
-    }
-  };
+  const renderQuestion = (question: Question) => {
+    const currentValue = getValue(question.id);
 
-  const canProceed = () => {
-    const value = getValue(currentQuestion.id);
-    if (currentQuestion.type === 'multiple') {
-      return Array.isArray(value) && value.length > 0;
-    }
-    return value !== null && value !== undefined;
+    return (
+        <View key={question.id} style={styles.questionContainer}>
+          <Text style={styles.questionTitle}>{question.title}</Text>
+          <Text style={styles.questionSubtitle}>{question.subtitle}</Text>
+
+          <View style={styles.optionsContainer}>
+            {question.type === 'switch' ? (
+                <View style={styles.switchContainer}>
+                  <Text style={styles.switchLabel}>Nie</Text>
+                  <Switch
+                      value={currentValue as boolean}
+                      onValueChange={(value) => handleAnswer(question.id, value)}
+                      trackColor={{ false: '#767577', true: colors.primary }}
+                      thumbColor={currentValue ? colors.primaryLight : '#f4f3f4'}
+                  />
+                  <Text style={styles.switchLabel}>Áno</Text>
+                </View>
+            ) : (
+                question.options?.map((option) => {
+                  const isSelected = question.type === 'multiple'
+                      ? (currentValue as string[])?.includes(option.value)
+                      : currentValue === option.value;
+
+                  return (
+                      <TouchableOpacity
+                          key={option.value}
+                          style={[
+                            styles.optionCard,
+                            isSelected && styles.optionCardSelected
+                          ]}
+                          onPress={() => handleAnswer(question.id, option.value)}
+                          activeOpacity={0.7}
+                      >
+                        {option.emoji && (
+                            <Text style={styles.optionEmoji}>{option.emoji}</Text>
+                        )}
+                        <View style={styles.optionTextContainer}>
+                          <Text style={[
+                            styles.optionLabel,
+                            isSelected && styles.optionLabelSelected
+                          ]}>
+                            {option.label}
+                          </Text>
+                          {option.description && (
+                              <Text style={[
+                                styles.optionDescription,
+                                isSelected && styles.optionDescriptionSelected
+                              ]}>
+                                {option.description}
+                              </Text>
+                          )}
+                        </View>
+                        {isSelected && (
+                            <Text style={styles.checkmark}>✓</Text>
+                        )}
+                      </TouchableOpacity>
+                  );
+                })
+            )}
+          </View>
+        </View>
+    );
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.closeButton}>
-          <Text style={styles.closeText}>✕</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Kávový profil</Text>
-        <View style={styles.placeholder} />
-      </View>
-
-      {/* Progress Bar */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBar}>
-          <Animated.View
-            style={[
-              styles.progressFill,
-              { width: `${progress}%` }
-            ]}
-          />
+      <SafeAreaView style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onBack} style={styles.closeButton}>
+            <Text style={styles.closeText}>✕</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Kávový profil</Text>
+          <View style={styles.placeholder} />
         </View>
-        <Text style={styles.progressText}>
-          Otázka {currentStep + 1} z {questions.length}
-        </Text>
-      </View>
 
-      {/* Question */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <Animated.View
-          style={[
-            styles.questionContainer,
-            {
-              opacity: slideAnim,
-              transform: [
-                {
-                  translateX: slideAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [50, 0],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <Text style={styles.questionTitle}>{currentQuestion.title}</Text>
-          <Text style={styles.questionSubtitle}>{currentQuestion.subtitle}</Text>
+        {/* Content */}
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {visibleQuestions.map(question => renderQuestion(question))}
 
-          {/* Options */}
-          <View style={styles.optionsContainer}>
-            {currentQuestion.type === 'switch' ? (
-              <View style={styles.switchContainer}>
-                <Text style={styles.switchLabel}>Nie</Text>
-                <Switch
-                  value={getValue(currentQuestion.id) as boolean}
-                  onValueChange={(value) => handleAnswer(value)}
-                  trackColor={{ false: '#767577', true: colors.primary }}
-                  thumbColor={getValue(currentQuestion.id) ? colors.primaryLight : '#f4f3f4'}
-                />
-                <Text style={styles.switchLabel}>Áno</Text>
-              </View>
-            ) : (
-              currentQuestion.options?.map((option) => {
-                const currentValue = getValue(currentQuestion.id);
-                const isSelected = currentQuestion.type === 'multiple'
-                  ? (currentValue as string[])?.includes(option.value)
-                  : currentValue === option.value;
+          {/* Submit Button */}
+          <TouchableOpacity
+              style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
+              onPress={handleSubmit}
+              disabled={isLoading}
+          >
+            <Text style={styles.submitButtonText}>
+              {isLoading ? 'Ukladám...' : 'Uložiť preferencie ✓'}
+            </Text>
+          </TouchableOpacity>
 
-                return (
-                  <TouchableOpacity
-                    key={option.value}
-                    style={[
-                      styles.optionCard,
-                      isSelected && styles.optionCardSelected
-                    ]}
-                    onPress={() => handleAnswer(option.value)}
-                    activeOpacity={0.7}
-                  >
-                    {option.emoji && (
-                      <Text style={styles.optionEmoji}>{option.emoji}</Text>
-                    )}
-                    <View style={styles.optionTextContainer}>
-                      <Text style={[
-                        styles.optionLabel,
-                        isSelected && styles.optionLabelSelected
-                      ]}>
-                        {option.label}
-                      </Text>
-                      {option.description && (
-                        <Text style={[
-                          styles.optionDescription,
-                          isSelected && styles.optionDescriptionSelected
-                        ]}>
-                          {option.description}
-                        </Text>
-                      )}
-                    </View>
-                    {isSelected && (
-                      <Text style={styles.checkmark}>✓</Text>
-                    )}
-                  </TouchableOpacity>
-                );
-              })
-            )}
-          </View>
-        </Animated.View>
-      </ScrollView>
-
-      {/* Navigation */}
-      <View style={styles.navigation}>
-        <TouchableOpacity
-          style={[styles.navButton, styles.navButtonSecondary]}
-          onPress={handlePrevious}
-          disabled={currentStep === 0}
-        >
-          <Text style={styles.navButtonTextSecondary}>
-            {currentStep === 0 ? '' : '← Späť'}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.navButton,
-            styles.navButtonPrimary,
-            !canProceed() && styles.navButtonDisabled
-          ]}
-          onPress={handleNext}
-          disabled={!canProceed() || isLoading}
-        >
-          <Text style={styles.navButtonTextPrimary}>
-            {currentStep === questions.length - 1 ? 'Dokončiť ✓' : 'Ďalej →'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+          <View style={styles.bottomPadding} />
+        </ScrollView>
+      </SafeAreaView>
   );
 };
 
@@ -694,71 +618,52 @@ const createStyles = (isDarkMode: boolean) => {
     placeholder: {
       width: 40,
     },
-    progressContainer: {
-      paddingHorizontal: 20,
-      paddingVertical: 15,
-    },
-    progressBar: {
-      height: 6,
-      backgroundColor: colors.border,
-      borderRadius: 3,
-      overflow: 'hidden',
-    },
-    progressFill: {
-      height: '100%',
-      backgroundColor: colors.primary,
-      borderRadius: 3,
-    },
-    progressText: {
-      fontSize: 12,
-      color: colors.textSecondary,
-      marginTop: 8,
-      textAlign: 'center',
-    },
     content: {
       flex: 1,
       paddingHorizontal: 20,
     },
     questionContainer: {
-      paddingVertical: 20,
+      paddingVertical: 25,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
     },
     questionTitle: {
-      fontSize: 24,
+      fontSize: 20,
       fontWeight: 'bold',
       color: colors.text,
-      marginBottom: 10,
+      marginBottom: 8,
     },
     questionSubtitle: {
-      fontSize: 16,
+      fontSize: 14,
       color: colors.textSecondary,
-      marginBottom: 30,
+      marginBottom: 20,
     },
     optionsContainer: {
-      gap: 12,
+      gap: 8,
     },
     optionCard: {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: colors.cardBackground,
-      borderRadius: 16,
-      padding: 16,
+      borderRadius: 12,
+      padding: 14,
       borderWidth: 2,
       borderColor: colors.border,
-      marginBottom: 12,
+      marginBottom: 8,
     },
     optionCardSelected: {
       borderColor: colors.primary,
       backgroundColor: isDarkMode ? 'rgba(139,69,19,0.2)' : 'rgba(139,69,19,0.1)',
     },
     optionEmoji: {
-      fontSize: 28,
-      marginRight: 15,
+      fontSize: 24,
+      marginRight: 12,
     },
     optionTextContainer: {
       flex: 1,
     },
     optionLabel: {
-      fontSize: 16,
+      fontSize: 15,
       fontWeight: '600',
       color: colors.text,
       marginBottom: 2,
@@ -767,14 +672,14 @@ const createStyles = (isDarkMode: boolean) => {
       color: colors.primary,
     },
     optionDescription: {
-      fontSize: 13,
+      fontSize: 12,
       color: colors.textSecondary,
     },
     optionDescriptionSelected: {
       color: colors.primaryLight,
     },
     checkmark: {
-      fontSize: 20,
+      fontSize: 18,
       color: colors.primary,
       fontWeight: 'bold',
     },
@@ -783,43 +688,30 @@ const createStyles = (isDarkMode: boolean) => {
       alignItems: 'center',
       justifyContent: 'center',
       gap: 20,
-      paddingVertical: 20,
+      paddingVertical: 15,
     },
     switchLabel: {
-      fontSize: 18,
+      fontSize: 16,
       color: colors.text,
     },
-    navigation: {
-      flexDirection: 'row',
-      paddingHorizontal: 20,
-      paddingVertical: 15,
-      gap: 10,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-    },
-    navButton: {
-      flex: 1,
-      paddingVertical: 15,
+    submitButton: {
+      backgroundColor: colors.primary,
+      paddingVertical: 18,
       borderRadius: 12,
       alignItems: 'center',
+      marginTop: 30,
+      marginBottom: 20,
     },
-    navButtonPrimary: {
-      backgroundColor: colors.primary,
-    },
-    navButtonSecondary: {
-      backgroundColor: 'transparent',
-    },
-    navButtonDisabled: {
+    submitButtonDisabled: {
       opacity: 0.5,
     },
-    navButtonTextPrimary: {
+    submitButtonText: {
       color: '#ffffff',
       fontSize: 16,
       fontWeight: '600',
     },
-    navButtonTextSecondary: {
-      color: colors.text,
-      fontSize: 16,
+    bottomPadding: {
+      height: 20,
     },
   });
 };

@@ -1,32 +1,26 @@
 // HomeScreen.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   SafeAreaView,
-  Alert,
   RefreshControl,
+  Dimensions,
+  Alert,
 } from 'react-native';
-import auth from '@react-native-firebase/auth';
-import { homeStyles } from './styles/HomeScreen.styles';
-import {
-  fetchDashboardData,
-  toggleFavorite,
-  getDailyTip
-} from '../services/homePagesService.ts';
-import { useTheme } from '../theme/ThemeProvider';
+import { homeStyles } from './styles/HomeScreen.styles.ts';
 
-// const { width } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 interface CoffeeItem {
   id: string;
   name: string;
+  origin: string;
   rating: number;
   match: number;
-  timestamp: Date;
-  isRecommended: boolean;
+  hasCheckmark?: boolean;
 }
 
 interface HomeScreenProps {
@@ -36,20 +30,8 @@ interface HomeScreenProps {
   onDiscoverPress?: () => void;
   onRecipesPress?: () => void;
   onFavoritesPress?: () => void;
-  onLogout: () => void;
+  userName?: string;
 }
-
-
-// const handleLogoutPress = () => {
-//   Alert.alert(
-//     'Odhlásiť sa',
-//     'Naozaj sa chceš odhlásiť?',
-//     [
-//       { text: 'Zrušiť', style: 'cancel' },
-//       { text: 'Odhlásiť', style: 'destructive', onPress: onLogout }
-//     ]
-//   );
-// };
 
 const HomeScreen: React.FC<HomeScreenProps> = ({
                                                  onScanPress,
@@ -58,82 +40,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                                                  onDiscoverPress,
                                                  onRecipesPress,
                                                  onFavoritesPress,
-                                                 onLogout,
+                                                 userName = 'Martin',
                                                }) => {
-  const { isDark: isDarkMode } = useTheme();
-  const [userName, setUserName] = useState('');
-  const [coffeeCount, setCoffeeCount] = useState(0);
-  const [avgRating, setAvgRating] = useState(0);
-  const [favoritesCount, setFavoritesCount] = useState(0);
-  const [recentCoffees, setRecentCoffees] = useState<CoffeeItem[]>([]);
-  const [recommendations, setRecommendations] = useState<CoffeeItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [dailyTip, setDailyTip] = useState('');
-  const [activeTab, setActiveTab] = useState('home');
+  const [activeNavItem, setActiveNavItem] = useState('home');
+  const [caffeineAmount, setCaffeineAmount] = useState(195);
+  const [coffeesToday, setCoffeesToday] = useState(3);
+  const [activeTasteTags, setActiveTasteTags] = useState([
+    'Stredná intenzita',
+    'Čokoládové tóny',
+    'Oriešková',
+    'Arabica',
+  ]);
 
-  const styles = homeStyles(isDarkMode);
-
-  useEffect(() => {
-    loadUserData();
-    loadDailyTip();
-  }, []);
-
-  const loadUserData = async () => {
-    try {
-      setRefreshing(true);
-      const user = auth().currentUser;
-      if (user) {
-        // Získaj meno používateľa
-        const displayName = user.displayName || user.email?.split('@')[0] || 'Kávoš';
-        setUserName(displayName);
-
-        // Načítaj dáta z backendu
-        const dashboardData = await fetchDashboardData();
-
-        if (dashboardData) {
-          // Nastav štatistiky
-          setCoffeeCount(dashboardData.stats.coffeeCount);
-          setAvgRating(dashboardData.stats.avgRating);
-          setFavoritesCount(dashboardData.stats.favoritesCount);
-
-          // Nastav nedávne skenovania
-          setRecentCoffees(dashboardData.recentScans);
-
-          // Nastav odporúčania
-          setRecommendations(dashboardData.recommendations);
-
-          // Nastav denný tip
-          setDailyTip(dashboardData.dailyTip);
-        } else {
-          // Ak zlyhá načítanie, použi základné hodnoty
-          setCoffeeCount(0);
-          setAvgRating(0);
-          setFavoritesCount(0);
-          setRecentCoffees([]);
-          setRecommendations([]);
-          setDailyTip(getDailyTip());
-        }
-      }
-    } catch (error) {
-      console.error('Error loading user data:', error);
-      // Použi záložné dáta ak zlyhá načítanie
-      setDailyTip(getDailyTip());
-      Alert.alert('Upozornenie', 'Nepodarilo sa načítať všetky dáta. Niektoré funkcie môžu byť obmedzené.');
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const loadDailyTip = () => {
-    setDailyTip(getDailyTip());
-  };
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadUserData();
-    loadDailyTip();
-    setRefreshing(false);
-  };
+  const styles = homeStyles();
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -144,91 +64,146 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const getTimeBasedMessage = () => {
     const hour = new Date().getHours();
-    if (hour < 10) return 'Čas na rannú kávu ☕';
-    if (hour < 14) return 'Obedná káva? ☕';
-    if (hour < 17) return 'Popoludňajší boost ⚡';
-    return 'Večerná káva? 🌙';
+    if (hour < 10) return 'Čas na rannú kávu';
+    if (hour < 14) return 'Čas na obednú kávu';
+    if (hour < 17) return 'Popoludňajší boost';
+    return 'Večerná káva?';
   };
 
-  const handleCoffeePress = (coffee: CoffeeItem) => {
+  const getWeatherBasedCoffee = () => {
+    // This would normally check actual weather
+    const temp = 22; // Mock temperature
+    if (temp > 20) return { name: 'Cold Brew', icon: '🧊' };
+    return { name: 'Cappuccino', icon: '☕' };
+  };
+
+  const recommendedCoffees: CoffeeItem[] = [
+    { id: '1', name: 'Ethiopia Yirgacheffe', origin: 'Single Origin', rating: 4.8, match: 94, hasCheckmark: true },
+    { id: '2', name: 'Colombia Supremo', origin: 'Premium Blend', rating: 4.6, match: 87, hasCheckmark: true },
+    { id: '3', name: 'Brazil Santos', origin: 'Medium Roast', rating: 4.5, match: 82, hasCheckmark: false },
+  ];
+
+  const tasteTags = [
+    'Stredná intenzita',
+    'Čokoládové tóny',
+    'Ovocné',
+    'Oriešková',
+    'Kyslá',
+    'Arabica',
+  ];
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    // Simulate data refresh
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setRefreshing(false);
+  };
+
+  const handleTasteTagPress = (tag: string) => {
+    setActiveTasteTags(prev =>
+      prev.includes(tag)
+        ? prev.filter(t => t !== tag)
+        : [...prev, tag]
+    );
+  };
+
+  const handleCoffeeCardPress = (coffee: CoffeeItem) => {
     Alert.alert(
       coffee.name,
-      `Hodnotenie: ${coffee.rating}⭐\nZhoda: ${coffee.match}%\n${
-        coffee.isRecommended ? '✓ Odporúčané pre teba' : 'Stredná zhoda'
-      }`,
+      `${coffee.origin}\n⭐ ${coffee.rating}\n${coffee.match}% zhoda s tvojím profilom`,
       [
         { text: 'Zatvoriť', style: 'cancel' },
         { text: 'Pripraviť', onPress: onBrewPress },
-        {
-          text: '❤️ Obľúbené',
-          onPress: async () => {
-            const success = await toggleFavorite(coffee.id);
-            if (success) {
-              Alert.alert('Úspech', 'Káva pridaná do obľúbených!');
-              loadUserData(); // Refresh data
-            }
-          }
-        },
       ]
     );
   };
 
-  const handleLogoutPress = () => {
-    Alert.alert(
-      'Odhlásiť sa',
-      'Naozaj sa chceš odhlásiť?',
-      [
-        { text: 'Zrušiť', style: 'cancel' },
-        { text: 'Odhlásiť', style: 'destructive', onPress: onLogout }
-      ]
-    );
+  const getCaffeineLevel = () => {
+    const percentage = (caffeineAmount / 300) * 100;
+    if (percentage < 50) return 'low';
+    if (percentage < 80) return 'medium';
+    return 'high';
   };
 
+  const suggestedCoffee = getWeatherBasedCoffee();
+
+  // @ts-ignore
+  // @ts-ignore
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.appBar}>
-        <Text style={styles.appTitle}>BrewMate</Text>
-        <View style={styles.appBarActions}>
-          <TouchableOpacity onPress={onProfilePress} style={styles.appAvatar}>
+      {/* Status Bar */}
+      <View style={styles.statusBar}>
+        <Text style={styles.statusTime}>9:41</Text>
+        <View style={styles.statusIcons}>
+          <Text>📶 📶 🔋</Text>
+        </View>
+      </View>
+
+      {/* App Header */}
+      <View style={styles.appHeader}>
+        <View style={styles.logoSection}>
+          <View style={styles.appLogo}>
+            <Text style={styles.logoIcon}>☕</Text>
+          </View>
+          <Text style={styles.appTitle}>BrewMate</Text>
+        </View>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.notificationBtn}>
+            <Text style={styles.notificationIcon}>🔔</Text>
+            <View style={styles.notificationBadge}>
+              <Text style={styles.badgeText}>3</Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.userAvatar} onPress={onProfilePress}>
             <Text style={styles.avatarText}>
               {userName.charAt(0).toUpperCase()}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.appLogout}
-            onPress={handleLogoutPress}
-            onLongPress={() =>
-              Alert.alert('Odhlásiť', 'Kliknutím sa odhlásiš z aplikácie')
-            }
-          >
-            <Text style={styles.logoutIcon}>🚪</Text>
-          </TouchableOpacity>
         </View>
       </View>
 
+      {/* Main Content */}
       <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
+        style={styles.mainContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        showsVerticalScrollIndicator={false}
       >
-        {/* Hero Greeting */}
-        <View style={styles.heroCard}>
-          <Text style={styles.heroGreeting}>
-            {getGreeting()}, {userName}!
-          </Text>
-          <Text style={styles.heroSub}>{getTimeBasedMessage()}</Text>
+        {/* Hero Welcome Card */}
+        <View style={styles.heroWelcome}>
+          <Text style={styles.welcomeText}>{getGreeting()}</Text>
+          <Text style={styles.welcomeName}>{userName}! ☀️</Text>
+          <View style={styles.coffeeStatus}>
+            <View style={styles.statusIcon}>
+              <Text>☕</Text>
+            </View>
+            <Text style={styles.statusText}>{getTimeBasedMessage()}</Text>
+          </View>
         </View>
 
-        {/* Daily Tip Card */}
-        <View style={styles.tipCard}>
-          <Text style={styles.tipTitle}>💡 Káva dňa</Text>
-          <Text style={styles.tipText}>{dailyTip}</Text>
+        {/* Weather & Coffee Widget */}
+        <View style={styles.weatherWidget}>
+          <View style={styles.weatherSection}>
+            <View style={styles.weatherIcon}>
+              <Text style={styles.weatherEmoji}>☀️</Text>
+            </View>
+            <View style={styles.weatherInfo}>
+              <Text style={styles.weatherLocation}>Košice</Text>
+              <Text style={styles.weatherTemp}>22°C, slnečno</Text>
+            </View>
+          </View>
+          <View style={styles.coffeeSuggestion}>
+            <Text style={styles.suggestionLabel}>Ideálna káva na dnes:</Text>
+            <View style={styles.suggestionName}>
+              <Text style={styles.suggestionText}>{suggestedCoffee.name}</Text>
+              <Text>{suggestedCoffee.icon}</Text>
+            </View>
+          </View>
         </View>
 
-        {/* Main Actions */}
-        <View style={styles.mainActions}>
+        {/* Quick Actions */}
+        <View style={styles.quickActions}>
           <TouchableOpacity
             style={[styles.actionCard, styles.primaryAction]}
             onPress={onScanPress}
@@ -237,8 +212,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
             <View style={styles.actionIcon}>
               <Text style={styles.actionEmoji}>📷</Text>
             </View>
-            <Text style={styles.actionTitle}>Skenovať kávu</Text>
-            <Text style={styles.actionDesc}>Zisti či je pre teba</Text>
+            <Text style={[styles.actionTitle, styles.primaryText]}>Skenovať kávu</Text>
+            <Text style={[styles.actionDesc, styles.primaryText]}>AI analýza a hodnotenie</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -250,119 +225,106 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
               <Text style={styles.actionEmoji}>☕</Text>
             </View>
             <Text style={styles.actionTitle}>Pripraviť drink</Text>
-            <Text style={styles.actionDesc}>Krok po kroku</Text>
+            <Text style={styles.actionDesc}>Návod krok po kroku</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Quick Stats */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{coffeeCount}</Text>
-            <Text style={styles.statLabel}>Káv tento rok</Text>
+        {/* Coffee Tracker */}
+        <View style={styles.coffeeTracker}>
+          <View style={styles.trackerHeader}>
+            <Text style={styles.trackerTitle}>☕ Denný tracker kofeínu</Text>
+            <Text style={styles.trackerDate}>Dnes</Text>
           </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{avgRating.toFixed(1)}</Text>
-            <Text style={styles.statLabel}>Priem. hodnotenie</Text>
+          <View style={styles.caffeineMeter}>
+            <View style={[
+              styles.caffeineFill,
+              styles[`caffeine${getCaffeineLevel().charAt(0).toUpperCase() + getCaffeineLevel().slice(1)}`]
+            ]} />
+            <Text style={styles.caffeineAmount}>{caffeineAmount}mg / 300mg</Text>
           </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{favoritesCount}</Text>
-            <Text style={styles.statLabel}>Obľúbených</Text>
+          <View style={styles.trackerStats}>
+            <View style={styles.trackerStat}>
+              <Text style={styles.statValue}>{coffeesToday}</Text>
+              <Text style={styles.statLabel}>Kávy dnes</Text>
+            </View>
+            <View style={styles.trackerStat}>
+              <Text style={styles.statValue}>89%</Text>
+              <Text style={styles.statLabel}>Zhoda chuti</Text>
+            </View>
+            <View style={styles.trackerStat}>
+              <Text style={styles.statValue}>4.5</Text>
+              <Text style={styles.statLabel}>Priem. hodnotenie</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Taste Profile */}
+        <View style={styles.tasteProfile}>
+          <View style={styles.profileHeader}>
+            <Text style={styles.profileTitle}>🎯 Tvoj chuťový profil</Text>
+            <TouchableOpacity style={styles.editBtn}>
+              <Text style={styles.editBtnText}>Upraviť</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.tasteTags}>
+            {tasteTags.map((tag, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.tasteTag,
+                  activeTasteTags.includes(tag) && styles.tasteTagActive
+                ]}
+                onPress={() => handleTasteTagPress(tag)}
+              >
+                <Text style={[
+                  styles.tasteTagText,
+                  activeTasteTags.includes(tag) && styles.tasteTagTextActive
+                ]}>
+                  {tag}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
 
         {/* Recommendations */}
-        <View style={styles.section}>
+        <View style={styles.recommendations}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Odporúčané pre teba</Text>
-            {recommendations.length > 0 && (
-              <TouchableOpacity onPress={onDiscoverPress}>
-                <Text style={styles.seeAll}>Všetky →</Text>
-              </TouchableOpacity>
-            )}
+            <Text style={styles.sectionTitle}>✨ Odporúčané pre teba</Text>
+            <TouchableOpacity style={styles.seeAll} onPress={onDiscoverPress}>
+              <Text style={styles.seeAllText}>Všetky</Text>
+              <Text style={styles.seeAllArrow}>→</Text>
+            </TouchableOpacity>
           </View>
-          {recommendations.length > 0 ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.horizontalScroll}
-            >
-              {recommendations.map((coffee) => (
-                <TouchableOpacity
-                  key={coffee.id}
-                  style={styles.coffeeCard}
-                  onPress={() => handleCoffeePress(coffee)}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.coffeeImage}>
-                    <Text style={styles.coffeeEmoji}>☕</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.coffeeCards}
+          >
+            {recommendedCoffees.map((coffee) => (
+              <TouchableOpacity
+                key={coffee.id}
+                style={styles.coffeeCard}
+                onPress={() => handleCoffeeCardPress(coffee)}
+                activeOpacity={0.8}
+              >
+                {coffee.hasCheckmark && (
+                  <View style={styles.coffeeBadge}>
+                    <Text style={styles.badgeCheck}>✓</Text>
                   </View>
-                  <Text style={styles.coffeeName} numberOfLines={1}>
-                    {coffee.name}
-                  </Text>
+                )}
+                <View style={styles.coffeeImage}>
+                  <Text style={styles.coffeeEmoji}>☕</Text>
+                </View>
+                <Text style={styles.coffeeName}>{coffee.name}</Text>
+                <Text style={styles.coffeeOrigin}>{coffee.origin}</Text>
+                <View style={styles.coffeeMatch}>
+                  <Text style={styles.matchScore}>{coffee.match}% zhoda</Text>
                   <Text style={styles.coffeeRating}>⭐ {coffee.rating}</Text>
-                  <View style={styles.matchBadge}>
-                    <Text style={styles.matchText}>{coffee.match}% zhoda</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          ) : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>
-                Zatiaľ nemáme pre teba žiadne odporúčania.
-                Naskenuj prvú kávu a začni objavovať!
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Recent Scans */}
-        <View style={[styles.section, { marginBottom: 100 }]}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Nedávno skenované</Text>
-            {recentCoffees.length > 0 && (
-              <TouchableOpacity>
-                <Text style={styles.seeAll}>História →</Text>
+                </View>
               </TouchableOpacity>
-            )}
-          </View>
-          {recentCoffees.length > 0 ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.horizontalScroll}
-            >
-              {recentCoffees.map((coffee) => (
-                <TouchableOpacity
-                  key={coffee.id}
-                  style={styles.coffeeCard}
-                  onPress={() => handleCoffeePress(coffee)}
-                  activeOpacity={0.8}
-                >
-                  <View style={[styles.coffeeImage, styles.scannedImage]}>
-                    <Text style={styles.coffeeEmoji}>📸</Text>
-                  </View>
-                  <Text style={styles.coffeeName} numberOfLines={1}>
-                    {coffee.name}
-                  </Text>
-                  <Text style={styles.coffeeRating}>⭐ {coffee.rating}</Text>
-                  <Text style={[
-                    styles.recommendStatus,
-                    coffee.isRecommended ? styles.recommended : styles.notRecommended
-                  ]}>
-                    {coffee.isRecommended ? '✓ Odporúčané' : 'Stredná zhoda'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          ) : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>
-                Ešte si neskenoval žiadnu kávu.
-                Vyskúšaj skener a začni budovať svoju históriu!
-              </Text>
-            </View>
-          )}
+            ))}
+          </ScrollView>
         </View>
       </ScrollView>
 
@@ -370,46 +332,38 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
       <View style={styles.bottomNav}>
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() => setActiveTab('home')}
+          onPress={() => setActiveNavItem('home')}
         >
-          <Text style={[styles.navIcon, activeTab === 'home' && styles.activeNav]}>
-            🏠
-          </Text>
-          <Text style={[styles.navLabel, activeTab === 'home' && styles.activeNav]}>
-            Domov
-          </Text>
+          <Text style={[styles.navIcon, activeNavItem === 'home' && styles.navActive]}>🏠</Text>
+          <Text style={[styles.navLabel, activeNavItem === 'home' && styles.navActive]}>Domov</Text>
         </TouchableOpacity>
-
         <TouchableOpacity
           style={styles.navItem}
-          onPress={onDiscoverPress}
+          onPress={() => { setActiveNavItem('discover'); onDiscoverPress?.(); }}
         >
-          <Text style={styles.navIcon}>🔍</Text>
-          <Text style={styles.navLabel}>Objaviť</Text>
+          <Text style={[styles.navIcon, activeNavItem === 'discover' && styles.navActive]}>🔍</Text>
+          <Text style={[styles.navLabel, activeNavItem === 'discover' && styles.navActive]}>Objaviť</Text>
         </TouchableOpacity>
-
         <TouchableOpacity
           style={styles.navItem}
-          onPress={onRecipesPress}
+          onPress={() => { setActiveNavItem('recipes'); onRecipesPress?.(); }}
         >
-          <Text style={styles.navIcon}>📖</Text>
-          <Text style={styles.navLabel}>Recepty</Text>
+          <Text style={[styles.navIcon, activeNavItem === 'recipes' && styles.navActive]}>📖</Text>
+          <Text style={[styles.navLabel, activeNavItem === 'recipes' && styles.navActive]}>Recepty</Text>
         </TouchableOpacity>
-
         <TouchableOpacity
           style={styles.navItem}
-          onPress={onFavoritesPress}
+          onPress={() => { setActiveNavItem('favorites'); onFavoritesPress?.(); }}
         >
-          <Text style={styles.navIcon}>❤️</Text>
-          <Text style={styles.navLabel}>Obľúbené</Text>
+          <Text style={[styles.navIcon, activeNavItem === 'favorites' && styles.navActive]}>❤️</Text>
+          <Text style={[styles.navLabel, activeNavItem === 'favorites' && styles.navActive]}>Obľúbené</Text>
         </TouchableOpacity>
-
         <TouchableOpacity
           style={styles.navItem}
-          onPress={onProfilePress}
+          onPress={() => { setActiveNavItem('profile'); onProfilePress(); }}
         >
-          <Text style={styles.navIcon}>👤</Text>
-          <Text style={styles.navLabel}>Profil</Text>
+          <Text style={[styles.navIcon, activeNavItem === 'profile' && styles.navActive]}>👤</Text>
+          <Text style={[styles.navLabel, activeNavItem === 'profile' && styles.navActive]}>Profil</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

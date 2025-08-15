@@ -1,310 +1,554 @@
 // HomeScreen.styles.ts
-import { StyleSheet } from 'react-native';
-import { getColors } from '../../theme/colors';
-import { scale } from '../../theme/responsive';
+import { StyleSheet, Dimensions, Platform } from 'react-native';
 
-export const homeStyles = (isDarkMode: boolean) => {
-  const colors = getColors(isDarkMode);
-  const shadow = '#000000';
+const { width, height } = Dimensions.get('window');
 
+const colors = {
+  primary: '#6B4423',
+  primaryLight: '#8B6544',
+  primaryDark: '#4A2F18',
+  accent: '#D2691E',
+  success: '#4CAF50',
+  warning: '#FFA726',
+  danger: '#EF5350',
+  bgLight: '#FAF7F5',
+  bgDark: '#1A1A1A',
+  cardLight: '#FFFFFF',
+  cardDark: '#2A2A2A',
+  textPrimary: '#2C2C2C',
+  textSecondary: '#666666',
+  borderLight: '#E0E0E0',
+};
+
+export const homeStyles = () => {
   return StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: colors.bgLight,
     },
 
-    scrollView: {
-      flex: 1,
-    },
-
-    // Top App Bar
-    appBar: {
-      height: scale(56),
+    // Status Bar
+    statusBar: {
       backgroundColor: colors.primary,
       flexDirection: 'row',
-      alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: scale(20),
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 8,
+      paddingTop: Platform.OS === 'ios' ? 44 : 8,
     },
-
-    appTitle: {
-      color: '#ffffff',
-      fontSize: scale(20),
+    statusTime: {
+      color: 'white',
+      fontSize: 13,
       fontWeight: '600',
     },
-
-    appBarActions: {
+    statusIcons: {
       flexDirection: 'row',
-      alignItems: 'center',
+      gap: 6,
     },
 
-    appAvatar: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: colors.primaryLight,
+    // App Header
+    appHeader: {
+      backgroundColor: colors.primary,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 10,
+      elevation: 5,
+    },
+    logoSection: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    appLogo: {
+      width: 32,
+      height: 32,
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      borderRadius: 10,
       justifyContent: 'center',
       alignItems: 'center',
-      marginRight: 12,
     },
-
-    avatarText: {
-      color: '#ffffff',
+    logoIcon: {
       fontSize: 18,
-      fontWeight: '600',
     },
-
-    appLogout: {
-      padding: 4,
-    },
-
-    logoutIcon: {
+    appTitle: {
+      color: 'white',
       fontSize: 20,
-      color: '#ffffff',
-    },
-
-    // Hero greeting card
-    heroCard: {
-      margin: scale(20),
-      marginTop: scale(16),
-      padding: scale(20),
-      backgroundColor: colors.primary,
-      borderRadius: 16,
-    },
-
-    heroGreeting: {
-      fontSize: scale(22),
       fontWeight: '700',
-      color: '#ffffff',
-      marginBottom: scale(4),
+      letterSpacing: -0.5,
     },
-
-    heroSub: {
-      fontSize: scale(14),
-      color: '#ffffff',
-    },
-
-    // Daily Tip Card
-    tipCard: {
-      marginHorizontal: scale(20),
-      marginTop: scale(15),
-      marginBottom: scale(20),
-      padding: scale(18),
-      backgroundColor: `${colors.primary}22`,
-      borderRadius: 16,
-      borderLeftWidth: scale(4),
-      borderLeftColor: colors.primary,
-    },
-
-    tipTitle: {
-      fontSize: scale(16),
-      fontWeight: '600',
-      color: colors.text,
-      marginBottom: scale(6),
-    },
-
-    tipText: {
-      fontSize: scale(14),
-      color: colors.textSecondary,
-      fontStyle: 'italic',
-    },
-
-    // Main Actions
-    mainActions: {
+    headerActions: {
       flexDirection: 'row',
-      paddingHorizontal: scale(20),
-      marginBottom: scale(20),
-      gap: scale(15),
+      gap: 12,
+      alignItems: 'center',
+    },
+    notificationBtn: {
+      width: 36,
+      height: 36,
+      backgroundColor: 'rgba(255,255,255,0.15)',
+      borderRadius: 18,
+      justifyContent: 'center',
+      alignItems: 'center',
+      position: 'relative',
+    },
+    notificationIcon: {
+      fontSize: 18,
+    },
+    notificationBadge: {
+      position: 'absolute',
+      top: -2,
+      right: -2,
+      width: 18,
+      height: 18,
+      backgroundColor: colors.danger,
+      borderRadius: 9,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 2,
+      borderColor: colors.primary,
+    },
+    badgeText: {
+      color: 'white',
+      fontSize: 10,
+      fontWeight: 'bold',
+    },
+    userAvatar: {
+      width: 36,
+      height: 36,
+      backgroundColor: colors.accent,
+      borderRadius: 18,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 2,
+      borderColor: 'rgba(255,255,255,0.3)',
+    },
+    avatarText: {
+      color: 'white',
+      fontWeight: '600',
+      fontSize: 16,
     },
 
+    // Main Content
+    mainContent: {
+      flex: 1,
+      backgroundColor: colors.bgLight,
+    },
+
+    // Hero Welcome Card
+    heroWelcome: {
+      backgroundColor: colors.accent,
+      margin: 16,
+      padding: 24,
+      borderRadius: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.12,
+      shadowRadius: 16,
+      elevation: 8,
+    },
+    welcomeText: {
+      color: 'white',
+      fontSize: 14,
+      opacity: 0.9,
+      marginBottom: 4,
+    },
+    welcomeName: {
+      color: 'white',
+      fontSize: 24,
+      fontWeight: '700',
+      marginBottom: 8,
+    },
+    coffeeStatus: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    statusIcon: {
+      width: 20,
+      height: 20,
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      borderRadius: 10,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    statusText: {
+      color: 'white',
+      fontSize: 14,
+      opacity: 0.95,
+    },
+
+    // Weather Widget
+    weatherWidget: {
+      marginHorizontal: 16,
+      marginBottom: 16,
+      padding: 16,
+      backgroundColor: 'white',
+      borderRadius: 16,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    weatherSection: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    weatherIcon: {
+      width: 48,
+      height: 48,
+      backgroundColor: '#FFB74D',
+      borderRadius: 12,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    weatherEmoji: {
+      fontSize: 24,
+    },
+    weatherInfo: {
+      justifyContent: 'center',
+    },
+    weatherLocation: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      fontWeight: '500',
+      marginBottom: 2,
+    },
+    weatherTemp: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.textPrimary,
+    },
+    coffeeSuggestion: {
+      alignItems: 'flex-end',
+    },
+    suggestionLabel: {
+      fontSize: 11,
+      color: colors.textSecondary,
+      marginBottom: 4,
+    },
+    suggestionName: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    suggestionText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.primary,
+    },
+
+    // Quick Actions
+    quickActions: {
+      flexDirection: 'row',
+      marginHorizontal: 16,
+      marginBottom: 20,
+      gap: 12,
+    },
     actionCard: {
       flex: 1,
-      backgroundColor: colors.cardBackground,
+      backgroundColor: 'white',
       borderRadius: 20,
       padding: 20,
       alignItems: 'center',
-      borderWidth: 1,
-      borderColor: colors.border,
-      // Tiene pre svetlý režim
-      ...(!isDarkMode && {
-        shadowColor: shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 5,
-      }),
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 4,
     },
-
     primaryAction: {
-      backgroundColor: isDarkMode ? `${colors.primary}22` : `${colors.primary}11`,
-      borderColor: `${colors.primary}44`,
+      backgroundColor: colors.primary,
     },
-
     actionIcon: {
-      width: 50,
-      height: 50,
-      borderRadius: 25,
-      backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+      width: 56,
+      height: 56,
+      backgroundColor: 'rgba(107, 68, 35, 0.1)',
+      borderRadius: 16,
       justifyContent: 'center',
       alignItems: 'center',
-      marginBottom: 10,
+      marginBottom: 12,
     },
-
     actionEmoji: {
       fontSize: 28,
     },
-
     actionTitle: {
       fontSize: 16,
       fontWeight: '600',
-      color: colors.text,
+      color: colors.textPrimary,
       marginBottom: 4,
+      textAlign: 'center',
     },
-
     actionDesc: {
       fontSize: 12,
       color: colors.textSecondary,
+      opacity: 0.8,
       textAlign: 'center',
     },
+    primaryText: {
+      color: 'white',
+    },
 
-    // Stats sekcia
-    statsContainer: {
+    // Coffee Tracker
+    coffeeTracker: {
+      marginHorizontal: 16,
+      marginBottom: 20,
+      padding: 20,
+      backgroundColor: 'white',
+      borderRadius: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    trackerHeader: {
       flexDirection: 'row',
-      paddingHorizontal: 20,
-      marginBottom: 25,
-      gap: 12,
-    },
-
-    statCard: {
-      flex: 1,
-      backgroundColor: colors.cardBackground,
-      borderRadius: 14,
-      padding: 15,
+      justifyContent: 'space-between',
       alignItems: 'center',
-      borderWidth: 1,
-      borderColor: colors.border,
+      marginBottom: 16,
     },
-
+    trackerTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.textPrimary,
+    },
+    trackerDate: {
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+    caffeineMeter: {
+      height: 40,
+      backgroundColor: '#F5F5F5',
+      borderRadius: 20,
+      overflow: 'hidden',
+      marginBottom: 12,
+      justifyContent: 'center',
+    },
+    caffeineFill: {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      height: '100%',
+      width: '65%',
+      borderRadius: 20,
+      justifyContent: 'center',
+      alignItems: 'flex-end',
+      paddingRight: 12,
+    },
+    caffeineLow: {
+      backgroundColor: colors.success,
+    },
+    caffeineMedium: {
+      backgroundColor: colors.warning,
+    },
+    caffeineHigh: {
+      backgroundColor: colors.danger,
+    },
+    caffeineAmount: {
+      position: 'absolute',
+      right: 12,
+      color: 'white',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    trackerStats: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+    },
+    trackerStat: {
+      flex: 1,
+      alignItems: 'center',
+      padding: 8,
+      backgroundColor: colors.bgLight,
+      borderRadius: 12,
+      marginHorizontal: 4,
+    },
     statValue: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      color: colors.primaryLight,
-      marginBottom: 4,
+      fontSize: 20,
+      fontWeight: '700',
+      color: colors.primary,
+      marginBottom: 2,
     },
-
     statLabel: {
       fontSize: 11,
       color: colors.textSecondary,
-      textAlign: 'center',
     },
 
-    // Sekcie
-    section: {
-      marginBottom: 25,
+    // Taste Profile
+    tasteProfile: {
+      marginHorizontal: 16,
+      marginBottom: 20,
+      padding: 20,
+      backgroundColor: 'white',
+      borderRadius: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    profileHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    profileTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.textPrimary,
+    },
+    editBtn: {
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      backgroundColor: 'rgba(107, 68, 35, 0.1)',
+      borderRadius: 8,
+    },
+    editBtnText: {
+      fontSize: 12,
+      color: colors.primary,
+    },
+    tasteTags: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    tasteTag: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      backgroundColor: colors.bgLight,
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+      marginBottom: 8,
+      marginRight: 8,
+    },
+    tasteTagActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    tasteTagText: {
+      fontSize: 13,
+      color: colors.textPrimary,
+    },
+    tasteTagTextActive: {
+      color: 'white',
     },
 
+    // Recommendations
+    recommendations: {
+      marginHorizontal: 16,
+      marginBottom: 100,
+    },
     sectionHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      paddingHorizontal: 20,
-      marginBottom: 15,
+      marginBottom: 16,
     },
-
     sectionTitle: {
       fontSize: 18,
       fontWeight: '600',
-      color: colors.text,
+      color: colors.textPrimary,
     },
-
     seeAll: {
-      fontSize: 14,
-      color: colors.primaryLight,
-      fontWeight: '500',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
     },
-
-    horizontalScroll: {
-      paddingLeft: 20,
+    seeAllText: {
+      fontSize: 13,
+      color: colors.primary,
     },
-
-    // Coffee Cards
+    seeAllArrow: {
+      fontSize: 13,
+      color: colors.primary,
+    },
+    coffeeCards: {
+      paddingBottom: 8,
+    },
     coffeeCard: {
-      width: 140,
-      backgroundColor: colors.cardBackground,
+      width: 150,
+      backgroundColor: 'white',
       borderRadius: 16,
-      padding: 15,
+      padding: 16,
       marginRight: 12,
-      borderWidth: 1,
-      borderColor: colors.border,
-      ...(!isDarkMode && {
-        shadowColor: shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 6,
-        elevation: 3,
-      }),
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 4,
     },
-
-    coffeeImage: {
-      width: 60,
-      height: 60,
+    coffeeBadge: {
+      position: 'absolute',
+      top: 8,
+      right: 8,
+      width: 24,
+      height: 24,
+      backgroundColor: colors.success,
       borderRadius: 12,
-      backgroundColor: `${colors.primary}22`,
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 1,
+    },
+    badgeCheck: {
+      color: 'white',
+      fontSize: 12,
+      fontWeight: 'bold',
+    },
+    coffeeImage: {
+      width: 80,
+      height: 80,
+      backgroundColor: colors.accent,
+      borderRadius: 16,
       justifyContent: 'center',
       alignItems: 'center',
       alignSelf: 'center',
-      marginBottom: 10,
+      marginBottom: 12,
     },
-
-    scannedImage: {
-      backgroundColor: `${colors.secondary}22`,
-    },
-
     coffeeEmoji: {
-      fontSize: 30,
+      fontSize: 36,
     },
-
     coffeeName: {
       fontSize: 14,
-      fontWeight: '500',
-      color: colors.text,
-      marginBottom: 5,
+      fontWeight: '600',
+      color: colors.textPrimary,
+      marginBottom: 4,
       textAlign: 'center',
     },
-
-    coffeeRating: {
-      fontSize: 13,
-      color: colors.warning,
-      textAlign: 'center',
-      marginBottom: 6,
-    },
-
-    matchBadge: {
-      backgroundColor: `${colors.secondary}22`,
-      borderRadius: 8,
-      paddingVertical: 4,
-      paddingHorizontal: 8,
-      alignSelf: 'center',
-    },
-
-    matchText: {
+    coffeeOrigin: {
       fontSize: 11,
-      color: colors.secondary,
-      fontWeight: '500',
-    },
-
-    recommendStatus: {
-      fontSize: 12,
-      textAlign: 'center',
-      fontWeight: '500',
-    },
-
-    recommended: {
-      color: colors.secondary,
-    },
-
-    notRecommended: {
       color: colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: 8,
+    },
+    coffeeMatch: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingTop: 8,
+      borderTopWidth: 1,
+      borderTopColor: colors.borderLight,
+    },
+    matchScore: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    coffeeRating: {
+      fontSize: 12,
+      color: colors.warning,
     },
 
     // Bottom Navigation
@@ -313,59 +557,36 @@ export const homeStyles = (isDarkMode: boolean) => {
       bottom: 0,
       left: 0,
       right: 0,
-      flexDirection: 'row',
-      backgroundColor: colors.cardBackground,
-      paddingVertical: scale(12),
-      paddingHorizontal: scale(20),
-      paddingBottom: scale(20),
+      backgroundColor: 'white',
       borderTopWidth: 1,
-      borderTopColor: colors.border,
-      ...(isDarkMode && {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-      }),
+      borderTopColor: colors.borderLight,
+      paddingVertical: 12,
+      paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: -4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 20,
+      elevation: 10,
     },
-
     navItem: {
-      flex: 1,
       alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 5,
+      paddingVertical: 8,
+      paddingHorizontal: 16,
     },
-
     navIcon: {
-      fontSize: scale(24),
+      fontSize: 24,
       marginBottom: 4,
+      color: colors.textPrimary,
     },
-
     navLabel: {
-      fontSize: scale(11),
-      color: colors.textSecondary,
+      fontSize: 11,
+      fontWeight: '500',
+      color: colors.textPrimary,
     },
-
-    activeNav: {
+    navActive: {
       color: colors.primary,
-    },
-
-    // Empty states
-    emptyState: {
-      padding: 20,
-      alignItems: 'center',
-      backgroundColor: colors.cardBackground,
-      borderRadius: 16,
-      marginHorizontal: 20,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderStyle: 'dashed' as const,
-    },
-
-    emptyStateText: {
-      fontSize: 14,
-      color: colors.textSecondary,
-      textAlign: 'center',
-      lineHeight: 20,
     },
   });
 };
