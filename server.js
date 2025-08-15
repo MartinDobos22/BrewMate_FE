@@ -20,17 +20,15 @@ admin.initializeApp({
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-// Umožni veľké JSON payloady (kvôli base64 obrázku)
 app.use(express.json({ limit: '20mb' }));
 app.use(cors());
 
-// Vlož si svoj kľúč do .env súboru alebo priamo sem
 const GOOGLE_VISION_API_KEY = process.env.GOOGLE_VISION_API_KEY || " ";
 
-// Základný health check
 app.get("/", (req, res) => {
   res.send("Google Vision OCR backend beží.");
 });
+
 const db = new Pool({
   connectionString: process.env.SUPABASE_DB_URL,
 });
@@ -41,16 +39,7 @@ if (!fs.existsSync(LOG_DIR)) {
   fs.mkdirSync(LOG_DIR, { recursive: true });
 }
 
-// Ensure manual_input column exists so profile queries don't fail
-const ensureManualInputColumn = async () => {
-  try {
-    await db.query("ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS manual_input TEXT");
-    console.log('✅ manual_input column ready');
-  } catch (err) {
-    console.error('❌ manual_input column check failed:', err);
-  }
-};
-ensureManualInputColumn();
+// ========== OPTIMALIZOVANÝ PROFILE ENDPOINT ==========
 app.get('/api/profile', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
   if (!idToken) return res.status(401).json({ error: 'Token chýba' });
@@ -59,45 +48,79 @@ app.get('/api/profile', async (req, res) => {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
 
+    // Použitie pohľadu pre získanie kompletného profilu
     const result = await db.query(
-        'SELECT id, email, name, coffee_preferences, experience_level, ai_recommendation, manual_input FROM user_profiles WHERE id = $1',
-        [uid]
+      `SELECT 
+        id, 
+        email, 
+        name, 
+        bio,
+        avatar_url,
+        experience_level,
+        intensity,
+        roast,
+        temperature,
+        milk,
+        sugar,
+        preferred_drinks,
+        flavor_notes,
+        ai_recommendation,
+        user_notes as manual_input,
+        recommendation_version,
+        recommendation_updated_at
+      FROM user_complete_profile 
+      WHERE id = $1`,
+      [uid]
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Profil neexistuje' });
     }
+
     const profile = result.rows[0];
+
+    // Transformuj do starého formátu pre kompatibilitu s frontend
+    const response = {
+      id: profile.id,
+      email: profile.email,
+      name: profile.name,
+      bio: profile.bio,
+      avatar_url: profile.avatar_url,
+      experience_level: profile.experience_level,
+      ai_recommendation: profile.ai_recommendation,
+      manual_input: profile.manual_input,
+      coffee_preferences: profile.experience_level ? {
+        intensity: profile.intensity,
+        roast: profile.roast,
+        temperature: profile.temperature,
+        milk: profile.milk,
+        sugar: profile.sugar,
+        preferred_drinks: profile.preferred_drinks,
+        flavor_notes: profile.flavor_notes
+      } : null
+    };
+
     fs.appendFileSync(path.join(LOG_DIR, 'profile.log'), `[${new Date().toISOString()}] GET profile ${uid}\n`);
-    return res.json(profile);
+    return res.json(response);
   } catch (err) {
     console.error('❌ Chyba načítania profilu:', err);
-    try {
-      fs.appendFileSync(
-        path.join(LOG_DIR, 'profile.log'),
-        `[${new Date().toISOString()}] ERROR GET profile: ${err.message}\n`
-      );
-    } catch {}
     res.status(500).json({ error: 'Nepodarilo sa načítať profil' });
   }
 });
 
-
+// ========== OPTIMALIZOVANÝ UPDATE PROFILE ENDPOINT ==========
 app.put('/api/profile', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
   if (!idToken) {
-    console.warn('⚠️ Token chýba v hlavičke');
     return res.status(401).json({ error: 'Token chýba' });
   }
 
+  const client = await db.connect();
   try {
-    console.log('📥 Prijatý PUT /api/profile');
-    console.log('🧾 Raw body:', JSON.stringify(req.body, null, 2));
+    await client.query('BEGIN');
 
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
-
-    console.log('🔐 Overený Firebase UID:', uid);
 
     const {
       name,
@@ -109,72 +132,95 @@ app.put('/api/profile', async (req, res) => {
       manual_input,
     } = req.body;
 
-    console.log('🧩 Extrahované polia:');
-    console.log('name:', name);
-    console.log('bio:', bio);
-    console.log('avatar_url:', avatar_url);
-    console.log('experience_level:', experience_level);
-    console.log('coffee_preferences:', coffee_preferences);
-    console.log('ai_recommendation:', ai_recommendation);
-    console.log('manual_input:', manual_input);
+    // 1. Aktualizuj základný profil
+    if (name !== undefined || bio !== undefined || avatar_url !== undefined) {
+      await client.query(
+        `UPDATE user_profiles SET
+          name = COALESCE($1, name),
+          bio = COALESCE($2, bio),
+          avatar_url = COALESCE($3, avatar_url),
+          updated_at = now()
+        WHERE id = $4`,
+        [name, bio, avatar_url, uid]
+      );
+    }
 
-    const safe = (val) => typeof val !== 'undefined' ? val : null;
+    // 2. Aktualizuj kávové preferencie
+    if (coffee_preferences || experience_level) {
+      const prefs = coffee_preferences || {};
 
-    await db.query(
-      `
-        UPDATE user_profiles SET
-                               name = COALESCE($1, name),
-                               bio = COALESCE($2, bio),
-                               avatar_url = COALESCE($3, avatar_url),
-                               coffee_preferences = $4,
-                               experience_level = $5,
-                               ai_recommendation = $6,
-                               manual_input = $7,
-                               updated_at = now()
-        WHERE id = $8
-      `,
-      [
-        safe(name),
-        safe(bio),
-        safe(avatar_url),
-        coffee_preferences,
-        experience_level,
-        ai_recommendation,
-        manual_input,
-        uid
-      ]
-    );
+      await client.query(
+        `INSERT INTO user_coffee_preferences (
+          user_id, experience_level, intensity, roast, temperature, 
+          milk, sugar, preferred_drinks, flavor_notes
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ON CONFLICT (user_id) DO UPDATE SET
+          experience_level = COALESCE($2, user_coffee_preferences.experience_level),
+          intensity = COALESCE($3, user_coffee_preferences.intensity),
+          roast = COALESCE($4, user_coffee_preferences.roast),
+          temperature = COALESCE($5, user_coffee_preferences.temperature),
+          milk = COALESCE($6, user_coffee_preferences.milk),
+          sugar = COALESCE($7, user_coffee_preferences.sugar),
+          preferred_drinks = COALESCE($8, user_coffee_preferences.preferred_drinks),
+          flavor_notes = COALESCE($9, user_coffee_preferences.flavor_notes),
+          updated_at = now()`,
+        [
+          uid,
+          experience_level,
+          prefs.intensity,
+          prefs.roast,
+          prefs.temperature,
+          prefs.milk,
+          prefs.sugar,
+          prefs.preferred_drinks,
+          prefs.flavor_notes
+        ]
+      );
+    }
 
-    console.log('✅ Úspešne aktualizované v DB');
+    // 3. Aktualizuj AI odporúčanie (vytvor novú verziu)
+    if (ai_recommendation !== undefined) {
+      // Deaktivuj staré odporúčania
+      await client.query(
+        `UPDATE preference_updates SET is_current = false 
+         WHERE user_id = $1 AND is_current = true`,
+        [uid]
+      );
 
-    const log = `[${new Date().toISOString()}] PROFILE UPDATE: ${uid} (${decoded.email})
---- Preferences ---
-${JSON.stringify(coffee_preferences, null, 2)}
---- AI ---
-${ai_recommendation}
---- Manual ---
-${manual_input}
---- Meta ---
-name: ${name}, bio: ${bio}, avatar_url: ${avatar_url}
-`;
+      // Získaj najvyššiu verziu
+      const versionResult = await client.query(
+        `SELECT COALESCE(MAX(version), 0) as max_version 
+         FROM preference_updates WHERE user_id = $1`,
+        [uid]
+      );
 
+      const nextVersion = versionResult.rows[0].max_version + 1;
+
+      // Vlož nové odporúčanie
+      await client.query(
+        `INSERT INTO preference_updates (
+          user_id, ai_recommendation, user_notes, version, is_current
+        ) VALUES ($1, $2, $3, $4, true)`,
+        [uid, ai_recommendation, manual_input, nextVersion]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    const log = `[${new Date().toISOString()}] PROFILE UPDATE: ${uid} (${decoded.email})\n`;
     fs.appendFileSync(path.join(LOG_DIR, 'profile.log'), log);
 
     res.json({ message: 'Profil aktualizovaný' });
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('❌ Chyba pri update profilu:', err);
-    try {
-      fs.appendFileSync(
-        path.join(LOG_DIR, 'profile.log'),
-        `[${new Date().toISOString()}] ERROR PUT profile: ${err.message}\n`
-      );
-    } catch {}
     res.status(500).json({ error: 'Chyba servera' });
+  } finally {
+    client.release();
   }
 });
 
-
-
+// ========== AUTH ENDPOINT ==========
 app.post('/api/auth', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
 
@@ -185,19 +231,18 @@ app.post('/api/auth', async (req, res) => {
     const timestamp = new Date().toISOString();
     const userAgent = req.headers['user-agent'] || 'unknown';
 
-    // ➕ VLOŽ PROFIL DO DB AK NEEXISTUJE
+    // Vlož profil do DB ak neexistuje
     try {
       await db.query(
-          `INSERT INTO user_profiles (id, email) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`,
-          [uid, email]
+        `INSERT INTO user_profiles (id, email) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`,
+        [uid, email]
       );
       console.log('✅ Profil vložený (alebo už existoval)');
     } catch (dbErr) {
       console.warn('⚠️ Nepodarilo sa vložiť profil:', dbErr);
     }
 
-    // Audit log
-    const logEntry = `[${timestamp}] LOGIN: ${email} (${uid}) – ${userAgent}\n`;
+    const logEntry = `[${timestamp}] LOGIN: ${email} (${uid}) — ${userAgent}\n`;
     fs.appendFileSync(path.join(LOG_DIR, 'auth.log'), logEntry);
     console.log('✅ Audit log:', logEntry.trim());
 
@@ -208,104 +253,7 @@ app.post('/api/auth', async (req, res) => {
   }
 });
 
-
-app.post('/api/logout', async (req, res) => {
-  const idToken = req.headers.authorization?.split(' ')[1];
-
-  if (!idToken) {
-    return res.status(401).json({ error: 'Token chýba' });
-  }
-
-  try {
-    const decoded = await admin.auth().verifyIdToken(idToken);
-    const uid = decoded.uid;
-
-    // ✅ Zneplatni refresh tokeny pre tohto používateľa
-    await admin.auth().revokeRefreshTokens(uid);
-
-    console.log('✅ Refresh tokeny zneplatnené pre UID:', uid);
-    res.status(200).json({ message: 'Odhlásenie úspešné' });
-  } catch (err) {
-    console.error('❌ Chyba pri logout-e:', err);
-    res.status(401).json({ error: 'Neplatný token' });
-  }
-});
-app.post('/api/register', async (req, res) => {
-  const { email, password } = req.body;
-
-  try {
-    // ✅ Vytvor používateľa cez Admin SDK – NEprihlási ho
-    const userRecord = await admin.auth().createUser({ email, password });
-
-    const link = await admin.auth().generateEmailVerificationLink(email);
-
-    // ✉️ Pošli verifikačný email – použiješ rovnaký nodemailer ako doteraz
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
-
-    await transporter.sendMail({
-      from: '"BrewMate" <noreply@brewmate.sk>',
-      to: email,
-      subject: 'Overenie účtu',
-      html: `
-        <h2>Vitaj v BrewMate!</h2>
-        <p>Klikni na odkaz nižšie a over svoju emailovú adresu:</p>
-        <a href="${link}">Overiť email</a>
-        <p>Po overení sa môžeš prihlásiť.</p>
-      `,
-    });
-
-    console.log('✅ Používateľ vytvorený a email odoslaný:', email);
-    res.status(200).json({ message: 'Používateľ vytvorený a email odoslaný' });
-  } catch (err) {
-    console.error('❌ Chyba pri registrácii:', err);
-    res.status(500).json({ error: 'Zlyhala registrácia' });
-  }
-});
-
-
-app.post('/api/reset-password', async (req, res) => {
-  const { email } = req.body;
-
-  if (!email) return res.status(400).json({ error: 'Email je povinný' });
-
-  try {
-    const link = await admin.auth().generatePasswordResetLink(email);
-
-    // Pošli email cez nodemailer
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
-
-    await transporter.sendMail({
-      from: '"BrewMate" <noreply@brewmate.sk>',
-      to: email,
-      subject: 'Obnova hesla – BrewMate',
-      html: `
-        <h2>Obnova hesla</h2>
-        <p>Klikni na odkaz nižšie na reset hesla:</p>
-        <a href="${link}" style="padding:10px 20px; background:#ff6b35; color:white; text-decoration:none; border-radius:5px;">Resetovať heslo</a>
-        <p>Ak si o obnovu nežiadal, ignoruj tento email.</p>
-      `,
-    });
-
-    res.status(200).json({ message: 'Email na obnovu odoslaný' });
-  } catch (err) {
-    console.error('❌ Reset hesla error:', err);
-    res.status(500).json({ error: 'Nepodarilo sa odoslať email na obnovu hesla' });
-  }
-});
-
-// Hlavný OCR endpoint
+// ========== OCR ENDPOINTS ==========
 app.post("/ocr", async (req, res) => {
   try {
     const { base64image } = req.body;
@@ -327,42 +275,13 @@ app.post("/ocr", async (req, res) => {
       headers: { "Content-Type": "application/json" }
     });
 
-    // Extrahuj text z odpovede Vision API
     const text = response.data.responses?.[0]?.fullTextAnnotation?.text || "";
-
     res.json({ text });
   } catch (error) {
-    // Pre debug vypíš viac, aj keď API zlyhá
     console.error("OCR server error:", error?.message ?? error);
-    if (error?.response?.data) {
-      console.error("Google response:", JSON.stringify(error.response.data, null, 2));
-    }
     res.status(500).json({ error: "OCR failed", detail: error?.message ?? error });
   }
 });
-
-// OLD ONE
-// app.post('/api/ocr/save', async (req, res) => {
-//   const idToken = req.headers.authorization?.split(' ')[1];
-//   if (!idToken) return res.status(401).json({ error: 'Token chýba' });
-//
-//   try {
-//     const decoded = await admin.auth().verifyIdToken(idToken);
-//     const uid = decoded.uid;
-//
-//     const { original_text, corrected_text } = req.body;
-//
-//     await db.query(`
-//       INSERT INTO ocr_logs (user_id, original_text, corrected_text, created_at)
-//       VALUES ($1, $2, $3, now())
-//     `, [uid, original_text, corrected_text]);
-//
-//     res.status(200).json({ message: 'OCR uložené' });
-//   } catch (err) {
-//     console.error('❌ Chyba pri ukladaní OCR:', err);
-//     res.status(500).json({ error: 'Chyba servera pri ukladaní OCR' });
-//   }
-// });
 
 app.post('/api/ocr/save', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
@@ -374,15 +293,13 @@ app.post('/api/ocr/save', async (req, res) => {
 
     const { original_text, corrected_text } = req.body;
 
-    // Získaj preferencie používateľa
+    // Získaj preferencie používateľa z novej štruktúry
     const prefResult = await db.query(
-      'SELECT coffee_preferences FROM user_profiles WHERE id = $1',
+      `SELECT * FROM user_coffee_preferences WHERE user_id = $1`,
       [uid]
     );
 
-    const preferences = prefResult.rows[0]?.coffee_preferences;
-
-    // Vypočítaj zhodu (tu môžete pridať AI vyhodnotenie)
+    const preferences = prefResult.rows[0];
     const matchPercentage = calculateMatch(corrected_text, preferences);
     const isRecommended = matchPercentage > 75;
 
@@ -404,88 +321,6 @@ app.post('/api/ocr/save', async (req, res) => {
   }
 });
 
-function calculateMatch(coffeeText, preferences) {
-  // Jednoduchý algoritmus na výpočet zhody
-  // V reálnej aplikácii by ste použili AI alebo zložitejší algoritmus
-
-  if (!preferences) return 70; // Predvolená hodnota
-
-  let score = 50; // Základné skóre
-
-  // Príklad: kontrola intenzity
-  if (preferences.intensity) {
-    if (coffeeText.toLowerCase().includes(preferences.intensity.toLowerCase())) {
-      score += 20;
-    }
-  }
-
-  // Kontrola typu praženia
-  if (preferences.roast_type) {
-    if (coffeeText.toLowerCase().includes(preferences.roast_type.toLowerCase())) {
-      score += 15;
-    }
-  }
-
-  // Kontrola chutí
-  if (preferences.flavor_notes && Array.isArray(preferences.flavor_notes)) {
-    preferences.flavor_notes.forEach(flavor => {
-      if (coffeeText.toLowerCase().includes(flavor.toLowerCase())) {
-        score += 10;
-      }
-    });
-  }
-
-  return Math.min(score, 100); // Max 100%
-}
-
-app.post('/api/send-verification-email', async (req, res) => {
-  const { email } = req.body;
-
-  if (!email) return res.status(400).json({ error: 'Email je povinný' });
-
-  try {
-    // 1. Vygeneruj verifikačný link
-    const link = await admin.auth().generateEmailVerificationLink(email);
-
-    // 2. Nastav SMTP transport
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
-
-    // 3. Obsah e-mailu
-    const mailOptions = {
-      from: '"BrewMate" <noreply@brewmate.sk>',
-      to: email,
-      subject: 'Overenie emailu pre BrewMate 🍺',
-      html: `
-        <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-          <h2>Vitaj v BrewMate!</h2>
-          <p>Pre overenie tvojej emailovej adresy klikni na nasledujúci odkaz:</p>
-          <a href="${link}" style="display: inline-block; padding: 10px 20px; background-color: #ff6b35; color: white; text-decoration: none; border-radius: 5px;">
-            Overiť email
-          </a>
-          <p>Ak si tento účet nevytvoril ty, tento email ignoruj.</p>
-        </div>
-      `,
-    };
-
-    // 4. Pošli e-mail
-    await transporter.sendMail(mailOptions);
-    console.log('✅ Verifikačný email odoslaný:', email);
-
-    res.status(200).json({ message: 'Verifikačný email odoslaný' });
-  } catch (err) {
-    console.error('❌ Chyba pri odosielaní emailu:', err);
-    res.status(500).json({ error: 'Zlyhalo odoslanie verifikačného emailu' });
-  }
-});
-
-
-
 app.post('/api/ocr/evaluate', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
   if (!idToken) return res.status(401).json({ error: 'Token chýba' });
@@ -497,20 +332,28 @@ app.post('/api/ocr/evaluate', async (req, res) => {
     const { corrected_text } = req.body;
     if (!corrected_text) return res.status(400).json({ error: 'Chýba text kávy' });
 
+    // Získaj preferencie z novej štruktúry
     const result = await db.query(
-      'SELECT coffee_preferences FROM user_profiles WHERE id = $1',
+      `SELECT * FROM user_coffee_preferences WHERE user_id = $1`,
       [uid]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Používateľ nenájdený' });
+      return res.status(404).json({ error: 'Používateľ nemá nastavené preferencie' });
     }
 
-    const coffeePreferences = result.rows[0].coffee_preferences;
+    const preferences = result.rows[0];
 
     const prompt = `
-Porovnaj preferencie používateľa s popisom kávy a vyhodnoť, či mu káva bude chutiť. Používateľove preferencie (JSON):
-${JSON.stringify(coffeePreferences, null, 2)}
+Porovnaj preferencie používateľa s popisom kávy a vyhodnoť, či mu káva bude chutiť.
+Používateľove preferencie:
+- Intenzita: ${preferences.intensity}
+- Praženie: ${preferences.roast}
+- Teplota: ${preferences.temperature}
+- Mlieko: ${preferences.milk ? 'áno' : 'nie'}
+- Cukor: ${preferences.sugar ? 'áno' : 'nie'}
+- Obľúbené nápoje: ${preferences.preferred_drinks?.join(', ')}
+- Preferované chute: ${preferences.flavor_notes?.join(', ')}
 
 Popis kávy (OCR výstup):
 ${corrected_text}
@@ -546,9 +389,6 @@ Výsledok napíš ako používateľovi:
   }
 });
 
-
-
-
 // ========== DASHBOARD ENDPOINT ==========
 app.get('/api/dashboard', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
@@ -558,9 +398,9 @@ app.get('/api/dashboard', async (req, res) => {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
 
-    // Získaj profil používateľa
+    // Získaj profil používateľa z pohľadu
     const profileResult = await db.query(
-      'SELECT name, email, coffee_preferences FROM user_profiles WHERE id = $1',
+      'SELECT name, email FROM user_profiles WHERE id = $1',
       [uid]
     );
 
@@ -607,10 +447,13 @@ app.get('/api/dashboard', async (req, res) => {
       isRecommended: row.is_recommended || row.match > 75
     }));
 
-    // Získaj odporúčania na základe preferencií
-    const recommendations = await generateRecommendations(profile.coffee_preferences);
+    // Získaj preferencie pre generovanie odporúčaní
+    const prefResult = await db.query(
+      'SELECT * FROM user_coffee_preferences WHERE user_id = $1',
+      [uid]
+    );
 
-    // Denný tip
+    const recommendations = await generateRecommendations(prefResult.rows[0]);
     const dailyTip = getDailyTip();
 
     res.json({
@@ -630,7 +473,161 @@ app.get('/api/dashboard', async (req, res) => {
   }
 });
 
-// ========== VYMAZAŤ OCR ZÁZNAM ==========
+// ========== HISTORY ENDPOINT ==========
+app.get('/api/preference-history', async (req, res) => {
+  const idToken = req.headers.authorization?.split(' ')[1];
+  if (!idToken) return res.status(401).json({ error: 'Token chýba' });
+
+  try {
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    const uid = decoded.uid;
+
+    const result = await db.query(`
+      SELECT 
+        id,
+        ai_recommendation,
+        user_notes,
+        version,
+        is_current,
+        created_at
+      FROM preference_updates
+      WHERE user_id = $1
+      ORDER BY version DESC
+      LIMIT 10
+    `, [uid]);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error('❌ History error:', err);
+    res.status(500).json({ error: 'Chyba pri načítaní histórie' });
+  }
+});
+
+// ========== OSTATNÉ ENDPOINTY (NEZMENENÉ) ==========
+app.post('/api/logout', async (req, res) => {
+  const idToken = req.headers.authorization?.split(' ')[1];
+  if (!idToken) return res.status(401).json({ error: 'Token chýba' });
+
+  try {
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    const uid = decoded.uid;
+    await admin.auth().revokeRefreshTokens(uid);
+    console.log('✅ Refresh tokeny zneplatnené pre UID:', uid);
+    res.status(200).json({ message: 'Odhlásenie úspešné' });
+  } catch (err) {
+    console.error('❌ Chyba pri logout-e:', err);
+    res.status(401).json({ error: 'Neplatný token' });
+  }
+});
+
+app.post('/api/register', async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const userRecord = await admin.auth().createUser({ email, password });
+    const link = await admin.auth().generateEmailVerificationLink(email);
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: '"BrewMate" <noreply@brewmate.sk>',
+      to: email,
+      subject: 'Overenie účtu',
+      html: `
+        <h2>Vitaj v BrewMate!</h2>
+        <p>Klikni na odkaz nižšie a over svoju emailovú adresu:</p>
+        <a href="${link}">Overiť email</a>
+        <p>Po overení sa môžeš prihlásiť.</p>
+      `,
+    });
+
+    console.log('✅ Používateľ vytvorený a email odoslaný:', email);
+    res.status(200).json({ message: 'Používateľ vytvorený a email odoslaný' });
+  } catch (err) {
+    console.error('❌ Chyba pri registrácii:', err);
+    res.status(500).json({ error: 'Zlyhala registrácia' });
+  }
+});
+
+app.post('/api/reset-password', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email je povinný' });
+
+  try {
+    const link = await admin.auth().generatePasswordResetLink(email);
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: '"BrewMate" <noreply@brewmate.sk>',
+      to: email,
+      subject: 'Obnova hesla – BrewMate',
+      html: `
+        <h2>Obnova hesla</h2>
+        <p>Klikni na odkaz nižšie na reset hesla:</p>
+        <a href="${link}">Resetovať heslo</a>
+        <p>Ak si o obnovu nežiadal, ignoruj tento email.</p>
+      `,
+    });
+
+    res.status(200).json({ message: 'Email na obnovu odoslaný' });
+  } catch (err) {
+    console.error('❌ Reset hesla error:', err);
+    res.status(500).json({ error: 'Nepodarilo sa odoslať email' });
+  }
+});
+
+app.post('/api/send-verification-email', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email je povinný' });
+
+  try {
+    const link = await admin.auth().generateEmailVerificationLink(email);
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: '"BrewMate" <noreply@brewmate.sk>',
+      to: email,
+      subject: 'Overenie emailu pre BrewMate ☕',
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+          <h2>Vitaj v BrewMate!</h2>
+          <p>Pre overenie tvojej emailovej adresy klikni na nasledujúci odkaz:</p>
+          <a href="${link}" style="display: inline-block; padding: 10px 20px; background-color: #ff6b35; color: white; text-decoration: none; border-radius: 5px;">
+            Overiť email
+          </a>
+          <p>Ak si tento účet nevytvoril ty, tento email ignoruj.</p>
+        </div>
+      `,
+    });
+
+    console.log('✅ Verifikačný email odoslaný:', email);
+    res.status(200).json({ message: 'Verifikačný email odoslaný' });
+  } catch (err) {
+    console.error('❌ Chyba pri odosielaní emailu:', err);
+    res.status(500).json({ error: 'Zlyhalo odoslanie emailu' });
+  }
+});
+
 app.delete('/api/ocr/:id', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
   if (!idToken) return res.status(401).json({ error: 'Token chýba' });
@@ -640,31 +637,28 @@ app.delete('/api/ocr/:id', async (req, res) => {
     const uid = decoded.uid;
     const recordId = req.params.id;
 
-    // Vymaž záznam iba ak patrí používateľovi
     const result = await db.query(
       'DELETE FROM ocr_logs WHERE id = $1 AND user_id = $2 RETURNING id',
       [recordId, uid]
     );
 
     if (result.rowCount === 0) {
-      return res.status(404).json({ error: 'Záznam neexistuje alebo nemáte oprávnenie' });
+      return res.status(404).json({ error: 'Záznam neexistuje' });
     }
 
-    // Vymaž aj súvisiace hodnotenie ak existuje
     await db.query(
       'DELETE FROM coffee_ratings WHERE coffee_id = $1 AND user_id = $2',
       [recordId, uid]
     );
 
-    console.log(`✅ OCR záznam ${recordId} vymazaný používateľom ${uid}`);
+    console.log(`✅ OCR záznam ${recordId} vymazaný`);
     res.json({ message: 'Záznam vymazaný' });
   } catch (err) {
-    console.error('❌ Chyba pri mazaní OCR záznamu:', err);
-    res.status(500).json({ error: 'Chyba pri mazaní záznamu' });
+    console.error('❌ Chyba pri mazaní:', err);
+    res.status(500).json({ error: 'Chyba pri mazaní' });
   }
 });
 
-// ========== HISTÓRIA OCR SKENOVANÍ ==========
 app.get('/api/ocr/history', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
   if (!idToken) return res.status(401).json({ error: 'Token chýba' });
@@ -707,7 +701,6 @@ app.get('/api/ocr/history', async (req, res) => {
   }
 });
 
-// ========== HODNOTENIE KÁVY ==========
 app.post('/api/coffee/rate', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
   if (!idToken) return res.status(401).json({ error: 'Token chýba' });
@@ -718,7 +711,6 @@ app.post('/api/coffee/rate', async (req, res) => {
 
     const { coffee_id, rating, notes } = req.body;
 
-    // Vlož alebo aktualizuj hodnotenie
     await db.query(`
       INSERT INTO coffee_ratings (user_id, coffee_id, rating, notes, created_at)
       VALUES ($1, $2, $3, $4, now())
@@ -729,7 +721,6 @@ app.post('/api/coffee/rate', async (req, res) => {
         updated_at = now()
     `, [uid, coffee_id, rating, notes]);
 
-    // Aktualizuj hodnotenie v OCR logoch ak existuje
     await db.query(`
       UPDATE ocr_logs 
       SET rating = $2 
@@ -743,7 +734,6 @@ app.post('/api/coffee/rate', async (req, res) => {
   }
 });
 
-// ========== PRIDAŤ/ODOBRAŤ Z OBĽÚBENÝCH ==========
 app.post('/api/coffee/favorite/:id', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
   if (!idToken) return res.status(401).json({ error: 'Token chýba' });
@@ -753,14 +743,12 @@ app.post('/api/coffee/favorite/:id', async (req, res) => {
     const uid = decoded.uid;
     const coffeeId = req.params.id;
 
-    // Skontroluj či už existuje
     const existing = await db.query(
       'SELECT is_favorite FROM coffee_ratings WHERE user_id = $1 AND coffee_id = $2',
       [uid, coffeeId]
     );
 
     if (existing.rows.length > 0) {
-      // Toggle existujúci záznam
       const newFavorite = !existing.rows[0].is_favorite;
       await db.query(
         'UPDATE coffee_ratings SET is_favorite = $3, updated_at = now() WHERE user_id = $1 AND coffee_id = $2',
@@ -768,7 +756,6 @@ app.post('/api/coffee/favorite/:id', async (req, res) => {
       );
       res.json({ is_favorite: newFavorite });
     } else {
-      // Vytvor nový záznam
       await db.query(
         'INSERT INTO coffee_ratings (user_id, coffee_id, is_favorite, created_at) VALUES ($1, $2, true, now())',
         [uid, coffeeId]
@@ -782,22 +769,45 @@ app.post('/api/coffee/favorite/:id', async (req, res) => {
 });
 
 // ========== HELPER FUNKCIE ==========
+function calculateMatch(coffeeText, preferences) {
+  if (!preferences) return 70;
+
+  let score = 50;
+
+  // Kontrola intenzity
+  if (preferences.intensity && coffeeText.toLowerCase().includes(preferences.intensity.toLowerCase())) {
+    score += 20;
+  }
+
+  // Kontrola typu praženia
+  if (preferences.roast && coffeeText.toLowerCase().includes(preferences.roast.toLowerCase())) {
+    score += 15;
+  }
+
+  // Kontrola chutí
+  if (preferences.flavor_notes && Array.isArray(preferences.flavor_notes)) {
+    preferences.flavor_notes.forEach(flavor => {
+      if (coffeeText.toLowerCase().includes(flavor.toLowerCase())) {
+        score += 10;
+      }
+    });
+  }
+
+  return Math.min(score, 100);
+}
+
 function extractCoffeeName(text) {
   if (!text) return 'Neznáma káva';
 
-  // Pokús sa extrahovať názov kávy z textu
-  // Hľadaj známe značky alebo vzory
   const brands = ['Lavazza', 'Illy', 'Segafredo', 'Kimbo', 'Pellini', 'Bazzara'];
   for (const brand of brands) {
     if (text.includes(brand)) {
-      // Vráť značku + nasledujúce slovo
       const regex = new RegExp(`${brand}\\s+\\w+`, 'i');
       const match = text.match(regex);
       if (match) return match[0];
     }
   }
 
-  // Ak nenájde značku, vráť prvých pár slov
   const words = text.split(/\s+/).slice(0, 3).join(' ');
   return words.substring(0, 50);
 }
@@ -817,13 +827,8 @@ function getDailyTip() {
 }
 
 async function generateRecommendations(preferences) {
-  // Základné odporúčania podľa preferencií
   const recommendations = [];
 
-  // Tu môžete pridať logiku na generovanie odporúčaní
-  // na základe používateľových preferencií
-
-  // Zatiaľ vrátime statické odporúčania
   const coffees = [
     { name: 'Colombia Geisha', rating: 4.8, match: 95, origin: 'Colombia' },
     { name: 'Ethiopia Yirgacheffe', rating: 4.6, match: 88, origin: 'Ethiopia' },
@@ -832,12 +837,13 @@ async function generateRecommendations(preferences) {
     { name: 'Kenya AA', rating: 4.9, match: 93, origin: 'Kenya' },
   ];
 
-  // Ak má používateľ preferencie, filtruj podľa nich
+  // Filtruj podľa preferencií ak existujú
+  let filtered = coffees;
   if (preferences) {
-    // Tu pridajte logiku filtrovania podľa preferencií
+    // Tu môžete pridať logiku filtrovania
   }
 
-  return coffees.slice(0, 3).map(coffee => ({
+  return filtered.slice(0, 3).map(coffee => ({
     id: Math.random().toString(),
     name: coffee.name,
     rating: coffee.rating,
@@ -846,10 +852,6 @@ async function generateRecommendations(preferences) {
     isRecommended: true
   }));
 }
-
-
-
-
 
 app.listen(PORT, () => {
   console.log(`OCR server beží na porte ${PORT}`);
