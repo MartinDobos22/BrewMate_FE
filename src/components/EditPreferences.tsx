@@ -8,11 +8,17 @@ import {
   ActivityIndicator,
   ScrollView,
   useColorScheme,
-  View
+  View,
+  SafeAreaView,
+  KeyboardAvoidingView,
+  Platform,
+  Dimensions,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import { getColors, Colors } from '../theme/colors';
+import { getSafeAreaTop, getSafeAreaBottom, scale } from './utils/safeArea';
 
+const { width } = Dimensions.get('window');
 const OPENAI_API_KEY = "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";
 
 interface ProfileData {
@@ -45,7 +51,6 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
         const data = await res.json();
         setProfile(data);
         setCurrentRecommendation(data.ai_recommendation || '');
-        // Vyčisti pole pre nové poznámky
         setUserNotes('');
       } catch (err) {
         Alert.alert('Chyba', 'Nepodarilo sa načítať profil');
@@ -59,7 +64,6 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
 
   const generateAI = async (additionalNotes: string) => {
     try {
-      // Vytvor prompt s históriou úprav
       let prompt = `Používateľ má tieto preferencie kávy: ${JSON.stringify(profile?.coffee_preferences)}.`;
 
       if (currentRecommendation) {
@@ -112,10 +116,8 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
 
     setSaving(true);
     try {
-      // Vygeneruj nové odporúčanie na základe poznámok
       const newRecommendation = await generateAI(userNotes);
 
-      // Ulož históriu poznámok - pridaj k existujúcim
       const updatedManualInput = profile.manual_input
         ? `${profile.manual_input}\n---\n${new Date().toLocaleDateString('sk-SK')}: ${userNotes}`
         : `${new Date().toLocaleDateString('sk-SK')}: ${userNotes}`;
@@ -193,7 +195,7 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
                 },
                 body: JSON.stringify({
                   ai_recommendation: newRecommendation,
-                  manual_input: null, // Vymaž históriu
+                  manual_input: null,
                 }),
               });
 
@@ -213,152 +215,222 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
     );
   };
 
-  if (loading) return <ActivityIndicator style={{ marginTop: 40 }} size="large" color={colors.primary} />;
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.headerPlaceholder} />
+          <Text style={styles.headerTitle}>Upraviť preferencie</Text>
+          <View style={styles.headerPlaceholder} />
+        </View>
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Upraviť preferencie</Text>
-
-      {/* Aktuálne odporúčanie - iba na čítanie */}
-      <View style={styles.section}>
-        <Text style={styles.label}>Vaše aktuálne odporúčanie:</Text>
-        <View style={styles.currentRecommendation}>
-          <Text style={styles.recommendationText}>
-            {currentRecommendation || 'Zatiaľ nemáte žiadne odporúčanie. Vyplňte najprv dotazník preferencií.'}
-          </Text>
-        </View>
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.headerButton} onPress={onBack}>
+          <Text style={styles.headerButtonText}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Upraviť preferencie</Text>
+        <View style={styles.headerPlaceholder} />
       </View>
 
-      {/* Pole pre dodatočné poznámky */}
-      <View style={styles.section}>
-        <Text style={styles.label}>Ako by ste chceli upraviť toto odporúčanie?</Text>
-        <Text style={styles.helperText}>
-          Napríklad: "Chcel by som silnejšiu kávu", "Preferujem viac ovocné tóny", "Nemám rád horkú chuť"
-        </Text>
-        <TextInput
-          value={userNotes}
-          onChangeText={setUserNotes}
-          style={[styles.input, styles.multiline]}
-          multiline
-          numberOfLines={4}
-          placeholder="Napíšte svoje poznámky k úprave odporúčania..."
-          placeholderTextColor={colors.textSecondary}
-        />
-      </View>
-
-      {/* História úprav ak existuje */}
-      {profile?.manual_input && (
-        <View style={styles.section}>
-          <Text style={styles.label}>História vašich úprav:</Text>
-          <View style={styles.historyBox}>
-            <ScrollView style={styles.historyScroll} nestedScrollEnabled={true}>
-              <Text style={styles.historyText}>{profile.manual_input}</Text>
-            </ScrollView>
+      {/* Content */}
+      <KeyboardAvoidingView
+        style={styles.content}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : scale(20)}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Aktuálne odporúčanie */}
+          <View style={styles.section}>
+            <Text style={styles.label}>Vaše aktuálne odporúčanie:</Text>
+            <View style={styles.currentRecommendation}>
+              <Text style={styles.recommendationText}>
+                {currentRecommendation || 'Zatiaľ nemáte žiadne odporúčanie. Vyplňte najprv dotazník preferencií.'}
+              </Text>
+            </View>
           </View>
-        </View>
-      )}
 
-      {/* Akčné tlačidlá */}
-      <TouchableOpacity
-        style={[styles.saveButton, saving && styles.disabledButton]}
-        onPress={handleSave}
-        disabled={saving}
-      >
-        <Text style={styles.saveButtonText}>
-          {saving ? 'Generujem nové odporúčanie...' : 'Uložiť a vygenerovať nové odporúčanie'}
-        </Text>
-      </TouchableOpacity>
+          {/* Pole pre dodatočné poznámky */}
+          <View style={styles.section}>
+            <Text style={styles.label}>Ako by ste chceli upraviť toto odporúčanie?</Text>
+            <Text style={styles.helperText}>
+              Napríklad: "Chcel by som silnejšiu kávu", "Preferujem viac ovocné tóny", "Nemám rád horkú chuť"
+            </Text>
+            <TextInput
+              value={userNotes}
+              onChangeText={setUserNotes}
+              style={[styles.input, styles.multiline]}
+              multiline
+              numberOfLines={4}
+              placeholder="Napíšte svoje poznámky k úprave odporúčania..."
+              placeholderTextColor={colors.textSecondary}
+              textAlignVertical="top"
+            />
+          </View>
 
-      <TouchableOpacity
-        style={styles.resetButton}
-        onPress={handleReset}
-        disabled={saving}
-      >
-        <Text style={styles.resetButtonText}>🔄 Resetovať odporúčanie</Text>
-      </TouchableOpacity>
+          {/* História úprav */}
+          {profile?.manual_input && (
+            <View style={styles.section}>
+              <Text style={styles.label}>História vašich úprav:</Text>
+              <View style={styles.historyBox}>
+                <ScrollView style={styles.historyScroll} nestedScrollEnabled={true}>
+                  <Text style={styles.historyText}>{profile.manual_input}</Text>
+                </ScrollView>
+              </View>
+            </View>
+          )}
 
-      <TouchableOpacity style={styles.backButton} onPress={onBack}>
-        <Text style={styles.backButtonText}>← Späť</Text>
-      </TouchableOpacity>
-    </ScrollView>
+          {/* Akčné tlačidlá */}
+          <View style={styles.buttonsContainer}>
+            <TouchableOpacity
+              style={[styles.saveButton, saving && styles.disabledButton]}
+              onPress={handleSave}
+              disabled={saving}
+            >
+              <Text style={styles.saveButtonText}>
+                {saving ? 'Generujem nové odporúčanie...' : 'Uložiť a vygenerovať nové odporúčanie'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.resetButton}
+              onPress={handleReset}
+              disabled={saving}
+            >
+              <Text style={styles.resetButtonText}>🔄 Resetovať odporúčanie</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
 const createStyles = (colors: Colors) =>
   StyleSheet.create({
     container: {
-      padding: 20,
+      flex: 1,
       backgroundColor: colors.background,
-      flexGrow: 1,
     },
-    title: {
-      fontSize: 26,
-      fontWeight: 'bold',
-      marginBottom: 20,
-      color: colors.text,
+    header: {
+      backgroundColor: colors.primary,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: scale(16),
+      paddingVertical: scale(12),
+      paddingTop: Platform.OS === 'ios' ? scale(12) : scale(16) + getSafeAreaTop(),
+    },
+    headerButton: {
+      width: scale(36),
+      height: scale(36),
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      borderRadius: scale(18),
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    headerButtonText: {
+      color: 'white',
+      fontSize: scale(20),
+      fontWeight: '600',
+    },
+    headerTitle: {
+      color: 'white',
+      fontSize: scale(18),
+      fontWeight: '700',
+    },
+    headerPlaceholder: {
+      width: scale(36),
+    },
+    content: {
+      flex: 1,
+    },
+    centerContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    scrollContent: {
+      padding: scale(16),
+      paddingBottom: getSafeAreaBottom() + scale(30),
     },
     section: {
-      marginBottom: 20,
+      marginBottom: scale(20),
     },
     label: {
-      fontSize: 16,
+      fontSize: scale(16),
       fontWeight: '600',
       color: colors.text,
-      marginBottom: 8,
+      marginBottom: scale(8),
     },
     helperText: {
-      fontSize: 13,
+      fontSize: scale(13),
       color: colors.textSecondary,
-      marginBottom: 10,
+      marginBottom: scale(10),
       fontStyle: 'italic',
     },
     currentRecommendation: {
       backgroundColor: colors.cardBackground,
-      padding: 15,
-      borderRadius: 12,
+      padding: scale(15),
+      borderRadius: scale(12),
       borderWidth: 1,
       borderColor: colors.border,
     },
     recommendationText: {
       color: colors.text,
-      fontSize: 14,
-      lineHeight: 20,
+      fontSize: scale(14),
+      lineHeight: scale(20),
     },
     input: {
       borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: 12,
-      padding: 12,
+      borderRadius: scale(12),
+      padding: scale(12),
       backgroundColor: colors.cardBackground,
       color: colors.text,
-      fontSize: 14,
+      fontSize: scale(14),
     },
     multiline: {
-      height: 100,
+      height: scale(100),
       textAlignVertical: 'top',
     },
     historyBox: {
       backgroundColor: colors.cardBackground,
-      padding: 12,
-      borderRadius: 12,
+      padding: scale(12),
+      borderRadius: scale(12),
       borderWidth: 1,
       borderColor: colors.border,
-      maxHeight: 120,
+      maxHeight: scale(120),
     },
     historyScroll: {
-      maxHeight: 100,
+      maxHeight: scale(100),
     },
     historyText: {
       color: colors.textSecondary,
-      fontSize: 12,
-      lineHeight: 18,
+      fontSize: scale(12),
+      lineHeight: scale(18),
+    },
+    buttonsContainer: {
+      marginTop: scale(10),
     },
     saveButton: {
       backgroundColor: colors.primary,
-      padding: 15,
-      borderRadius: 20,
+      padding: scale(15),
+      borderRadius: scale(20),
       alignItems: 'center',
-      marginBottom: 10,
+      marginBottom: scale(10),
     },
     disabledButton: {
       opacity: 0.6,
@@ -366,28 +438,19 @@ const createStyles = (colors: Colors) =>
     saveButtonText: {
       color: '#fff',
       fontWeight: 'bold',
-      fontSize: 16,
+      fontSize: scale(15),
     },
     resetButton: {
       backgroundColor: colors.cardBackground,
-      padding: 12,
-      borderRadius: 20,
+      padding: scale(12),
+      borderRadius: scale(20),
       alignItems: 'center',
-      marginBottom: 10,
       borderWidth: 1,
       borderColor: colors.border,
     },
     resetButtonText: {
       color: colors.text,
-      fontSize: 14,
-    },
-    backButton: {
-      marginTop: 10,
-      alignItems: 'center',
-    },
-    backButtonText: {
-      color: colors.primary,
-      fontSize: 16,
+      fontSize: scale(14),
     },
   });
 

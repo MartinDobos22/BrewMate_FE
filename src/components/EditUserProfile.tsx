@@ -1,25 +1,35 @@
 import React, { useEffect, useState } from 'react';
 import {
-    Text,
-    TextInput,
-    StyleSheet,
-    TouchableOpacity,
-    Alert,
-    ActivityIndicator,
-    ScrollView,
-    useColorScheme,
-  } from 'react-native';
-  import auth from '@react-native-firebase/auth';
-  import { getColors, Colors } from '../theme/colors';
+  Text,
+  TextInput,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  ScrollView,
+  useColorScheme,
+  SafeAreaView,
+  View,
+  KeyboardAvoidingView,
+  Platform,
+  Dimensions,
+} from 'react-native';
+import auth from '@react-native-firebase/auth';
+import { getColors, Colors } from '../theme/colors';
+import { getSafeAreaTop, getSafeAreaBottom, scale } from './utils/safeArea';
 
-  const EditUserProfile = ({ onBack }: { onBack: () => void }) => {
-    const isDarkMode = useColorScheme() === 'dark';
-    const colors = getColors(isDarkMode);
-    const styles = createStyles(colors);
+const { width } = Dimensions.get('window');
+
+const EditUserProfile = ({ onBack }: { onBack: () => void }) => {
+  const isDarkMode = useColorScheme() === 'dark';
+  const colors = getColors(isDarkMode);
+  const styles = createStyles(colors);
+
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -47,6 +57,7 @@ import {
   }, []);
 
   const handleSave = async () => {
+    setSaving(true);
     try {
       const user = auth().currentUser;
       const token = await user?.getIdToken();
@@ -65,94 +76,234 @@ import {
       onBack();
     } catch (err) {
       Alert.alert('Chyba', 'Uloženie zlyhalo');
+    } finally {
+      setSaving(false);
     }
   };
 
-    if (loading) return <ActivityIndicator style={{ marginTop: 40 }} size="large" color={colors.primary} />;
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.headerPlaceholder} />
+          <Text style={styles.headerTitle}>Upraviť profil</Text>
+          <View style={styles.headerPlaceholder} />
+        </View>
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>✏️ Upraviť profil</Text>
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.headerButton} onPress={onBack}>
+          <Text style={styles.headerButtonText}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Upraviť profil</Text>
+        <View style={styles.headerPlaceholder} />
+      </View>
 
-      <Text style={styles.label}>Meno</Text>
-      <TextInput value={name} onChangeText={setName} style={styles.input} placeholder="Zadaj meno" />
+      {/* Content */}
+      <KeyboardAvoidingView
+        style={styles.content}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : scale(20)}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.formCard}>
+            <Text style={styles.formTitle}>✏️ Upraviť profil</Text>
 
-      <Text style={styles.label}>O mne / Bio</Text>
-      <TextInput
-        value={bio}
-        onChangeText={setBio}
-        style={[styles.input, styles.multiline]}
-        multiline
-        numberOfLines={4}
-        placeholder="Povedz niečo o sebe"
-      />
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Meno</Text>
+              <TextInput
+                value={name}
+                onChangeText={setName}
+                style={styles.input}
+                placeholder="Zadaj meno"
+                placeholderTextColor={colors.textSecondary}
+                autoCorrect={false}
+              />
+            </View>
 
-      <Text style={styles.label}>Avatar URL</Text>
-      <TextInput
-        value={avatarUrl}
-        onChangeText={setAvatarUrl}
-        style={styles.input}
-        placeholder="https://example.com/avatar.jpg"
-      />
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>O mne / Bio</Text>
+              <TextInput
+                value={bio}
+                onChangeText={setBio}
+                style={[styles.input, styles.multiline]}
+                multiline
+                numberOfLines={4}
+                placeholder="Povedz niečo o sebe"
+                placeholderTextColor={colors.textSecondary}
+                textAlignVertical="top"
+              />
+            </View>
 
-      <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-        <Text style={styles.saveButtonText}>💾 Uložiť</Text>
-      </TouchableOpacity>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Avatar URL</Text>
+              <TextInput
+                value={avatarUrl}
+                onChangeText={setAvatarUrl}
+                style={styles.input}
+                placeholder="https://example.com/avatar.jpg"
+                placeholderTextColor={colors.textSecondary}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
 
-      <TouchableOpacity style={styles.backButton} onPress={onBack}>
-        <Text style={styles.backButtonText}>← Späť</Text>
-      </TouchableOpacity>
-    </ScrollView>
+            <View style={styles.buttonsContainer}>
+              <TouchableOpacity
+                style={[styles.saveButton, saving && styles.disabledButton]}
+                onPress={handleSave}
+                disabled={saving}
+              >
+                <Text style={styles.saveButtonText}>
+                  {saving ? 'Ukladám...' : '💾 Uložiť'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={onBack}
+                disabled={saving}
+              >
+                <Text style={styles.cancelButtonText}>Zrušiť</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
-  const createStyles = (colors: Colors) =>
-    StyleSheet.create({
-      container: {
-        padding: 30,
-        backgroundColor: colors.background,
-      },
-      title: {
-        fontSize: 26,
-        fontWeight: 'bold',
-        marginBottom: 20,
-        color: colors.text,
-      },
-      label: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginTop: 10,
-        color: colors.text,
-      },
-      input: {
-        borderWidth: 1,
-        borderColor: colors.border,
-        borderRadius: 12,
-        padding: 10,
-        marginTop: 5,
-        backgroundColor: colors.cardBackground,
-        color: colors.text,
-      },
-      multiline: {
-        height: 100,
-        textAlignVertical: 'top',
-      },
-      saveButton: {
-        backgroundColor: colors.secondary,
-        padding: 15,
-        borderRadius: 20,
-        marginTop: 30,
-        alignItems: 'center',
-      },
-      saveButtonText: { color: '#fff', fontWeight: 'bold' },
-      backButton: {
-        marginTop: 20,
-        alignItems: 'center',
-      },
-      backButtonText: {
-        color: colors.primary,
-        fontSize: 16,
-      },
-    });
+const createStyles = (colors: Colors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      backgroundColor: colors.primary,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: scale(16),
+      paddingVertical: scale(12),
+      paddingTop: Platform.OS === 'ios' ? scale(12) : scale(16) + getSafeAreaTop(),
+    },
+    headerButton: {
+      width: scale(36),
+      height: scale(36),
+      backgroundColor: 'rgba(255,255,255,0.2)',
+      borderRadius: scale(18),
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    headerButtonText: {
+      color: 'white',
+      fontSize: scale(20),
+      fontWeight: '600',
+    },
+    headerTitle: {
+      color: 'white',
+      fontSize: scale(18),
+      fontWeight: '700',
+    },
+    headerPlaceholder: {
+      width: scale(36),
+    },
+    content: {
+      flex: 1,
+    },
+    centerContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    scrollContent: {
+      padding: scale(16),
+      paddingBottom: getSafeAreaBottom() + scale(30),
+    },
+    formCard: {
+      backgroundColor: colors.cardBackground,
+      borderRadius: scale(20),
+      padding: scale(20),
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    formTitle: {
+      fontSize: scale(22),
+      fontWeight: 'bold',
+      marginBottom: scale(20),
+      color: colors.text,
+      textAlign: 'center',
+    },
+    inputGroup: {
+      marginBottom: scale(16),
+    },
+    label: {
+      fontSize: scale(14),
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: scale(8),
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: scale(12),
+      padding: scale(12),
+      backgroundColor: colors.background,
+      color: colors.text,
+      fontSize: scale(14),
+    },
+    multiline: {
+      height: scale(100),
+      textAlignVertical: 'top',
+    },
+    buttonsContainer: {
+      marginTop: scale(20),
+      gap: scale(10),
+    },
+    saveButton: {
+      backgroundColor: colors.secondary,
+      padding: scale(15),
+      borderRadius: scale(20),
+      alignItems: 'center',
+    },
+    disabledButton: {
+      opacity: 0.6,
+    },
+    saveButtonText: {
+      color: '#fff',
+      fontWeight: 'bold',
+      fontSize: scale(16),
+    },
+    cancelButton: {
+      backgroundColor: 'transparent',
+      padding: scale(15),
+      borderRadius: scale(20),
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    cancelButtonText: {
+      color: colors.textSecondary,
+      fontSize: scale(14),
+      fontWeight: '600',
+    },
+  });
 
 export default EditUserProfile;
