@@ -34,6 +34,23 @@ app.get("/", (req, res) => {
 const db = new Pool({
   connectionString: process.env.SUPABASE_DB_URL,
 });
+
+// Ensure log directory exists
+const LOG_DIR = path.join('.', 'logs');
+if (!fs.existsSync(LOG_DIR)) {
+  fs.mkdirSync(LOG_DIR, { recursive: true });
+}
+
+// Ensure manual_input column exists so profile queries don't fail
+const ensureManualInputColumn = async () => {
+  try {
+    await db.query("ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS manual_input TEXT");
+    console.log('✅ manual_input column ready');
+  } catch (err) {
+    console.error('❌ manual_input column check failed:', err);
+  }
+};
+ensureManualInputColumn();
 app.get('/api/profile', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
   if (!idToken) return res.status(401).json({ error: 'Token chýba' });
@@ -50,10 +67,17 @@ app.get('/api/profile', async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Profil neexistuje' });
     }
-
-    return res.json(result.rows[0]);
+    const profile = result.rows[0];
+    fs.appendFileSync(path.join(LOG_DIR, 'profile.log'), `[${new Date().toISOString()}] GET profile ${uid}\n`);
+    return res.json(profile);
   } catch (err) {
     console.error('❌ Chyba načítania profilu:', err);
+    try {
+      fs.appendFileSync(
+        path.join(LOG_DIR, 'profile.log'),
+        `[${new Date().toISOString()}] ERROR GET profile: ${err.message}\n`
+      );
+    } catch {}
     res.status(500).json({ error: 'Nepodarilo sa načítať profil' });
   }
 });
@@ -134,11 +158,17 @@ ${manual_input}
 name: ${name}, bio: ${bio}, avatar_url: ${avatar_url}
 `;
 
-    fs.appendFileSync(path.join('./logs', 'profile.log'), log);
+    fs.appendFileSync(path.join(LOG_DIR, 'profile.log'), log);
 
     res.json({ message: 'Profil aktualizovaný' });
   } catch (err) {
     console.error('❌ Chyba pri update profilu:', err);
+    try {
+      fs.appendFileSync(
+        path.join(LOG_DIR, 'profile.log'),
+        `[${new Date().toISOString()}] ERROR PUT profile: ${err.message}\n`
+      );
+    } catch {}
     res.status(500).json({ error: 'Chyba servera' });
   }
 });
@@ -168,7 +198,7 @@ app.post('/api/auth', async (req, res) => {
 
     // Audit log
     const logEntry = `[${timestamp}] LOGIN: ${email} (${uid}) – ${userAgent}\n`;
-    fs.appendFileSync(path.join('./logs', 'auth.log'), logEntry);
+    fs.appendFileSync(path.join(LOG_DIR, 'auth.log'), logEntry);
     console.log('✅ Audit log:', logEntry.trim());
 
     res.status(200).json({ message: 'Authenticated', uid, email });

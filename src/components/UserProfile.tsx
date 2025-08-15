@@ -78,6 +78,7 @@ const UserProfile = ({
       // Generuj štatistiky z preferencií
       generateStats(data);
     } catch (err: any) {
+      console.error('Failed to load profile:', err);
       Alert.alert('Chyba', err.message);
     } finally {
       setLoading(false);
