@@ -8,17 +8,14 @@ import {
   ActivityIndicator,
   ScrollView,
   useColorScheme,
-  SafeAreaView,
   View,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import { getColors, Colors } from '../theme/colors';
 import { getSafeAreaTop, getSafeAreaBottom, scale } from './utils/safeArea';
 
-const { width } = Dimensions.get('window');
 
 const EditUserProfile = ({ onBack }: { onBack: () => void }) => {
   const isDarkMode = useColorScheme() === 'dark';
@@ -83,7 +80,7 @@ const EditUserProfile = ({ onBack }: { onBack: () => void }) => {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.header}>
           <View style={styles.headerPlaceholder} />
           <Text style={styles.headerTitle}>Upraviť profil</Text>
@@ -92,12 +89,12 @@ const EditUserProfile = ({ onBack }: { onBack: () => void }) => {
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerButton} onPress={onBack}>
@@ -182,7 +179,7 @@ const EditUserProfile = ({ onBack }: { onBack: () => void }) => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 };
 

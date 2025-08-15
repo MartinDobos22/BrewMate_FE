@@ -1,8 +1,6 @@
 // App.tsx
 import React, { useState, useEffect } from 'react';
 import {
-  SafeAreaView,
-  StatusBar,
   StyleSheet,
   Text,
   View,
@@ -19,6 +17,7 @@ import CoffeePreferenceForm from './src/components/CoffeePreferenceForm';
 import EditPreferences from './src/components/EditPreferences';
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 import { scale } from './src/theme/responsive';
+import ResponsiveWrapper from './src/components/ResponsiveWrapper';
 
 type ScreenName =
   | 'home'
@@ -43,11 +42,6 @@ const AppContent = (): React.JSX.Element => {
     });
     return unsubscribe;
   }, []);
-
-  const backgroundStyle = {
-    backgroundColor: colors.background,
-    flex: 1,
-  };
 
   const handleScannerPress = () => {
     setCurrentScreen('scanner');
@@ -113,12 +107,24 @@ const AppContent = (): React.JSX.Element => {
   };
 
   if (!isAuthenticated) {
-    return <AuthScreen />;
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.background}
+      >
+        <AuthScreen />
+      </ResponsiveWrapper>
+    );
   }
 
   if (currentScreen === 'scanner') {
     return (
-      <SafeAreaView style={backgroundStyle}>
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.background}
+      >
         <View style={styles.header}>
           <TouchableOpacity
             style={[styles.backButton, { backgroundColor: colors.primary }]}
@@ -127,13 +133,17 @@ const AppContent = (): React.JSX.Element => {
           </TouchableOpacity>
         </View>
         <ProfessionalOCRScanner />
-      </SafeAreaView>
+      </ResponsiveWrapper>
     );
   }
 
   if (currentScreen === 'profile') {
     return (
-      <SafeAreaView style={backgroundStyle}>
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.primary}
+      >
         <View style={styles.header}>
           <TouchableOpacity
             style={[styles.backButton, { backgroundColor: colors.primary }]}
@@ -146,40 +156,52 @@ const AppContent = (): React.JSX.Element => {
           onPreferences={() => setCurrentScreen('edit-preferences')}
           onForm={() => setCurrentScreen('preferences')}
         />
-      </SafeAreaView>
+      </ResponsiveWrapper>
     );
   }
 
   if (currentScreen === 'edit-profile') {
     return (
-      <SafeAreaView style={backgroundStyle}>
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.primary}
+      >
         <EditUserProfile onBack={() => setCurrentScreen('profile')} />
-      </SafeAreaView>
+      </ResponsiveWrapper>
     );
   }
 
   if (currentScreen === 'preferences') {
     return (
-      <SafeAreaView style={backgroundStyle}>
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.primary}
+      >
         <CoffeePreferenceForm onBack={() => setCurrentScreen('profile')} />
-      </SafeAreaView>
+      </ResponsiveWrapper>
     );
   }
 
   if (currentScreen === 'edit-preferences') {
     return (
-      <SafeAreaView style={backgroundStyle}>
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.primary}
+      >
         <EditPreferences onBack={() => setCurrentScreen('profile')} />
-      </SafeAreaView>
+      </ResponsiveWrapper>
     );
   }
 
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={colors.background}
-      />
+    <ResponsiveWrapper
+      backgroundColor={colors.background}
+      statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+      statusBarBackground={colors.background}
+    >
       <HomeScreen
         onScanPress={handleScannerPress}
         onBrewPress={handleBrewPress}
@@ -189,7 +211,7 @@ const AppContent = (): React.JSX.Element => {
         onFavoritesPress={handleFavoritesPress}
         onLogout={handleLogout}
       />
-    </SafeAreaView>
+    </ResponsiveWrapper>
   );
 };
 

@@ -5,14 +5,10 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   RefreshControl,
-  Dimensions,
   Alert,
 } from 'react-native';
 import { homeStyles } from './styles/HomeScreen.styles.ts';
-
-const { width } = Dimensions.get('window');
 
 interface CoffeeItem {
   id: string;
@@ -44,8 +40,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                                                }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [activeNavItem, setActiveNavItem] = useState('home');
-  const [caffeineAmount, setCaffeineAmount] = useState(195);
-  const [coffeesToday, setCoffeesToday] = useState(3);
+  const [caffeineAmount, _setCaffeineAmount] = useState(195);
+  const [coffeesToday, _setCoffeesToday] = useState(3);
   const [activeTasteTags, setActiveTasteTags] = useState([
     'Stredná intenzita',
     'Čokoládové tóny',
@@ -130,7 +126,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   // @ts-ignore
   // @ts-ignore
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       {/* Status Bar */}
       <View style={styles.statusBar}>
         <Text style={styles.statusTime}>9:41</Text>
@@ -366,7 +362,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
           <Text style={[styles.navLabel, activeNavItem === 'profile' && styles.navActive]}>Profil</Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 };
 

@@ -9,7 +9,6 @@ import {
   ScrollView,
   Alert,
   useColorScheme,
-  SafeAreaView,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import { getColors } from '../theme/colors';
@@ -552,7 +551,7 @@ Píš jednoducho, zrozumiteľne a priateľsky v slovenčine.
   };
 
   return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={onBack} style={styles.closeButton}>
@@ -579,7 +578,7 @@ Píš jednoducho, zrozumiteľne a priateľsky v slovenčine.
 
           <View style={styles.bottomPadding} />
         </ScrollView>
-      </SafeAreaView>
+      </View>
   );
 };
 

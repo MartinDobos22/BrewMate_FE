@@ -9,16 +9,13 @@ import {
   ScrollView,
   useColorScheme,
   View,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import { getColors, Colors } from '../theme/colors';
 import { getSafeAreaTop, getSafeAreaBottom, scale } from './utils/safeArea';
 
-const { width } = Dimensions.get('window');
 const OPENAI_API_KEY = "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";
 
 interface ProfileData {
@@ -217,7 +214,7 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.header}>
           <View style={styles.headerPlaceholder} />
           <Text style={styles.headerTitle}>Upraviť preferencie</Text>
@@ -226,12 +223,12 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerButton} onPress={onBack}>
@@ -314,7 +311,7 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 };
 
