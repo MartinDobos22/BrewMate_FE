@@ -36,10 +36,12 @@ interface Stat {
 const UserProfile = ({
                        onEdit,
                        onPreferences,
+                       onForm,
                        onBack
                      }: {
   onEdit: () => void;
   onPreferences: () => void;
+  onForm?: () => void;
   onBack?: () => void;
 }) => {
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -320,6 +322,18 @@ const UserProfile = ({
                 Upraviť preferencie
               </Text>
             </TouchableOpacity>
+            {onForm && (
+                <TouchableOpacity
+                    style={[styles.actionButton, styles.secondaryActionButton]}
+                    onPress={onForm}
+                    activeOpacity={0.8}
+                >
+                  <View style={styles.actionIcon}>
+                    <Text style={styles.actionEmoji}>📝</Text>
+                  </View>
+                  <Text style={styles.actionButtonText}>Formulár preferencií</Text>
+                </TouchableOpacity>
+            )}
             {onBack && (
                 <TouchableOpacity style={styles.backButton} onPress={onBack}>
                   <Text style={styles.backButtonText}>←</Text>

@@ -144,6 +144,7 @@ const AppContent = (): React.JSX.Element => {
         <UserProfile
           onEdit={handleEditProfilePress}
           onPreferences={() => setCurrentScreen('edit-preferences')}
+          onForm={() => setCurrentScreen('preferences')}
         />
       </SafeAreaView>
     );
