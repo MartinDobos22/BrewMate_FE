@@ -27,6 +27,8 @@ import {
   processOCR,
   fetchOCRHistory,
   deleteOCRRecord,
+  rateOCRResult,
+  getBrewRecipe
   rateOCRResult
 } from '../services/ocrServices.ts';
 
@@ -64,6 +66,10 @@ const BrewScanner: React.FC<BrewScannerProps> = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [userRating, setUserRating] = useState<number>(0);
+  const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
+  const [tastePreference, setTastePreference] = useState('');
+  const [brewRecipe, setBrewRecipe] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const camera = useRef<Camera>(null);
   const device = useCameraDevice('back');
@@ -230,6 +236,26 @@ const BrewScanner: React.FC<BrewScannerProps> = () => {
     );
   };
 
+  const handleMethodPress = (method: string) => {
+    setSelectedMethod(method);
+    setTastePreference('');
+    setBrewRecipe('');
+  };
+
+  const generateRecipe = async () => {
+    if (!selectedMethod) return;
+    try {
+      setIsGenerating(true);
+      const recipe = await getBrewRecipe(selectedMethod, tastePreference);
+      setBrewRecipe(recipe);
+    } catch (error) {
+      console.error('Error generating recipe:', error);
+      Alert.alert('Chyba', 'Nepodarilo sa získať recept');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const openCamera = () => {
     if (!hasPermission) {
       Alert.alert(
@@ -249,6 +275,9 @@ const BrewScanner: React.FC<BrewScannerProps> = () => {
     setScanResult(null);
     setEditedText('');
     setUserRating(0);
+    setSelectedMethod(null);
+    setTastePreference('');
+    setBrewRecipe('');
   };
 
   if (!device) {
@@ -404,8 +433,48 @@ const BrewScanner: React.FC<BrewScannerProps> = () => {
               <View style={styles.brewingCard}>
                 <Text style={styles.brewingTitle}>🍽️ Odporúčané prípravy</Text>
                 {scanResult.brewingMethods.map((method, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.brewingMethod,
+                      selectedMethod === method && styles.brewingMethodSelected,
+                    ]}
+                    onPress={() => handleMethodPress(method)}
+                  >
+                    <Text style={styles.brewingText}>• {method}</Text>
+                  </TouchableOpacity>
+
                   <Text key={index} style={styles.brewingText}>• {method}</Text>
                 ))}
+              </View>
+            )}
+
+            {selectedMethod && (
+              <View style={styles.recipeSection}>
+                <Text style={styles.recipeTitle}>Zvolené: {selectedMethod}</Text>
+                <TextInput
+                  style={styles.tasteInput}
+                  placeholder="Akú chuť chceš? napr. sladšie"
+                  placeholderTextColor="#999"
+                  value={tastePreference}
+                  onChangeText={setTastePreference}
+                />
+                <TouchableOpacity
+                  style={styles.recipeButton}
+                  onPress={generateRecipe}
+                  disabled={isGenerating}
+                >
+                  <Text style={styles.recipeButtonText}>
+                    {isGenerating ? 'Generujem...' : 'Vyhodnoť recept'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {brewRecipe !== '' && (
+              <View style={styles.recipeCard}>
+                <Text style={styles.recipeResultTitle}>☕ Recept</Text>
+                <Text style={styles.recipeResultText}>{brewRecipe}</Text>
               </View>
             )}
 

@@ -151,6 +151,43 @@ const suggestBrewingMethods = async (coffeeText: string): Promise<string[]> => {
 };
 
 /**
+ * Vygeneruje recept na kávu podľa zvolenej metódy a chuťových preferencií
+ */
+export const getBrewRecipe = async (
+  method: string,
+  taste: string
+): Promise<string> => {
+  const prompt = `Priprav detailný recept na kávu pomocou metódy ${method}. Používateľ preferuje ${taste} chuť. Uveď ideálny pomer kávy k vode, teplotu vody a ďalšie dôležité kroky. Odpovedz stručne.`;
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: 'Si skúsený barista, ktorý navrhuje recepty na kávu.'
+          },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.7,
+      }),
+    });
+
+    const data = await response.json();
+    return data?.choices?.[0]?.message?.content?.trim() || '';
+  } catch (error) {
+    console.error('Brew recipe error:', error);
+    return '';
+  }
+};
+
+/**
  * Spracuje OCR z obrázka
  */
 export const processOCR = async (base64image: string): Promise<OCRResult | null> => {
