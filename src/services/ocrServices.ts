@@ -2,7 +2,8 @@
 import auth from '@react-native-firebase/auth';
 
 const API_URL = 'http://10.0.2.2:3001';
-const OPENAI_API_KEY = "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";
+const OPENAI_API_KEY =
+  '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';
 
 interface OCRResult {
   original: string;
@@ -11,6 +12,7 @@ interface OCRResult {
   matchPercentage?: number;
   isRecommended?: boolean;
   scanId?: string;
+  brewingMethods?: string[];
 }
 
 interface OCRHistory {
@@ -111,6 +113,81 @@ ${ocrText}
 };
 
 /**
+ * Navrhne spôsoby prípravy kávy na základe popisu
+ */
+const suggestBrewingMethods = async (coffeeText: string): Promise<string[]> => {
+  const prompt = `Na základe tohto popisu kávy navrhni 3 až 4 najvhodnejšie spôsoby prípravy kávy. Odpovedz len zoznamom metód oddelených novým riadkom. Popis: "${coffeeText}"`;
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: 'Si barista, ktorý odporúča spôsoby prípravy kávy na základe popisu z etikety.',
+          },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.7,
+      }),
+    });
+
+    const data = await response.json();
+    const content = data?.choices?.[0]?.message?.content || '';
+    return content
+      .split('\n')
+      .map((m: string) => m.replace(/^[-*\d.\s]+/, '').trim())
+      .filter(Boolean);
+  } catch (error) {
+    console.error('Brewing suggestion error:', error);
+    return [];
+  }
+};
+
+/**
+ * Vygeneruje recept na kávu podľa zvolenej metódy a chuťových preferencií
+ */
+export const getBrewRecipe = async (
+  method: string,
+  taste: string
+): Promise<string> => {
+  const prompt = `Priprav detailný recept na kávu pomocou metódy ${method}. Používateľ preferuje ${taste} chuť. Uveď ideálny pomer kávy k vode, teplotu vody a ďalšie dôležité kroky. Odpovedz stručne.`;
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: 'Si skúsený barista, ktorý navrhuje recepty na kávu.'
+          },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.7,
+      }),
+    });
+
+    const data = await response.json();
+    return data?.choices?.[0]?.message?.content?.trim() || '';
+  } catch (error) {
+    console.error('Brew recipe error:', error);
+    return '';
+  }
+};
+
+/**
  * Spracuje OCR z obrázka
  */
 export const processOCR = async (base64image: string): Promise<OCRResult | null> => {
@@ -183,6 +260,9 @@ export const processOCR = async (base64image: string): Promise<OCRResult | null>
       recommendation = 'Nepodarilo sa vyhodnotiť kávu. Skontroluj svoje preferencie v profile.';
     }
 
+    // 5. Navrhni spôsoby prípravy
+    const brewingMethods = await suggestBrewingMethods(correctedText);
+
     return {
       original: originalText,
       corrected: correctedText,
@@ -190,6 +270,7 @@ export const processOCR = async (base64image: string): Promise<OCRResult | null>
       matchPercentage,
       isRecommended,
       scanId,
+      brewingMethods,
     };
   } catch (error) {
     console.error('OCR processing error:', error);

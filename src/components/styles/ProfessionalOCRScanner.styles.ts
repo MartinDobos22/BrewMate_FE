@@ -309,6 +309,38 @@ export const scannerStyles = (isDarkMode: boolean) => {
       lineHeight: 20,
     },
 
+    brewingCard: {
+      backgroundColor: `${colors.secondary}11`,
+      borderRadius: 16,
+      padding: 15,
+      marginBottom: 15,
+      borderWidth: 1,
+      borderColor: `${colors.secondary}33`,
+    },
+
+    brewingTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 8,
+    },
+
+    brewingMethod: {
+      paddingVertical: 6,
+      paddingHorizontal: 4,
+      borderRadius: 8,
+    },
+
+    brewingMethodSelected: {
+      backgroundColor: `${colors.primary}22`,
+    },
+
+    brewingText: {
+      fontSize: 14,
+      color: colors.text,
+      lineHeight: 20,
+    },
+
     // Rating Section
     ratingSection: {
       alignItems: 'center',
@@ -333,6 +365,60 @@ export const scannerStyles = (isDarkMode: boolean) => {
 
     starText: {
       fontSize: 30,
+    },
+
+    recipeSection: {
+      marginBottom: 15,
+    },
+
+    recipeTitle: {
+      fontSize: 16,
+      fontWeight: '500',
+      color: colors.text,
+      marginBottom: 8,
+    },
+
+    tasteInput: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      padding: 10,
+      color: colors.text,
+      marginBottom: 10,
+    },
+
+    recipeButton: {
+      backgroundColor: colors.primary,
+      borderRadius: 8,
+      paddingVertical: 10,
+      alignItems: 'center',
+    },
+
+    recipeButtonText: {
+      color: '#fff',
+      fontWeight: '600',
+    },
+
+    recipeCard: {
+      backgroundColor: `${colors.primary}11`,
+      borderRadius: 16,
+      padding: 15,
+      marginBottom: 15,
+      borderWidth: 1,
+      borderColor: `${colors.primary}33`,
+    },
+
+    recipeResultTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 8,
+    },
+
+    recipeResultText: {
+      fontSize: 14,
+      color: colors.text,
+      lineHeight: 20,
     },
 
     // Result Actions
