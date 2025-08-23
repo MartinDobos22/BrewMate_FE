@@ -29,6 +29,7 @@ import {
   deleteOCRRecord,
   rateOCRResult,
   getBrewRecipe
+  rateOCRResult
 } from '../services/ocrServices.ts';
 
 interface OCRHistory {
@@ -442,6 +443,8 @@ const BrewScanner: React.FC<BrewScannerProps> = () => {
                   >
                     <Text style={styles.brewingText}>• {method}</Text>
                   </TouchableOpacity>
+
+                  <Text key={index} style={styles.brewingText}>• {method}</Text>
                 ))}
               </View>
             )}
@@ -474,6 +477,7 @@ const BrewScanner: React.FC<BrewScannerProps> = () => {
                 <Text style={styles.recipeResultText}>{brewRecipe}</Text>
               </View>
             )}
+
 
             {/* Rating */}
             <View style={styles.ratingSection}>
