@@ -28,8 +28,7 @@ import {
   fetchOCRHistory,
   deleteOCRRecord,
   rateOCRResult,
-  getBrewRecipe
-  rateOCRResult
+  getBrewRecipe,
 } from '../services/ocrServices.ts';
 
 interface OCRHistory {
@@ -432,24 +431,22 @@ const BrewScanner: React.FC<BrewScannerProps> = () => {
             {scanResult.brewingMethods && scanResult.brewingMethods.length > 0 && (
               <View style={styles.brewingCard}>
                 <Text style={styles.brewingTitle}>🍽️ Odporúčané prípravy</Text>
-                {scanResult.brewingMethods.map((method, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={[
-                      styles.brewingMethod,
-                      selectedMethod === method && styles.brewingMethodSelected,
-                    ]}
-                    onPress={() => handleMethodPress(method)}
-                  >
-                    <Text style={styles.brewingText}>• {method}</Text>
-                  </TouchableOpacity>
+                  {scanResult.brewingMethods.map((method, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.brewingMethod,
+                        selectedMethod === method && styles.brewingMethodSelected,
+                      ]}
+                      onPress={() => handleMethodPress(method)}
+                    >
+                      <Text style={styles.brewingText}>• {method}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
 
-                  <Text key={index} style={styles.brewingText}>• {method}</Text>
-                ))}
-              </View>
-            )}
-
-            {selectedMethod && (
+              {selectedMethod && (
               <View style={styles.recipeSection}>
                 <Text style={styles.recipeTitle}>Zvolené: {selectedMethod}</Text>
                 <TextInput
