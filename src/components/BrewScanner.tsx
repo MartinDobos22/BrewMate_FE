@@ -409,6 +409,7 @@ const BrewScanner: React.FC<BrewScannerProps> = () => {
               </View>
             )}
 
+
             {/* Rating */}
             <View style={styles.ratingSection}>
               <Text style={styles.ratingTitle}>Ohodnoť túto kávu:</Text>
