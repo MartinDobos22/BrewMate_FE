@@ -48,6 +48,7 @@ interface ScanResult {
   matchPercentage?: number;
   isRecommended?: boolean;
   scanId?: string;
+  brewingMethods?: string[];
 }
 
 interface BrewScannerProps {
@@ -398,6 +399,16 @@ const BrewScanner: React.FC<BrewScannerProps> = () => {
                 </Text>
               </View>
             )}
+
+            {scanResult.brewingMethods && scanResult.brewingMethods.length > 0 && (
+              <View style={styles.brewingCard}>
+                <Text style={styles.brewingTitle}>🍽️ Odporúčané prípravy</Text>
+                {scanResult.brewingMethods.map((method, index) => (
+                  <Text key={index} style={styles.brewingText}>• {method}</Text>
+                ))}
+              </View>
+            )}
+
 
             {/* Rating */}
             <View style={styles.ratingSection}>
