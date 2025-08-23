@@ -11,6 +11,7 @@ import auth from '@react-native-firebase/auth';
 import AuthScreen from './src/components/AuthVisual.tsx';
 import HomeScreen from './src/components/HomeScreen';
 import ProfessionalOCRScanner from './src/components/ProfessionalOCRScanner';
+import BrewScanner from './src/components/BrewScanner';
 import UserProfile from './src/components/UserProfile';
 import EditUserProfile from './src/components/EditUserProfile';
 import CoffeePreferenceForm from './src/components/CoffeePreferenceForm';
@@ -47,8 +48,9 @@ const AppContent = (): React.JSX.Element => {
     setCurrentScreen('scanner');
   };
 
+  // Open dedicated scanner for preparing a drink (same as scan for now)
   const handleBrewPress = () => {
-    Alert.alert('BrewMate', 'Funkcia prípravy kávy bude čoskoro dostupná!');
+    setCurrentScreen('brew');
   };
 
   const handleProfilePress = () => {
@@ -133,6 +135,25 @@ const AppContent = (): React.JSX.Element => {
           </TouchableOpacity>
         </View>
         <ProfessionalOCRScanner />
+      </ResponsiveWrapper>
+    );
+  }
+
+  if (currentScreen === 'brew') {
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.background}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={[styles.backButton, { backgroundColor: colors.primary }]}
+            onPress={handleBackPress}>
+            <Text style={styles.backButtonText}>← Späť</Text>
+          </TouchableOpacity>
+        </View>
+        <BrewScanner />
       </ResponsiveWrapper>
     );
   }

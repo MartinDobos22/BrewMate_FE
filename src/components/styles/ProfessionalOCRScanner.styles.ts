@@ -309,6 +309,28 @@ export const scannerStyles = (isDarkMode: boolean) => {
       lineHeight: 20,
     },
 
+    brewingCard: {
+      backgroundColor: `${colors.secondary}11`,
+      borderRadius: 16,
+      padding: 15,
+      marginBottom: 15,
+      borderWidth: 1,
+      borderColor: `${colors.secondary}33`,
+    },
+
+    brewingTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 8,
+    },
+
+    brewingText: {
+      fontSize: 14,
+      color: colors.text,
+      lineHeight: 20,
+    },
+
     // Rating Section
     ratingSection: {
       alignItems: 'center',
