@@ -54,9 +54,10 @@ interface ScanResult {
 
 interface BrewScannerProps {
   onBack?: () => void;
+  onRecipeGenerated?: (recipe: string) => void;
 }
 
-const BrewScanner: React.FC<BrewScannerProps> = ({ onBack }) => {
+const BrewScanner: React.FC<BrewScannerProps> = ({ onBack, onRecipeGenerated }) => {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [editedText, setEditedText] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -67,7 +68,6 @@ const BrewScanner: React.FC<BrewScannerProps> = ({ onBack }) => {
   const [userRating, setUserRating] = useState<number>(0);
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
   const [tastePreference, setTastePreference] = useState('');
-  const [brewRecipe, setBrewRecipe] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
   const camera = useRef<Camera>(null);
@@ -238,7 +238,6 @@ const BrewScanner: React.FC<BrewScannerProps> = ({ onBack }) => {
   const handleMethodPress = (method: string) => {
     setSelectedMethod(method);
     setTastePreference('');
-    setBrewRecipe('');
   };
 
   const generateRecipe = async () => {
@@ -246,7 +245,9 @@ const BrewScanner: React.FC<BrewScannerProps> = ({ onBack }) => {
     try {
       setIsGenerating(true);
       const recipe = await getBrewRecipe(selectedMethod, tastePreference);
-      setBrewRecipe(recipe);
+      if (onRecipeGenerated) {
+        onRecipeGenerated(recipe);
+      }
     } catch (error) {
       console.error('Error generating recipe:', error);
       Alert.alert('Chyba', 'Nepodarilo sa získať recept');
@@ -276,7 +277,6 @@ const BrewScanner: React.FC<BrewScannerProps> = ({ onBack }) => {
     setUserRating(0);
     setSelectedMethod(null);
     setTastePreference('');
-    setBrewRecipe('');
   };
 
   if (!device) {
@@ -471,13 +471,6 @@ const BrewScanner: React.FC<BrewScannerProps> = ({ onBack }) => {
                     {isGenerating ? 'Generujem...' : 'Vyhodnotiť recept'}
                   </Text>
                 </TouchableOpacity>
-              </View>
-            )}
-
-            {brewRecipe !== '' && (
-              <View style={styles.recipeCard}>
-                <Text style={styles.recipeResultTitle}>☕ Recept</Text>
-                <Text style={styles.recipeResultText}>{brewRecipe}</Text>
               </View>
             )}
 
