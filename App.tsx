@@ -16,6 +16,7 @@ import UserProfile from './src/components/UserProfile';
 import EditUserProfile from './src/components/EditUserProfile';
 import CoffeePreferenceForm from './src/components/CoffeePreferenceForm';
 import EditPreferences from './src/components/EditPreferences';
+import RecipeStepsScreen from './src/components/RecipeStepsScreen';
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 import { scale } from './src/theme/responsive';
 import ResponsiveWrapper from './src/components/ResponsiveWrapper';
@@ -30,11 +31,13 @@ type ScreenName =
   | 'brew'
   | 'discover'
   | 'recipes'
+  | 'recipe-steps'
   | 'favorites';
 
 const AppContent = (): React.JSX.Element => {
   const [currentScreen, setCurrentScreen] = useState<ScreenName>('home');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [generatedRecipe, setGeneratedRecipe] = useState('');
   const { isDark, colors } = useTheme();
 
   useEffect(() => {
@@ -153,7 +156,27 @@ const AppContent = (): React.JSX.Element => {
             <Text style={styles.backButtonText}>← Späť</Text>
           </TouchableOpacity>
         </View>
-        <BrewScanner />
+        <BrewScanner
+          onRecipeGenerated={(recipe) => {
+            setGeneratedRecipe(recipe);
+            setCurrentScreen('recipe-steps');
+          }}
+        />
+      </ResponsiveWrapper>
+    );
+  }
+
+  if (currentScreen === 'recipe-steps') {
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.background}
+      >
+        <RecipeStepsScreen
+          recipe={generatedRecipe}
+          onBack={() => setCurrentScreen('brew')}
+        />
       </ResponsiveWrapper>
     );
   }
