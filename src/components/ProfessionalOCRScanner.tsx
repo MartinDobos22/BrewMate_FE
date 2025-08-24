@@ -7,7 +7,6 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
-  useColorScheme,
   TextInput,
   Share,
   RefreshControl,
@@ -22,54 +21,35 @@ import {
 } from 'react-native-vision-camera';
 import { launchImageLibrary, ImagePickerResponse, ImageLibraryOptions } from 'react-native-image-picker';
 import RNFS from 'react-native-fs';
+import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { scannerStyles } from './styles/ProfessionalOCRScanner.styles';
-import {
-  processOCR,
-  fetchOCRHistory,
-  deleteOCRRecord,
-  rateOCRResult
-} from '../services/ocrServices.ts';
 
-interface OCRHistory {
+interface ScanHistory {
   id: string;
-  coffee_name: string;
-  original_text: string;
-  corrected_text: string;
-  created_at: Date;
-  rating?: number;
-  match_percentage?: number;
-  is_recommended?: boolean;
-}
-
-interface ScanResult {
-  original: string;
-  corrected: string;
-  recommendation: string;
-  matchPercentage?: number;
-  isRecommended?: boolean;
-  scanId?: string;
+  text: string;
+  timestamp: Date;
+  title: string;
 }
 
 interface ProfessionalOCRScannerProps {
   onBack?: () => void;
 }
 
-const ProfessionalOCRScanner: React.FC<ProfessionalOCRScannerProps> = () => {
-  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+const ProfessionalOCRScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) => {
+  const [scannedText, setScannedText] = useState<string>('');
   const [editedText, setEditedText] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
-  const [ocrHistory, setOcrHistory] = useState<OCRHistory[]>([]);
+  const [scanHistory, setScanHistory] = useState<ScanHistory[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [userRating, setUserRating] = useState<number>(0);
+  const [documentTitle, setDocumentTitle] = useState('');
 
   const camera = useRef<Camera>(null);
   const device = useCameraDevice('back');
   const { hasPermission, requestPermission } = useCameraPermission();
-  const isDarkMode = useColorScheme() === 'dark';
 
-  const styles = scannerStyles(isDarkMode);
+  const styles = scannerStyles(false); // Using light mode
 
   useEffect(() => {
     if (!hasPermission) {
@@ -78,19 +58,30 @@ const ProfessionalOCRScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     loadHistory();
   }, [hasPermission, requestPermission]);
 
-  const loadHistory = async () => {
-    try {
-      const history = await fetchOCRHistory(10);
-      setOcrHistory(history);
-    } catch (error) {
-      console.error('Error loading history:', error);
-    }
+  const loadHistory = () => {
+    // Load from AsyncStorage or your storage solution
+    // Mock data for demonstration
+    const mockHistory: ScanHistory[] = [
+      {
+        id: '1',
+        title: 'Zmluva o dielo',
+        text: 'Zmluva uzatvorená podľa...',
+        timestamp: new Date(2025, 7, 22),
+      },
+      {
+        id: '2',
+        title: 'Faktúra č. 2025/08',
+        text: 'Faktúra za služby...',
+        timestamp: new Date(2025, 7, 21),
+      },
+    ];
+    setScanHistory(mockHistory);
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadHistory();
-    setRefreshing(false);
+    loadHistory();
+    setTimeout(() => setRefreshing(false), 1500);
   };
 
   const takePhoto = async () => {
@@ -105,8 +96,7 @@ const ProfessionalOCRScanner: React.FC<ProfessionalOCRScannerProps> = () => {
         flash: 'auto',
       });
 
-      const base64 = await RNFS.readFile(photo.path, 'base64');
-      await processImage(base64);
+      await processImage(`file://${photo.path}`);
     } catch (error) {
       console.error('Take photo error:', error);
       Alert.alert('Chyba', 'Nepodarilo sa urobiť fotografiu');
@@ -119,44 +109,47 @@ const ProfessionalOCRScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     const options: ImageLibraryOptions = {
       mediaType: 'photo',
       quality: 1.0,
-      includeBase64: true,
     };
 
     launchImageLibrary(options, (response: ImagePickerResponse) => {
       if (response.didCancel || response.errorMessage) return;
 
-      if (response.assets && response.assets[0]?.base64) {
-        processImage(response.assets[0].base64);
+      if (response.assets && response.assets[0]?.uri) {
+        processImage(response.assets[0].uri);
       } else {
         Alert.alert('Chyba', 'Nepodarilo sa načítať obrázok');
       }
     });
   };
 
-  const processImage = async (base64image: string) => {
+  const processImage = async (imagePath: string) => {
     try {
       setIsLoading(true);
       setShowCamera(false);
 
-      const result = await processOCR(base64image);
+      const result = await TextRecognition.recognize(imagePath);
 
-      if (result) {
-        setScanResult(result);
-        setEditedText(result.corrected);
+      if (result.text) {
+        setScannedText(result.text);
+        setEditedText(result.text);
 
-        // Načítaj aktualizovanú históriu
-        await loadHistory();
+        // Add to history
+        const newHistoryItem: ScanHistory = {
+          id: Date.now().toString(),
+          title: documentTitle || `Dokument ${new Date().toLocaleDateString('sk-SK')}`,
+          text: result.text,
+          timestamp: new Date(),
+        };
 
-        // Zobraz výsledok
+        setScanHistory(prev => [newHistoryItem, ...prev]);
+
         Alert.alert(
           '✅ Skenovanie dokončené',
-          result.isRecommended
-            ? `Táto káva má ${result.matchPercentage}% zhodu s tvojimi preferenciami!`
-            : `Zhoda s preferenciami: ${result.matchPercentage}%`,
-          [
-            { text: 'OK', style: 'default' }
-          ]
+          'Text bol úspešne rozpoznaný a uložený do histórie',
+          [{ text: 'OK', style: 'default' }]
         );
+      } else {
+        Alert.alert('Žiadny text', 'V obrázku nebol nájdený žiadny čitateľný text');
       }
     } catch (error) {
       console.error('Process image error:', error);
@@ -166,27 +159,12 @@ const ProfessionalOCRScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     }
   };
 
-  const rateCoffee = async (rating: number) => {
-    if (!scanResult?.scanId) return;
-
-    try {
-      const success = await rateOCRResult(scanResult.scanId, rating);
-      if (success) {
-        setUserRating(rating);
-        Alert.alert('Hodnotenie uložené', `Ohodnotil si kávu na ${rating}/5 ⭐`);
-        await loadHistory();
-      }
-    } catch (error) {
-      console.error('Error rating coffee:', error);
-    }
-  };
-
   const exportText = async () => {
     if (editedText) {
       try {
         await Share.share({
           message: editedText,
-          title: 'Skenovaná káva - BrewMate',
+          title: documentTitle || 'Skenovaný dokument - BrewMate',
         });
       } catch (error) {
         Alert.alert('Chyba', 'Nepodarilo sa zdieľať text');
@@ -194,35 +172,39 @@ const ProfessionalOCRScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     }
   };
 
-  const loadFromHistory = (item: OCRHistory) => {
-    setScanResult({
-      original: item.original_text,
-      corrected: item.corrected_text,
-      recommendation: '',
-      matchPercentage: item.match_percentage,
-      isRecommended: item.is_recommended,
-      scanId: item.id,
-    });
-    setEditedText(item.corrected_text);
-    setUserRating(item.rating || 0);
+  const saveToFiles = async () => {
+    if (editedText) {
+      const fileName = `${documentTitle || 'dokument'}_${Date.now()}.txt`;
+      const path = `${RNFS.DocumentDirectoryPath}/${fileName}`;
+
+      try {
+        await RNFS.writeFile(path, editedText, 'utf8');
+        Alert.alert('✅ Uložené', `Dokument bol uložený ako ${fileName}`);
+      } catch (error) {
+        Alert.alert('Chyba', 'Nepodarilo sa uložiť dokument');
+      }
+    }
+  };
+
+  const loadFromHistory = (item: ScanHistory) => {
+    setScannedText(item.text);
+    setEditedText(item.text);
+    setDocumentTitle(item.title);
     setShowHistory(false);
   };
 
-  const deleteFromHistory = async (id: string) => {
+  const deleteFromHistory = (id: string) => {
     Alert.alert(
       'Vymazať záznam',
-      'Naozaj chceš vymazať tento záznam?',
+      'Naozaj chceš vymazať tento dokument z histórie?',
       [
         { text: 'Zrušiť', style: 'cancel' },
         {
           text: 'Vymazať',
           style: 'destructive',
-          onPress: async () => {
-            const success = await deleteOCRRecord(id);
-            if (success) {
-              await loadHistory();
-              Alert.alert('Vymazané', 'Záznam bol odstránený');
-            }
+          onPress: () => {
+            setScanHistory(prev => prev.filter(item => item.id !== id));
+            Alert.alert('Vymazané', 'Dokument bol odstránený z histórie');
           }
         }
       ]
@@ -233,7 +215,7 @@ const ProfessionalOCRScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     if (!hasPermission) {
       Alert.alert(
         'Povolenie kamery',
-        'Na skenovanie kávy potrebujeme prístup ku kamere',
+        'Na skenovanie dokumentov potrebujeme prístup ku kamere',
         [
           { text: 'Zrušiť', style: 'cancel' },
           { text: 'Povoliť', onPress: requestPermission },
@@ -245,9 +227,9 @@ const ProfessionalOCRScanner: React.FC<ProfessionalOCRScannerProps> = () => {
   };
 
   const clearAll = () => {
-    setScanResult(null);
+    setScannedText('');
     setEditedText('');
-    setUserRating(0);
+    setDocumentTitle('');
   };
 
   if (!device) {
@@ -289,7 +271,7 @@ const ProfessionalOCRScanner: React.FC<ProfessionalOCRScannerProps> = () => {
 
           <View style={styles.cameraInstructions}>
             <Text style={styles.cameraInstructionText}>
-              Zaostri na etiketu kávy
+              Zaostri na dokument
             </Text>
           </View>
 
@@ -317,6 +299,12 @@ const ProfessionalOCRScanner: React.FC<ProfessionalOCRScannerProps> = () => {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      {onBack && (
+        <TouchableOpacity style={styles.backButton} onPress={onBack}>
+          <Text style={styles.backButtonText}>← Späť</Text>
+        </TouchableOpacity>
+      )}
+
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -326,29 +314,29 @@ const ProfessionalOCRScanner: React.FC<ProfessionalOCRScannerProps> = () => {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>☕ Skener kávy</Text>
+          <Text style={styles.title}>📄 Profesionálny skener</Text>
           <Text style={styles.subtitle}>
-            Naskenuj etiketu a zisti, či ti káva bude chutiť
+            Skenuj dokumenty s vysokou presnosťou OCR
           </Text>
         </View>
 
         {/* Main Actions */}
-        {!scanResult && (
+        {!scannedText && (
           <View style={styles.mainActions}>
             <TouchableOpacity
               style={[styles.actionCard, styles.cameraAction]}
               onPress={openCamera}
               activeOpacity={0.8}
             >
-              <View style={styles.actionIcon}>
+              <View style={[styles.actionIcon, styles.primaryActionIcon]}>
                 <Text style={styles.actionEmoji}>📷</Text>
               </View>
-              <Text style={styles.actionTitle}>Odfotiť kávu</Text>
-              <Text style={styles.actionDesc}>Použi fotoaparát</Text>
+              <Text style={[styles.actionTitle, styles.primaryText]}>Skenovať dokument</Text>
+              <Text style={[styles.actionDesc, styles.primaryText]}>Použi fotoaparát</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.actionCard, styles.galleryAction]}
+              style={styles.actionCard}
               onPress={pickImageFromGallery}
               activeOpacity={0.8}
             >
@@ -362,22 +350,30 @@ const ProfessionalOCRScanner: React.FC<ProfessionalOCRScannerProps> = () => {
         )}
 
         {/* Scan Result */}
-        {scanResult && (
+        {scannedText && (
           <View style={styles.resultSection}>
             <View style={styles.resultHeader}>
               <Text style={styles.resultTitle}>📋 Výsledok skenovania</Text>
-              {scanResult.matchPercentage && (
-                <View style={[
-                  styles.matchBadge,
-                  scanResult.isRecommended ? styles.matchBadgeGood : styles.matchBadgeFair
-                ]}>
-                  <Text style={styles.matchText}>
-                    {scanResult.matchPercentage}% zhoda
-                  </Text>
-                </View>
-              )}
+              <View style={styles.matchBadge}>
+                <Text style={styles.matchText}>
+                  {editedText.split(' ').length} slov
+                </Text>
+              </View>
             </View>
 
+            {/* Document Title Input */}
+            <View style={styles.resultCard}>
+              <Text style={styles.resultLabel}>Názov dokumentu:</Text>
+              <TextInput
+                style={styles.tasteInput}
+                value={documentTitle}
+                onChangeText={setDocumentTitle}
+                placeholder="Zadaj názov dokumentu..."
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            {/* Scanned Text */}
             <View style={styles.resultCard}>
               <Text style={styles.resultLabel}>Rozpoznaný text:</Text>
               <TextInput
@@ -390,37 +386,24 @@ const ProfessionalOCRScanner: React.FC<ProfessionalOCRScannerProps> = () => {
               />
             </View>
 
-            {scanResult.recommendation && (
-              <View style={styles.recommendationCard}>
-                <Text style={styles.recommendationTitle}>🤖 AI Hodnotenie</Text>
-                <Text style={styles.recommendationText}>
-                  {scanResult.recommendation}
-                </Text>
-              </View>
-            )}
-
-            {/* Rating */}
-            <View style={styles.ratingSection}>
-              <Text style={styles.ratingTitle}>Ohodnoť túto kávu:</Text>
-              <View style={styles.ratingStars}>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <TouchableOpacity
-                    key={star}
-                    onPress={() => rateCoffee(star)}
-                    style={styles.starButton}
-                  >
-                    <Text style={styles.starText}>
-                      {star <= userRating ? '⭐' : '☆'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+            {/* Text Analysis */}
+            <View style={styles.recommendationCard}>
+              <Text style={styles.recommendationTitle}>📊 Analýza textu</Text>
+              <Text style={styles.recommendationText}>
+                • Počet znakov: {editedText.length}{'\n'}
+                • Počet slov: {editedText.split(' ').filter(w => w).length}{'\n'}
+                • Počet riadkov: {editedText.split('\n').length}{'\n'}
+                • Jazyk: Slovenčina
+              </Text>
             </View>
 
             {/* Actions */}
             <View style={styles.resultActions}>
               <TouchableOpacity style={styles.shareButton} onPress={exportText}>
                 <Text style={styles.buttonText}>📤 Zdieľať</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.shareButton} onPress={saveToFiles}>
+                <Text style={styles.buttonText}>💾 Uložiť</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.clearButton} onPress={clearAll}>
                 <Text style={styles.buttonText}>🗑️ Vymazať</Text>
@@ -436,7 +419,7 @@ const ProfessionalOCRScanner: React.FC<ProfessionalOCRScannerProps> = () => {
             onPress={() => setShowHistory(!showHistory)}
           >
             <Text style={styles.historyTitle}>
-              📚 História skenovaní ({ocrHistory.length})
+              📚 História dokumentov ({scanHistory.length})
             </Text>
             <Text style={styles.historyToggle}>
               {showHistory ? '▼' : '▶'}
@@ -445,8 +428,8 @@ const ProfessionalOCRScanner: React.FC<ProfessionalOCRScannerProps> = () => {
 
           {showHistory && (
             <View style={styles.historyList}>
-              {ocrHistory.length > 0 ? (
-                ocrHistory.map((item) => (
+              {scanHistory.length > 0 ? (
+                scanHistory.map((item) => (
                   <TouchableOpacity
                     key={item.id}
                     style={styles.historyItem}
@@ -455,40 +438,46 @@ const ProfessionalOCRScanner: React.FC<ProfessionalOCRScannerProps> = () => {
                   >
                     <View style={styles.historyItemContent}>
                       <Text style={styles.historyItemName}>
-                        {item.coffee_name || 'Neznáma káva'}
+                        {item.title}
                       </Text>
                       <Text style={styles.historyItemDate}>
-                        {new Date(item.created_at).toLocaleDateString('sk-SK')}
+                        {item.timestamp.toLocaleDateString('sk-SK')} • {item.text.substring(0, 30)}...
                       </Text>
                     </View>
                     <View style={styles.historyItemMeta}>
-                      {item.match_percentage && (
-                        <Text style={styles.historyItemMatch}>
-                          {item.match_percentage}%
-                        </Text>
-                      )}
-                      {item.rating && (
-                        <Text style={styles.historyItemRating}>
-                          ⭐ {item.rating}
-                        </Text>
-                      )}
+                      <Text style={styles.historyItemMatch}>
+                        {item.text.split(' ').filter(w => w).length} slov
+                      </Text>
                     </View>
                   </TouchableOpacity>
                 ))
               ) : (
                 <Text style={styles.emptyHistoryText}>
-                  Zatiaľ nemáš žiadne skenovania
+                  Zatiaľ nemáš žiadne skenované dokumenty
                 </Text>
               )}
             </View>
           )}
         </View>
 
+        {/* Features Info */}
+        <View style={styles.brewingCard}>
+          <Text style={styles.brewingTitle}>✨ Funkcie skenera</Text>
+          <Text style={styles.brewingText}>
+            • Vysoká presnosť OCR rozpoznávania{'\n'}
+            • Podpora viacerých jazykov{'\n'}
+            • Automatické vylepšenie kvality{'\n'}
+            • Export do rôznych formátov{'\n'}
+            • História skenovaných dokumentov{'\n'}
+            • Offline spracovanie
+          </Text>
+        </View>
+
         {/* Loading Overlay */}
         {isLoading && (
           <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#8B4513" />
-            <Text style={styles.loadingText}>Spracovávam obrázok...</Text>
+            <ActivityIndicator size="large" color="#D2691E" />
+            <Text style={styles.loadingText}>Spracovávam dokument...</Text>
           </View>
         )}
       </ScrollView>

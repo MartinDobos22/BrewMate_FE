@@ -56,7 +56,7 @@ interface BrewScannerProps {
   onBack?: () => void;
 }
 
-const BrewScanner: React.FC<BrewScannerProps> = () => {
+const BrewScanner: React.FC<BrewScannerProps> = ({ onBack }) => {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [editedText, setEditedText] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -346,6 +346,12 @@ const BrewScanner: React.FC<BrewScannerProps> = () => {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      {onBack && (
+        <TouchableOpacity style={styles.backButton} onPress={onBack}>
+          <Text style={styles.backButtonText}>← Späť</Text>
+        </TouchableOpacity>
+      )}
+
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -369,15 +375,15 @@ const BrewScanner: React.FC<BrewScannerProps> = () => {
               onPress={openCamera}
               activeOpacity={0.8}
             >
-              <View style={styles.actionIcon}>
+              <View style={[styles.actionIcon, styles.primaryActionIcon]}>
                 <Text style={styles.actionEmoji}>📷</Text>
               </View>
-              <Text style={styles.actionTitle}>Odfotiť kávu</Text>
-              <Text style={styles.actionDesc}>Použi fotoaparát</Text>
+              <Text style={[styles.actionTitle, styles.primaryText]}>Odfotiť kávu</Text>
+              <Text style={[styles.actionDesc, styles.primaryText]}>Použi fotoaparát</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.actionCard, styles.galleryAction]}
+              style={styles.actionCard}
               onPress={pickImageFromGallery}
               activeOpacity={0.8}
             >
@@ -431,22 +437,22 @@ const BrewScanner: React.FC<BrewScannerProps> = () => {
             {scanResult.brewingMethods && scanResult.brewingMethods.length > 0 && (
               <View style={styles.brewingCard}>
                 <Text style={styles.brewingTitle}>🍽️ Odporúčané prípravy</Text>
-                  {scanResult.brewingMethods.map((method, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      style={[
-                        styles.brewingMethod,
-                        selectedMethod === method && styles.brewingMethodSelected,
-                      ]}
-                      onPress={() => handleMethodPress(method)}
-                    >
-                      <Text style={styles.brewingText}>• {method}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
+                {scanResult.brewingMethods.map((method, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.brewingMethod,
+                      selectedMethod === method && styles.brewingMethodSelected,
+                    ]}
+                    onPress={() => handleMethodPress(method)}
+                  >
+                    <Text style={styles.brewingText}>• {method}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
 
-              {selectedMethod && (
+            {selectedMethod && (
               <View style={styles.recipeSection}>
                 <Text style={styles.recipeTitle}>Zvolené: {selectedMethod}</Text>
                 <TextInput
@@ -462,7 +468,7 @@ const BrewScanner: React.FC<BrewScannerProps> = () => {
                   disabled={isGenerating}
                 >
                   <Text style={styles.recipeButtonText}>
-                    {isGenerating ? 'Generujem...' : 'Vyhodnoť recept'}
+                    {isGenerating ? 'Generujem...' : 'Vyhodnotiť recept'}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -474,7 +480,6 @@ const BrewScanner: React.FC<BrewScannerProps> = () => {
                 <Text style={styles.recipeResultText}>{brewRecipe}</Text>
               </View>
             )}
-
 
             {/* Rating */}
             <View style={styles.ratingSection}>
@@ -564,7 +569,7 @@ const BrewScanner: React.FC<BrewScannerProps> = () => {
         {/* Loading Overlay */}
         {isLoading && (
           <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#8B4513" />
+            <ActivityIndicator size="large" color="#D2691E" />
             <Text style={styles.loadingText}>Spracovávam obrázok...</Text>
           </View>
         )}

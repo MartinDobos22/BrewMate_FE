@@ -1,105 +1,128 @@
 // ProfessionalOCRScanner.styles.ts
-import { StyleSheet, Dimensions } from 'react-native';
-import { getColors } from '../../theme/colors';
+import { StyleSheet, Dimensions, Platform } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
-export const scannerStyles = (isDarkMode: boolean) => {
-  const colors = getColors(isDarkMode);
-  const shadow = '#000000';
+const colors = {
+  primary: '#6B4423',
+  primaryLight: '#8B6544',
+  primaryDark: '#4A2F18',
+  accent: '#D2691E',
+  success: '#4CAF50',
+  warning: '#FFA726',
+  danger: '#EF5350',
+  bgLight: '#FAF7F5',
+  bgDark: '#1A1A1A',
+  cardLight: '#FFFFFF',
+  cardDark: '#2A2A2A',
+  textPrimary: '#2C2C2C',
+  textSecondary: '#666666',
+  borderLight: '#E0E0E0',
+};
 
+export const scannerStyles = (isDarkMode: boolean = false) => {
   return StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.background,
+      backgroundColor: colors.bgLight,
     },
 
     scrollView: {
       flex: 1,
     },
 
-    // Header
+    // Header - matching HomeScreen hero style
     header: {
-      paddingHorizontal: 20,
-      paddingTop: 20,
-      paddingBottom: 15,
+      backgroundColor: colors.accent,
+      margin: 16,
+      padding: 24,
+      borderRadius: 20,
       alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.12,
+      shadowRadius: 16,
+      elevation: 8,
     },
 
     title: {
-      fontSize: 28,
-      fontWeight: 'bold',
-      color: colors.text,
+      fontSize: 24,
+      fontWeight: '700',
+      color: 'white',
       marginBottom: 8,
     },
 
     subtitle: {
-      fontSize: 15,
-      color: colors.textSecondary,
+      fontSize: 14,
+      color: 'white',
+      opacity: 0.95,
       textAlign: 'center',
     },
 
-    // Main Actions
+    // Main Actions - matching HomeScreen quick actions
     mainActions: {
       flexDirection: 'row',
-      paddingHorizontal: 20,
-      marginTop: 10,
+      marginHorizontal: 16,
       marginBottom: 20,
-      gap: 15,
+      gap: 12,
     },
 
     actionCard: {
       flex: 1,
-      backgroundColor: colors.cardBackground,
+      backgroundColor: 'white',
       borderRadius: 20,
-      padding: 25,
+      padding: 20,
       alignItems: 'center',
-      borderWidth: 1,
-      borderColor: colors.border,
-      ...(!isDarkMode && {
-        shadowColor: shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 5,
-      }),
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 4,
     },
 
     cameraAction: {
-      backgroundColor: isDarkMode ? `${colors.primary}22` : `${colors.primary}11`,
-      borderColor: `${colors.primary}44`,
+      backgroundColor: colors.primary,
     },
 
     galleryAction: {
-      backgroundColor: isDarkMode ? `${colors.secondary}22` : `${colors.secondary}11`,
-      borderColor: `${colors.secondary}44`,
+      backgroundColor: 'white',
     },
 
     actionIcon: {
-      width: 60,
-      height: 60,
-      borderRadius: 30,
-      backgroundColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+      width: 56,
+      height: 56,
+      backgroundColor: 'rgba(107, 68, 35, 0.1)',
+      borderRadius: 16,
       justifyContent: 'center',
       alignItems: 'center',
       marginBottom: 12,
     },
 
+    primaryActionIcon: {
+      backgroundColor: 'rgba(255,255,255,0.2)',
+    },
+
     actionEmoji: {
-      fontSize: 32,
+      fontSize: 28,
     },
 
     actionTitle: {
       fontSize: 16,
       fontWeight: '600',
-      color: colors.text,
+      color: colors.textPrimary,
       marginBottom: 4,
+      textAlign: 'center',
     },
 
     actionDesc: {
-      fontSize: 13,
+      fontSize: 12,
       color: colors.textSecondary,
+      opacity: 0.8,
       textAlign: 'center',
+    },
+
+    primaryText: {
+      color: 'white',
     },
 
     // Camera View
@@ -117,7 +140,7 @@ export const scannerStyles = (isDarkMode: boolean) => {
     },
 
     cameraHeader: {
-      paddingTop: 50,
+      paddingTop: Platform.OS === 'ios' ? 50 : 30,
       paddingHorizontal: 20,
       alignItems: 'flex-end',
     },
@@ -151,7 +174,7 @@ export const scannerStyles = (isDarkMode: boolean) => {
       position: 'absolute',
       width: 40,
       height: 40,
-      borderColor: colors.primary,
+      borderColor: colors.accent,
     },
 
     scanCornerTL: {
@@ -192,7 +215,7 @@ export const scannerStyles = (isDarkMode: boolean) => {
 
     cameraInstructionText: {
       color: '#fff',
-      fontSize: 16,
+      fontSize: 14,
       backgroundColor: 'rgba(0,0,0,0.5)',
       paddingHorizontal: 20,
       paddingVertical: 10,
@@ -211,7 +234,7 @@ export const scannerStyles = (isDarkMode: boolean) => {
       width: 80,
       height: 80,
       borderRadius: 40,
-      backgroundColor: colors.primary,
+      backgroundColor: colors.accent,
       justifyContent: 'center',
       alignItems: 'center',
       borderWidth: 4,
@@ -225,9 +248,9 @@ export const scannerStyles = (isDarkMode: boolean) => {
       backgroundColor: '#fff',
     },
 
-    // Result Section
+    // Result Section - matching HomeScreen cards
     resultSection: {
-      paddingHorizontal: 20,
+      paddingHorizontal: 16,
       marginBottom: 20,
     },
 
@@ -235,123 +258,138 @@ export const scannerStyles = (isDarkMode: boolean) => {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 15,
+      marginBottom: 16,
     },
 
     resultTitle: {
-      fontSize: 20,
+      fontSize: 18,
       fontWeight: '600',
-      color: colors.text,
+      color: colors.textPrimary,
     },
 
     matchBadge: {
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 15,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 20,
+      borderWidth: 1,
     },
 
     matchBadgeGood: {
-      backgroundColor: `${colors.secondary}22`,
+      backgroundColor: colors.success,
+      borderColor: colors.success,
     },
 
     matchBadgeFair: {
-      backgroundColor: `${colors.warning}22`,
+      backgroundColor: colors.warning,
+      borderColor: colors.warning,
     },
 
     matchText: {
       fontSize: 13,
       fontWeight: '600',
-      color: colors.text,
+      color: 'white',
     },
 
     resultCard: {
-      backgroundColor: colors.cardBackground,
-      borderRadius: 16,
-      padding: 15,
-      marginBottom: 15,
-      borderWidth: 1,
-      borderColor: colors.border,
+      backgroundColor: 'white',
+      borderRadius: 20,
+      padding: 20,
+      marginBottom: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 4,
     },
 
     resultLabel: {
       fontSize: 14,
       fontWeight: '600',
       color: colors.textSecondary,
-      marginBottom: 10,
+      marginBottom: 12,
     },
 
     resultTextInput: {
       fontSize: 15,
-      color: colors.text,
+      color: colors.textPrimary,
       minHeight: 100,
       textAlignVertical: 'top',
     },
 
     recommendationCard: {
-      backgroundColor: `${colors.info}11`,
-      borderRadius: 16,
-      padding: 15,
-      marginBottom: 15,
-      borderWidth: 1,
-      borderColor: `${colors.info}33`,
+      backgroundColor: 'white',
+      borderRadius: 20,
+      padding: 20,
+      marginBottom: 16,
+      borderLeftWidth: 4,
+      borderLeftColor: colors.accent,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 4,
     },
 
     recommendationTitle: {
       fontSize: 16,
       fontWeight: '600',
-      color: colors.text,
+      color: colors.textPrimary,
       marginBottom: 8,
     },
 
     recommendationText: {
       fontSize: 14,
-      color: colors.text,
+      color: colors.textPrimary,
       lineHeight: 20,
     },
 
     brewingCard: {
-      backgroundColor: `${colors.secondary}11`,
-      borderRadius: 16,
-      padding: 15,
-      marginBottom: 15,
-      borderWidth: 1,
-      borderColor: `${colors.secondary}33`,
+      backgroundColor: 'white',
+      borderRadius: 20,
+      padding: 20,
+      marginBottom: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 4,
     },
 
     brewingTitle: {
       fontSize: 16,
       fontWeight: '600',
-      color: colors.text,
-      marginBottom: 8,
+      color: colors.textPrimary,
+      marginBottom: 12,
     },
 
     brewingMethod: {
-      paddingVertical: 6,
+      paddingVertical: 8,
       paddingHorizontal: 4,
-      borderRadius: 8,
+      borderRadius: 12,
+      marginBottom: 8,
     },
 
     brewingMethodSelected: {
-      backgroundColor: `${colors.primary}22`,
+      backgroundColor: colors.bgLight,
     },
 
     brewingText: {
       fontSize: 14,
-      color: colors.text,
+      color: colors.textPrimary,
       lineHeight: 20,
     },
 
     // Rating Section
     ratingSection: {
       alignItems: 'center',
-      marginVertical: 15,
+      marginVertical: 20,
     },
 
     ratingTitle: {
       fontSize: 16,
       fontWeight: '500',
-      color: colors.text,
-      marginBottom: 10,
+      color: colors.textPrimary,
+      marginBottom: 12,
     },
 
     ratingStars: {
@@ -368,69 +406,76 @@ export const scannerStyles = (isDarkMode: boolean) => {
     },
 
     recipeSection: {
-      marginBottom: 15,
+      marginBottom: 16,
     },
 
     recipeTitle: {
       fontSize: 16,
       fontWeight: '500',
-      color: colors.text,
+      color: colors.textPrimary,
       marginBottom: 8,
     },
 
     tasteInput: {
       borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: 8,
-      padding: 10,
-      color: colors.text,
-      marginBottom: 10,
+      borderColor: colors.borderLight,
+      borderRadius: 12,
+      padding: 12,
+      color: colors.textPrimary,
+      marginBottom: 12,
+      backgroundColor: 'white',
     },
 
     recipeButton: {
       backgroundColor: colors.primary,
-      borderRadius: 8,
-      paddingVertical: 10,
+      borderRadius: 12,
+      paddingVertical: 12,
       alignItems: 'center',
     },
 
     recipeButtonText: {
-      color: '#fff',
+      color: 'white',
       fontWeight: '600',
+      fontSize: 15,
     },
 
     recipeCard: {
-      backgroundColor: `${colors.primary}11`,
-      borderRadius: 16,
-      padding: 15,
-      marginBottom: 15,
-      borderWidth: 1,
-      borderColor: `${colors.primary}33`,
+      backgroundColor: 'white',
+      borderRadius: 20,
+      padding: 20,
+      marginBottom: 16,
+      borderLeftWidth: 4,
+      borderLeftColor: colors.primary,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 4,
     },
 
     recipeResultTitle: {
       fontSize: 16,
       fontWeight: '600',
-      color: colors.text,
+      color: colors.textPrimary,
       marginBottom: 8,
     },
 
     recipeResultText: {
       fontSize: 14,
-      color: colors.text,
+      color: colors.textPrimary,
       lineHeight: 20,
     },
 
     // Result Actions
     resultActions: {
       flexDirection: 'row',
-      gap: 15,
+      gap: 12,
       marginTop: 10,
     },
 
     shareButton: {
       flex: 1,
-      backgroundColor: colors.info,
+      backgroundColor: colors.primary,
       paddingVertical: 12,
       borderRadius: 12,
       alignItems: 'center',
@@ -445,34 +490,29 @@ export const scannerStyles = (isDarkMode: boolean) => {
     },
 
     buttonText: {
-      color: '#fff',
+      color: 'white',
       fontSize: 15,
       fontWeight: '600',
     },
 
-    // History Section
+    // History Section - matching HomeScreen recommendations
     historySection: {
-      paddingHorizontal: 20,
+      marginHorizontal: 16,
       marginTop: 20,
-      marginBottom: 30,
+      marginBottom: 100,
     },
 
     historyHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      backgroundColor: colors.cardBackground,
-      padding: 15,
-      borderRadius: 12,
-      marginBottom: 10,
-      borderWidth: 1,
-      borderColor: colors.border,
+      marginBottom: 16,
     },
 
     historyTitle: {
-      fontSize: 16,
+      fontSize: 18,
       fontWeight: '600',
-      color: colors.text,
+      color: colors.textPrimary,
     },
 
     historyToggle: {
@@ -481,23 +521,22 @@ export const scannerStyles = (isDarkMode: boolean) => {
     },
 
     historyList: {
-      backgroundColor: colors.cardBackground,
-      borderRadius: 12,
-      padding: 10,
-      borderWidth: 1,
-      borderColor: colors.border,
+      paddingBottom: 8,
     },
 
     historyItem: {
+      backgroundColor: 'white',
+      borderRadius: 16,
+      padding: 16,
+      marginBottom: 12,
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      padding: 12,
-      borderRadius: 10,
-      marginBottom: 8,
-      backgroundColor: isDarkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
-      borderWidth: 1,
-      borderColor: colors.border,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 4,
     },
 
     historyItemContent: {
@@ -505,21 +544,21 @@ export const scannerStyles = (isDarkMode: boolean) => {
     },
 
     historyItemName: {
-      fontSize: 15,
-      fontWeight: '500',
-      color: colors.text,
-      marginBottom: 3,
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.textPrimary,
+      marginBottom: 4,
     },
 
     historyItemDate: {
-      fontSize: 12,
+      fontSize: 11,
       color: colors.textSecondary,
     },
 
     historyItemMeta: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
+      gap: 12,
     },
 
     historyItemMatch: {
@@ -529,7 +568,7 @@ export const scannerStyles = (isDarkMode: boolean) => {
     },
 
     historyItemRating: {
-      fontSize: 13,
+      fontSize: 12,
       color: colors.warning,
     },
 
@@ -561,9 +600,33 @@ export const scannerStyles = (isDarkMode: boolean) => {
     // Error
     errorText: {
       fontSize: 18,
-      color: colors.text,
+      color: colors.textPrimary,
       textAlign: 'center',
       marginTop: 50,
+    },
+
+    // Back button
+    backButton: {
+      position: 'absolute',
+      top: Platform.OS === 'ios' ? 44 : 20,
+      left: 16,
+      width: 40,
+      height: 40,
+      backgroundColor: 'rgba(255,255,255,0.9)',
+      borderRadius: 20,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+      zIndex: 10,
+    },
+
+    backButtonText: {
+      fontSize: 18,
+      color: colors.primary,
     },
   });
 };
