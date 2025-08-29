@@ -164,9 +164,8 @@ const BrewScanner: React.FC<BrewScannerProps> = ({
         // Zobraz výsledok
         Alert.alert(
           '✅ Skenovanie dokončené',
-          result.isRecommended
-            ? `Táto káva má ${result.matchPercentage}% zhodu s tvojimi preferenciami!`
-            : `Zhoda s preferenciami: ${result.matchPercentage}%`,
+          result.recommendation ||
+            'Skontroluj výsledok nižšie.',
           [{ text: 'OK', style: 'default' }],
         );
       }
@@ -426,6 +425,16 @@ const BrewScanner: React.FC<BrewScannerProps> = ({
               )}
             </View>
 
+            {scanResult.recommendation && (
+              <View style={styles.recommendationCard}>
+                <AIResponseDisplay
+                  text={scanResult.recommendation}
+                  type="recommendation"
+                  animate={true}
+                />
+              </View>
+            )}
+
             <View style={styles.resultCard}>
               <Text style={styles.resultLabel}>Rozpoznaný text:</Text>
               <TextInput
@@ -437,16 +446,6 @@ const BrewScanner: React.FC<BrewScannerProps> = ({
                 placeholderTextColor="#999"
               />
             </View>
-
-            {scanResult.recommendation && (
-              <View style={styles.recommendationCard}>
-                <AIResponseDisplay
-                  text={scanResult.recommendation}
-                  type="recommendation"
-                  animate={true}
-                />
-              </View>
-            )}
 
             {scanResult.brewingMethods &&
               scanResult.brewingMethods.length > 0 && (
