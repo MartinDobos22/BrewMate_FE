@@ -78,6 +78,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     loadHistory();
   }, [hasPermission, requestPermission]);
 
+  /**
+   * Načíta nedávne OCR skeny pre používateľa.
+   */
   const loadHistory = async () => {
     try {
       const history = await fetchOCRHistory(10);
@@ -87,12 +90,18 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     }
   };
 
+  /**
+   * Obnoví históriu potiahnutím.
+   */
   const onRefresh = async () => {
     setRefreshing(true);
     await loadHistory();
     setRefreshing(false);
   };
 
+  /**
+   * Odfotí etiketu a odošle ju na OCR spracovanie.
+   */
   const takePhoto = async () => {
     if (!camera.current || !device) {
       Alert.alert('Chyba', 'Kamera nie je pripravená');
@@ -115,6 +124,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     }
   };
 
+  /**
+   * Vyberie fotku z galérie a odošle ju na spracovanie.
+   */
   const pickImageFromGallery = () => {
     const options: ImageLibraryOptions = {
       mediaType: 'photo',
@@ -133,6 +145,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     });
   };
 
+  /**
+   * Vykoná OCR pipeline a uloží výsledok do stavu.
+   */
   const processImage = async (base64image: string) => {
     try {
       setIsLoading(true);
@@ -166,6 +181,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     }
   };
 
+  /**
+   * Uloží hodnotenie vybranej kávy.
+   */
   const rateCoffee = async (rating: number) => {
     if (!scanResult?.scanId) return;
 
@@ -181,6 +199,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     }
   };
 
+  /**
+   * Zdieľa text prostredníctvom natívneho dialógu.
+   */
   const exportText = async () => {
     if (editedText) {
       try {
@@ -194,6 +215,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     }
   };
 
+  /**
+   * Načíta záznam z histórie do editora.
+   */
   const loadFromHistory = (item: OCRHistory) => {
     setScanResult({
       original: item.original_text,
@@ -208,6 +232,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     setShowHistory(false);
   };
 
+  /**
+   * Vymaže záznam z histórie po potvrdení používateľom.
+   */
   const deleteFromHistory = async (id: string) => {
     Alert.alert(
       'Vymazať záznam',
@@ -229,6 +256,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     );
   };
 
+  /**
+   * Skontroluje povolenia a otvorí kameru.
+   */
   const openCamera = () => {
     if (!hasPermission) {
       Alert.alert(
@@ -244,6 +274,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     setShowCamera(true);
   };
 
+  /**
+   * Vymaže aktuálny výsledok skenovania.
+   */
   const clearAll = () => {
     setScanResult(null);
     setEditedText('');

@@ -250,6 +250,10 @@ app.put('/api/profile', async (req, res) => {
 });
 
 // ========== AUTH ENDPOINT ==========
+
+/**
+ * Overí platnosť Firebase ID tokenu a zaloguje prihlásenie používateľa.
+ */
 app.post('/api/auth', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
 
@@ -319,6 +323,9 @@ app.post("/ocr", async (req, res) => {
   }
 });
 
+/**
+ * Uloží výsledok OCR do databázy a vypočíta zhodu s preferenciami používateľa.
+ */
 app.post('/api/ocr/save', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
   if (!idToken) return res.status(401).json({ error: 'Token chýba' });
@@ -432,6 +439,10 @@ Výsledok napíš ako používateľovi:
 });
 
 // ========== DASHBOARD ENDPOINT ==========
+
+/**
+ * Vráti profil, štatistiky a odporúčania pre domovskú obrazovku.
+ */
 app.get('/api/dashboard', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
   if (!idToken) return res.status(401).json({ error: 'Token chýba' });
@@ -516,6 +527,10 @@ app.get('/api/dashboard', async (req, res) => {
 });
 
 // ========== HISTORY ENDPOINT ==========
+
+/**
+ * Vráti históriu AI odporúčaní pre aktuálneho používateľa.
+ */
 app.get('/api/preference-history', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
   if (!idToken) return res.status(401).json({ error: 'Token chýba' });
@@ -546,6 +561,10 @@ app.get('/api/preference-history', async (req, res) => {
 });
 
 // ========== OSTATNÉ ENDPOINTY (NEZMENENÉ) ==========
+
+/**
+ * Zneplatní refresh tokeny používateľa a tým ho odhlási.
+ */
 app.post('/api/logout', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
   if (!idToken) return res.status(401).json({ error: 'Token chýba' });
@@ -562,6 +581,9 @@ app.post('/api/logout', async (req, res) => {
   }
 });
 
+/**
+ * Zaregistruje nového používateľa a odošle mu overovací email.
+ */
 app.post('/api/register', async (req, res) => {
   const { email, password } = req.body;
 
@@ -597,6 +619,9 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
+/**
+ * Odošle email s odkazom na reset hesla pre zadanú adresu.
+ */
 app.post('/api/reset-password', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email je povinný' });
@@ -631,6 +656,9 @@ app.post('/api/reset-password', async (req, res) => {
   }
 });
 
+/**
+ * Znovu odošle verifikačný email na potvrdenie adresy.
+ */
 app.post('/api/send-verification-email', async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: 'Email je povinný' });
@@ -670,6 +698,9 @@ app.post('/api/send-verification-email', async (req, res) => {
   }
 });
 
+/**
+ * Vymaže konkrétny OCR záznam a prípadné hodnotenia.
+ */
 app.delete('/api/ocr/:id', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
   if (!idToken) return res.status(401).json({ error: 'Token chýba' });
@@ -701,6 +732,9 @@ app.delete('/api/ocr/:id', async (req, res) => {
   }
 });
 
+/**
+ * Načíta históriu OCR skenovaní používateľa.
+ */
 app.get('/api/ocr/history', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
   if (!idToken) return res.status(401).json({ error: 'Token chýba' });
@@ -743,6 +777,9 @@ app.get('/api/ocr/history', async (req, res) => {
   }
 });
 
+/**
+ * Uloží hodnotenie a poznámky k danej káve.
+ */
 app.post('/api/coffee/rate', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
   if (!idToken) return res.status(401).json({ error: 'Token chýba' });
@@ -776,6 +813,9 @@ app.post('/api/coffee/rate', async (req, res) => {
   }
 });
 
+/**
+ * Prepne stav obľúbenosti konkrétnej kávy.
+ */
 app.post('/api/coffee/favorite/:id', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
   if (!idToken) return res.status(401).json({ error: 'Token chýba' });

@@ -92,6 +92,9 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     loadHistory();
   }, [hasPermission, requestPermission]);
 
+  /**
+   * Načíta posledné OCR skenovania zo servera.
+   */
   const loadHistory = async () => {
     try {
       const history = await fetchOCRHistory(10);
@@ -101,12 +104,18 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     }
   };
 
+  /**
+   * Refreshuje históriu potiahnutím v zozname.
+   */
   const onRefresh = async () => {
     setRefreshing(true);
     await loadHistory();
     setRefreshing(false);
   };
 
+  /**
+   * Zachytí fotografiu pomocou kamery a odošle ju na spracovanie.
+   */
   const takePhoto = async () => {
     if (!camera.current || !device) {
       Alert.alert('Chyba', 'Kamera nie je pripravená');
@@ -129,6 +138,9 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     }
   };
 
+  /**
+   * Vyberie obrázok z galérie a pošle ho na spracovanie.
+   */
   const pickImageFromGallery = () => {
     const options: ImageLibraryOptions = {
       mediaType: 'photo',
@@ -147,6 +159,9 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     });
   };
 
+  /**
+   * Spracuje obrázok cez OCR pipeline a uloží výsledok.
+   */
   const processImage = async (base64image: string) => {
     try {
       setIsLoading(true);
@@ -177,6 +192,9 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     }
   };
 
+  /**
+   * Uloží hodnotenie skenovanej kávy.
+   */
   const rateCoffee = async (rating: number) => {
     if (!scanResult?.scanId) return;
 
@@ -195,6 +213,9 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     }
   };
 
+  /**
+   * Zdieľa upravený text pomocou natívneho dialógu.
+   */
   const exportText = async () => {
     if (editedText) {
       try {
@@ -208,6 +229,9 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     }
   };
 
+  /**
+   * Načíta existujúci záznam z histórie do editora.
+   */
   const loadFromHistory = (item: OCRHistory) => {
     setScanResult({
       original: item.original_text,
@@ -222,6 +246,9 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     setShowHistory(false);
   };
 
+  /**
+   * Vymaže záznam z histórie po potvrdení používateľom.
+   */
   const deleteFromHistory = async (id: string) => {
     Alert.alert('Vymazať záznam', 'Naozaj chceš vymazať tento záznam?', [
       { text: 'Zrušiť', style: 'cancel' },
@@ -239,11 +266,17 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     ]);
   };
 
+  /**
+   * Zvolí metódu prípravy a resetuje chuťové preferencie.
+   */
   const handleMethodPress = (method: string) => {
     setSelectedMethod(method);
     setTastePreference('');
   };
 
+  /**
+   * Vygeneruje recept podľa zvolenej metódy a chuti.
+   */
   const generateRecipe = async () => {
     if (!selectedMethod) return;
     try {

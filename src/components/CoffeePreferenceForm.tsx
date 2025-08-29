@@ -276,7 +276,9 @@ const CoffeePreferenceForm = ({ onBack }: { onBack: () => void }) => {
     },
   ];
 
-  // Filtrovanie otázok podľa úrovne
+  /**
+   * Vráti zoznam otázok zodpovedajúcich aktuálnej úrovni skúseností.
+   */
   const getVisibleQuestions = () => {
     let visibleQuestions = allQuestions.filter(q => q.section === 'basic');
 
@@ -517,6 +519,9 @@ Píš jednoducho, zrozumiteľne a priateľsky v slovenčine.
     }
   };
 
+  /**
+   * Vyrenderuje jednu otázku dotazníka vrátane možností odpovedí.
+   */
   const renderQuestion = (question: Question) => {
     const currentValue = getValue(question.id);
 
@@ -654,6 +659,9 @@ Píš jednoducho, zrozumiteľne a priateľsky v slovenčine.
   );
 };
 
+/**
+ * Vytvorí štýly komponentu podľa aktuálneho farebného režimu.
+ */
 const createStyles = (isDarkMode: boolean) => {
   const colors = getColors(isDarkMode);
 
