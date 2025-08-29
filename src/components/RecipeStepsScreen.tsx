@@ -10,6 +10,8 @@ import {
 import { useTheme } from '../theme/ThemeProvider';
 import { formatRecipeSteps } from './utils/AITextFormatter';
 import Timer from './Timer';
+import { AIResponseDisplay } from './AIResponseDisplay';
+import { unifiedStyles } from '../theme/unifiedStyles';
 
 interface RecipeStepsScreenProps {
   recipe: string;
@@ -17,7 +19,8 @@ interface RecipeStepsScreenProps {
 }
 
 const RecipeStepsScreen: React.FC<RecipeStepsScreenProps> = ({ recipe, onBack }) => {
-  const { colors } = useTheme();
+  const { colors: themeColors } = useTheme();
+  const { colors, typography, spacing, componentStyles } = unifiedStyles;
   const steps = useMemo(() => formatRecipeSteps(recipe), [recipe]);
   const [currentStep, setCurrentStep] = useState(0);
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -45,7 +48,7 @@ const RecipeStepsScreen: React.FC<RecipeStepsScreenProps> = ({ recipe, onBack })
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}> 
+    <View style={[styles.container, { backgroundColor: themeColors.background }]}> 
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
@@ -77,6 +80,7 @@ const RecipeStepsScreen: React.FC<RecipeStepsScreenProps> = ({ recipe, onBack })
         <Animated.View
           style={[
             styles.stepCard,
+            componentStyles.card,
             {
               transform: [
                 {
@@ -90,8 +94,12 @@ const RecipeStepsScreen: React.FC<RecipeStepsScreenProps> = ({ recipe, onBack })
           ]}
         >
           <Text style={styles.stepIcon}>{currentStepData.icon}</Text>
-          <Text style={styles.stepTitle}>Krok {currentStepData.number}</Text>
-          <Text style={styles.stepText}>{currentStepData.text}</Text>
+          <Text style={[styles.stepTitle, typography.h3]}>Krok {currentStepData.number}</Text>
+          <AIResponseDisplay
+            text={currentStepData.text}
+            type="recipe"
+            animate={true}
+          />
 
           {currentStepData.time && (
             <View style={styles.timerContainer}>
@@ -179,34 +187,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   stepCard: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 30,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
   },
   stepIcon: {
     fontSize: 60,
-    marginBottom: 20,
+    marginBottom: spacing.md,
+    color: colors.text,
   },
   stepTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#2C2C2C',
-    marginBottom: 20,
-  },
-  stepText: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#444',
-    textAlign: 'center',
+    marginBottom: spacing.md,
   },
   timerContainer: {
-    marginTop: 30,
+    marginTop: spacing.lg,
   },
   navigation: {
     flexDirection: 'row',
