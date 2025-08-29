@@ -3,6 +3,16 @@ import auth from '@react-native-firebase/auth';
 
 const API_URL = 'http://10.0.2.2:3001/api';
 
+/**
+ * Wrapper okolo fetchu ktorý loguje požiadavky a odpovede medzi frontendom a backendom.
+ */
+const loggedFetch = async (url: string, options: RequestInit) => {
+  console.log('📤 [FE->BE]', url, options);
+  const res = await fetch(url, options);
+  console.log('📥 [BE->FE]', url, res.status);
+  return res;
+};
+
 interface UserStats {
   coffeeCount: number;
   avgRating: number;
@@ -54,7 +64,7 @@ export const fetchDashboardData = async (): Promise<DashboardData | null> => {
       return null;
     }
 
-    const response = await fetch(`${API_URL}/dashboard`, {
+    const response = await loggedFetch(`${API_URL}/dashboard`, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -114,7 +124,7 @@ export const fetchUserStats = async (): Promise<UserStats> => {
     const token = await getAuthToken();
     if (!token) return getDefaultStats();
 
-    const response = await fetch(`${API_URL}/user/stats`, {
+      const response = await loggedFetch(`${API_URL}/user/stats`, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -172,7 +182,7 @@ export const fetchScanHistory = async (limit: number = 5): Promise<CoffeeData[]>
     const token = await getAuthToken();
     if (!token) return [];
 
-    const response = await fetch(`${API_URL}/ocr/history?limit=${limit}`, {
+      const response = await loggedFetch(`${API_URL}/ocr/history?limit=${limit}`, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -220,6 +230,10 @@ export const getDailyTip = (): string => {
 };
 
 // Helper funkcie pre predvolené dáta
+
+/**
+ * Vráti prázdne štatistiky používateľa ako predvolenú hodnotu.
+ */
 const getDefaultStats = (): UserStats => ({
   coffeeCount: 0,
   avgRating: 0,
@@ -238,7 +252,7 @@ export const saveCoffeeRating = async (
     const token = await getAuthToken();
     if (!token) return false;
 
-    const response = await fetch(`${API_URL}/coffee/rate`, {
+      const response = await loggedFetch(`${API_URL}/coffee/rate`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -266,7 +280,7 @@ export const toggleFavorite = async (coffeeId: string): Promise<boolean> => {
     const token = await getAuthToken();
     if (!token) return false;
 
-    const response = await fetch(`${API_URL}/coffee/favorite/${coffeeId}`, {
+      const response = await loggedFetch(`${API_URL}/coffee/favorite/${coffeeId}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,

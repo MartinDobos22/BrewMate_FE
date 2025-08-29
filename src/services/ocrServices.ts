@@ -5,6 +5,16 @@ const API_URL = 'http://10.0.2.2:3001';
 const OPENAI_API_KEY =
   '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';
 
+/**
+ * Wrapper okolo fetchu pre logovanie požiadaviek a odpovedí.
+ */
+const loggedFetch = async (url: string, options: RequestInit) => {
+  console.log('📤 [FE->BE]', url, options);
+  const res = await fetch(url, options);
+  console.log('📥 [BE->FE]', url, res.status);
+  return res;
+};
+
 interface OCRResult {
   original: string;
   corrected: string;
@@ -80,6 +90,7 @@ ${ocrText}
   `;
 
   try {
+    console.log('📤 [OpenAI] OCR prompt:', prompt);
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -100,6 +111,7 @@ ${ocrText}
     });
 
     const data = await response.json();
+    console.log('📥 [OpenAI] OCR response:', data);
 
     if (data?.choices?.[0]?.message?.content) {
       return data.choices[0].message.content.trim();
@@ -119,6 +131,7 @@ const suggestBrewingMethods = async (coffeeText: string): Promise<string[]> => {
   const prompt = `Na základe tohto popisu kávy navrhni 3 až 4 najvhodnejšie spôsoby prípravy kávy. Odpovedz len zoznamom metód oddelených novým riadkom. Popis: "${coffeeText}"`;
 
   try {
+    console.log('📤 [OpenAI] Brewing prompt:', prompt);
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -139,6 +152,7 @@ const suggestBrewingMethods = async (coffeeText: string): Promise<string[]> => {
     });
 
     const data = await response.json();
+    console.log('📥 [OpenAI] Brewing response:', data);
     const content = data?.choices?.[0]?.message?.content || '';
     return content
       .split('\n')
@@ -160,6 +174,7 @@ export const getBrewRecipe = async (
   const prompt = `Priprav detailný recept na kávu pomocou metódy ${method}. Používateľ preferuje ${taste} chuť. Uveď ideálny pomer kávy k vode, teplotu vody a ďalšie dôležité kroky. Odpovedz stručne.`;
 
   try {
+    console.log('📤 [OpenAI] Recipe prompt:', prompt);
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -180,6 +195,7 @@ export const getBrewRecipe = async (
     });
 
     const data = await response.json();
+    console.log('📥 [OpenAI] Recipe response:', data);
     return data?.choices?.[0]?.message?.content?.trim() || '';
   } catch (error) {
     console.error('Brew recipe error:', error);
@@ -193,13 +209,14 @@ export const getBrewRecipe = async (
 export const processOCR = async (base64image: string): Promise<OCRResult | null> => {
   try {
     // 1. Pošli na Google Vision API
-    const ocrResponse = await fetch(`${API_URL}/ocr`, {
+    const ocrResponse = await loggedFetch(`${API_URL}/ocr`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ base64image }),
     });
 
     const ocrData = await ocrResponse.json();
+    console.log('📥 [BE] OCR result:', ocrData);
 
     if (ocrData.error) {
       throw new Error(ocrData.error);
@@ -216,7 +233,7 @@ export const processOCR = async (base64image: string): Promise<OCRResult | null>
       throw new Error('Nie si prihlásený');
     }
 
-    const saveResponse = await fetch(`${API_URL}/api/ocr/save`, {
+    const saveResponse = await loggedFetch(`${API_URL}/api/ocr/save`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -234,6 +251,7 @@ export const processOCR = async (base64image: string): Promise<OCRResult | null>
 
     if (saveResponse.ok) {
       const saveData = await saveResponse.json();
+      console.log('📥 [BE] Save OCR response:', saveData);
       matchPercentage = saveData.match_percentage || 0;
       isRecommended = saveData.is_recommended || false;
       scanId = saveData.id || '';
@@ -242,7 +260,7 @@ export const processOCR = async (base64image: string): Promise<OCRResult | null>
     // 4. Získaj AI hodnotenie
     let recommendation = '';
     try {
-      const evalResponse = await fetch(`${API_URL}/api/ocr/evaluate`, {
+        const evalResponse = await loggedFetch(`${API_URL}/api/ocr/evaluate`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -252,7 +270,8 @@ export const processOCR = async (base64image: string): Promise<OCRResult | null>
       });
 
       if (evalResponse.ok) {
-        const evalData = await evalResponse.json();
+          const evalData = await evalResponse.json();
+          console.log('📥 [BE] Evaluate response:', evalData);
         recommendation = evalData.recommendation || '';
       }
     } catch (evalError) {
@@ -286,7 +305,7 @@ export const fetchOCRHistory = async (limit: number = 10): Promise<OCRHistory[]>
     const token = await getAuthToken();
     if (!token) return [];
 
-    const response = await fetch(`${API_URL}/api/ocr/history?limit=${limit}`, {
+    const response = await loggedFetch(`${API_URL}/api/ocr/history?limit=${limit}`, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -325,7 +344,7 @@ export const deleteOCRRecord = async (id: string): Promise<boolean> => {
     const token = await getAuthToken();
     if (!token) return false;
 
-    const response = await fetch(`${API_URL}/api/ocr/${id}`, {
+      const response = await loggedFetch(`${API_URL}/api/ocr/${id}`, {
       method: 'DELETE',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -333,6 +352,7 @@ export const deleteOCRRecord = async (id: string): Promise<boolean> => {
       },
     });
 
+    console.log('📥 [BE] Delete status:', response.status);
     return response.ok;
   } catch (error) {
     console.error('Error deleting OCR record:', error);
@@ -348,7 +368,7 @@ export const rateOCRResult = async (scanId: string, rating: number): Promise<boo
     const token = await getAuthToken();
     if (!token) return false;
 
-    const response = await fetch(`${API_URL}/api/coffee/rate`, {
+    const response = await loggedFetch(`${API_URL}/api/coffee/rate`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -360,6 +380,7 @@ export const rateOCRResult = async (scanId: string, rating: number): Promise<boo
       }),
     });
 
+    console.log('📥 [BE] Rate status:', response.status);
     return response.ok;
   } catch (error) {
     console.error('Error rating coffee:', error);

@@ -19,6 +19,16 @@ import { AIResponseDisplay } from './AIResponseDisplay';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
+/**
+ * Jednoduchý wrapper pre fetch s logovaním komunikácie FE ↔ BE.
+ */
+const loggedFetch = async (url: string, options: RequestInit) => {
+  console.log('📤 [FE->BE]', url, options);
+  const res = await fetch(url, options);
+  console.log('📥 [BE->FE]', url, res.status);
+  return res;
+};
+
 interface ProfileData {
   coffee_preferences?: any;
   experience_level?: string;
@@ -26,6 +36,9 @@ interface ProfileData {
   manual_input?: string;
 }
 
+/**
+ * Komponent umožňujúci používateľovi upraviť preferencie a AI odporúčanie.
+ */
 const EditPreferences = ({ onBack }: { onBack: () => void }) => {
   const isDarkMode = useColorScheme() === 'dark';
   const colors = getColors(isDarkMode);
@@ -42,11 +55,12 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
       try {
         const user = auth().currentUser;
         const token = await user?.getIdToken();
-        const res = await fetch('http://10.0.2.2:3001/api/profile', {
+        const res = await loggedFetch('http://10.0.2.2:3001/api/profile', {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error('Nepodarilo sa načítať profil');
         const data = await res.json();
+        console.log('📥 [BE] Profile:', data);
         setProfile(data);
         setCurrentRecommendation(data.ai_recommendation || '');
         setUserNotes('');
@@ -60,6 +74,9 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
     fetchProfile();
   }, []);
 
+  /**
+   * Vygeneruje nové AI odporúčanie podľa zadaných poznámok.
+   */
   const generateAI = async (additionalNotes: string) => {
     try {
       let prompt = `Používateľ má tieto preferencie kávy: ${JSON.stringify(profile?.coffee_preferences)}.`;
@@ -76,6 +93,7 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
       Vytvor nové personalizované odporúčanie na kávu, ktoré zohľadňuje všetky tieto informácie. 
       Odpoveď napíš v slovenčine, priateľsky a stručne (max 3-4 vety).`;
 
+      console.log('📤 [OpenAI] prompt:', prompt);
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -97,6 +115,7 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
       });
 
       const data = await response.json();
+      console.log('📥 [OpenAI] response:', data);
       return data?.choices?.[0]?.message?.content?.trim() || 'Nepodarilo sa získať odporúčanie.';
     } catch (err) {
       console.error('AI error:', err);
@@ -104,6 +123,9 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
     }
   };
 
+  /**
+   * Uloží aktualizované odporúčanie na backend.
+   */
   const handleSave = async () => {
     if (!profile) return;
 
@@ -122,7 +144,7 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
 
       const user = auth().currentUser;
       const token = await user?.getIdToken();
-      const res = await fetch('http://10.0.2.2:3001/api/profile', {
+      const res = await loggedFetch('http://10.0.2.2:3001/api/profile', {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -145,6 +167,9 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
     }
   };
 
+  /**
+   * Resetuje odporúčanie a vygeneruje úplne nové.
+   */
   const handleReset = async () => {
     Alert.alert(
       'Resetovať odporúčanie',
@@ -160,6 +185,7 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
               const basicPrompt = `Používateľ má tieto preferencie kávy: ${JSON.stringify(profile?.coffee_preferences)}. 
               Vytvor personalizované odporúčanie na kávu. Odpoveď napíš v slovenčine, priateľsky a stručne (max 3-4 vety).`;
 
+              console.log('📤 [OpenAI] reset prompt:', basicPrompt);
               const response = await fetch('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
                 headers: {
@@ -181,11 +207,12 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
               });
 
               const data = await response.json();
+              console.log('📥 [OpenAI] reset response:', data);
               const newRecommendation = data?.choices?.[0]?.message?.content?.trim() || 'Nepodarilo sa získať odporúčanie.';
 
               const user = auth().currentUser;
               const token = await user?.getIdToken();
-              const res = await fetch('http://10.0.2.2:3001/api/profile', {
+              const res = await loggedFetch('http://10.0.2.2:3001/api/profile', {
                 method: 'PUT',
                 headers: {
                   Authorization: `Bearer ${token}`,
