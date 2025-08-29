@@ -416,6 +416,12 @@ export const scannerStyles = (isDarkMode: boolean = false) => {
       marginBottom: 8,
     },
 
+    tasteQuestion: {
+      fontSize: 14,
+      color: colors.textPrimary,
+      marginBottom: 8,
+    },
+
     tasteInput: {
       borderWidth: 1,
       borderColor: colors.borderLight,

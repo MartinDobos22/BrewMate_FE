@@ -20,7 +20,11 @@ import {
   useCameraPermission,
   PhotoFile,
 } from 'react-native-vision-camera';
-import { launchImageLibrary, ImagePickerResponse, ImageLibraryOptions } from 'react-native-image-picker';
+import {
+  launchImageLibrary,
+  ImagePickerResponse,
+  ImageLibraryOptions,
+} from 'react-native-image-picker';
 import RNFS from 'react-native-fs';
 import { scannerStyles } from './styles/ProfessionalOCRScanner.styles';
 import {
@@ -31,7 +35,6 @@ import {
   getBrewRecipe,
 } from '../services/ocrServices.ts';
 import { AIResponseDisplay } from './AIResponseDisplay';
-
 
 interface OCRHistory {
   id: string;
@@ -59,7 +62,10 @@ interface BrewScannerProps {
   onRecipeGenerated?: (recipe: string) => void;
 }
 
-const BrewScanner: React.FC<BrewScannerProps> = ({ onBack, onRecipeGenerated }) => {
+const BrewScanner: React.FC<BrewScannerProps> = ({
+  onBack,
+  onRecipeGenerated,
+}) => {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [editedText, setEditedText] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -161,9 +167,7 @@ const BrewScanner: React.FC<BrewScannerProps> = ({ onBack, onRecipeGenerated }) 
           result.isRecommended
             ? `Táto káva má ${result.matchPercentage}% zhodu s tvojimi preferenciami!`
             : `Zhoda s preferenciami: ${result.matchPercentage}%`,
-          [
-            { text: 'OK', style: 'default' }
-          ]
+          [{ text: 'OK', style: 'default' }],
         );
       }
     } catch (error) {
@@ -181,7 +185,10 @@ const BrewScanner: React.FC<BrewScannerProps> = ({ onBack, onRecipeGenerated }) 
       const success = await rateOCRResult(scanResult.scanId, rating);
       if (success) {
         setUserRating(rating);
-        Alert.alert('Hodnotenie uložené', `Ohodnotil si kávu na ${rating}/5 ⭐`);
+        Alert.alert(
+          'Hodnotenie uložené',
+          `Ohodnotil si kávu na ${rating}/5 ⭐`,
+        );
         await loadHistory();
       }
     } catch (error) {
@@ -217,24 +224,20 @@ const BrewScanner: React.FC<BrewScannerProps> = ({ onBack, onRecipeGenerated }) 
   };
 
   const deleteFromHistory = async (id: string) => {
-    Alert.alert(
-      'Vymazať záznam',
-      'Naozaj chceš vymazať tento záznam?',
-      [
-        { text: 'Zrušiť', style: 'cancel' },
-        {
-          text: 'Vymazať',
-          style: 'destructive',
-          onPress: async () => {
-            const success = await deleteOCRRecord(id);
-            if (success) {
-              await loadHistory();
-              Alert.alert('Vymazané', 'Záznam bol odstránený');
-            }
+    Alert.alert('Vymazať záznam', 'Naozaj chceš vymazať tento záznam?', [
+      { text: 'Zrušiť', style: 'cancel' },
+      {
+        text: 'Vymazať',
+        style: 'destructive',
+        onPress: async () => {
+          const success = await deleteOCRRecord(id);
+          if (success) {
+            await loadHistory();
+            Alert.alert('Vymazané', 'Záznam bol odstránený');
           }
-        }
-      ]
-    );
+        },
+      },
+    ]);
   };
 
   const handleMethodPress = (method: string) => {
@@ -266,7 +269,7 @@ const BrewScanner: React.FC<BrewScannerProps> = ({ onBack, onRecipeGenerated }) 
         [
           { text: 'Zrušiť', style: 'cancel' },
           { text: 'Povoliť', onPress: requestPermission },
-        ]
+        ],
       );
       return;
     }
@@ -380,8 +383,12 @@ const BrewScanner: React.FC<BrewScannerProps> = ({ onBack, onRecipeGenerated }) 
               <View style={[styles.actionIcon, styles.primaryActionIcon]}>
                 <Text style={styles.actionEmoji}>📷</Text>
               </View>
-              <Text style={[styles.actionTitle, styles.primaryText]}>Odfotiť kávu</Text>
-              <Text style={[styles.actionDesc, styles.primaryText]}>Použi fotoaparát</Text>
+              <Text style={[styles.actionTitle, styles.primaryText]}>
+                Odfotiť kávu
+              </Text>
+              <Text style={[styles.actionDesc, styles.primaryText]}>
+                Použi fotoaparát
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -404,10 +411,14 @@ const BrewScanner: React.FC<BrewScannerProps> = ({ onBack, onRecipeGenerated }) 
             <View style={styles.resultHeader}>
               <Text style={styles.resultTitle}>📋 Výsledok skenovania</Text>
               {scanResult.matchPercentage && (
-                <View style={[
-                  styles.matchBadge,
-                  scanResult.isRecommended ? styles.matchBadgeGood : styles.matchBadgeFair
-                ]}>
+                <View
+                  style={[
+                    styles.matchBadge,
+                    scanResult.isRecommended
+                      ? styles.matchBadgeGood
+                      : styles.matchBadgeFair,
+                  ]}
+                >
                   <Text style={styles.matchText}>
                     {scanResult.matchPercentage}% zhoda
                   </Text>
@@ -437,30 +448,39 @@ const BrewScanner: React.FC<BrewScannerProps> = ({ onBack, onRecipeGenerated }) 
               </View>
             )}
 
-            {scanResult.brewingMethods && scanResult.brewingMethods.length > 0 && (
-              <View style={styles.brewingCard}>
-                <Text style={styles.brewingTitle}>🍽️ Odporúčané prípravy</Text>
-                {scanResult.brewingMethods.map((method, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={[
-                      styles.brewingMethod,
-                      selectedMethod === method && styles.brewingMethodSelected,
-                    ]}
-                    onPress={() => handleMethodPress(method)}
-                  >
-                    <Text style={styles.brewingText}>• {method}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+            {scanResult.brewingMethods &&
+              scanResult.brewingMethods.length > 0 && (
+                <View style={styles.brewingCard}>
+                  <Text style={styles.brewingTitle}>
+                    🍽️ Odporúčané prípravy
+                  </Text>
+                  {scanResult.brewingMethods.map((method, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.brewingMethod,
+                        selectedMethod === method &&
+                          styles.brewingMethodSelected,
+                      ]}
+                      onPress={() => handleMethodPress(method)}
+                    >
+                      <Text style={styles.brewingText}>• {method}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
 
             {selectedMethod && (
               <View style={styles.recipeSection}>
-                <Text style={styles.recipeTitle}>Zvolené: {selectedMethod}</Text>
+                <Text style={styles.recipeTitle}>
+                  Zvolené: {selectedMethod}
+                </Text>
+                <Text style={styles.tasteQuestion}>
+                  Akú kávu chceš? Sladkú, kyslejšiu, horkú...
+                </Text>
                 <TextInput
                   style={styles.tasteInput}
-                  placeholder="Akú chuť chceš? napr. sladšie"
+                  placeholder="Napíš preferovanú chuť"
                   placeholderTextColor="#999"
                   value={tastePreference}
                   onChangeText={setTastePreference}
@@ -471,7 +491,7 @@ const BrewScanner: React.FC<BrewScannerProps> = ({ onBack, onRecipeGenerated }) 
                   disabled={isGenerating}
                 >
                   <Text style={styles.recipeButtonText}>
-                    {isGenerating ? 'Generujem...' : 'Vyhodnotiť recept'}
+                    {isGenerating ? 'Generujem...' : 'Generovať recept'}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -481,7 +501,7 @@ const BrewScanner: React.FC<BrewScannerProps> = ({ onBack, onRecipeGenerated }) 
             <View style={styles.ratingSection}>
               <Text style={styles.ratingTitle}>Ohodnoť túto kávu:</Text>
               <View style={styles.ratingStars}>
-                {[1, 2, 3, 4, 5].map((star) => (
+                {[1, 2, 3, 4, 5].map(star => (
                   <TouchableOpacity
                     key={star}
                     onPress={() => rateCoffee(star)}
@@ -516,15 +536,13 @@ const BrewScanner: React.FC<BrewScannerProps> = ({ onBack, onRecipeGenerated }) 
             <Text style={styles.historyTitle}>
               📚 História skenovaní ({ocrHistory.length})
             </Text>
-            <Text style={styles.historyToggle}>
-              {showHistory ? '▼' : '▶'}
-            </Text>
+            <Text style={styles.historyToggle}>{showHistory ? '▼' : '▶'}</Text>
           </TouchableOpacity>
 
           {showHistory && (
             <View style={styles.historyList}>
               {ocrHistory.length > 0 ? (
-                ocrHistory.map((item) => (
+                ocrHistory.map(item => (
                   <TouchableOpacity
                     key={item.id}
                     style={styles.historyItem}
