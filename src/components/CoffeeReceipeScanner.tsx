@@ -1,4 +1,4 @@
-// BrewScanner.tsx
+// CoffeeReceipeScanner.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
@@ -62,7 +62,7 @@ interface BrewScannerProps {
   onRecipeGenerated?: (recipe: string) => void;
 }
 
-const BrewScanner: React.FC<BrewScannerProps> = ({
+const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
   onBack,
   onRecipeGenerated,
 }) => {
@@ -367,7 +367,7 @@ const BrewScanner: React.FC<BrewScannerProps> = ({
         <View style={styles.header}>
           <Text style={styles.title}>☕ Skener kávy</Text>
           <Text style={styles.subtitle}>
-            Naskenuj etiketu a zisti, či ti káva bude chutiť
+            Naskenuj kávu a vygeneruj si ten najlepší recept.
           </Text>
         </View>
 
@@ -425,15 +425,15 @@ const BrewScanner: React.FC<BrewScannerProps> = ({
               )}
             </View>
 
-            {scanResult.recommendation && (
-              <View style={styles.recommendationCard}>
-                <AIResponseDisplay
-                  text={scanResult.recommendation}
-                  type="recommendation"
-                  animate={true}
-                />
-              </View>
-            )}
+            {/*{scanResult.recommendation && (*/}
+            {/*  <View style={styles.recommendationCard}>*/}
+            {/*    <AIResponseDisplay*/}
+            {/*      text={scanResult.recommendation}*/}
+            {/*      type="recommendation"*/}
+            {/*      animate={true}*/}
+            {/*    />*/}
+            {/*  </View>*/}
+            {/*)}*/}
 
             <View style={styles.resultCard}>
               <Text style={styles.resultLabel}>Rozpoznaný text:</Text>
@@ -591,4 +591,4 @@ const BrewScanner: React.FC<BrewScannerProps> = ({
   );
 };
 
-export default BrewScanner;
+export default CoffeeReceipeScanner;

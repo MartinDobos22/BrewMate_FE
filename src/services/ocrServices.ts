@@ -2,7 +2,8 @@
 import auth from '@react-native-firebase/auth';
 
 const API_URL = 'http://10.0.2.2:3001';
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_API_KEY =
+  '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';
 
 interface OCRResult {
   original: string;
@@ -47,18 +48,8 @@ const extractCoffeeName = (text: string): string => {
 
   // Hľadaj známe značky
   const brands = [
-    'Lavazza',
-    'Illy',
-    'Segafredo',
-    'Kimbo',
-    'Pellini',
-    'Bazzara',
-    'Nespresso',
-    'Starbucks',
-    'Costa',
-    'Tchibo',
-    'Jacobs',
-    'Douwe Egberts',
+    'Lavazza', 'Illy', 'Segafredo', 'Kimbo', 'Pellini', 'Bazzara',
+    'Nespresso', 'Starbucks', 'Costa', 'Tchibo', 'Jacobs', 'Douwe Egberts'
   ];
 
   for (const brand of brands) {
@@ -89,21 +80,20 @@ ${ocrText}
   `;
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         Authorization: `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: "gpt-4o",
         messages: [
           {
-            role: 'system',
-            content:
-              'Si expert na kávu a opravu textov z OCR. Opravuješ chyby v rozpoznaných textoch z etikiet káv.',
+            role: "system",
+            content: "Si expert na kávu a opravu textov z OCR. Opravuješ chyby v rozpoznaných textoch z etikiet káv."
           },
-          { role: 'user', content: prompt },
+          { role: "user", content: prompt }
         ],
         temperature: 0.2,
       }),
@@ -126,15 +116,7 @@ ${ocrText}
  * Navrhne spôsoby prípravy kávy na základe popisu
  */
 const suggestBrewingMethods = async (coffeeText: string): Promise<string[]> => {
-  const prompt = `Na základe tohto popisu kávy navrhni 3 až 4 najvhodnejšie spôsoby prípravy kávy.
-
-  Popis kávy: "${coffeeText}"
-
-  Odpovedz v tomto formáte (každú metódu na nový riadok):
-  - Espresso
-  - French Press
-  - V60
-  - Chemex`;
+  const prompt = `Na základe tohto popisu kávy navrhni 3 až 4 najvhodnejšie spôsoby prípravy kávy. Odpovedz len zoznamom metód oddelených novým riadkom. Popis: "${coffeeText}"`;
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -148,8 +130,7 @@ const suggestBrewingMethods = async (coffeeText: string): Promise<string[]> => {
         messages: [
           {
             role: 'system',
-            content:
-              'Si barista, ktorý odporúča spôsoby prípravy kávy na základe popisu z etikety.',
+            content: 'Si barista, ktorý odporúča spôsoby prípravy kávy na základe popisu z etikety.',
           },
           { role: 'user', content: prompt },
         ],
@@ -174,28 +155,9 @@ const suggestBrewingMethods = async (coffeeText: string): Promise<string[]> => {
  */
 export const getBrewRecipe = async (
   method: string,
-  taste: string,
+  taste: string
 ): Promise<string> => {
-  const prompt = `Priprav detailný recept na kávu pomocou metódy ${method}. 
-  Používateľ preferuje ${taste} chuť.
-
-  Formátuj odpoveď takto:
-
-  📊 Základné parametre
-  - Pomer kávy k vode: X:X
-  - Teplota vody: X°C
-  - Čas extrakcie: X min
-  - Hrubosť mletia: popis
-
-  📝 Postup prípravy
-  1. Prvý krok s časom (X min)
-  2. Druhý krok s teplotou (X°C)
-  3. Ďalšie kroky...
-
-  💡 Tip pre lepšiu chuť
-  - Konkrétny tip pre ${taste} chuť
-
-  Píš stručne a jasne, použi emoji pre lepšiu čitateľnosť.`;
+  const prompt = `Priprav detailný recept na kávu pomocou metódy ${method}. Používateľ preferuje ${taste} chuť. Uveď ideálny pomer kávy k vode, teplotu vody a ďalšie dôležité kroky. Odpovedz stručne.`;
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -209,7 +171,7 @@ export const getBrewRecipe = async (
         messages: [
           {
             role: 'system',
-            content: 'Si skúsený barista, ktorý navrhuje recepty na kávu.',
+            content: 'Si skúsený barista, ktorý navrhuje recepty na kávu.'
           },
           { role: 'user', content: prompt },
         ],
@@ -228,14 +190,12 @@ export const getBrewRecipe = async (
 /**
  * Spracuje OCR z obrázka
  */
-export const processOCR = async (
-  base64image: string,
-): Promise<OCRResult | null> => {
+export const processOCR = async (base64image: string): Promise<OCRResult | null> => {
   try {
     // 1. Pošli na Google Vision API
     const ocrResponse = await fetch(`${API_URL}/ocr`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ base64image }),
     });
 
@@ -297,8 +257,7 @@ export const processOCR = async (
       }
     } catch (evalError) {
       console.warn('Evaluation failed:', evalError);
-      recommendation =
-        'Nepodarilo sa vyhodnotiť kávu. Skontroluj svoje preferencie v profile.';
+      recommendation = 'Nepodarilo sa vyhodnotiť kávu. Skontroluj svoje preferencie v profile.';
     }
 
     // 5. Navrhni spôsoby prípravy
@@ -322,9 +281,7 @@ export const processOCR = async (
 /**
  * Načíta históriu OCR skenovaní
  */
-export const fetchOCRHistory = async (
-  limit: number = 10,
-): Promise<OCRHistory[]> => {
+export const fetchOCRHistory = async (limit: number = 10): Promise<OCRHistory[]> => {
   try {
     const token = await getAuthToken();
     if (!token) return [];
@@ -386,10 +343,7 @@ export const deleteOCRRecord = async (id: string): Promise<boolean> => {
 /**
  * Ohodnotí OCR výsledok
  */
-export const rateOCRResult = async (
-  scanId: string,
-  rating: number,
-): Promise<boolean> => {
+export const rateOCRResult = async (scanId: string, rating: number): Promise<boolean> => {
   try {
     const token = await getAuthToken();
     if (!token) return false;

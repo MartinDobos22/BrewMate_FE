@@ -29,7 +29,7 @@ jest.mock(
   { virtual: true },
 );
 
-jest.mock('../src/components/ProfessionalOCRScanner', () => 'View');
+jest.mock('../src/components/CoffeeTasteScanner.tsx', () => 'View');
 
 import App from '../App';
 

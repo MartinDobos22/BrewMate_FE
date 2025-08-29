@@ -10,8 +10,8 @@ import {
 import auth from '@react-native-firebase/auth';
 import AuthScreen from './src/components/AuthVisual.tsx';
 import HomeScreen from './src/components/HomeScreen';
-import ProfessionalOCRScanner from './src/components/ProfessionalOCRScanner';
-import BrewScanner from './src/components/BrewScanner';
+import CoffeeTasteScanner from './src/components/CoffeeTasteScanner.tsx';
+import CoffeeReceipeScanner from './src/components/CoffeeReceipeScanner.tsx';
 import UserProfile from './src/components/UserProfile';
 import EditUserProfile from './src/components/EditUserProfile';
 import CoffeePreferenceForm from './src/components/CoffeePreferenceForm';
@@ -137,7 +137,7 @@ const AppContent = (): React.JSX.Element => {
             <Text style={styles.backButtonText}>← Späť</Text>
           </TouchableOpacity>
         </View>
-        <ProfessionalOCRScanner />
+        <CoffeeTasteScanner />
       </ResponsiveWrapper>
     );
   }
@@ -156,7 +156,7 @@ const AppContent = (): React.JSX.Element => {
             <Text style={styles.backButtonText}>← Späť</Text>
           </TouchableOpacity>
         </View>
-        <BrewScanner
+        <CoffeeReceipeScanner
           onRecipeGenerated={(recipe) => {
             setGeneratedRecipe(recipe);
             setCurrentScreen('recipe-steps');
