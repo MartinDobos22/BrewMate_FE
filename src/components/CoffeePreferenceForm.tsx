@@ -17,6 +17,16 @@ import AIResponseDisplay from './AIResponseDisplay';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
+/**
+ * Wrapper pre fetch s logovaním komunikácie FE ↔ BE.
+ */
+const loggedFetch = async (url: string, options: RequestInit) => {
+  console.log('📤 [FE->BE]', url, options);
+  const res = await fetch(url, options);
+  console.log('📥 [BE->FE]', url, res.status);
+  return res;
+};
+
 interface Question {
   id: string;
   title: string;
@@ -26,6 +36,9 @@ interface Question {
   section: 'basic' | 'intermediate' | 'expert';
 }
 
+/**
+ * Dotazník preferencií na základe ktorého sa vygeneruje AI odporúčanie.
+ */
 const CoffeePreferenceForm = ({ onBack }: { onBack: () => void }) => {
   const isDarkMode = useColorScheme() === 'dark';
   const [isLoading, setIsLoading] = useState(false);
@@ -284,16 +297,20 @@ const CoffeePreferenceForm = ({ onBack }: { onBack: () => void }) => {
     loadPreferences();
   }, []);
 
+  /**
+   * Načíta existujúce preferencie používateľa z backendu.
+   */
   const loadPreferences = async () => {
     try {
       const user = auth().currentUser;
       const token = await user?.getIdToken();
-      const res = await fetch('http://10.0.2.2:3001/api/profile', {
+      const res = await loggedFetch('http://10.0.2.2:3001/api/profile', {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {
         const data = await res.json();
+        console.log('📥 [BE] Loaded preferences:', data);
         if (data.coffee_preferences) {
           const prefs = data.coffee_preferences;
           setIntensity(prefs.intensity || 'medium');
@@ -317,6 +334,9 @@ const CoffeePreferenceForm = ({ onBack }: { onBack: () => void }) => {
     }
   };
 
+  /**
+   * Spracuje odpoveď používateľa pre danú otázku.
+   */
   const handleAnswer = (questionId: string, value: any) => {
     switch (questionId) {
       case 'experience':
@@ -358,6 +378,9 @@ const CoffeePreferenceForm = ({ onBack }: { onBack: () => void }) => {
     }
   };
 
+  /**
+   * Pridá alebo odstráni hodnotu z poľa možností.
+   */
   const toggleArrayValue = (value: string, array: string[], setter: (v: string[]) => void) => {
     if (array.includes(value)) {
       setter(array.filter(v => v !== value));
@@ -366,6 +389,9 @@ const CoffeePreferenceForm = ({ onBack }: { onBack: () => void }) => {
     }
   };
 
+  /**
+   * Získa aktuálnu hodnotu pre danú otázku.
+   */
   const getValue = (questionId: string) => {
     switch (questionId) {
       case 'experience': return experienceLevel;
@@ -384,6 +410,9 @@ const CoffeePreferenceForm = ({ onBack }: { onBack: () => void }) => {
     }
   };
 
+  /**
+   * Zavolá OpenAI a vygeneruje odporúčanie podľa preferencií.
+   */
   const generateAIRecommendation = async (prefs: any, level: string): Promise<string> => {
     const prompt = `
 Ako profesionálny barista vytvor personalizované odporúčanie pre používateľa.
@@ -403,6 +432,7 @@ Píš jednoducho, zrozumiteľne a priateľsky v slovenčine.
     `;
 
     try {
+      console.log('📤 [OpenAI] prefs prompt:', prompt);
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -423,6 +453,7 @@ Píš jednoducho, zrozumiteľne a priateľsky v slovenčine.
       });
 
       const data = await response.json();
+      console.log('📥 [OpenAI] prefs response:', data);
       return data?.choices?.[0]?.message?.content?.trim() || 'Nepodarilo sa získať odporúčanie.';
     } catch (err) {
       console.error('AI error:', err);
@@ -430,6 +461,9 @@ Píš jednoducho, zrozumiteľne a priateľsky v slovenčine.
     }
   };
 
+  /**
+   * Uloží vyplnené preferencie a zobrazí odporúčanie.
+   */
   const handleSubmit = async () => {
     setIsLoading(true);
 
@@ -459,7 +493,7 @@ Píš jednoducho, zrozumiteľne a priateľsky v slovenčine.
 
       const aiRecommendation = await generateAIRecommendation(preferences, experienceLevel);
 
-      const res = await fetch('http://10.0.2.2:3001/api/profile', {
+      const res = await loggedFetch('http://10.0.2.2:3001/api/profile', {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -471,7 +505,8 @@ Píš jednoducho, zrozumiteľne a priateľsky v slovenčine.
           ai_recommendation: aiRecommendation,
         }),
       });
-
+      const resData = await res.json().catch(() => null);
+      console.log('📥 [BE] Save response:', resData);
       if (!res.ok) throw new Error('Failed to save preferences');
       setRecommendation(aiRecommendation);
       setShowRecommendation(true);

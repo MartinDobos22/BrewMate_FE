@@ -23,6 +23,15 @@ const PORT = process.env.PORT || 3001;
 app.use(express.json({ limit: '20mb' }));
 app.use(cors());
 
+// Global request logger to capture communication from frontend
+app.use((req, _res, next) => {
+  console.log(
+    `➡️  [${new Date().toISOString()}] ${req.method} ${req.originalUrl}`,
+    req.body
+  );
+  next();
+});
+
 const GOOGLE_VISION_API_KEY = process.env.GOOGLE_VISION_API_KEY || " ";
 
 app.get("/", (req, res) => {
@@ -33,6 +42,19 @@ const db = new Pool({
   connectionString: process.env.SUPABASE_DB_URL,
 });
 
+// Wrap default query method to log all interactions with Supabase
+const originalQuery = db.query.bind(db);
+db.query = async (text, params) => {
+  console.log('📤 [Supabase] Query:', text, params);
+  const start = Date.now();
+  const res = await originalQuery(text, params);
+  console.log('📥 [Supabase] Response:', {
+    rows: res.rowCount,
+    duration: Date.now() - start,
+  });
+  return res;
+};
+
 // Ensure log directory exists
 const LOG_DIR = path.join('.', 'logs');
 if (!fs.existsSync(LOG_DIR)) {
@@ -40,6 +62,10 @@ if (!fs.existsSync(LOG_DIR)) {
 }
 
 // ========== OPTIMALIZOVANÝ PROFILE ENDPOINT ==========
+
+/**
+ * Vráti profil prihláseného používateľa vrátane preferencií a odporúčaní.
+ */
 app.get('/api/profile', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
   if (!idToken) return res.status(401).json({ error: 'Token chýba' });
@@ -109,6 +135,9 @@ app.get('/api/profile', async (req, res) => {
 });
 
 // ========== OPTIMALIZOVANÝ UPDATE PROFILE ENDPOINT ==========
+/**
+ * Aktualizuje profil používateľa a jeho preferencie kávy.
+ */
 app.put('/api/profile', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
   if (!idToken) {
@@ -254,6 +283,11 @@ app.post('/api/auth', async (req, res) => {
 });
 
 // ========== OCR ENDPOINTS ==========
+
+/**
+ * Spracuje obrázok a pošle ho do Google Vision API na OCR.
+ * Loguje dĺžku vstupného obrázka a odpoveď z Vision API.
+ */
 app.post("/ocr", async (req, res) => {
   try {
     const { base64image } = req.body;
@@ -269,11 +303,13 @@ app.post("/ocr", async (req, res) => {
         }
       ]
     };
+    console.log('📤 [Vision] Payload size:', base64image.length);
 
     const url = `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`;
     const response = await axios.post(url, payload, {
       headers: { "Content-Type": "application/json" }
     });
+    console.log('📥 [Vision] Response:', response.data);
 
     const text = response.data.responses?.[0]?.fullTextAnnotation?.text || "";
     res.json({ text });
@@ -321,6 +357,10 @@ app.post('/api/ocr/save', async (req, res) => {
   }
 });
 
+/**
+ * Vyhodnotí text kávy pomocou OpenAI na základe preferencií používateľa.
+ * Loguje odoslaný prompt a odpoveď z OpenAI.
+ */
 app.post('/api/ocr/evaluate', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
   if (!idToken) return res.status(401).json({ error: 'Token chýba' });
@@ -363,6 +403,7 @@ Výsledok napíš ako používateľovi:
 - Pridaj stručné zdôvodnenie na základe chuti, praženia, spôsobu prípravy atď.
 `;
 
+    console.log('📤 [OpenAI] Prompt:', prompt);
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
@@ -380,6 +421,7 @@ Výsledok napíš ako používateľovi:
         },
       }
     );
+    console.log('📥 [OpenAI] Response:', response.data);
 
     const recommendation = response.data.choices?.[0]?.message?.content?.trim();
     return res.json({ recommendation });
@@ -769,6 +811,13 @@ app.post('/api/coffee/favorite/:id', async (req, res) => {
 });
 
 // ========== HELPER FUNKCIE ==========
+
+/**
+ * Vypočíta percentuálnu zhodu medzi opisom kávy a preferenciami používateľa.
+ * @param {string} coffeeText - Textový opis kávy.
+ * @param {object} preferences - Preferencie používateľa z databázy.
+ * @returns {number} Hodnota zhody v percentách.
+ */
 function calculateMatch(coffeeText, preferences) {
   if (!preferences) return 70;
 
@@ -796,6 +845,11 @@ function calculateMatch(coffeeText, preferences) {
   return Math.min(score, 100);
 }
 
+/**
+ * Extrahuje názov kávy z dodaného textu.
+ * @param {string} text - Text z ktorého chceme získať názov.
+ * @returns {string} Zistený názov kávy alebo generický text.
+ */
 function extractCoffeeName(text) {
   if (!text) return 'Neznáma káva';
 
@@ -812,6 +866,10 @@ function extractCoffeeName(text) {
   return words.substring(0, 50);
 }
 
+/**
+ * Vráti denný tip na prípravu kávy.
+ * @returns {string} Krátky tip na daný deň.
+ */
 function getDailyTip() {
   const tips = [
     'Espresso Lungo - perfektné pre produktívne ráno',
@@ -826,6 +884,11 @@ function getDailyTip() {
   return tips[today % tips.length];
 }
 
+/**
+ * Generuje zoznam odporúčaných káv na základe preferencií používateľa.
+ * @param {object} preferences - Preferencie používateľa.
+ * @returns {Promise<Array>} Zoznam odporúčaní.
+ */
 async function generateRecommendations(preferences) {
   const recommendations = [];
 
