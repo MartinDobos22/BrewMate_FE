@@ -128,7 +128,11 @@ ${ocrText}
  * Navrhne spôsoby prípravy kávy na základe popisu
  */
 const suggestBrewingMethods = async (coffeeText: string): Promise<string[]> => {
-  const prompt = `Na základe tohto popisu kávy navrhni 3 až 4 najvhodnejšie spôsoby prípravy kávy. Odpovedz len zoznamom metód oddelených novým riadkom. Popis: "${coffeeText}"`;
+  const prompt =
+    `Na základe tohto popisu kávy navrhni presne 4 najvhodnejšie spôsoby prípravy kávy. ` +
+    `Odpovedz len zoznamom metód oddelených novým riadkom. Popis: "${coffeeText}"`;
+
+  const fallback = ['Espresso', 'French press', 'V60', 'Cold brew'];
 
   try {
     console.log('📤 [OpenAI] Brewing prompt:', prompt);
@@ -143,7 +147,8 @@ const suggestBrewingMethods = async (coffeeText: string): Promise<string[]> => {
         messages: [
           {
             role: 'system',
-            content: 'Si barista, ktorý odporúča spôsoby prípravy kávy na základe popisu z etikety.',
+            content:
+              'Si barista, ktorý odporúča spôsoby prípravy kávy na základe popisu z etikety.',
           },
           { role: 'user', content: prompt },
         ],
@@ -154,13 +159,25 @@ const suggestBrewingMethods = async (coffeeText: string): Promise<string[]> => {
     const data = await response.json();
     console.log('📥 [OpenAI] Brewing response:', data);
     const content = data?.choices?.[0]?.message?.content || '';
-    return content
+    let methods = content
       .split('\n')
       .map((m: string) => m.replace(/^[-*\d.\s]+/, '').trim())
       .filter(Boolean);
+
+    if (methods.length === 0) {
+      // Ak AI nevráti žiadne metódy, použijeme predvolené hodnoty
+      methods = fallback;
+    } else if (methods.length < 4) {
+      // Ak AI vráti menej ako 4, doplníme ich predvolenými
+      methods = [...methods, ...fallback].slice(0, 4);
+    } else {
+      methods = methods.slice(0, 4);
+    }
+
+    return methods;
   } catch (error) {
     console.error('Brewing suggestion error:', error);
-    return [];
+    return fallback;
   }
 };
 
