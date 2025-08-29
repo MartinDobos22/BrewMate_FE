@@ -5,6 +5,7 @@ import {
   StatusBar,
   Platform,
   View,
+  Text,
   StyleSheet,
 } from 'react-native';
 import { getSafeAreaTop, getSafeAreaBottom } from './utils/safeArea.ts';
@@ -31,7 +32,11 @@ const ResponsiveWrapper: React.FC<ResponsiveWrapperProps> = ({
       />
       <SafeAreaView style={[styles.container, { backgroundColor }]}>
         <View style={styles.content}>
-          {children}
+          {React.Children.map(children, child =>
+            typeof child === 'string' || typeof child === 'number'
+              ? <Text>{child}</Text>
+              : child
+          )}
         </View>
       </SafeAreaView>
     </>
