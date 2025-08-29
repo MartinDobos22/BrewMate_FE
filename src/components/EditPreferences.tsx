@@ -17,7 +17,7 @@ import { getColors, Colors } from '../theme/colors';
 import { getSafeAreaTop, getSafeAreaBottom, scale } from './utils/safeArea';
 import { AIResponseDisplay } from './AIResponseDisplay';
 
-const OPENAI_API_KEY = "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";
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 interface ProfileData {
   coffee_preferences?: any;

@@ -2,8 +2,7 @@
 import auth from '@react-native-firebase/auth';
 
 const API_URL = 'http://10.0.2.2:3001';
-const OPENAI_API_KEY =
-  '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';
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 interface OCRResult {
   original: string;

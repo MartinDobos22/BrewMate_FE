@@ -11,7 +11,7 @@ import { useTheme } from '../theme/ThemeProvider';
 import { formatRecipeSteps } from './utils/AITextFormatter';
 import Timer from './Timer';
 import { AIResponseDisplay } from './AIResponseDisplay';
-import { unifiedStyles } from '../theme/unifiedStyles';
+import { colors, spacing, unifiedStyles } from '../theme/unifiedStyles';
 
 interface RecipeStepsScreenProps {
   recipe: string;
