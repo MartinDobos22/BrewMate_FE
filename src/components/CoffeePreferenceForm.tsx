@@ -8,10 +8,12 @@ import {
   Switch,
   ScrollView,
   Alert,
+  Modal,
   useColorScheme,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import { getColors } from '../theme/colors';
+import AIResponseDisplay from './AIResponseDisplay';
 
 const OPENAI_API_KEY = "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";
 
@@ -471,12 +473,8 @@ Píš jednoducho, zrozumiteľne a priateľsky v slovenčine.
       });
 
       if (!res.ok) throw new Error('Failed to save preferences');
-
-      Alert.alert(
-          '✅ Hotovo!',
-          'Tvoj kávový profil bol uložený. Teraz ti vieme odporučiť perfektnú kávu!',
-          [{ text: 'Skvelé', onPress: onBack }]
-      );
+      setRecommendation(aiRecommendation);
+      setShowRecommendation(true);
     } catch (err) {
       Alert.alert('Chyba', 'Nepodarilo sa uložiť preferencie');
     } finally {
@@ -563,23 +561,61 @@ Píš jednoducho, zrozumiteľne a priateľsky v slovenčine.
         </View>
 
         {/* Content */}
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {visibleQuestions.map(question => renderQuestion(question))}
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {visibleQuestions.map(question => renderQuestion(question))}
 
-          {/* Submit Button */}
-          <TouchableOpacity
-              style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
-              onPress={handleSubmit}
-              disabled={isLoading}
-          >
-            <Text style={styles.submitButtonText}>
-              {isLoading ? 'Ukladám...' : 'Uložiť preferencie ✓'}
-            </Text>
-          </TouchableOpacity>
+        {/* Submit Button */}
+        <TouchableOpacity
+            style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
+            onPress={handleSubmit}
+            disabled={isLoading}
+        >
+          <Text style={styles.submitButtonText}>
+            {isLoading ? 'Ukladám...' : 'Uložiť preferencie ✓'}
+          </Text>
+        </TouchableOpacity>
 
-          <View style={styles.bottomPadding} />
-        </ScrollView>
-      </View>
+        <View style={styles.bottomPadding} />
+      </ScrollView>
+
+      {showRecommendation && (
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={showRecommendation}
+          onRequestClose={() => setShowRecommendation(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowRecommendation(false)}
+              >
+                <Text style={styles.modalCloseButtonText}>✕</Text>
+              </TouchableOpacity>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <AIResponseDisplay
+                  text={recommendation}
+                  type="recommendation"
+                  animate={true}
+                />
+              </ScrollView>
+
+              <TouchableOpacity
+                style={styles.continueButton}
+                onPress={() => {
+                  setShowRecommendation(false);
+                  onBack();
+                }}
+              >
+                <Text style={styles.continueButtonText}>Pokračovať</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
+    </View>
   );
 };
 
@@ -712,6 +748,45 @@ const createStyles = (isDarkMode: boolean) => {
     },
     bottomPadding: {
       height: 20,
+    },
+    modalContainer: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    modalContent: {
+      width: '100%',
+      maxHeight: '80%',
+      backgroundColor: colors.cardBackground,
+      borderRadius: 20,
+      padding: 20,
+    },
+    modalCloseButton: {
+      position: 'absolute',
+      top: 10,
+      right: 10,
+      width: 40,
+      height: 40,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalCloseButtonText: {
+      fontSize: 24,
+      color: colors.text,
+    },
+    continueButton: {
+      marginTop: 20,
+      backgroundColor: colors.primary,
+      paddingVertical: 14,
+      borderRadius: 12,
+      alignItems: 'center',
+    },
+    continueButtonText: {
+      color: '#ffffff',
+      fontSize: 16,
+      fontWeight: '600',
     },
   });
 };
