@@ -15,8 +15,11 @@ import {
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import { getSafeAreaTop, getSafeAreaBottom, scale } from './utils/safeArea';
+import { AIResponseDisplay } from './AIResponseDisplay';
+import { unifiedStyles } from '../theme/unifiedStyles';
 
 const { width } = Dimensions.get('window');
+const { colors, typography, spacing, componentStyles } = unifiedStyles;
 
 interface ProfileData {
   email: string;
@@ -298,15 +301,19 @@ const UserProfile = ({
 
       {/* AI Recommendation */}
       {recommendation && (
-        <View style={styles.section}>
-          <View style={styles.sectionCard}>
-            <View style={styles.recommendationHeader}>
-              <Text style={styles.sectionTitle}>🤖 Personalizované odporúčanie</Text>
+        <View style={componentStyles.section}>
+          <View style={componentStyles.card}>
+            <View style={componentStyles.sectionHeader}>
+              <Text style={componentStyles.sectionTitle}>🤖 Personalizované odporúčanie</Text>
               <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
                 <Text style={styles.refreshText}>🔄</Text>
               </TouchableOpacity>
             </View>
-            <Text style={styles.recommendationText}>{recommendation}</Text>
+            <AIResponseDisplay
+              text={recommendation}
+              type="recommendation"
+              animate={true}
+            />
           </View>
         </View>
       )}
@@ -368,10 +375,10 @@ const UserProfile = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAF7F5',
+    backgroundColor: colors.background,
   },
   header: {
-    backgroundColor: '#6B4423',
+    backgroundColor: colors.primary,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -602,23 +609,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: scale(8),
+    marginBottom: spacing.sm,
   },
   refreshButton: {
     width: scale(30),
     height: scale(30),
-    backgroundColor: '#FAF7F5',
+    backgroundColor: colors.background,
     borderRadius: scale(15),
     justifyContent: 'center',
     alignItems: 'center',
   },
   refreshText: {
-    fontSize: scale(16),
-  },
-  recommendationText: {
-    fontSize: scale(14),
-    lineHeight: scale(20),
-    color: '#2C2C2C',
+    ...typography.body,
   },
   tipCard: {
     backgroundColor: '#D2691E',
