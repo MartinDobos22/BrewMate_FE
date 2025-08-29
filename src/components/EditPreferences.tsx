@@ -15,6 +15,7 @@ import {
 import auth from '@react-native-firebase/auth';
 import { getColors, Colors } from '../theme/colors';
 import { getSafeAreaTop, getSafeAreaBottom, scale } from './utils/safeArea';
+import { AIResponseDisplay } from './AIResponseDisplay';
 
 const OPENAI_API_KEY = "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";
 
@@ -251,11 +252,19 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
         >
           {/* Aktuálne odporúčanie */}
           <View style={styles.section}>
-            <Text style={styles.label}>Vaše aktuálne odporúčanie:</Text>
             <View style={styles.currentRecommendation}>
-              <Text style={styles.recommendationText}>
-                {currentRecommendation || 'Zatiaľ nemáte žiadne odporúčanie. Vyplňte najprv dotazník preferencií.'}
-              </Text>
+              <Text style={styles.recommendationTitle}>Aktuálne odporúčanie:</Text>
+              {currentRecommendation ? (
+                <AIResponseDisplay
+                  text={currentRecommendation}
+                  type="recommendation"
+                  animate={false}
+                />
+              ) : (
+                <Text style={styles.recommendationText}>
+                  Zatiaľ nemáte žiadne odporúčanie. Vyplňte najprv dotazník preferencií.
+                </Text>
+              )}
             </View>
           </View>
 
@@ -384,6 +393,12 @@ const createStyles = (colors: Colors) =>
       borderRadius: scale(12),
       borderWidth: 1,
       borderColor: colors.border,
+    },
+    recommendationTitle: {
+      fontSize: scale(16),
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: scale(8),
     },
     recommendationText: {
       color: colors.text,
