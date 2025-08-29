@@ -30,7 +30,8 @@ const CoffeePreferenceForm = ({ onBack }: { onBack: () => void }) => {
 
   const colors = getColors(isDarkMode);
   const styles = createStyles(isDarkMode);
-
+  const [showRecommendation, setShowRecommendation] = useState(false);
+  const [recommendation, setRecommendation] = useState('');
   // Odpovede používateľa
   const [experienceLevel, setExperienceLevel] = useState<'beginner' | 'intermediate' | 'expert'>('beginner');
   const [intensity, setIntensity] = useState<'light' | 'medium' | 'strong'>('medium');

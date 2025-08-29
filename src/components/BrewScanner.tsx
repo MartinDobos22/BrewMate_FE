@@ -30,6 +30,8 @@ import {
   rateOCRResult,
   getBrewRecipe,
 } from '../services/ocrServices.ts';
+import { AIResponseDisplay } from './AIResponseDisplay';
+
 
 interface OCRHistory {
   id: string;
@@ -427,10 +429,11 @@ const BrewScanner: React.FC<BrewScannerProps> = ({ onBack, onRecipeGenerated }) 
 
             {scanResult.recommendation && (
               <View style={styles.recommendationCard}>
-                <Text style={styles.recommendationTitle}>🤖 AI Hodnotenie</Text>
-                <Text style={styles.recommendationText}>
-                  {scanResult.recommendation}
-                </Text>
+                <AIResponseDisplay
+                  text={scanResult.recommendation}
+                  type="recommendation"
+                  animate={true}
+                />
               </View>
             )}
 
