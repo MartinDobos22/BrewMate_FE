@@ -14,8 +14,9 @@ import {
 import auth from '@react-native-firebase/auth';
 import { getColors } from '../theme/colors';
 import AIResponseDisplay from './AIResponseDisplay';
+import { CONFIG } from '../config/config';
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_API_KEY = CONFIG.OPENAI_API_KEY;
 
 /**
  * Wrapper pre fetch s logovaním komunikácie FE ↔ BE.
@@ -416,6 +417,11 @@ const CoffeePreferenceForm = ({ onBack }: { onBack: () => void }) => {
    * Zavolá OpenAI a vygeneruje odporúčanie podľa preferencií.
    */
   const generateAIRecommendation = async (prefs: any, level: string): Promise<string> => {
+    if (!OPENAI_API_KEY) {
+      console.error('Chýba OpenAI API key. Odporúčanie sa nevygeneruje.');
+      return 'Nastala chyba pri generovaní odporúčania.';
+    }
+
     const prompt = `
 Ako profesionálny barista vytvor personalizované odporúčanie pre používateľa.
 Úroveň skúseností: ${level}

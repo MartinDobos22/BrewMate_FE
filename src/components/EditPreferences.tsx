@@ -16,8 +16,9 @@ import auth from '@react-native-firebase/auth';
 import { getColors, Colors } from '../theme/colors';
 import { getSafeAreaTop, getSafeAreaBottom, scale } from './utils/safeArea';
 import { AIResponseDisplay } from './AIResponseDisplay';
+import { CONFIG } from '../config/config';
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_API_KEY = CONFIG.OPENAI_API_KEY;
 
 /**
  * Jednoduchý wrapper pre fetch s logovaním komunikácie FE ↔ BE.
@@ -78,6 +79,11 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
    * Vygeneruje nové AI odporúčanie podľa zadaných poznámok.
    */
   const generateAI = async (additionalNotes: string) => {
+    if (!OPENAI_API_KEY) {
+      console.error('Chýba OpenAI API key. Odporúčanie sa nevygeneruje.');
+      return 'Nastala chyba pri generovaní odporúčania.';
+    }
+
     try {
       let prompt = `Používateľ má tieto preferencie kávy: ${JSON.stringify(profile?.coffee_preferences)}.`;
 
