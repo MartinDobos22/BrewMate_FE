@@ -372,58 +372,76 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
         </View>
 
         {/* Main Actions */}
-        {!scanResult && (
-          <View style={styles.mainActions}>
-            <TouchableOpacity
-              style={[styles.actionCard, styles.cameraAction]}
-              onPress={openCamera}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.actionIcon, styles.primaryActionIcon]}>
-                <Text style={styles.actionEmoji}>📷</Text>
-              </View>
-              <Text style={[styles.actionTitle, styles.primaryText]}>
-                Odfotiť kávu
-              </Text>
-              <Text style={[styles.actionDesc, styles.primaryText]}>
-                Použi fotoaparát
-              </Text>
-            </TouchableOpacity>
+        {!scanResult ? (
+          <>
+            {console.log('No scanResult - rendering main actions')}
+            <View style={styles.mainActions}>
+              <TouchableOpacity
+                style={[styles.actionCard, styles.cameraAction]}
+                onPress={openCamera}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.actionIcon, styles.primaryActionIcon]}>
+                  <Text style={styles.actionEmoji}>📷</Text>
+                </View>
+                <Text style={[styles.actionTitle, styles.primaryText]}>
+                  Odfotiť kávu
+                </Text>
+                <Text style={[styles.actionDesc, styles.primaryText]}>
+                  Použi fotoaparát
+                </Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={pickImageFromGallery}
-              activeOpacity={0.8}
-            >
-              <View style={styles.actionIcon}>
-                <Text style={styles.actionEmoji}>🖼️</Text>
-              </View>
-              <Text style={styles.actionTitle}>Vybrať z galérie</Text>
-              <Text style={styles.actionDesc}>Použi existujúcu fotku</Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                style={styles.actionCard}
+                onPress={pickImageFromGallery}
+                activeOpacity={0.8}
+              >
+                <View style={styles.actionIcon}>
+                  <Text style={styles.actionEmoji}>🖼️</Text>
+                </View>
+                <Text style={styles.actionTitle}>Vybrať z galérie</Text>
+                <Text style={styles.actionDesc}>Použi existujúcu fotku</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        ) : (
+          <>
+            {console.log('scanResult exists - hiding main actions')}
+            <Text>Výsledok skenovania je dostupný.</Text>
+          </>
         )}
 
         {/* Scan Result */}
-        {scanResult && (
-          <View style={styles.resultSection}>
-            <View style={styles.resultHeader}>
-              <Text style={styles.resultTitle}>📋 Výsledok skenovania</Text>
-              {scanResult.matchPercentage && (
-                <View
-                  style={[
-                    styles.matchBadge,
-                    scanResult.isRecommended
-                      ? styles.matchBadgeGood
-                      : styles.matchBadgeFair,
-                  ]}
-                >
-                  <Text style={styles.matchText}>
-                    {scanResult.matchPercentage}% zhoda
-                  </Text>
-                </View>
-              )}
-            </View>
+        {scanResult ? (
+          <>
+            {console.log('Rendering scan result', scanResult)}
+            <View style={styles.resultSection}>
+              <View style={styles.resultHeader}>
+                <Text style={styles.resultTitle}>📋 Výsledok skenovania</Text>
+                {scanResult.matchPercentage ? (
+                  <>
+                    {console.log('Rendering match percentage', scanResult.matchPercentage)}
+                    <View
+                      style={[
+                        styles.matchBadge,
+                        scanResult.isRecommended
+                          ? styles.matchBadgeGood
+                          : styles.matchBadgeFair,
+                      ]}
+                    >
+                      <Text style={styles.matchText}>
+                        {scanResult.matchPercentage}% zhoda
+                      </Text>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    {console.log('matchPercentage missing')}
+                    <Text>Zhoda nie je k dispozícii.</Text>
+                  </>
+                )}
+              </View>
 
             {/*{scanResult.recommendation && (*/}
             {/*  <View style={styles.recommendationCard}>*/}
@@ -447,8 +465,9 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
               />
             </View>
 
-            {scanResult.brewingMethods &&
-              scanResult.brewingMethods.length > 0 && (
+            {scanResult.brewingMethods && scanResult.brewingMethods.length > 0 ? (
+              <>
+                {console.log('Rendering brewing methods', scanResult.brewingMethods)}
                 <View style={styles.brewingCard}>
                   <Text style={styles.brewingTitle}>
                     🍽️ Odporúčané prípravy
@@ -467,33 +486,47 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
                     </TouchableOpacity>
                   ))}
                 </View>
-              )}
+              </>
+            ) : (
+              <>
+                {console.log('No brewing methods available')}
+                <Text>Žiadne odporúčané prípravy.</Text>
+              </>
+            )}
 
-            {selectedMethod && (
-              <View style={styles.recipeSection}>
-                <Text style={styles.recipeTitle}>
-                  Zvolené: {selectedMethod}
-                </Text>
-                <Text style={styles.tasteQuestion}>
-                  Akú kávu chceš? Sladkú, kyslejšiu, horkú...
-                </Text>
-                <TextInput
-                  style={styles.tasteInput}
-                  placeholder="Napíš preferovanú chuť"
-                  placeholderTextColor="#999"
-                  value={tastePreference}
-                  onChangeText={setTastePreference}
-                />
-                <TouchableOpacity
-                  style={styles.recipeButton}
-                  onPress={generateRecipe}
-                  disabled={isGenerating}
-                >
-                  <Text style={styles.recipeButtonText}>
-                    {isGenerating ? 'Generujem...' : 'Generovať recept'}
+            {selectedMethod ? (
+              <>
+                {console.log('Rendering recipe section for method', selectedMethod)}
+                <View style={styles.recipeSection}>
+                  <Text style={styles.recipeTitle}>
+                    Zvolené: {selectedMethod}
                   </Text>
-                </TouchableOpacity>
-              </View>
+                  <Text style={styles.tasteQuestion}>
+                    Akú kávu chceš? Sladkú, kyslejšiu, horkú...
+                  </Text>
+                  <TextInput
+                    style={styles.tasteInput}
+                    placeholder="Napíš preferovanú chuť"
+                    placeholderTextColor="#999"
+                    value={tastePreference}
+                    onChangeText={setTastePreference}
+                  />
+                  <TouchableOpacity
+                    style={styles.recipeButton}
+                    onPress={generateRecipe}
+                    disabled={isGenerating}
+                  >
+                    <Text style={styles.recipeButtonText}>
+                      {isGenerating ? 'Generujem...' : 'Generovať recept'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <>
+                {console.log('No method selected')}
+                <Text>Žiadna metóda prípravy nebola vybraná.</Text>
+              </>
             )}
 
             {/* Rating */}
@@ -524,6 +557,12 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
               </TouchableOpacity>
             </View>
           </View>
+        </>
+        ) : (
+          <>
+            {console.log('scanResult missing - no result section')}
+            <Text>Žiadny výsledok na zobrazenie.</Text>
+          </>
         )}
 
         {/* History Section */}

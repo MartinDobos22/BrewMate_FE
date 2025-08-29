@@ -333,50 +333,68 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
         </View>
 
         {/* Main Actions */}
-        {!scanResult && (
-          <View style={styles.mainActions}>
-            <TouchableOpacity
-              style={[styles.actionCard, styles.cameraAction]}
-              onPress={openCamera}
-              activeOpacity={0.8}
-            >
-              <View style={styles.actionIcon}>
-                <Text style={styles.actionEmoji}>📷</Text>
-              </View>
-              <Text style={styles.actionTitle}>Odfotiť kávu</Text>
-              <Text style={styles.actionDesc}>Použi fotoaparát</Text>
-            </TouchableOpacity>
+        {!scanResult ? (
+          <>
+            {console.log('No scanResult - rendering main actions')}
+            <View style={styles.mainActions}>
+              <TouchableOpacity
+                style={[styles.actionCard, styles.cameraAction]}
+                onPress={openCamera}
+                activeOpacity={0.8}
+              >
+                <View style={styles.actionIcon}>
+                  <Text style={styles.actionEmoji}>📷</Text>
+                </View>
+                <Text style={styles.actionTitle}>Odfotiť kávu</Text>
+                <Text style={styles.actionDesc}>Použi fotoaparát</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.actionCard, styles.galleryAction]}
-              onPress={pickImageFromGallery}
-              activeOpacity={0.8}
-            >
-              <View style={styles.actionIcon}>
-                <Text style={styles.actionEmoji}>🖼️</Text>
-              </View>
-              <Text style={styles.actionTitle}>Vybrať z galérie</Text>
-              <Text style={styles.actionDesc}>Použi existujúcu fotku</Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity
+                style={[styles.actionCard, styles.galleryAction]}
+                onPress={pickImageFromGallery}
+                activeOpacity={0.8}
+              >
+                <View style={styles.actionIcon}>
+                  <Text style={styles.actionEmoji}>🖼️</Text>
+                </View>
+                <Text style={styles.actionTitle}>Vybrať z galérie</Text>
+                <Text style={styles.actionDesc}>Použi existujúcu fotku</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        ) : (
+          <>
+            {console.log('scanResult exists - hiding main actions')}
+            <Text>Výsledok skenovania je dostupný.</Text>
+          </>
         )}
 
         {/* Scan Result */}
-        {scanResult && (
-          <View style={styles.resultSection}>
-            <View style={styles.resultHeader}>
-              <Text style={styles.resultTitle}>📋 Výsledok skenovania</Text>
-              {scanResult.matchPercentage && (
-                <View style={[
-                  styles.matchBadge,
-                  scanResult.isRecommended ? styles.matchBadgeGood : styles.matchBadgeFair
-                ]}>
-                  <Text style={styles.matchText}>
-                    {scanResult.matchPercentage}% zhoda
-                  </Text>
-                </View>
-              )}
-            </View>
+        {scanResult ? (
+          <>
+            {console.log('Rendering scan result', scanResult)}
+            <View style={styles.resultSection}>
+              <View style={styles.resultHeader}>
+                <Text style={styles.resultTitle}>📋 Výsledok skenovania</Text>
+                {scanResult.matchPercentage ? (
+                  <>
+                    {console.log('Rendering match percentage', scanResult.matchPercentage)}
+                    <View style={[
+                      styles.matchBadge,
+                      scanResult.isRecommended ? styles.matchBadgeGood : styles.matchBadgeFair
+                    ]}>
+                      <Text style={styles.matchText}>
+                        {scanResult.matchPercentage}% zhoda
+                      </Text>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    {console.log('matchPercentage missing')}
+                    <Text>Zhoda nie je k dispozícii.</Text>
+                  </>
+                )}
+              </View>
 
             <View style={styles.resultCard}>
               <Text style={styles.resultLabel}>Rozpoznaný text:</Text>
@@ -390,13 +408,21 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
               />
             </View>
 
-            {scanResult.recommendation && (
-              <View style={styles.recommendationCard}>
-                <Text style={styles.recommendationTitle}>🤖 AI Hodnotenie</Text>
-                <Text style={styles.recommendationText}>
-                  {scanResult.recommendation}
-                </Text>
-              </View>
+            {scanResult.recommendation ? (
+              <>
+                {console.log('Rendering recommendation', scanResult.recommendation)}
+                <View style={styles.recommendationCard}>
+                  <Text style={styles.recommendationTitle}>🤖 AI Hodnotenie</Text>
+                  <Text style={styles.recommendationText}>
+                    {scanResult.recommendation}
+                  </Text>
+                </View>
+              </>
+            ) : (
+              <>
+                {console.log('Recommendation missing')}
+                <Text>Odporúčanie nie je k dispozícii.</Text>
+              </>
             )}
 
             {/* Rating */}
@@ -427,6 +453,12 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
               </TouchableOpacity>
             </View>
           </View>
+        </>
+        ) : (
+          <>
+            {console.log('scanResult missing - no result section')}
+            <Text>Žiadny výsledok na zobrazenie.</Text>
+          </>
         )}
 
         {/* History Section */}
