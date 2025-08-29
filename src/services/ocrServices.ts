@@ -1,9 +1,9 @@
 // services/ocrService.ts
 import auth from '@react-native-firebase/auth';
+import { CONFIG } from '../config/config';
 
 const API_URL = 'http://10.0.2.2:3001';
-const OPENAI_API_KEY =
-  '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';
+const OPENAI_API_KEY = CONFIG.OPENAI_API_KEY;
 
 /**
  * Wrapper okolo fetchu pre logovanie požiadaviek a odpovedí.
@@ -80,7 +80,7 @@ const extractCoffeeName = (text: string): string => {
  */
 const fixTextWithAI = async (ocrText: string): Promise<string> => {
   const prompt = `
-Toto je text získaný OCR rozpoznávaním z etikety kávy. 
+Toto je text získaný OCR rozpoznávaním z etikety kávy.
 Oprav všetky chyby, ktoré mohli vzniknúť zlým rozpoznaním znakov.
 Zachovaj pôvodný význam a štruktúru, ale oprav OCR chyby.
 Vráť iba opravený text.
@@ -88,6 +88,11 @@ Vráť iba opravený text.
 OCR text:
 ${ocrText}
   `;
+
+  if (!OPENAI_API_KEY) {
+    console.error('Chýba OpenAI API key. Text sa neodošle na opravu.');
+    return ocrText;
+  }
 
   try {
     console.log('📤 [OpenAI] OCR prompt:', prompt);
@@ -133,6 +138,11 @@ const suggestBrewingMethods = async (coffeeText: string): Promise<string[]> => {
     `Odpovedz len zoznamom metód oddelených novým riadkom. Popis: "${coffeeText}"`;
 
   const fallback = ['Espresso', 'French press', 'V60', 'Cold brew'];
+
+  if (!OPENAI_API_KEY) {
+    console.error('Chýba OpenAI API key. Vráti sa predvolený zoznam metód.');
+    return fallback;
+  }
 
   try {
     console.log('📤 [OpenAI] Brewing prompt:', prompt);
@@ -189,6 +199,11 @@ export const getBrewRecipe = async (
   taste: string
 ): Promise<string> => {
   const prompt = `Priprav detailný recept na kávu pomocou metódy ${method}. Používateľ preferuje ${taste} chuť. Uveď ideálny pomer kávy k vode, teplotu vody a ďalšie dôležité kroky. Odpovedz stručne.`;
+
+  if (!OPENAI_API_KEY) {
+    console.error('Chýba OpenAI API key. Recept sa nevygeneruje.');
+    return '';
+  }
 
   try {
     console.log('📤 [OpenAI] Recipe prompt:', prompt);

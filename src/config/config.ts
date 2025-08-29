@@ -11,7 +11,3 @@ export const CONFIG = {
   // AZURE_API_KEY: 'your-azure-key',
 };
 
-// Alternative: Use environment variables (recommended for production)
-// export const CONFIG = {
-//   OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
-// };
