@@ -211,15 +211,15 @@ app.put('/api/profile', async (req, res) => {
     if (ai_recommendation !== undefined) {
       // Deaktivuj staré odporúčania
       await client.query(
-        `UPDATE preference_updates SET is_current = false 
-         WHERE user_id = $1 AND is_current = true`,
+        `UPDATE preference_updates SET is_current = false
+         WHERE user_id::text = $1 AND is_current = true`,
         [uid]
       );
 
       // Získaj najvyššiu verziu
       const versionResult = await client.query(
-        `SELECT COALESCE(MAX(version), 0) as max_version 
-         FROM preference_updates WHERE user_id = $1`,
+        `SELECT COALESCE(MAX(version), 0) as max_version
+         FROM preference_updates WHERE user_id::text = $1`,
         [uid]
       );
 
@@ -229,7 +229,7 @@ app.put('/api/profile', async (req, res) => {
       await client.query(
         `INSERT INTO preference_updates (
           user_id, ai_recommendation, user_notes, version, is_current
-        ) VALUES ($1, $2, $3, $4, true)`,
+        ) VALUES ($1::text, $2, $3, $4, true)`,
         [uid, ai_recommendation, manual_input, nextVersion]
       );
     }
@@ -338,7 +338,7 @@ app.post('/api/ocr/save', async (req, res) => {
 
     // Získaj preferencie používateľa z novej štruktúry
     const prefResult = await db.query(
-      `SELECT * FROM user_coffee_preferences WHERE user_id = $1`,
+      `SELECT * FROM user_coffee_preferences WHERE user_id::text = $1`,
       [uid]
     );
 
@@ -348,7 +348,7 @@ app.post('/api/ocr/save', async (req, res) => {
 
     const result = await db.query(`
       INSERT INTO ocr_logs (user_id, original_text, corrected_text, match_percentage, is_recommended, created_at)
-      VALUES ($1, $2, $3, $4, $5, now())
+      VALUES ($1::text, $2, $3, $4, $5, now())
       RETURNING id
     `, [uid, original_text, corrected_text, matchPercentage, isRecommended]);
 
@@ -381,7 +381,7 @@ app.post('/api/ocr/evaluate', async (req, res) => {
 
     // Získaj preferencie z novej štruktúry
     const result = await db.query(
-      `SELECT * FROM user_coffee_preferences WHERE user_id = $1`,
+      `SELECT * FROM user_coffee_preferences WHERE user_id::text = $1`,
       [uid]
     );
 
@@ -466,7 +466,7 @@ app.get('/api/dashboard', async (req, res) => {
         COALESCE(AVG(rating), 0) as avg_rating,
         COUNT(DISTINCT coffee_id) FILTER (WHERE is_favorite = true) as favorites_count
       FROM coffee_ratings
-      WHERE user_id = $1 
+      WHERE user_id::text = $1
         AND EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
     `, [uid]);
 
@@ -486,7 +486,7 @@ app.get('/api/dashboard', async (req, res) => {
         created_at as timestamp,
         is_recommended
       FROM ocr_logs
-      WHERE user_id = $1
+      WHERE user_id::text = $1
       ORDER BY created_at DESC
       LIMIT 5
     `, [uid]);
@@ -502,7 +502,7 @@ app.get('/api/dashboard', async (req, res) => {
 
     // Získaj preferencie pre generovanie odporúčaní
     const prefResult = await db.query(
-      'SELECT * FROM user_coffee_preferences WHERE user_id = $1',
+      'SELECT * FROM user_coffee_preferences WHERE user_id::text = $1',
       [uid]
     );
 
@@ -548,7 +548,7 @@ app.get('/api/preference-history', async (req, res) => {
         is_current,
         created_at
       FROM preference_updates
-      WHERE user_id = $1
+      WHERE user_id::text = $1
       ORDER BY version DESC
       LIMIT 10
     `, [uid]);
@@ -711,7 +711,7 @@ app.delete('/api/ocr/:id', async (req, res) => {
     const recordId = req.params.id;
 
     const result = await db.query(
-      'DELETE FROM ocr_logs WHERE id = $1 AND user_id = $2 RETURNING id',
+      'DELETE FROM ocr_logs WHERE id = $1 AND user_id::text = $2 RETURNING id',
       [recordId, uid]
     );
 
@@ -720,7 +720,7 @@ app.delete('/api/ocr/:id', async (req, res) => {
     }
 
     await db.query(
-      'DELETE FROM coffee_ratings WHERE coffee_id = $1 AND user_id = $2',
+      'DELETE FROM coffee_ratings WHERE coffee_id = $1 AND user_id::text = $2',
       [recordId, uid]
     );
 
@@ -754,7 +754,7 @@ app.get('/api/ocr/history', async (req, res) => {
         match_percentage,
         is_recommended
       FROM ocr_logs
-      WHERE user_id = $1
+      WHERE user_id::text = $1
       ORDER BY created_at DESC
       LIMIT $2
     `, [uid, limit]);
@@ -792,18 +792,18 @@ app.post('/api/coffee/rate', async (req, res) => {
 
     await db.query(`
       INSERT INTO coffee_ratings (user_id, coffee_id, rating, notes, created_at)
-      VALUES ($1, $2, $3, $4, now())
-      ON CONFLICT (user_id, coffee_id) 
-      DO UPDATE SET 
+      VALUES ($1::text, $2, $3, $4, now())
+      ON CONFLICT (user_id, coffee_id)
+      DO UPDATE SET
         rating = $3,
         notes = $4,
         updated_at = now()
     `, [uid, coffee_id, rating, notes]);
 
     await db.query(`
-      UPDATE ocr_logs 
-      SET rating = $2 
-      WHERE id = $1 AND user_id = $3
+      UPDATE ocr_logs
+      SET rating = $2
+      WHERE id = $1 AND user_id::text = $3
     `, [coffee_id, rating, uid]);
 
     res.json({ message: 'Hodnotenie uložené' });
@@ -826,20 +826,20 @@ app.post('/api/coffee/favorite/:id', async (req, res) => {
     const coffeeId = req.params.id;
 
     const existing = await db.query(
-      'SELECT is_favorite FROM coffee_ratings WHERE user_id = $1 AND coffee_id = $2',
+      'SELECT is_favorite FROM coffee_ratings WHERE user_id::text = $1 AND coffee_id = $2',
       [uid, coffeeId]
     );
 
     if (existing.rows.length > 0) {
       const newFavorite = !existing.rows[0].is_favorite;
       await db.query(
-        'UPDATE coffee_ratings SET is_favorite = $3, updated_at = now() WHERE user_id = $1 AND coffee_id = $2',
+        'UPDATE coffee_ratings SET is_favorite = $3, updated_at = now() WHERE user_id::text = $1 AND coffee_id = $2',
         [uid, coffeeId, newFavorite]
       );
       res.json({ is_favorite: newFavorite });
     } else {
       await db.query(
-        'INSERT INTO coffee_ratings (user_id, coffee_id, is_favorite, created_at) VALUES ($1, $2, true, now())',
+        'INSERT INTO coffee_ratings (user_id, coffee_id, is_favorite, created_at) VALUES ($1::text, $2, true, now())',
         [uid, coffeeId]
       );
       res.json({ is_favorite: true });
@@ -862,7 +862,7 @@ app.post('/api/recipes', async (req, res) => {
     const uid = decoded.uid;
     const { method, taste, recipe } = req.body;
     const result = await db.query(
-      'INSERT INTO brew_recipes (user_id, method, taste, recipe, created_at) VALUES ($1, $2, $3, $4, now()) RETURNING id',
+      'INSERT INTO brew_recipes (user_id, method, taste, recipe, created_at) VALUES ($1::text, $2, $3, $4, now()) RETURNING id',
       [uid, method, taste, recipe]
     );
     res.json({ id: result.rows[0].id });
@@ -884,7 +884,7 @@ app.get('/api/recipes/history', async (req, res) => {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
     const result = await db.query(
-      'SELECT id, method, taste, recipe, created_at FROM brew_recipes WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2',
+      'SELECT id, method, taste, recipe, created_at FROM brew_recipes WHERE user_id::text = $1 ORDER BY created_at DESC LIMIT $2',
       [uid, limit]
     );
     res.json(result.rows);
