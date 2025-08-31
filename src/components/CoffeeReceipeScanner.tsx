@@ -34,6 +34,11 @@ import {
   rateOCRResult,
   getBrewRecipe,
 } from '../services/ocrServices.ts';
+import {
+  saveRecipe,
+  fetchRecipeHistory,
+  RecipeHistory,
+} from '../services/recipeServices.ts';
 import { AIResponseDisplay } from './AIResponseDisplay';
 
 interface OCRHistory {
@@ -77,6 +82,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
   const [tastePreference, setTastePreference] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedRecipe, setGeneratedRecipe] = useState<string>('');
+  const [recipeHistory, setRecipeHistory] = useState<RecipeHistory[]>([]);
 
   const camera = useRef<Camera>(null);
   const device = useCameraDevice('back');
@@ -101,6 +107,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
       requestPermission();
     }
     loadHistory();
+    loadRecipeHistory();
   }, [hasPermission, requestPermission]);
 
   /**
@@ -115,12 +122,21 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     }
   };
 
+  const loadRecipeHistory = async () => {
+    try {
+      const history = await fetchRecipeHistory(10);
+      setRecipeHistory(history);
+    } catch (error) {
+      console.error('Error loading recipe history:', error);
+    }
+  };
+
   /**
    * Refreshuje históriu potiahnutím v zozname.
    */
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadHistory();
+    await Promise.all([loadHistory(), loadRecipeHistory()]);
     setRefreshing(false);
   };
 
@@ -241,6 +257,8 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
       if (onRecipeGenerated) {
         onRecipeGenerated(recipe);
       }
+      await saveRecipe(selectedMethod, tastePreference || 'vyvážená', recipe);
+      await loadRecipeHistory();
     } catch (error) {
       console.error('Error generating recipe:', error);
       Alert.alert('Chyba', 'Nepodarilo sa vygenerovať recept');
@@ -618,6 +636,32 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
                 </Text>
               </View>
             )}
+          </View>
+        )}
+
+        {/* Recipe History Section */}
+        {recipeHistory.length > 0 && !scanResult && !generatedRecipe && (
+          <View style={styles.historySection}>
+            <View style={styles.historyHeader}>
+              <Text style={styles.historyTitle}>História receptov</Text>
+            </View>
+            <View style={styles.historyGrid}>
+              {recipeHistory.slice(0, 6).map(item => (
+                <View key={item.id} style={styles.historyCard}>
+                  <View style={styles.historyCardInner}>
+                    <Text style={styles.historyCardName} numberOfLines={1}>
+                      {item.method}
+                    </Text>
+                    <Text style={styles.historyCardDate}>
+                      {new Date(item.created_at).toLocaleDateString('sk-SK')}
+                    </Text>
+                    <Text style={styles.historyCardRating} numberOfLines={2}>
+                      {item.recipe}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
           </View>
         )}
 
