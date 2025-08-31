@@ -25,10 +25,12 @@ app.use(cors());
 
 // Global request logger to capture communication from frontend
 app.use((req, _res, next) => {
-  console.log(
-    `➡️  [${new Date().toISOString()}] ${req.method} ${req.originalUrl}`,
-    req.body
-  );
+  const base = `➡️  [${new Date().toISOString()}] ${req.method} ${req.originalUrl}`;
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log(base, req.body);
+  } else {
+    console.log(base);
+  }
   next();
 });
 
