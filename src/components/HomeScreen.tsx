@@ -114,12 +114,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     );
   };
 
-  const getCaffeineLevel = () => {
-    const percentage = (caffeineAmount / 300) * 100;
-    if (percentage < 50) return 'low';
-    if (percentage < 80) return 'medium';
-    return 'high';
-  };
+  // const getCaffeineLevel = () => {
+  //   const percentage = (caffeineAmount / 300) * 100;
+  //   if (percentage < 50) return 'low';
+  //   if (percentage < 80) return 'medium';
+  //   return 'high';
+  // };
 
   const suggestedCoffee = getWeatherBasedCoffee();
 
@@ -232,10 +232,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
             <Text style={styles.trackerDate}>Dnes</Text>
           </View>
           <View style={styles.caffeineMeter}>
-            <View style={[
-              styles.caffeineFill,
-              styles[`caffeine${getCaffeineLevel().charAt(0).toUpperCase() + getCaffeineLevel().slice(1)}`]
-            ]} />
+            {/*<View style={[*/}
+            {/*  styles.caffeineFill,*/}
+            {/*  styles[`caffeine${getCaffeineLevel().charAt(0).toUpperCase() + getCaffeineLevel().slice(1)}`]*/}
+            {/*]} />*/}
             <Text style={styles.caffeineAmount}>{caffeineAmount}mg / 300mg</Text>
           </View>
           <View style={styles.trackerStats}>

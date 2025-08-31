@@ -1,128 +1,374 @@
-// CoffeeTasteScanner.styles.ts
+// ProfessionalOCRScanner.styles.ts - Coffee-themed Elegant Design
 import { StyleSheet, Dimensions, Platform } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
 const colors = {
-  primary: '#6B4423',
-  primaryLight: '#8B6544',
-  primaryDark: '#4A2F18',
-  accent: '#D2691E',
-  success: '#4CAF50',
-  warning: '#FFA726',
-  danger: '#EF5350',
-  bgLight: '#FAF7F5',
-  bgDark: '#1A1A1A',
-  cardLight: '#FFFFFF',
-  cardDark: '#2A2A2A',
-  textPrimary: '#2C2C2C',
-  textSecondary: '#666666',
-  borderLight: '#E0E0E0',
+  // Coffee-inspired palette
+  primary: '#8B6F47',  // Coffee brown
+  primaryLight: '#A68B5B',  // Light coffee
+  primaryDark: '#6F5339',  // Dark coffee
+
+  accent: '#D4A574',  // Cream/Latte
+  accentLight: '#F5E6D3',  // Light cream
+  accentDark: '#B8935F',  // Dark cream
+
+  // Backgrounds
+  background: '#FFFFFF',
+  backgroundSecondary: '#FAF8F5',  // Very light coffee tint
+  backgroundTertiary: '#F5F2ED',  // Slightly darker coffee tint
+  surface: '#FFFFFF',
+
+  // Text
+  textPrimary: '#2C2825',  // Almost black coffee
+  textSecondary: '#5C5248',  // Medium brown
+  textTertiary: '#8B7F72',  // Light brown
+  textLight: '#FFFFFF',
+
+  // Status
+  success: '#7CB342',  // Green coffee bean
+  warning: '#FFA726',  // Orange
+  danger: '#E57373',  // Soft red
+
+  // Borders & Shadows
+  border: '#E8E4DE',  // Coffee cream border
+  borderLight: '#F2EFE9',
+  shadow: 'rgba(139, 111, 71, 0.08)',  // Coffee-tinted shadow
 };
 
 export const scannerStyles = (isDarkMode: boolean = false) => {
   return StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: colors.bgLight,
+      backgroundColor: colors.background,
     },
 
     scrollView: {
       flex: 1,
     },
 
-    // Header - matching HomeScreen hero style
+    scrollContent: {
+      paddingBottom: 20,
+    },
+
+    // Elegant Header
     header: {
-      backgroundColor: colors.accent,
-      margin: 16,
-      padding: 24,
-      borderRadius: 20,
-      alignItems: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.12,
-      shadowRadius: 16,
-      elevation: 8,
+      paddingTop: Platform.OS === 'ios' ? 50 : 30,
+      paddingHorizontal: 20,
+      paddingBottom: 20,
+      backgroundColor: colors.background,
     },
 
-    title: {
-      fontSize: 24,
-      fontWeight: '700',
-      color: 'white',
-      marginBottom: 8,
-    },
-
-    subtitle: {
-      fontSize: 14,
-      color: 'white',
-      opacity: 0.95,
-      textAlign: 'center',
-    },
-
-    // Main Actions - matching HomeScreen quick actions
-    mainActions: {
+    headerRow: {
       flexDirection: 'row',
-      marginHorizontal: 16,
+      alignItems: 'center',
+      marginBottom: 4,
+    },
+
+    coffeeIcon: {
+      fontSize: 20,
+      marginRight: 8,
+    },
+
+    headerTitle: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: colors.textPrimary,
+      letterSpacing: -0.3,
+    },
+
+    headerSubtitle: {
+      fontSize: 13,
+      color: colors.textTertiary,
+      marginTop: 2,
+    },
+
+    // Elegant Action Cards
+    actionSection: {
+      paddingHorizontal: 16,
       marginBottom: 20,
+    },
+
+    actionGrid: {
+      flexDirection: 'row',
       gap: 12,
     },
 
     actionCard: {
       flex: 1,
-      backgroundColor: 'white',
-      borderRadius: 20,
-      padding: 20,
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      padding: 16,
       alignItems: 'center',
-      shadowColor: '#000',
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+
+      shadowColor: colors.shadow,
       shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 8,
-      elevation: 4,
+      shadowOpacity: 0.5,
+      shadowRadius: 4,
+      elevation: 2,
     },
 
-    cameraAction: {
-      backgroundColor: colors.primary,
+    actionCardPrimary: {
+      backgroundColor: colors.accentLight,
+      borderColor: colors.accent,
     },
 
-    galleryAction: {
-      backgroundColor: 'white',
+    actionIconContainer: {
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      backgroundColor: colors.backgroundSecondary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+
+    actionIconContainerPrimary: {
+      backgroundColor: colors.accent,
     },
 
     actionIcon: {
-      width: 56,
-      height: 56,
-      backgroundColor: 'rgba(107, 68, 35, 0.1)',
-      borderRadius: 16,
+      fontSize: 24,
+    },
+
+    actionLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.textPrimary,
+      textAlign: 'center',
+      marginBottom: 2,
+    },
+
+    actionSublabel: {
+      fontSize: 11,
+      color: colors.textTertiary,
+      textAlign: 'center',
+    },
+
+    // Compact Action Buttons Alternative
+    compactActions: {
+      paddingHorizontal: 16,
+      marginBottom: 20,
+      gap: 10,
+    },
+
+    compactActionButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: 12,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+
+    compactActionPrimary: {
+      backgroundColor: colors.accentLight,
+      borderColor: colors.accent,
+    },
+
+    compactActionIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 10,
+      backgroundColor: colors.background,
       justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+    },
+
+    compactActionIconPrimary: {
+      backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    },
+
+    compactActionText: {
+      flex: 1,
+    },
+
+    compactActionTitle: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: colors.textPrimary,
+      marginBottom: 1,
+    },
+
+    compactActionDesc: {
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+
+    compactActionArrow: {
+      fontSize: 16,
+      color: colors.textTertiary,
+    },
+
+    // Statistics Bar
+    statsContainer: {
+      flexDirection: 'row',
+      marginHorizontal: 16,
+      marginBottom: 20,
+      padding: 16,
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+    },
+
+    statItem: {
+      flex: 1,
+      alignItems: 'center',
+    },
+
+    statNumber: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: colors.primary,
+      marginBottom: 2,
+    },
+
+    statLabel: {
+      fontSize: 10,
+      color: colors.textTertiary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+
+    statDivider: {
+      width: 1,
+      backgroundColor: colors.border,
+      marginHorizontal: 12,
+    },
+
+    // History Section
+    historySection: {
+      paddingHorizontal: 16,
+    },
+
+    historyHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
       alignItems: 'center',
       marginBottom: 12,
     },
 
-    primaryActionIcon: {
-      backgroundColor: 'rgba(255,255,255,0.2)',
+    historyTitle: {
+      fontSize: 17,
+      fontWeight: '600',
+      color: colors.textPrimary,
     },
 
-    actionEmoji: {
-      fontSize: 28,
+    historyFilter: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: 8,
     },
 
-    actionTitle: {
+    historyFilterText: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      marginRight: 4,
+    },
+
+    // History Grid
+    historyGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      marginHorizontal: -5,
+    },
+
+    historyCard: {
+      width: '50%',
+      paddingHorizontal: 5,
+      marginBottom: 10,
+    },
+
+    historyCardInner: {
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+      minHeight: 85,
+    },
+
+    historyCardTop: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: 6,
+    },
+
+    historyCardName: {
+      flex: 1,
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.textPrimary,
+      marginRight: 6,
+    },
+
+    historyCardPercentage: {
+      backgroundColor: colors.accentLight,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 6,
+    },
+
+    historyCardPercentageText: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: colors.primaryDark,
+    },
+
+    historyCardDate: {
+      fontSize: 11,
+      color: colors.textTertiary,
+      marginBottom: 4,
+    },
+
+    historyCardRating: {
+      fontSize: 11,
+      marginTop: 4,
+    },
+
+    // Empty State
+    emptyState: {
+      alignItems: 'center',
+      paddingVertical: 40,
+      paddingHorizontal: 40,
+    },
+
+    emptyStateImage: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: colors.backgroundSecondary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+
+    emptyStateIcon: {
+      fontSize: 40,
+    },
+
+    emptyStateTitle: {
       fontSize: 16,
       fontWeight: '600',
       color: colors.textPrimary,
-      marginBottom: 4,
-      textAlign: 'center',
+      marginBottom: 6,
     },
 
-    actionDesc: {
-      fontSize: 12,
+    emptyStateDesc: {
+      fontSize: 13,
       color: colors.textSecondary,
-      opacity: 0.8,
       textAlign: 'center',
-    },
-
-    primaryText: {
-      color: 'white',
+      lineHeight: 18,
     },
 
     // Camera View
@@ -149,15 +395,14 @@ export const scannerStyles = (isDarkMode: boolean = false) => {
       width: 40,
       height: 40,
       borderRadius: 20,
-      backgroundColor: 'rgba(0,0,0,0.5)',
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
       justifyContent: 'center',
       alignItems: 'center',
     },
 
     cameraCloseText: {
-      color: '#fff',
-      fontSize: 24,
-      fontWeight: 'bold',
+      color: colors.textLight,
+      fontSize: 18,
     },
 
     scanFrame: {
@@ -166,15 +411,12 @@ export const scannerStyles = (isDarkMode: boolean = false) => {
       left: width * 0.1,
       right: width * 0.1,
       height: height * 0.35,
-      borderWidth: 2,
-      borderColor: 'transparent',
     },
 
     scanCorner: {
       position: 'absolute',
       width: 40,
       height: 40,
-      borderColor: colors.accent,
     },
 
     scanCornerTL: {
@@ -182,6 +424,7 @@ export const scannerStyles = (isDarkMode: boolean = false) => {
       left: 0,
       borderTopWidth: 3,
       borderLeftWidth: 3,
+      borderColor: colors.accent,
     },
 
     scanCornerTR: {
@@ -189,6 +432,7 @@ export const scannerStyles = (isDarkMode: boolean = false) => {
       right: 0,
       borderTopWidth: 3,
       borderRightWidth: 3,
+      borderColor: colors.accent,
     },
 
     scanCornerBL: {
@@ -196,6 +440,7 @@ export const scannerStyles = (isDarkMode: boolean = false) => {
       left: 0,
       borderBottomWidth: 3,
       borderLeftWidth: 3,
+      borderColor: colors.accent,
     },
 
     scanCornerBR: {
@@ -203,20 +448,21 @@ export const scannerStyles = (isDarkMode: boolean = false) => {
       right: 0,
       borderBottomWidth: 3,
       borderRightWidth: 3,
+      borderColor: colors.accent,
     },
 
     cameraInstructions: {
       position: 'absolute',
-      top: height * 0.62,
-      left: 0,
-      right: 0,
+      bottom: 200,
+      left: 20,
+      right: 20,
       alignItems: 'center',
     },
 
     cameraInstructionText: {
-      color: '#fff',
+      color: colors.textLight,
       fontSize: 14,
-      backgroundColor: 'rgba(0,0,0,0.5)',
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
       paddingHorizontal: 20,
       paddingVertical: 10,
       borderRadius: 20,
@@ -224,415 +470,312 @@ export const scannerStyles = (isDarkMode: boolean = false) => {
 
     cameraControls: {
       position: 'absolute',
-      bottom: 50,
+      bottom: 60,
       left: 0,
       right: 0,
       alignItems: 'center',
     },
 
     captureButton: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
-      backgroundColor: colors.accent,
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: colors.background,
       justifyContent: 'center',
       alignItems: 'center',
-      borderWidth: 4,
-      borderColor: '#fff',
+      borderWidth: 3,
+      borderColor: 'rgba(255, 255, 255, 0.5)',
     },
 
     captureInner: {
-      width: 60,
-      height: 60,
-      borderRadius: 30,
-      backgroundColor: '#fff',
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: colors.primary,
     },
 
-    // Result Section - matching HomeScreen cards
-    resultSection: {
-      paddingHorizontal: 16,
-      marginBottom: 20,
+    // Results Section
+    resultContainer: {
+      padding: 16,
+    },
+
+    resultCard: {
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
     },
 
     resultHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 16,
+      marginBottom: 12,
     },
 
     resultTitle: {
-      fontSize: 18,
+      fontSize: 15,
       fontWeight: '600',
       color: colors.textPrimary,
     },
 
     matchBadge: {
-      paddingHorizontal: 14,
-      paddingVertical: 8,
-      borderRadius: 20,
-      borderWidth: 1,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 10,
     },
 
     matchBadgeGood: {
       backgroundColor: colors.success,
-      borderColor: colors.success,
     },
 
     matchBadgeFair: {
       backgroundColor: colors.warning,
-      borderColor: colors.warning,
     },
 
     matchText: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: 'white',
-    },
-
-    resultCard: {
-      backgroundColor: 'white',
-      borderRadius: 20,
-      padding: 20,
-      marginBottom: 16,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 8,
-      elevation: 4,
-    },
-
-    resultLabel: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: colors.textSecondary,
-      marginBottom: 12,
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.textLight,
     },
 
     resultTextInput: {
-      fontSize: 15,
+      fontSize: 14,
       color: colors.textPrimary,
-      minHeight: 100,
+      minHeight: 80,
       textAlignVertical: 'top',
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      padding: 10,
+      marginTop: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
 
+    resultLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.textTertiary,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+
+    // Recommendation
     recommendationCard: {
-      backgroundColor: 'white',
-      borderRadius: 20,
-      padding: 20,
-      marginBottom: 16,
-      borderLeftWidth: 4,
+      backgroundColor: colors.accentLight,
+      borderRadius: 12,
+      padding: 14,
+      marginBottom: 12,
+      borderLeftWidth: 3,
       borderLeftColor: colors.accent,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 8,
-      elevation: 4,
     },
 
     recommendationTitle: {
-      fontSize: 16,
+      fontSize: 14,
       fontWeight: '600',
       color: colors.textPrimary,
-      marginBottom: 8,
+      marginBottom: 6,
     },
 
     recommendationText: {
-      fontSize: 14,
-      color: colors.textPrimary,
-      lineHeight: 20,
+      fontSize: 13,
+      color: colors.textSecondary,
+      lineHeight: 18,
     },
 
-    brewingCard: {
-      backgroundColor: 'white',
-      borderRadius: 20,
-      padding: 20,
-      marginBottom: 16,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 8,
-      elevation: 4,
+    // Action Buttons
+    actionButtons: {
+      flexDirection: 'row',
+      gap: 10,
+      marginTop: 12,
     },
 
-    brewingTitle: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: colors.textPrimary,
-      marginBottom: 12,
-    },
-
-    brewingMethod: {
-      paddingVertical: 8,
-      paddingHorizontal: 4,
-      borderRadius: 12,
-      marginBottom: 8,
-    },
-
-    brewingMethodSelected: {
-      backgroundColor: colors.bgLight,
-    },
-
-    brewingText: {
-      fontSize: 14,
-      color: colors.textPrimary,
-      lineHeight: 20,
-    },
-
-    // Rating Section
-    ratingSection: {
+    button: {
+      flex: 1,
+      paddingVertical: 12,
+      borderRadius: 10,
       alignItems: 'center',
-      marginVertical: 20,
+      backgroundColor: colors.primary,
     },
 
-    ratingTitle: {
-      fontSize: 16,
-      fontWeight: '500',
+    buttonSecondary: {
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+
+    buttonText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.textLight,
+    },
+
+    buttonTextSecondary: {
       color: colors.textPrimary,
+    },
+
+    // Rating
+    ratingContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 14,
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: 10,
       marginBottom: 12,
+    },
+
+    ratingLabel: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      marginRight: 10,
     },
 
     ratingStars: {
       flexDirection: 'row',
-      gap: 10,
+      gap: 4,
     },
 
     starButton: {
-      padding: 5,
+      padding: 2,
     },
 
     starText: {
-      fontSize: 30,
+      fontSize: 20,
     },
 
-    recipeSection: {
-      marginBottom: 16,
+    // Brewing Methods
+    brewingSection: {
+      padding: 16,
+      paddingTop: 0,
     },
 
-    recipeTitle: {
-      fontSize: 16,
-      fontWeight: '500',
+    brewingTitle: {
+      fontSize: 15,
+      fontWeight: '600',
       color: colors.textPrimary,
+      marginBottom: 10,
+    },
+
+    brewingGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      marginHorizontal: -4,
+    },
+
+    brewingMethod: {
+      width: '25%',
+      paddingHorizontal: 4,
       marginBottom: 8,
     },
 
-    tasteQuestion: {
+    brewingButton: {
+      paddingVertical: 9,
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: 8,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+
+    brewingButtonSelected: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+
+    brewingText: {
+      fontSize: 11,
+      fontWeight: '500',
+      color: colors.textPrimary,
+    },
+
+    brewingTextSelected: {
+      color: colors.textLight,
+    },
+
+    // Taste Input
+    tasteSection: {
+      paddingHorizontal: 16,
+      paddingBottom: 16,
+    },
+
+    tasteLabel: {
       fontSize: 14,
+      fontWeight: '600',
       color: colors.textPrimary,
       marginBottom: 8,
     },
 
     tasteInput: {
-      borderWidth: 1,
-      borderColor: colors.borderLight,
-      borderRadius: 12,
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: 10,
       padding: 12,
-      color: colors.textPrimary,
-      marginBottom: 12,
-      backgroundColor: 'white',
-    },
-
-    recipeButton: {
-      backgroundColor: colors.primary,
-      borderRadius: 12,
-      paddingVertical: 12,
-      alignItems: 'center',
-    },
-
-    recipeButtonText: {
-      color: 'white',
-      fontWeight: '600',
-      fontSize: 15,
-    },
-
-    recipeCard: {
-      backgroundColor: 'white',
-      borderRadius: 20,
-      padding: 20,
-      marginBottom: 16,
-      borderLeftWidth: 4,
-      borderLeftColor: colors.primary,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 8,
-      elevation: 4,
-    },
-
-    recipeResultTitle: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: colors.textPrimary,
-      marginBottom: 8,
-    },
-
-    recipeResultText: {
       fontSize: 14,
       color: colors.textPrimary,
-      lineHeight: 20,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
 
-    // Result Actions
-    resultActions: {
-      flexDirection: 'row',
-      gap: 12,
-      marginTop: 10,
-    },
-
-    shareButton: {
-      flex: 1,
-      backgroundColor: colors.primary,
-      paddingVertical: 12,
-      borderRadius: 12,
-      alignItems: 'center',
-    },
-
-    clearButton: {
-      flex: 1,
-      backgroundColor: colors.danger,
-      paddingVertical: 12,
-      borderRadius: 12,
-      alignItems: 'center',
-    },
-
-    buttonText: {
-      color: 'white',
-      fontSize: 15,
-      fontWeight: '600',
-    },
-
-    // History Section - matching HomeScreen recommendations
-    historySection: {
+    // Generate Button
+    generateButton: {
+      backgroundColor: colors.accent,
       marginHorizontal: 16,
-      marginTop: 20,
-      marginBottom: 100,
-    },
-
-    historyHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
       marginBottom: 16,
-    },
-
-    historyTitle: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: colors.textPrimary,
-    },
-
-    historyToggle: {
-      fontSize: 16,
-      color: colors.textSecondary,
-    },
-
-    historyList: {
-      paddingBottom: 8,
-    },
-
-    historyItem: {
-      backgroundColor: 'white',
-      borderRadius: 16,
-      padding: 16,
-      marginBottom: 12,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
+      paddingVertical: 15,
+      borderRadius: 12,
       alignItems: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 8,
-      elevation: 4,
+
+      shadowColor: colors.accent,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.3,
+      shadowRadius: 6,
+      elevation: 3,
     },
 
-    historyItemContent: {
-      flex: 1,
-    },
-
-    historyItemName: {
-      fontSize: 14,
-      fontWeight: '600',
+    generateButtonText: {
+      fontSize: 15,
+      fontWeight: '700',
       color: colors.textPrimary,
-      marginBottom: 4,
-    },
-
-    historyItemDate: {
-      fontSize: 11,
-      color: colors.textSecondary,
-    },
-
-    historyItemMeta: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-    },
-
-    historyItemMatch: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: colors.primary,
-    },
-
-    historyItemRating: {
-      fontSize: 12,
-      color: colors.warning,
-    },
-
-    emptyHistoryText: {
-      textAlign: 'center',
-      color: colors.textSecondary,
-      fontSize: 14,
-      paddingVertical: 20,
     },
 
     // Loading
     loadingOverlay: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.7)',
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
       justifyContent: 'center',
       alignItems: 'center',
+    },
+
+    loadingContainer: {
+      backgroundColor: colors.background,
+      borderRadius: 16,
+      padding: 24,
+      alignItems: 'center',
+      minWidth: 180,
     },
 
     loadingText: {
-      color: '#fff',
-      fontSize: 16,
-      marginTop: 15,
-    },
-
-    // Error
-    errorText: {
-      fontSize: 18,
+      fontSize: 13,
+      fontWeight: '500',
       color: colors.textPrimary,
-      textAlign: 'center',
-      marginTop: 50,
+      marginTop: 10,
     },
 
-    // Back button
-    backButton: {
-      position: 'absolute',
-      top: Platform.OS === 'ios' ? 44 : 20,
-      left: 16,
-      width: 40,
-      height: 40,
-      backgroundColor: 'rgba(255,255,255,0.9)',
-      borderRadius: 20,
-      justifyContent: 'center',
-      alignItems: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-      zIndex: 10,
+    // Mini header for scanner pages
+    miniHeader: {
+      paddingTop: Platform.OS === 'ios' ? 50 : 30,
+      paddingHorizontal: 20,
+      paddingBottom: 16,
+      backgroundColor: colors.background,
     },
 
-    backButtonText: {
-      fontSize: 18,
-      color: colors.primary,
+    miniTitle: {
+      fontSize: 24,
+      fontWeight: '700',
+      color: colors.textPrimary,
+      letterSpacing: -0.5,
     },
   });
 };

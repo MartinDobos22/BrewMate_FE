@@ -71,12 +71,12 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [ocrHistory, setOcrHistory] = useState<OCRHistory[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [userRating, setUserRating] = useState<number>(0);
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
   const [tastePreference, setTastePreference] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedRecipe, setGeneratedRecipe] = useState<string>('');
 
   const camera = useRef<Camera>(null);
   const device = useCameraDevice('back');
@@ -84,6 +84,17 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
   const isDarkMode = useColorScheme() === 'dark';
 
   const styles = scannerStyles(isDarkMode);
+
+  const brewingMethods = [
+    'V60',
+    'Chemex',
+    'AeroPress',
+    'French Press',
+    'Espresso',
+    'Moka Pot',
+    'Cold Brew',
+    'Turkish',
+  ];
 
   useEffect(() => {
     if (!hasPermission) {
@@ -185,7 +196,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
         );
       }
     } catch (error) {
-      console.error('Process image error:', error);
+      console.error('Error processing image:', error);
       Alert.alert('Chyba', 'Nepodarilo sa spracovať obrázok');
     } finally {
       setIsLoading(false);
@@ -195,43 +206,49 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
   /**
    * Uloží hodnotenie skenovanej kávy.
    */
-  const rateCoffee = async (rating: number) => {
-    if (!scanResult?.scanId) return;
+  // const rateCoffee = async (rating: number) => {
+  //   if (!scanResult?.scanId) return;
+  //
+  //   try {
+  //     const success = await rateOCRResult(scanResult.scanId, rating);
+  //     if (success) {
+  //       setUserRating(rating);
+  //       Alert.alert(
+  //         'Hodnotenie uložené',
+  //         `Ohodnotil si kávu na ${rating}/5 ⭐`,
+  //       );
+  //       await loadHistory();
+  //     }
+  //   } catch (error) {
+  //     console.error('Error rating coffee:', error);
+  //   }
+  // };
 
+  const generateRecipe = async () => {
+    if (!selectedMethod) {
+      Alert.alert('Upozornenie', 'Prosím vyber metódu prípravy');
+      return;
+    }
+
+    setIsGenerating(true);
     try {
-      const success = await rateOCRResult(scanResult.scanId, rating);
-      if (success) {
-        setUserRating(rating);
-        Alert.alert(
-          'Hodnotenie uložené',
-          `Ohodnotil si kávu na ${rating}/5 ⭐`,
-        );
-        await loadHistory();
+      const recipe = await getBrewRecipe(
+        selectedMethod,
+        tastePreference || 'vyvážená'
+      );
+
+      setGeneratedRecipe(recipe);
+      if (onRecipeGenerated) {
+        onRecipeGenerated(recipe);
       }
     } catch (error) {
-      console.error('Error rating coffee:', error);
+      console.error('Error generating recipe:', error);
+      Alert.alert('Chyba', 'Nepodarilo sa vygenerovať recept');
+    } finally {
+      setIsGenerating(false);
     }
   };
 
-  /**
-   * Zdieľa upravený text pomocou natívneho dialógu.
-   */
-  const exportText = async () => {
-    if (editedText) {
-      try {
-        await Share.share({
-          message: editedText,
-          title: 'Skenovaná káva - BrewMate',
-        });
-      } catch (error) {
-        Alert.alert('Chyba', 'Nepodarilo sa zdieľať text');
-      }
-    }
-  };
-
-  /**
-   * Načíta existujúci záznam z histórie do editora.
-   */
   const loadFromHistory = (item: OCRHistory) => {
     setScanResult({
       original: item.original_text,
@@ -239,73 +256,54 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
       recommendation: '',
       matchPercentage: item.match_percentage,
       isRecommended: item.is_recommended,
-      scanId: item.id,
+      brewingMethods: brewingMethods,
     });
     setEditedText(item.corrected_text);
     setUserRating(item.rating || 0);
-    setShowHistory(false);
   };
 
-  /**
-   * Vymaže záznam z histórie po potvrdení používateľom.
-   */
   const deleteFromHistory = async (id: string) => {
-    Alert.alert('Vymazať záznam', 'Naozaj chceš vymazať tento záznam?', [
-      { text: 'Zrušiť', style: 'cancel' },
-      {
-        text: 'Vymazať',
-        style: 'destructive',
-        onPress: async () => {
-          const success = await deleteOCRRecord(id);
-          if (success) {
-            await loadHistory();
-            Alert.alert('Vymazané', 'Záznam bol odstránený');
-          }
+    Alert.alert(
+      'Vymazať záznam',
+      'Naozaj chcete vymazať tento záznam?',
+      [
+        { text: 'Zrušiť', style: 'cancel' },
+        {
+          text: 'Vymazať',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteOCRRecord(id);
+              await loadHistory();
+            } catch (error) {
+              Alert.alert('Chyba', 'Nepodarilo sa vymazať záznam');
+            }
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
-  /**
-   * Zvolí metódu prípravy a resetuje chuťové preferencie.
-   */
-  const handleMethodPress = (method: string) => {
-    setSelectedMethod(method);
-    setTastePreference('');
-  };
+  // const handleRating = async (rating: number) => {
+  //   setUserRating(rating);
+  //   if (scanResult?.scanId) {
+  //     try {
+  //       await rateOCRResult(scanResult.scanId, rating);
+  //     } catch (error) {
+  //       console.error('Error rating result:', error);
+  //     }
+  //   }
+  // };
 
-  /**
-   * Vygeneruje recept podľa zvolenej metódy a chuti.
-   */
-  const generateRecipe = async () => {
-    if (!selectedMethod) return;
+  const exportText = async () => {
     try {
-      setIsGenerating(true);
-      const recipe = await getBrewRecipe(selectedMethod, tastePreference);
-      if (onRecipeGenerated) {
-        onRecipeGenerated(recipe);
-      }
+      await Share.share({
+        message: generatedRecipe || editedText,
+        title: 'Recept na kávu',
+      });
     } catch (error) {
-      console.error('Error generating recipe:', error);
-      Alert.alert('Chyba', 'Nepodarilo sa získať recept');
-    } finally {
-      setIsGenerating(false);
+      Alert.alert('Chyba', 'Nepodarilo sa exportovať recept');
     }
-  };
-
-  const openCamera = () => {
-    if (!hasPermission) {
-      Alert.alert(
-        'Povolenie kamery',
-        'Na skenovanie kávy potrebujeme prístup ku kamere',
-        [
-          { text: 'Zrušiť', style: 'cancel' },
-          { text: 'Povoliť', onPress: requestPermission },
-        ],
-      );
-      return;
-    }
-    setShowCamera(true);
   };
 
   const clearAll = () => {
@@ -314,18 +312,11 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     setUserRating(0);
     setSelectedMethod(null);
     setTastePreference('');
+    setGeneratedRecipe('');
   };
 
-  if (!device) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>Kamera nie je dostupná</Text>
-      </View>
-    );
-  }
-
   // Camera View
-  if (showCamera) {
+  if (showCamera && device) {
     return (
       <View style={styles.cameraContainer}>
         <Camera
@@ -335,7 +326,6 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
           isActive={showCamera}
           photo={true}
         />
-
         <View style={styles.cameraOverlay}>
           <View style={styles.cameraHeader}>
             <TouchableOpacity
@@ -355,7 +345,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
 
           <View style={styles.cameraInstructions}>
             <Text style={styles.cameraInstructionText}>
-              Zaostri na etiketu kávy
+              Zarovnaj etiketu kávy do rámčeka
             </Text>
           </View>
 
@@ -366,7 +356,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
               disabled={isLoading}
             >
               {isLoading ? (
-                <ActivityIndicator color="white" size="large" />
+                <ActivityIndicator color="#8B6F47" size="large" />
               ) : (
                 <View style={styles.captureInner} />
               )}
@@ -382,15 +372,11 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      {onBack && (
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Text style={styles.backButtonText}>← Späť</Text>
-        </TouchableOpacity>
-      )}
+  >
 
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -398,264 +384,250 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>☕ Skener kávy</Text>
-          <Text style={styles.subtitle}>
-            Naskenuj kávu a vygeneruj si ten najlepší recept.
+          <View style={styles.headerRow}>
+            <Text style={styles.coffeeIcon}>☕</Text>
+            <Text style={styles.headerTitle}>Generátor receptov</Text>
+          </View>
+          <Text style={styles.headerSubtitle}>
+            Vytvor si personalizovaný recept na prípravu kávy
           </Text>
         </View>
 
-        {/* Main Actions */}
-        {!scanResult ? (
-          <>
-            {console.log('No scanResult - rendering main actions')}
-            <View style={styles.mainActions}>
+        {/* Elegant Action Cards */}
+        {!scanResult && !generatedRecipe && (
+          <View style={styles.actionSection}>
+            <View style={styles.actionGrid}>
               <TouchableOpacity
-                style={[styles.actionCard, styles.cameraAction]}
-                onPress={openCamera}
-                activeOpacity={0.8}
+                style={[styles.actionCard, styles.actionCardPrimary]}
+                onPress={takePhoto}
+                activeOpacity={0.9}
               >
-                <View style={[styles.actionIcon, styles.primaryActionIcon]}>
-                  <Text style={styles.actionEmoji}>📷</Text>
+                <View style={[styles.actionIconContainer, styles.actionIconContainerPrimary]}>
+                  <Text style={styles.actionIcon}>📸</Text>
                 </View>
-                <Text style={[styles.actionTitle, styles.primaryText]}>
-                  Odfotiť kávu
-                </Text>
-                <Text style={[styles.actionDesc, styles.primaryText]}>
-                  Použi fotoaparát
-                </Text>
+                <Text style={styles.actionLabel}>Odfotiť kávu</Text>
+                <Text style={styles.actionSublabel}>Použiť kameru</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.actionCard}
                 onPress={pickImageFromGallery}
-                activeOpacity={0.8}
+                activeOpacity={0.9}
               >
-                <View style={styles.actionIcon}>
-                  <Text style={styles.actionEmoji}>🖼️</Text>
+                <View style={styles.actionIconContainer}>
+                  <Text style={styles.actionIcon}>🖼️</Text>
                 </View>
-                <Text style={styles.actionTitle}>Vybrať z galérie</Text>
-                <Text style={styles.actionDesc}>Použi existujúcu fotku</Text>
+                <Text style={styles.actionLabel}>Vybrať z galérie</Text>
+                <Text style={styles.actionSublabel}>Nahrať fotku</Text>
               </TouchableOpacity>
             </View>
-          </>
-        ) : (
-          <>
-            {console.log('scanResult exists - hiding main actions')}
-            <Text>Výsledok skenovania je dostupný.</Text>
-          </>
+          </View>
         )}
 
         {/* Scan Result */}
-        {scanResult ? (
+        {scanResult && !generatedRecipe && (
           <>
-            {console.log('Rendering scan result', scanResult)}
-            <View style={styles.resultSection}>
-              <View style={styles.resultHeader}>
-                <Text style={styles.resultTitle}>📋 Výsledok skenovania</Text>
-                {scanResult.matchPercentage ? (
-                  <>
-                    {console.log('Rendering match percentage', scanResult.matchPercentage)}
-                    <View
-                      style={[
-                        styles.matchBadge,
-                        scanResult.isRecommended
-                          ? styles.matchBadgeGood
-                          : styles.matchBadgeFair,
-                      ]}
-                    >
+            <View style={styles.resultContainer}>
+              <View style={styles.resultCard}>
+                <View style={styles.resultHeader}>
+                  <Text style={styles.resultTitle}>Informácie o káve</Text>
+                  {scanResult.matchPercentage && (
+                    <View style={[
+                      styles.matchBadge,
+                      scanResult.isRecommended ? styles.matchBadgeGood : styles.matchBadgeFair
+                    ]}>
                       <Text style={styles.matchText}>
-                        {scanResult.matchPercentage}% zhoda
+                        {scanResult.matchPercentage}%
                       </Text>
                     </View>
-                  </>
-                ) : (
-                  <>
-                    {console.log('matchPercentage missing')}
-                    <Text>Zhoda nie je k dispozícii.</Text>
-                  </>
-                )}
+                  )}
+                </View>
+                <TextInput
+                  style={styles.resultTextInput}
+                  multiline
+                  value={editedText}
+                  onChangeText={setEditedText}
+                  placeholder="Popis kávy..."
+                />
               </View>
-
-            {/*{scanResult.recommendation && (*/}
-            {/*  <View style={styles.recommendationCard}>*/}
-            {/*    <AIResponseDisplay*/}
-            {/*      text={scanResult.recommendation}*/}
-            {/*      type="recommendation"*/}
-            {/*      animate={true}*/}
-            {/*    />*/}
-            {/*  </View>*/}
-            {/*)}*/}
-
-            <View style={styles.resultCard}>
-              <Text style={styles.resultLabel}>Rozpoznaný text:</Text>
-              <TextInput
-                style={styles.resultTextInput}
-                multiline
-                value={editedText}
-                onChangeText={setEditedText}
-                placeholder="Tu môžeš upraviť text..."
-                placeholderTextColor="#999"
-              />
             </View>
 
-            {scanResult.brewingMethods && scanResult.brewingMethods.length > 0 ? (
-              <>
-                {console.log('Rendering brewing methods', scanResult.brewingMethods)}
-                <View style={styles.brewingCard}>
-                  <Text style={styles.brewingTitle}>
-                    🍽️ Odporúčané prípravy
-                  </Text>
-                  {scanResult.brewingMethods.map((method, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      style={[
-                        styles.brewingMethod,
-                        selectedMethod === method &&
-                          styles.brewingMethodSelected,
-                      ]}
-                      onPress={() => handleMethodPress(method)}
-                    >
-                      <Text style={styles.brewingText}>• {method}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </>
-            ) : (
-              <>
-                {console.log('No brewing methods available')}
-                <Text>Žiadne odporúčané prípravy.</Text>
-              </>
-            )}
-
-            {selectedMethod ? (
-              <>
-                {console.log('Rendering recipe section for method', selectedMethod)}
-                <View style={styles.recipeSection}>
-                  <Text style={styles.recipeTitle}>
-                    Zvolené: {selectedMethod}
-                  </Text>
-                  <Text style={styles.tasteQuestion}>
-                    Akú kávu chceš? Sladkú, kyslejšiu, horkú...
-                  </Text>
-                  <TextInput
-                    style={styles.tasteInput}
-                    placeholder="Napíš preferovanú chuť"
-                    placeholderTextColor="#999"
-                    value={tastePreference}
-                    onChangeText={setTastePreference}
-                  />
+            {/* Brewing Methods */}
+            <View style={styles.brewingSection}>
+              <Text style={styles.brewingTitle}>Metóda prípravy</Text>
+              <View style={styles.brewingGrid}>
+                {brewingMethods.map((method) => (
                   <TouchableOpacity
-                    style={styles.recipeButton}
-                    onPress={generateRecipe}
-                    disabled={isGenerating}
+                    key={method}
+                    style={styles.brewingMethod}
+                    onPress={() => setSelectedMethod(method)}
                   >
-                    <Text style={styles.recipeButtonText}>
-                      {isGenerating ? 'Generujem...' : 'Generovať recept'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            ) : (
-              <>
-                {console.log('No method selected')}
-                <Text>Žiadna metóda prípravy nebola vybraná.</Text>
-              </>
-            )}
-
-            {/* Rating */}
-            <View style={styles.ratingSection}>
-              <Text style={styles.ratingTitle}>Ohodnoť túto kávu:</Text>
-              <View style={styles.ratingStars}>
-                {[1, 2, 3, 4, 5].map(star => (
-                  <TouchableOpacity
-                    key={star}
-                    onPress={() => rateCoffee(star)}
-                    style={styles.starButton}
-                  >
-                    <Text style={styles.starText}>
-                      {star <= userRating ? '⭐' : '☆'}
-                    </Text>
+                    <View style={[
+                      styles.brewingButton,
+                      selectedMethod === method && styles.brewingButtonSelected
+                    ]}>
+                      <Text style={[
+                        styles.brewingText,
+                        selectedMethod === method && styles.brewingTextSelected
+                      ]}>
+                        {method}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
 
-            {/* Actions */}
-            <View style={styles.resultActions}>
-              <TouchableOpacity style={styles.shareButton} onPress={exportText}>
-                <Text style={styles.buttonText}>📤 Zdieľať</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.clearButton} onPress={clearAll}>
-                <Text style={styles.buttonText}>🗑️ Vymazať</Text>
-              </TouchableOpacity>
+            {/* Taste Preference */}
+            <View style={styles.tasteSection}>
+              <Text style={styles.tasteLabel}>Preferovaná chuť (voliteľné)</Text>
+              <TextInput
+                style={styles.tasteInput}
+                placeholder="Napr. silná, jemná, kyslá, sladká..."
+                value={tastePreference}
+                onChangeText={setTastePreference}
+              />
             </View>
-          </View>
-        </>
-        ) : (
-          <>
-            {console.log('scanResult missing - no result section')}
-            <Text>Žiadny výsledok na zobrazenie.</Text>
+
+            {/* Generate Button */}
+            <TouchableOpacity
+              style={styles.generateButton}
+              onPress={generateRecipe}
+              disabled={isGenerating || !selectedMethod}
+              activeOpacity={0.9}
+            >
+              {isGenerating ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.generateButtonText}>
+                  ✨ Vygenerovať recept
+                </Text>
+              )}
+            </TouchableOpacity>
           </>
         )}
 
-        {/* History Section */}
-        <View style={styles.historySection}>
-          <TouchableOpacity
-            style={styles.historyHeader}
-            onPress={() => setShowHistory(!showHistory)}
-          >
-            <Text style={styles.historyTitle}>
-              📚 História skenovaní ({ocrHistory.length})
-            </Text>
-            <Text style={styles.historyToggle}>{showHistory ? '▼' : '▶'}</Text>
-          </TouchableOpacity>
+        {/* Generated Recipe */}
+        {generatedRecipe && (
+          <View style={styles.resultContainer}>
+            <AIResponseDisplay content={generatedRecipe} />
+            <View style={styles.actionButtons}>
+              <TouchableOpacity
+                style={styles.button}
+                onPress={exportText}
+              >
+                <Text style={styles.buttonText}>Zdieľať</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, styles.buttonSecondary]}
+                onPress={clearAll}
+              >
+                <Text style={[styles.buttonText, styles.buttonTextSecondary]}>
+                  Nový recept
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
-          {showHistory && (
-            <View style={styles.historyList}>
-              {ocrHistory.length > 0 ? (
-                ocrHistory.map(item => (
+        {/* Statistics */}
+        {ocrHistory.length > 0 && !scanResult && !generatedRecipe && (
+          <View style={styles.statsContainer}>
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>{ocrHistory.length}</Text>
+              <Text style={styles.statLabel}>Receptov</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>
+                {ocrHistory.filter(h => h.is_recommended).length}
+              </Text>
+              <Text style={styles.statLabel}>Obľúbené</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statNumber}>
+                {Math.round(
+                  ocrHistory.reduce((acc, h) => acc + (h.rating || 0), 0) /
+                  ocrHistory.filter(h => h.rating).length || 0
+                )}
+              </Text>
+              <Text style={styles.statLabel}>Priem. ⭐</Text>
+            </View>
+          </View>
+        )}
+
+        {/* History Section */}
+        {!scanResult && !generatedRecipe && (
+          <View style={styles.historySection}>
+            <View style={styles.historyHeader}>
+              <Text style={styles.historyTitle}>Nedávne recepty</Text>
+              {ocrHistory.length > 4 && (
+                <TouchableOpacity style={styles.historyFilter}>
+                  <Text style={styles.historyFilterText}>Všetky</Text>
+                  <Text style={{ fontSize: 10, color: '#8B7F72' }}>▼</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {ocrHistory.length > 0 ? (
+              <View style={styles.historyGrid}>
+                {ocrHistory.slice(0, 6).map((item) => (
                   <TouchableOpacity
                     key={item.id}
-                    style={styles.historyItem}
+                    style={styles.historyCard}
                     onPress={() => loadFromHistory(item)}
                     onLongPress={() => deleteFromHistory(item.id)}
+                    activeOpacity={0.8}
                   >
-                    <View style={styles.historyItemContent}>
-                      <Text style={styles.historyItemName}>
-                        {item.coffee_name || 'Neznáma káva'}
-                      </Text>
-                      <Text style={styles.historyItemDate}>
+                    <View style={styles.historyCardInner}>
+                      <View style={styles.historyCardTop}>
+                        <Text style={styles.historyCardName} numberOfLines={1}>
+                          {item.coffee_name || 'KRAJINA PÔVODU'}
+                        </Text>
+                        {item.match_percentage && (
+                          <View style={styles.historyCardPercentage}>
+                            <Text style={styles.historyCardPercentageText}>
+                              {item.match_percentage}%
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={styles.historyCardDate}>
                         {new Date(item.created_at).toLocaleDateString('sk-SK')}
                       </Text>
-                    </View>
-                    <View style={styles.historyItemMeta}>
-                      {item.match_percentage && (
-                        <Text style={styles.historyItemMatch}>
-                          {item.match_percentage}%
-                        </Text>
-                      )}
                       {item.rating && (
-                        <Text style={styles.historyItemRating}>
-                          ⭐ {item.rating}
+                        <Text style={styles.historyCardRating}>
+                          {'⭐'.repeat(item.rating)}
                         </Text>
                       )}
                     </View>
                   </TouchableOpacity>
-                ))
-              ) : (
-                <Text style={styles.emptyHistoryText}>
-                  Zatiaľ nemáš žiadne skenovania
+                ))}
+              </View>
+            ) : (
+              <View style={styles.emptyState}>
+                <View style={styles.emptyStateImage}>
+                  <Text style={styles.emptyStateIcon}>☕</Text>
+                </View>
+                <Text style={styles.emptyStateTitle}>
+                  Žiadne recepty
                 </Text>
-              )}
-            </View>
-          )}
-        </View>
+                <Text style={styles.emptyStateDesc}>
+                  Naskenuj svoju prvú kávu a vytvor si personalizovaný recept
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Loading Overlay */}
         {isLoading && (
           <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color="#D2691E" />
-            <Text style={styles.loadingText}>Spracovávam obrázok...</Text>
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#8B6F47" />
+              <Text style={styles.loadingText}>Analyzujem...</Text>
+            </View>
           </View>
         )}
       </ScrollView>
