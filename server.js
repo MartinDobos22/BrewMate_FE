@@ -182,19 +182,9 @@ app.put('/api/profile', async (req, res) => {
 
       await client.query(
         `INSERT INTO user_coffee_preferences (
-          user_id, experience_level, intensity, roast, temperature, 
+          user_id, experience_level, intensity, roast, temperature,
           milk, sugar, preferred_drinks, flavor_notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        ON CONFLICT (user_id) DO UPDATE SET
-          experience_level = COALESCE($2, user_coffee_preferences.experience_level),
-          intensity = COALESCE($3, user_coffee_preferences.intensity),
-          roast = COALESCE($4, user_coffee_preferences.roast),
-          temperature = COALESCE($5, user_coffee_preferences.temperature),
-          milk = COALESCE($6, user_coffee_preferences.milk),
-          sugar = COALESCE($7, user_coffee_preferences.sugar),
-          preferred_drinks = COALESCE($8, user_coffee_preferences.preferred_drinks),
-          flavor_notes = COALESCE($9, user_coffee_preferences.flavor_notes),
-          updated_at = now()`,
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [
           uid,
           experience_level,
@@ -338,9 +328,9 @@ app.post('/api/ocr/save', async (req, res) => {
 
     const { original_text, corrected_text } = req.body;
 
-    // Získaj preferencie používateľa z novej štruktúry
+    // Získaj najnovšie preferencie používateľa
     const prefResult = await db.query(
-      `SELECT * FROM user_coffee_preferences WHERE user_id::text = $1`,
+      `SELECT * FROM user_coffee_preferences WHERE user_id::text = $1 ORDER BY updated_at DESC LIMIT 1`,
       [uid]
     );
 
@@ -381,9 +371,9 @@ app.post('/api/ocr/evaluate', async (req, res) => {
     const { corrected_text } = req.body;
     if (!corrected_text) return res.status(400).json({ error: 'Chýba text kávy' });
 
-    // Získaj preferencie z novej štruktúry
+    // Získaj najnovšie preferencie z novej štruktúry
     const result = await db.query(
-      `SELECT * FROM user_coffee_preferences WHERE user_id::text = $1`,
+      `SELECT * FROM user_coffee_preferences WHERE user_id::text = $1 ORDER BY updated_at DESC LIMIT 1`,
       [uid]
     );
 
@@ -502,9 +492,9 @@ app.get('/api/dashboard', async (req, res) => {
       isRecommended: row.is_recommended || row.match > 75
     }));
 
-    // Získaj preferencie pre generovanie odporúčaní
+    // Získaj najnovšie preferencie pre generovanie odporúčaní
     const prefResult = await db.query(
-      'SELECT * FROM user_coffee_preferences WHERE user_id::text = $1',
+      'SELECT * FROM user_coffee_preferences WHERE user_id::text = $1 ORDER BY updated_at DESC LIMIT 1',
       [uid]
     );
 
