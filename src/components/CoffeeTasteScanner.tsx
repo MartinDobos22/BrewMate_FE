@@ -27,7 +27,9 @@ import {
   processOCR,
   fetchOCRHistory,
   deleteOCRRecord,
-  rateOCRResult
+  rateOCRResult,
+  markCoffeePurchased,
+  extractCoffeeName
 } from '../services/ocrServices.ts';
 
 interface OCRHistory {
@@ -39,6 +41,7 @@ interface OCRHistory {
   rating?: number;
   match_percentage?: number;
   is_recommended?: boolean;
+  is_purchased?: boolean;
 }
 
 interface ScanResult {
@@ -62,6 +65,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
   const [ocrHistory, setOcrHistory] = useState<OCRHistory[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [userRating, setUserRating] = useState<number>(0);
+  const [purchased, setPurchased] = useState<boolean | null>(null);
 
   const camera = useRef<Camera>(null);
   const device = useCameraDevice('back');
@@ -157,6 +161,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
       if (result) {
         setScanResult(result);
         setEditedText(result.corrected);
+        setPurchased(null);
 
         // Načítaj aktualizovanú históriu
         await loadHistory();
@@ -227,6 +232,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     });
     setEditedText(item.corrected_text);
     setUserRating(item.rating || 0);
+    setPurchased(item.is_purchased ?? null);
 
     // Scroll to top to show loaded result
     // scrollViewRef.current?.scrollTo({ y: 0, animated: true });
@@ -282,6 +288,18 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     }
   };
 
+  const handlePurchaseAnswer = async (answer: boolean) => {
+    setPurchased(answer);
+    if (answer && scanResult?.scanId) {
+      try {
+        const name = extractCoffeeName(editedText || scanResult.corrected);
+        await markCoffeePurchased(scanResult.scanId, name);
+      } catch (err) {
+        console.error('Error marking purchase:', err);
+      }
+    }
+  };
+
   const exportText = async () => {
     try {
       await Share.share({
@@ -300,6 +318,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     setScanResult(null);
     setEditedText('');
     setUserRating(0);
+    setPurchased(null);
   };
 
   // Camera View
@@ -492,6 +511,26 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
                 ))}
               </View>
             </View>
+
+            {purchased === null && (
+              <View style={styles.purchaseContainer}>
+                <Text style={styles.purchaseLabel}>Kúpil si túto kávu?</Text>
+                <View style={styles.actionButtons}>
+                  <TouchableOpacity
+                    style={styles.button}
+                    onPress={() => handlePurchaseAnswer(true)}
+                  >
+                    <Text style={styles.buttonText}>Áno</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.button, styles.buttonSecondary]}
+                    onPress={() => handlePurchaseAnswer(false)}
+                  >
+                    <Text style={[styles.buttonText, styles.buttonTextSecondary]}>Nie</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
 
             {/* Actions */}
             <View style={styles.actionButtons}>
