@@ -879,6 +879,39 @@ app.post('/api/coffee/favorite/:id', async (req, res) => {
 });
 
 /**
+ * Vráti zoznam všetkých káv uložených v databáze.
+ */
+app.get('/api/coffees', async (req, res) => {
+  const idToken = req.headers.authorization?.split(' ')[1];
+  if (!idToken) return res.status(401).json({ error: 'Token chýba' });
+
+  try {
+    await admin.auth().verifyIdToken(idToken);
+
+    const result = await db.query(
+      `SELECT c.id, c.name, c.brand, COALESCE(AVG(r.rating), 0) AS rating
+       FROM coffees c
+       LEFT JOIN coffee_ratings r ON r.coffee_id = c.id
+       GROUP BY c.id, c.name, c.brand
+       ORDER BY c.created_at DESC
+       LIMIT 10`
+    );
+
+    const coffees = result.rows.map(row => ({
+      id: row.id.toString(),
+      name: row.name,
+      brand: row.brand,
+      rating: parseFloat(row.rating)
+    }));
+
+    res.json(coffees);
+  } catch (err) {
+    console.error('❌ Coffees fetch error:', err);
+    res.status(500).json({ error: 'Chyba pri načítaní káv' });
+  }
+});
+
+/**
  * Uloží vygenerovaný recept.
  */
 app.post('/api/recipes', async (req, res) => {
