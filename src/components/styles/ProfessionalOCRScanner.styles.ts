@@ -585,6 +585,17 @@ export const scannerStyles = (isDarkMode: boolean = false) => {
       lineHeight: 18,
     },
 
+    purchaseContainer: {
+      marginTop: 12,
+    },
+
+    purchaseLabel: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.textPrimary,
+      marginBottom: 8,
+    },
+
     // Action Buttons
     actionButtons: {
       flexDirection: 'row',

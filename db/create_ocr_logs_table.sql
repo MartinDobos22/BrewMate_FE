@@ -8,6 +8,7 @@ create table if not exists ocr_logs (
     brand text,
     match_percentage integer,
     is_recommended boolean,
+    is_purchased boolean default false,
     rating numeric,
     created_at timestamptz default now()
 );

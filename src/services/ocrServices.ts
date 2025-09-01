@@ -34,6 +34,7 @@ interface OCRHistory {
   rating?: number;
   match_percentage?: number;
   is_recommended?: boolean;
+  is_purchased?: boolean;
 }
 
 /**
@@ -53,7 +54,7 @@ const getAuthToken = async (): Promise<string | null> => {
 /**
  * Extrahuje názov kávy z textu
  */
-const extractCoffeeName = (text: string): string => {
+export const extractCoffeeName = (text: string): string => {
   if (!text) return 'Neznáma káva';
 
   // Hľadaj známe značky
@@ -361,11 +362,33 @@ export const fetchOCRHistory = async (limit: number = 10): Promise<OCRHistory[]>
       rating: item.rating,
       match_percentage: item.match_percentage,
       is_recommended: item.is_recommended,
+      is_purchased: item.is_purchased,
     }));
   } catch (error) {
     console.error('Error fetching OCR history:', error);
     return [];
   }
+};
+
+/**
+ * Označí, že používateľ kúpil danú kávu
+ */
+export const markCoffeePurchased = async (
+  ocrLogId: string,
+  coffeeName: string,
+  brand?: string
+): Promise<void> => {
+  const token = await getAuthToken();
+  if (!token) throw new Error('Nie si prihlásený');
+
+  await loggedFetch(`${API_URL}/api/ocr/purchase`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ ocr_log_id: ocrLogId, coffee_name: coffeeName, brand }),
+  });
 };
 
 /**

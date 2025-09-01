@@ -744,7 +744,8 @@ app.get('/api/ocr/history', async (req, res) => {
         created_at,
         rating,
         match_percentage,
-        is_recommended
+        is_recommended,
+        is_purchased
       FROM ocr_logs
       WHERE user_id::text = $1
       ORDER BY created_at DESC
@@ -759,13 +760,48 @@ app.get('/api/ocr/history', async (req, res) => {
       created_at: row.created_at,
       rating: row.rating || 0,
       match_percentage: row.match_percentage || 0,
-      is_recommended: row.is_recommended || false
+      is_recommended: row.is_recommended || false,
+      is_purchased: row.is_purchased || false
     }));
 
     res.json(history);
   } catch (err) {
     console.error('❌ History error:', err);
     res.status(500).json({ error: 'Chyba pri načítaní histórie' });
+  }
+});
+
+/**
+ * Označí, že používateľ zakúpil danú kávu a uloží ju do tabuľky coffees.
+ */
+app.post('/api/ocr/purchase', async (req, res) => {
+  const idToken = req.headers.authorization?.split(' ')[1];
+  if (!idToken) return res.status(401).json({ error: 'Token chýba' });
+
+  try {
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    const uid = decoded.uid;
+
+    const { ocr_log_id, coffee_name, brand } = req.body;
+    if (!ocr_log_id) return res.status(400).json({ error: 'Chýba ID záznamu OCR' });
+
+    await db.query(
+      `UPDATE ocr_logs SET is_purchased = true WHERE id = $1 AND user_id::text = $2`,
+      [ocr_log_id, uid]
+    );
+
+    if (coffee_name) {
+      await db.query(
+        `INSERT INTO coffees (name, brand, created_at, updated_at)
+         VALUES ($1, $2, now(), now())`,
+        [coffee_name, brand || null]
+      );
+    }
+
+    res.json({ message: 'Nákup uložený' });
+  } catch (err) {
+    console.error('❌ Purchase error:', err);
+    res.status(500).json({ error: 'Chyba pri ukladaní nákupu' });
   }
 });
 
