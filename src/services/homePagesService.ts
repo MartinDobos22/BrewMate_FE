@@ -22,10 +22,10 @@ interface UserStats {
 interface CoffeeData {
   id: string;
   name: string;
-  rating: number;
-  match: number;
-  timestamp: Date;
-  isRecommended: boolean;
+  rating?: number;
+  match?: number;
+  timestamp?: Date;
+  isRecommended?: boolean;
   brand?: string;
   origin?: string;
   roastLevel?: string;
@@ -173,6 +173,40 @@ export const fetchUserStats = async (): Promise<UserStats> => {
 //     return getMockRecommendations();
 //   }
 // };
+
+/**
+ * Načíta všetky kávy z databázy
+ */
+export const fetchCoffees = async (): Promise<CoffeeData[]> => {
+  try {
+    const token = await getAuthToken();
+    if (!token) return [];
+
+    const response = await loggedFetch(`${API_URL}/coffees`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = await response.json();
+    return data.map((item: any) => ({
+      id: item.id?.toString() || '',
+      name: item.name,
+      origin: item.brand || item.origin,
+      rating: item.rating,
+      match: item.match,
+    }));
+  } catch (error) {
+    console.error('Error fetching coffees:', error);
+    return [];
+  }
+};
 
 /**
  * Načíta históriu skenovaní
