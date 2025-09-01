@@ -33,6 +33,7 @@ import {
   deleteOCRRecord,
   rateOCRResult,
   getBrewRecipe,
+  suggestBrewingMethods,
 } from '../services/ocrServices.ts';
 import {
   saveRecipe,
@@ -90,17 +91,6 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
   const isDarkMode = useColorScheme() === 'dark';
 
   const styles = scannerStyles(isDarkMode);
-
-  const brewingMethods = [
-    'V60',
-    'Chemex',
-    'AeroPress',
-    'French Press',
-    'Espresso',
-    'Moka Pot',
-    'Cold Brew',
-    'Turkish',
-  ];
 
   useEffect(() => {
     if (!hasPermission) {
@@ -267,17 +257,19 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     }
   };
 
-  const loadFromHistory = (item: OCRHistory) => {
+  const loadFromHistory = async (item: OCRHistory) => {
+    const methods = await suggestBrewingMethods(item.corrected_text);
     setScanResult({
       original: item.original_text,
       corrected: item.corrected_text,
       recommendation: '',
       matchPercentage: item.match_percentage,
       isRecommended: item.is_recommended,
-      brewingMethods: brewingMethods,
+      brewingMethods: methods,
     });
     setEditedText(item.corrected_text);
     setUserRating(item.rating || 0);
+    setSelectedMethod(null);
   };
 
   const deleteFromHistory = async (id: string) => {
@@ -474,20 +466,24 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
             <View style={styles.brewingSection}>
               <Text style={styles.brewingTitle}>Metóda prípravy</Text>
               <View style={styles.brewingGrid}>
-                {brewingMethods.map((method) => (
+                {scanResult.brewingMethods?.map((method) => (
                   <TouchableOpacity
                     key={method}
                     style={styles.brewingMethod}
                     onPress={() => setSelectedMethod(method)}
                   >
-                    <View style={[
-                      styles.brewingButton,
-                      selectedMethod === method && styles.brewingButtonSelected
-                    ]}>
-                      <Text style={[
-                        styles.brewingText,
-                        selectedMethod === method && styles.brewingTextSelected
-                      ]}>
+                    <View
+                      style={[
+                        styles.brewingButton,
+                        selectedMethod === method && styles.brewingButtonSelected,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.brewingText,
+                          selectedMethod === method && styles.brewingTextSelected,
+                        ]}
+                      >
                         {method}
                       </Text>
                     </View>

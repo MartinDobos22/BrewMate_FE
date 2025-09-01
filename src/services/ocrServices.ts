@@ -133,7 +133,9 @@ ${ocrText}
 /**
  * Navrhne spôsoby prípravy kávy na základe popisu
  */
-const suggestBrewingMethods = async (coffeeText: string): Promise<string[]> => {
+export const suggestBrewingMethods = async (
+  coffeeText: string
+): Promise<string[]> => {
   const prompt =
     `Na základe tohto popisu kávy navrhni presne 4 najvhodnejšie spôsoby prípravy kávy. ` +
     `Odpovedz len zoznamom metód oddelených novým riadkom. Popis: "${coffeeText}"`;
