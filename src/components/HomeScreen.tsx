@@ -1,5 +1,5 @@
 // HomeScreen.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,14 @@ import {
   Alert,
 } from 'react-native';
 import { homeStyles } from './styles/HomeScreen.styles.ts';
+import { fetchCoffees } from '../services/homePagesService.ts';
 
 interface CoffeeItem {
   id: string;
   name: string;
-  origin: string;
-  rating: number;
-  match: number;
+  origin?: string;
+  rating?: number;
+  match?: number;
   hasCheckmark?: boolean;
 }
 
@@ -49,7 +50,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     'Arabica',
   ]);
 
+  const [recommendedCoffees, setRecommendedCoffees] = useState<CoffeeItem[]>([]);
   const styles = homeStyles();
+
+  useEffect(() => {
+    const loadCoffees = async () => {
+      try {
+        const coffees = await fetchCoffees();
+        setRecommendedCoffees(coffees);
+      } catch (err) {
+        console.error('Error loading coffees:', err);
+      }
+    };
+    loadCoffees();
+  }, []);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -72,12 +86,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     if (temp > 20) return { name: 'Cold Brew', icon: '🧊' };
     return { name: 'Cappuccino', icon: '☕' };
   };
-
-  const recommendedCoffees: CoffeeItem[] = [
-    { id: '1', name: 'Ethiopia Yirgacheffe', origin: 'Single Origin', rating: 4.8, match: 94, hasCheckmark: true },
-    { id: '2', name: 'Colombia Supremo', origin: 'Premium Blend', rating: 4.6, match: 87, hasCheckmark: true },
-    { id: '3', name: 'Brazil Santos', origin: 'Medium Roast', rating: 4.5, match: 82, hasCheckmark: false },
-  ];
 
   const tasteTags = [
     'Stredná intenzita',
@@ -104,9 +112,16 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   const handleCoffeeCardPress = (coffee: CoffeeItem) => {
+    const details = [
+      coffee.origin,
+      coffee.rating !== undefined ? `⭐ ${coffee.rating}` : null,
+      coffee.match !== undefined ? `${coffee.match}% zhoda s tvojím profilom` : null,
+    ]
+      .filter(Boolean)
+      .join('\n');
     Alert.alert(
       coffee.name,
-      `${coffee.origin}\n⭐ ${coffee.rating}\n${coffee.match}% zhoda s tvojím profilom`,
+      details,
       [
         { text: 'Zatvoriť', style: 'cancel' },
         { text: 'Pripraviť', onPress: onBrewPress },
@@ -313,11 +328,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                   <Text style={styles.coffeeEmoji}>☕</Text>
                 </View>
                 <Text style={styles.coffeeName}>{coffee.name}</Text>
-                <Text style={styles.coffeeOrigin}>{coffee.origin}</Text>
-                <View style={styles.coffeeMatch}>
-                  <Text style={styles.matchScore}>{coffee.match}% zhoda</Text>
-                  <Text style={styles.coffeeRating}>⭐ {coffee.rating}</Text>
-                </View>
+                {coffee.origin && (
+                  <Text style={styles.coffeeOrigin}>{coffee.origin}</Text>
+                )}
+                {(coffee.match !== undefined || coffee.rating !== undefined) && (
+                  <View style={styles.coffeeMatch}>
+                    {coffee.match !== undefined && (
+                      <Text style={styles.matchScore}>{coffee.match}% zhoda</Text>
+                    )}
+                    {coffee.rating !== undefined && (
+                      <Text style={styles.coffeeRating}>⭐ {coffee.rating}</Text>
+                    )}
+                  </View>
+                )}
               </TouchableOpacity>
             ))}
           </ScrollView>

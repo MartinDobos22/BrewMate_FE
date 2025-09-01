@@ -617,6 +617,19 @@ export const scannerStyles = (isDarkMode: boolean = false) => {
       borderColor: colors.border,
     },
 
+    buttonSelected: {
+      borderWidth: 2,
+      borderColor: colors.accent,
+    },
+
+    submitButton: {
+      marginTop: 10,
+    },
+
+    buttonDisabled: {
+      opacity: 0.5,
+    },
+
     buttonText: {
       fontSize: 14,
       fontWeight: '600',

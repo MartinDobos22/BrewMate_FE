@@ -65,6 +65,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
   const [ocrHistory, setOcrHistory] = useState<OCRHistory[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [userRating, setUserRating] = useState<number>(0);
+  const [purchaseSelection, setPurchaseSelection] = useState<boolean | null>(null);
   const [purchased, setPurchased] = useState<boolean | null>(null);
 
   const camera = useRef<Camera>(null);
@@ -161,6 +162,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
       if (result) {
         setScanResult(result);
         setEditedText(result.corrected);
+        setPurchaseSelection(null);
         setPurchased(null);
 
         // Načítaj aktualizovanú históriu
@@ -232,6 +234,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     });
     setEditedText(item.corrected_text);
     setUserRating(item.rating || 0);
+    setPurchaseSelection(null);
     setPurchased(item.is_purchased ?? null);
 
     // Scroll to top to show loaded result
@@ -288,9 +291,14 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     }
   };
 
-  const handlePurchaseAnswer = async (answer: boolean) => {
-    setPurchased(answer);
-    if (answer && scanResult?.scanId) {
+  const handlePurchaseSelect = (answer: boolean) => {
+    setPurchaseSelection(answer);
+  };
+
+  const submitPurchaseAnswer = async () => {
+    if (purchaseSelection === null) return;
+    setPurchased(purchaseSelection);
+    if (purchaseSelection && scanResult?.scanId) {
       try {
         const name = extractCoffeeName(editedText || scanResult.corrected);
         await markCoffeePurchased(scanResult.scanId, name);
@@ -318,6 +326,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     setScanResult(null);
     setEditedText('');
     setUserRating(0);
+    setPurchaseSelection(null);
     setPurchased(null);
   };
 
@@ -517,18 +526,36 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
                 <Text style={styles.purchaseLabel}>Kúpil si túto kávu?</Text>
                 <View style={styles.actionButtons}>
                   <TouchableOpacity
-                    style={styles.button}
-                    onPress={() => handlePurchaseAnswer(true)}
+                    style={[
+                      styles.button,
+                      purchaseSelection === true && styles.buttonSelected,
+                    ]}
+                    onPress={() => handlePurchaseSelect(true)}
                   >
                     <Text style={styles.buttonText}>Áno</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.button, styles.buttonSecondary]}
-                    onPress={() => handlePurchaseAnswer(false)}
+                    style={[
+                      styles.button,
+                      styles.buttonSecondary,
+                      purchaseSelection === false && styles.buttonSelected,
+                    ]}
+                    onPress={() => handlePurchaseSelect(false)}
                   >
                     <Text style={[styles.buttonText, styles.buttonTextSecondary]}>Nie</Text>
                   </TouchableOpacity>
                 </View>
+                <TouchableOpacity
+                  style={[
+                    styles.button,
+                    styles.submitButton,
+                    purchaseSelection === null && styles.buttonDisabled,
+                  ]}
+                  onPress={submitPurchaseAnswer}
+                  disabled={purchaseSelection === null}
+                >
+                  <Text style={styles.buttonText}>Odoslať</Text>
+                </TouchableOpacity>
               </View>
             )}
 
