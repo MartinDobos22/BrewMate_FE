@@ -17,6 +17,9 @@ interface CoffeeItem {
   roastLevel?: number;
   intensity?: number;
   flavorNotes?: string[];
+
+  origin?: string;
+
   rating?: number;
   match?: number;
 }
@@ -63,6 +66,9 @@ const AllCoffeesScreen: React.FC<AllCoffeesScreenProps> = ({ onBack }) => {
         contentContainerStyle={{ padding: 16 }}
         showsVerticalScrollIndicator={false}
       >
+
+
+
         {coffees.length === 0 ? (
           <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>
             Žiadne kávy sa nenašli
@@ -93,6 +99,9 @@ const AllCoffeesScreen: React.FC<AllCoffeesScreenProps> = ({ onBack }) => {
               {coffee.flavorNotes && coffee.flavorNotes.length > 0 && (
                 <Text style={styles.coffeeOrigin}>{coffee.flavorNotes.join(', ')}</Text>
               )}
+
+              {coffee.origin && <Text style={styles.coffeeOrigin}>{coffee.origin}</Text>}
+
               {(coffee.match !== undefined || coffee.rating !== undefined) && (
                 <View style={styles.coffeeMatch}>
                   {coffee.match !== undefined && (
@@ -106,6 +115,32 @@ const AllCoffeesScreen: React.FC<AllCoffeesScreenProps> = ({ onBack }) => {
             </View>
           ))
         )}
+
+
+        {coffees.map((coffee) => (
+          <View
+            key={coffee.id}
+            style={[styles.coffeeCard, { marginRight: 0, marginBottom: 16 }]}
+          >
+            <View style={styles.coffeeImage}>
+              <Text style={styles.coffeeEmoji}>☕</Text>
+            </View>
+            <Text style={styles.coffeeName}>{coffee.name}</Text>
+            {coffee.origin && <Text style={styles.coffeeOrigin}>{coffee.origin}</Text>}
+            {(coffee.match !== undefined || coffee.rating !== undefined) && (
+              <View style={styles.coffeeMatch}>
+                {coffee.match !== undefined && (
+                  <Text style={styles.matchScore}>{coffee.match}% zhoda</Text>
+                )}
+                {coffee.rating !== undefined && (
+                  <Text style={styles.coffeeRating}>⭐ {coffee.rating}</Text>
+                )}
+              </View>
+            )}
+          </View>
+        ))}
+
+
       </ScrollView>
     </View>
   );

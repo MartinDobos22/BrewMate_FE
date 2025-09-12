@@ -357,6 +357,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                   {coffee.flavorNotes && coffee.flavorNotes.length > 0 && (
                     <Text style={styles.coffeeOrigin}>{coffee.flavorNotes.join(', ')}</Text>
                   )}
+                  {coffee.origin && (
+                    <Text style={styles.coffeeOrigin}>{coffee.origin}</Text>
+                  )}
                   {(coffee.match !== undefined || coffee.rating !== undefined) && (
                     <View style={styles.coffeeMatch}>
                       {coffee.match !== undefined && (
