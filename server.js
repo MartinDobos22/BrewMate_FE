@@ -898,7 +898,7 @@ app.get('/api/coffees', async (req, res) => {
               c.flavor_notes,
               COALESCE(AVG(r.rating), 0) AS rating
        FROM coffees c
-       LEFT JOIN coffee_ratings r ON r.coffee_id = c.id
+       LEFT JOIN coffee_ratings r ON r.coffee_id = c.id::text
        GROUP BY c.id, c.name, c.brand, c.origin, c.roast_level, c.intensity, c.flavor_notes
        ORDER BY c.created_at DESC`
     );
