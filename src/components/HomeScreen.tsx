@@ -14,7 +14,11 @@ import { fetchCoffees } from '../services/homePagesService.ts';
 interface CoffeeItem {
   id: string;
   name: string;
+  brand?: string;
   origin?: string;
+  roastLevel?: number;
+  intensity?: number;
+  flavorNotes?: string[];
   rating?: number;
   match?: number;
   hasCheckmark?: boolean;
@@ -113,7 +117,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const handleCoffeeCardPress = (coffee: CoffeeItem) => {
     const details = [
+      coffee.brand,
       coffee.origin,
+      coffee.roastLevel !== undefined ? `Praženie: ${coffee.roastLevel}` : null,
+      coffee.intensity !== undefined ? `Intenzita: ${coffee.intensity}` : null,
+      coffee.flavorNotes && coffee.flavorNotes.length > 0 ? coffee.flavorNotes.join(', ') : null,
       coffee.rating !== undefined ? `⭐ ${coffee.rating}` : null,
       coffee.match !== undefined ? `${coffee.match}% zhoda s tvojím profilom` : null,
     ]
@@ -333,6 +341,22 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                     <Text style={styles.coffeeEmoji}>☕</Text>
                   </View>
                   <Text style={styles.coffeeName}>{coffee.name}</Text>
+                  {coffee.brand && (
+                    <Text style={styles.coffeeOrigin}>{coffee.brand}</Text>
+                  )}
+                  {coffee.origin && (
+                    <Text style={styles.coffeeOrigin}>{coffee.origin}</Text>
+                  )}
+                  {(coffee.roastLevel !== undefined || coffee.intensity !== undefined) && (
+                    <Text style={styles.coffeeOrigin}>
+                      {coffee.roastLevel !== undefined && `Praženie: ${coffee.roastLevel}`}
+                      {coffee.roastLevel !== undefined && coffee.intensity !== undefined && ' • '}
+                      {coffee.intensity !== undefined && `Intenzita: ${coffee.intensity}`}
+                    </Text>
+                  )}
+                  {coffee.flavorNotes && coffee.flavorNotes.length > 0 && (
+                    <Text style={styles.coffeeOrigin}>{coffee.flavorNotes.join(', ')}</Text>
+                  )}
                   {coffee.origin && (
                     <Text style={styles.coffeeOrigin}>{coffee.origin}</Text>
                   )}

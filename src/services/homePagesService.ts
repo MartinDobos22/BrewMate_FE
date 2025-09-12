@@ -27,8 +27,9 @@ interface CoffeeData {
   isRecommended?: boolean;
   brand?: string;
   origin?: string;
-  roastLevel?: string;
-  notes?: string[];
+  roastLevel?: number;
+  intensity?: number;
+  flavorNotes?: string[];
 }
 
 interface DashboardData {
@@ -197,7 +198,11 @@ export const fetchCoffees = async (): Promise<CoffeeData[]> => {
     return data.map((item: any) => ({
       id: item.id?.toString() || '',
       name: item.name,
-      origin: item.brand || item.origin,
+      brand: item.brand,
+      origin: item.origin,
+      roastLevel: item.roast_level,
+      intensity: item.intensity,
+      flavorNotes: item.flavor_notes,
       rating: item.rating,
       match: item.match,
     }));

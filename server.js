@@ -889,18 +889,28 @@ app.get('/api/coffees', async (req, res) => {
     await admin.auth().verifyIdToken(idToken);
 
     const result = await db.query(
-      `SELECT c.id, c.name, c.brand, COALESCE(AVG(r.rating), 0) AS rating
+      `SELECT c.id,
+              c.name,
+              c.brand,
+              c.origin,
+              c.roast_level,
+              c.intensity,
+              c.flavor_notes,
+              COALESCE(AVG(r.rating), 0) AS rating
        FROM coffees c
        LEFT JOIN coffee_ratings r ON r.coffee_id = c.id
-       GROUP BY c.id, c.name, c.brand
-       ORDER BY c.created_at DESC
-       LIMIT 10`
+       GROUP BY c.id, c.name, c.brand, c.origin, c.roast_level, c.intensity, c.flavor_notes
+       ORDER BY c.created_at DESC`
     );
 
     const coffees = result.rows.map(row => ({
       id: row.id.toString(),
       name: row.name,
       brand: row.brand,
+      origin: row.origin,
+      roast_level: row.roast_level,
+      intensity: row.intensity,
+      flavor_notes: row.flavor_notes,
       rating: parseFloat(row.rating)
     }));
 

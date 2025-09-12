@@ -12,7 +12,14 @@ import { fetchCoffees } from '../services/homePagesService.ts';
 interface CoffeeItem {
   id: string;
   name: string;
+  brand?: string;
   origin?: string;
+  roastLevel?: number;
+  intensity?: number;
+  flavorNotes?: string[];
+
+  origin?: string;
+
   rating?: number;
   match?: number;
 }
@@ -60,6 +67,8 @@ const AllCoffeesScreen: React.FC<AllCoffeesScreenProps> = ({ onBack }) => {
         showsVerticalScrollIndicator={false}
       >
 
+
+
         {coffees.length === 0 ? (
           <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>
             Žiadne kávy sa nenašli
@@ -74,7 +83,25 @@ const AllCoffeesScreen: React.FC<AllCoffeesScreenProps> = ({ onBack }) => {
                 <Text style={styles.coffeeEmoji}>☕</Text>
               </View>
               <Text style={styles.coffeeName}>{coffee.name}</Text>
+              {coffee.brand && (
+                <Text style={styles.coffeeOrigin}>{coffee.brand}</Text>
+              )}
+              {coffee.origin && (
+                <Text style={styles.coffeeOrigin}>{coffee.origin}</Text>
+              )}
+              {(coffee.roastLevel !== undefined || coffee.intensity !== undefined) && (
+                <Text style={styles.coffeeOrigin}>
+                  {coffee.roastLevel !== undefined && `Praženie: ${coffee.roastLevel}`}
+                  {coffee.roastLevel !== undefined && coffee.intensity !== undefined && ' • '}
+                  {coffee.intensity !== undefined && `Intenzita: ${coffee.intensity}`}
+                </Text>
+              )}
+              {coffee.flavorNotes && coffee.flavorNotes.length > 0 && (
+                <Text style={styles.coffeeOrigin}>{coffee.flavorNotes.join(', ')}</Text>
+              )}
+
               {coffee.origin && <Text style={styles.coffeeOrigin}>{coffee.origin}</Text>}
+
               {(coffee.match !== undefined || coffee.rating !== undefined) && (
                 <View style={styles.coffeeMatch}>
                   {coffee.match !== undefined && (
@@ -88,6 +115,7 @@ const AllCoffeesScreen: React.FC<AllCoffeesScreenProps> = ({ onBack }) => {
             </View>
           ))
         )}
+
 
         {coffees.map((coffee) => (
           <View
@@ -111,6 +139,7 @@ const AllCoffeesScreen: React.FC<AllCoffeesScreenProps> = ({ onBack }) => {
             )}
           </View>
         ))}
+
 
       </ScrollView>
     </View>
