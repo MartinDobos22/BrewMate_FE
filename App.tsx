@@ -12,6 +12,7 @@ import AuthScreen from './src/components/AuthVisual.tsx';
 import HomeScreen from './src/components/HomeScreen';
 import CoffeeTasteScanner from './src/components/CoffeeTasteScanner.tsx';
 import CoffeeReceipeScanner from './src/components/CoffeeReceipeScanner.tsx';
+import AllCoffeesScreen from './src/components/AllCoffeesScreen';
 import UserProfile from './src/components/UserProfile';
 import EditUserProfile from './src/components/EditUserProfile';
 import CoffeePreferenceForm from './src/components/CoffeePreferenceForm';
@@ -61,7 +62,7 @@ const AppContent = (): React.JSX.Element => {
   };
 
   const handleDiscoverPress = () => {
-    Alert.alert('Objaviť', 'Sekcia objavovania nových káv bude čoskoro!');
+    setCurrentScreen('discover');
   };
 
   const handleRecipesPress = () => {
@@ -236,6 +237,18 @@ const AppContent = (): React.JSX.Element => {
         statusBarBackground={colors.primary}
       >
         <EditPreferences onBack={() => setCurrentScreen('profile')} />
+      </ResponsiveWrapper>
+    );
+  }
+
+  if (currentScreen === 'discover') {
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.primary}
+      >
+        <AllCoffeesScreen onBack={handleBackPress} />
       </ResponsiveWrapper>
     );
   }

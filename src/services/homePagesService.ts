@@ -1,7 +1,6 @@
 // services/homeService.ts
 import auth from '@react-native-firebase/auth';
-
-const API_URL = 'http://10.0.2.2:3001/api';
+import { API_URL } from './api';
 
 /**
  * Wrapper okolo fetchu ktorý loguje požiadavky a odpovede medzi frontendom a backendom.
@@ -28,8 +27,9 @@ interface CoffeeData {
   isRecommended?: boolean;
   brand?: string;
   origin?: string;
-  roastLevel?: string;
-  notes?: string[];
+  roastLevel?: number;
+  intensity?: number;
+  flavorNotes?: string[];
 }
 
 interface DashboardData {
@@ -198,7 +198,11 @@ export const fetchCoffees = async (): Promise<CoffeeData[]> => {
     return data.map((item: any) => ({
       id: item.id?.toString() || '',
       name: item.name,
-      origin: item.brand || item.origin,
+      brand: item.brand,
+      origin: item.origin,
+      roastLevel: item.roast_level,
+      intensity: item.intensity,
+      flavorNotes: item.flavor_notes,
       rating: item.rating,
       match: item.match,
     }));
