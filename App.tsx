@@ -21,6 +21,7 @@ import RecipeStepsScreen from './src/components/RecipeStepsScreen';
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 import { scale } from './src/theme/responsive';
 import ResponsiveWrapper from './src/components/ResponsiveWrapper';
+import SavedRecipesScreen from './src/components/SavedRecipesScreen';
 
 type ScreenName =
   | 'home'
@@ -66,7 +67,7 @@ const AppContent = (): React.JSX.Element => {
   };
 
   const handleRecipesPress = () => {
-    Alert.alert('Recepty', 'Vaše obľúbené recepty budú čoskoro dostupné!');
+    setCurrentScreen('recipes');
   };
 
   const handleFavoritesPress = () => {
@@ -237,6 +238,18 @@ const AppContent = (): React.JSX.Element => {
         statusBarBackground={colors.primary}
       >
         <EditPreferences onBack={() => setCurrentScreen('profile')} />
+      </ResponsiveWrapper>
+    );
+  }
+
+  if (currentScreen === 'recipes') {
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.primary}
+      >
+        <SavedRecipesScreen onBack={handleBackPress} />
       </ResponsiveWrapper>
     );
   }
