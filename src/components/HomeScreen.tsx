@@ -1,5 +1,5 @@
 // HomeScreen.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -53,17 +53,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   const [recommendedCoffees, setRecommendedCoffees] = useState<CoffeeItem[]>([]);
   const styles = homeStyles();
 
-  useEffect(() => {
-    const loadCoffees = async () => {
-      try {
-        const coffees = await fetchCoffees();
-        setRecommendedCoffees(coffees);
-      } catch (err) {
-        console.error('Error loading coffees:', err);
-      }
-    };
-    loadCoffees();
+  const loadCoffees = useCallback(async () => {
+    try {
+      const coffees = await fetchCoffees();
+      setRecommendedCoffees(coffees);
+    } catch (err) {
+      console.error('Error loading coffees:', err);
+    }
   }, []);
+
+  useEffect(() => {
+    loadCoffees();
+  }, [loadCoffees]);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -98,8 +99,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Simulate data refresh
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await loadCoffees();
     setRefreshing(false);
   };
 
