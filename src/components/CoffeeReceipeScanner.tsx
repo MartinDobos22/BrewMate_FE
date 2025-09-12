@@ -247,8 +247,17 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
       if (onRecipeGenerated) {
         onRecipeGenerated(recipe);
       }
-      await saveRecipe(selectedMethod, tastePreference || 'vyvážená', recipe);
-      await loadRecipeHistory();
+
+      const saved = await saveRecipe(
+        selectedMethod,
+        tastePreference || 'vyvážená',
+        recipe
+      );
+      if (saved) {
+        setRecipeHistory((prev) => [saved, ...prev]);
+      } else {
+        console.warn('Failed to save recipe');
+      }
     } catch (error) {
       console.error('Error generating recipe:', error);
       Alert.alert('Chyba', 'Nepodarilo sa vygenerovať recept');

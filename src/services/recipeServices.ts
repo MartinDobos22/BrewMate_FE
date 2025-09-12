@@ -31,10 +31,10 @@ export const saveRecipe = async (
   method: string,
   taste: string,
   recipe: string
-): Promise<boolean> => {
+): Promise<RecipeHistory | null> => {
   try {
     const token = await getAuthToken();
-    if (!token) return false;
+    if (!token) return null;
 
     const res = await loggedFetch(`${API_URL}/recipes`, {
       method: 'POST',
@@ -45,10 +45,19 @@ export const saveRecipe = async (
       body: JSON.stringify({ method, taste, recipe }),
     });
 
-    return res.ok;
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    return {
+      id: data.id?.toString() ?? '',
+      method,
+      taste,
+      recipe,
+      created_at: new Date().toISOString(),
+    };
   } catch (error) {
     console.error('Error saving recipe:', error);
-    return false;
+    return null;
   }
 };
 
