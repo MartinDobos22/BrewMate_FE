@@ -1,7 +1,6 @@
 // services/homeService.ts
 import auth from '@react-native-firebase/auth';
-
-const API_URL = 'http://10.0.2.2:3001/api';
+import { API_URL } from './api';
 
 /**
  * Wrapper okolo fetchu ktorý loguje požiadavky a odpovede medzi frontendom a backendom.

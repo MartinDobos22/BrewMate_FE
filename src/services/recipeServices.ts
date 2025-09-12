@@ -1,6 +1,5 @@
 import auth from '@react-native-firebase/auth';
-
-const API_URL = 'http://10.0.2.2:3001/api';
+import { API_URL } from './api';
 
 const loggedFetch = async (url: string, options: RequestInit) => {
   console.log('📤 [FE->BE]', url, options);
