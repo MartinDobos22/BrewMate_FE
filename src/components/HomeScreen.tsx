@@ -1,5 +1,5 @@
 // HomeScreen.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -53,17 +53,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   const [recommendedCoffees, setRecommendedCoffees] = useState<CoffeeItem[]>([]);
   const styles = homeStyles();
 
-  useEffect(() => {
-    const loadCoffees = async () => {
-      try {
-        const coffees = await fetchCoffees();
-        setRecommendedCoffees(coffees);
-      } catch (err) {
-        console.error('Error loading coffees:', err);
-      }
-    };
-    loadCoffees();
+  const loadCoffees = useCallback(async () => {
+    try {
+      const coffees = await fetchCoffees();
+      setRecommendedCoffees(coffees);
+    } catch (err) {
+      console.error('Error loading coffees:', err);
+    }
   }, []);
+
+  useEffect(() => {
+    loadCoffees();
+  }, [loadCoffees]);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -98,8 +99,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Simulate data refresh
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await loadCoffees();
     setRefreshing(false);
   };
 
@@ -307,43 +307,49 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
               <Text style={styles.seeAllArrow}>→</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.coffeeCards}
-          >
-            {recommendedCoffees.map((coffee) => (
-              <TouchableOpacity
-                key={coffee.id}
-                style={styles.coffeeCard}
-                onPress={() => handleCoffeeCardPress(coffee)}
-                activeOpacity={0.8}
-              >
-                {coffee.hasCheckmark && (
-                  <View style={styles.coffeeBadge}>
-                    <Text style={styles.badgeCheck}>✓</Text>
+          {recommendedCoffees.length === 0 ? (
+            <Text style={{ color: '#666', paddingHorizontal: 16 }}>
+              Žiadne kávy sa nenašli
+            </Text>
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.coffeeCards}
+            >
+              {recommendedCoffees.map((coffee) => (
+                <TouchableOpacity
+                  key={coffee.id}
+                  style={styles.coffeeCard}
+                  onPress={() => handleCoffeeCardPress(coffee)}
+                  activeOpacity={0.8}
+                >
+                  {coffee.hasCheckmark && (
+                    <View style={styles.coffeeBadge}>
+                      <Text style={styles.badgeCheck}>✓</Text>
+                    </View>
+                  )}
+                  <View style={styles.coffeeImage}>
+                    <Text style={styles.coffeeEmoji}>☕</Text>
                   </View>
-                )}
-                <View style={styles.coffeeImage}>
-                  <Text style={styles.coffeeEmoji}>☕</Text>
-                </View>
-                <Text style={styles.coffeeName}>{coffee.name}</Text>
-                {coffee.origin && (
-                  <Text style={styles.coffeeOrigin}>{coffee.origin}</Text>
-                )}
-                {(coffee.match !== undefined || coffee.rating !== undefined) && (
-                  <View style={styles.coffeeMatch}>
-                    {coffee.match !== undefined && (
-                      <Text style={styles.matchScore}>{coffee.match}% zhoda</Text>
-                    )}
-                    {coffee.rating !== undefined && (
-                      <Text style={styles.coffeeRating}>⭐ {coffee.rating}</Text>
-                    )}
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+                  <Text style={styles.coffeeName}>{coffee.name}</Text>
+                  {coffee.origin && (
+                    <Text style={styles.coffeeOrigin}>{coffee.origin}</Text>
+                  )}
+                  {(coffee.match !== undefined || coffee.rating !== undefined) && (
+                    <View style={styles.coffeeMatch}>
+                      {coffee.match !== undefined && (
+                        <Text style={styles.matchScore}>{coffee.match}% zhoda</Text>
+                      )}
+                      {coffee.rating !== undefined && (
+                        <Text style={styles.coffeeRating}>⭐ {coffee.rating}</Text>
+                      )}
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
         </View>
       </ScrollView>
 

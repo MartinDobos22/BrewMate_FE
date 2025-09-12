@@ -1,8 +1,8 @@
 // services/ocrService.ts
 import auth from '@react-native-firebase/auth';
 import { CONFIG } from '../config/config';
+import { API_HOST, API_URL } from './api';
 
-const API_URL = 'http://10.0.2.2:3001';
 const OPENAI_API_KEY = CONFIG.OPENAI_API_KEY;
 
 /**
@@ -244,7 +244,7 @@ export const getBrewRecipe = async (
 export const processOCR = async (base64image: string): Promise<OCRResult | null> => {
   try {
     // 1. Pošli na Google Vision API
-    const ocrResponse = await loggedFetch(`${API_URL}/ocr`, {
+    const ocrResponse = await loggedFetch(`${API_HOST}/ocr`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ base64image }),
@@ -268,7 +268,7 @@ export const processOCR = async (base64image: string): Promise<OCRResult | null>
       throw new Error('Nie si prihlásený');
     }
 
-    const saveResponse = await loggedFetch(`${API_URL}/api/ocr/save`, {
+    const saveResponse = await loggedFetch(`${API_URL}/ocr/save`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -295,7 +295,7 @@ export const processOCR = async (base64image: string): Promise<OCRResult | null>
     // 4. Získaj AI hodnotenie
     let recommendation = '';
     try {
-        const evalResponse = await loggedFetch(`${API_URL}/api/ocr/evaluate`, {
+        const evalResponse = await loggedFetch(`${API_URL}/ocr/evaluate`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -340,7 +340,7 @@ export const fetchOCRHistory = async (limit: number = 10): Promise<OCRHistory[]>
     const token = await getAuthToken();
     if (!token) return [];
 
-    const response = await loggedFetch(`${API_URL}/api/ocr/history?limit=${limit}`, {
+    const response = await loggedFetch(`${API_URL}/ocr/history?limit=${limit}`, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -383,7 +383,7 @@ export const markCoffeePurchased = async (
   const token = await getAuthToken();
   if (!token) throw new Error('Nie si prihlásený');
 
-  await loggedFetch(`${API_URL}/api/ocr/purchase`, {
+  await loggedFetch(`${API_URL}/ocr/purchase`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -401,7 +401,7 @@ export const deleteOCRRecord = async (id: string): Promise<boolean> => {
     const token = await getAuthToken();
     if (!token) return false;
 
-      const response = await loggedFetch(`${API_URL}/api/ocr/${id}`, {
+      const response = await loggedFetch(`${API_URL}/ocr/${id}`, {
       method: 'DELETE',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -425,7 +425,7 @@ export const rateOCRResult = async (scanId: string, rating: number): Promise<boo
     const token = await getAuthToken();
     if (!token) return false;
 
-    const response = await loggedFetch(`${API_URL}/api/coffee/rate`, {
+    const response = await loggedFetch(`${API_URL}/coffee/rate`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
