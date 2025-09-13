@@ -248,6 +248,7 @@ app.put('/api/profile', async (req, res) => {
  */
 app.post('/api/auth', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
+  const provider = req.headers['x-auth-provider'] || 'unknown';
 
   try {
     const decoded = await admin.auth().verifyIdToken(idToken);
@@ -267,11 +268,11 @@ app.post('/api/auth', async (req, res) => {
       console.warn('⚠️ Nepodarilo sa vložiť profil:', dbErr);
     }
 
-    const logEntry = `[${timestamp}] LOGIN: ${email} (${uid}) — ${userAgent}\n`;
+    const logEntry = `[${timestamp}] LOGIN ${provider}: ${email} (${uid}) — ${userAgent}\n`;
     fs.appendFileSync(path.join(LOG_DIR, 'auth.log'), logEntry);
     console.log('✅ Audit log:', logEntry.trim());
 
-    res.status(200).json({ message: 'Authenticated', uid, email });
+    res.status(200).json({ message: 'Authenticated', uid, email, provider });
   } catch (err) {
     console.error('Token verify error:', err);
     res.status(401).json({ error: 'Invalid token' });
