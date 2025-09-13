@@ -1,16 +1,49 @@
 // services/ocrService.ts
 import auth from '@react-native-firebase/auth';
+import NetInfo from '@react-native-community/netinfo';
 import { CONFIG } from '../config/config';
 import { API_HOST, API_URL } from './api';
 
 const OPENAI_API_KEY = CONFIG.OPENAI_API_KEY;
 
 /**
+ * Overí sieťové pripojenie
+ */
+const ensureOnline = async () => {
+  const state = await NetInfo.fetch();
+  if (!state.isConnected) {
+    throw new Error('Offline');
+  }
+};
+
+/**
+ * Fetch s automatickým opakovaním pri zlyhaní siete
+ */
+export const retryableFetch = async (
+  request: () => Promise<Response>,
+  retries = 3
+): Promise<Response> => {
+  let attempt = 0;
+  let delay = 500;
+  while (true) {
+    try {
+      return await request();
+    } catch (error) {
+      if (attempt >= retries) throw error;
+      await new Promise(res => setTimeout(res, delay));
+      attempt += 1;
+      delay *= 2;
+    }
+  }
+};
+
+/**
  * Wrapper okolo fetchu pre logovanie požiadaviek a odpovedí.
  */
 const loggedFetch = async (url: string, options: RequestInit) => {
+  await ensureOnline();
   console.log('📤 [FE->BE]', url, options);
-  const res = await fetch(url, options);
+  const res = await retryableFetch(() => fetch(url, options));
   console.log('📥 [BE->FE]', url, res.status);
   return res;
 };
@@ -96,25 +129,28 @@ ${ocrText}
   }
 
   try {
+    await ensureOnline();
     console.log('📤 [OpenAI] OCR prompt:', prompt);
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: "Si expert na kávu a opravu textov z OCR. Opravuješ chyby v rozpoznaných textoch z etikiet káv."
-          },
-          { role: "user", content: prompt }
-        ],
-        temperature: 0.2,
-      }),
-    });
+    const response = await retryableFetch(() =>
+      fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: [
+            {
+              role: 'system',
+              content: 'Si expert na kávu a opravu textov z OCR. Opravuješ chyby v rozpoznaných textoch z etikiet káv.',
+            },
+            { role: 'user', content: prompt },
+          ],
+          temperature: 0.2,
+        }),
+      })
+    );
 
     const data = await response.json();
     console.log('📥 [OpenAI] OCR response:', data);
@@ -148,26 +184,29 @@ export const suggestBrewingMethods = async (
   }
 
   try {
+    await ensureOnline();
     console.log('📤 [OpenAI] Brewing prompt:', prompt);
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [
-          {
-            role: 'system',
-            content:
-              'Si barista, ktorý odporúča spôsoby prípravy kávy na základe popisu z etikety.',
-          },
-          { role: 'user', content: prompt },
-        ],
-        temperature: 0.7,
-      }),
-    });
+    const response = await retryableFetch(() =>
+      fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: [
+            {
+              role: 'system',
+              content:
+                'Si barista, ktorý odporúča spôsoby prípravy kávy na základe popisu z etikety.',
+            },
+            { role: 'user', content: prompt },
+          ],
+          temperature: 0.7,
+        }),
+      })
+    );
 
     const data = await response.json();
     console.log('📥 [OpenAI] Brewing response:', data);
@@ -209,25 +248,28 @@ export const getBrewRecipe = async (
   }
 
   try {
+    await ensureOnline();
     console.log('📤 [OpenAI] Recipe prompt:', prompt);
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [
-          {
-            role: 'system',
-            content: 'Si skúsený barista, ktorý navrhuje recepty na kávu.'
-          },
-          { role: 'user', content: prompt },
-        ],
-        temperature: 0.7,
-      }),
-    });
+    const response = await retryableFetch(() =>
+      fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: [
+            {
+              role: 'system',
+              content: 'Si skúsený barista, ktorý navrhuje recepty na kávu.'
+            },
+            { role: 'user', content: prompt },
+          ],
+          temperature: 0.7,
+        }),
+      })
+    );
 
     const data = await response.json();
     console.log('📥 [OpenAI] Recipe response:', data);
@@ -243,6 +285,7 @@ export const getBrewRecipe = async (
  */
 export const processOCR = async (base64image: string): Promise<OCRResult | null> => {
   try {
+    await ensureOnline();
     // 1. Pošli na Google Vision API
     const ocrResponse = await loggedFetch(`${API_HOST}/ocr`, {
       method: "POST",
@@ -337,6 +380,7 @@ export const processOCR = async (base64image: string): Promise<OCRResult | null>
  */
 export const fetchOCRHistory = async (limit: number = 10): Promise<OCRHistory[]> => {
   try {
+    await ensureOnline();
     const token = await getAuthToken();
     if (!token) return [];
 
@@ -380,6 +424,7 @@ export const markCoffeePurchased = async (
   coffeeName: string,
   brand?: string
 ): Promise<void> => {
+  await ensureOnline();
   const token = await getAuthToken();
   if (!token) throw new Error('Nie si prihlásený');
 
@@ -398,6 +443,7 @@ export const markCoffeePurchased = async (
  */
 export const deleteOCRRecord = async (id: string): Promise<boolean> => {
   try {
+    await ensureOnline();
     const token = await getAuthToken();
     if (!token) return false;
 
@@ -422,6 +468,7 @@ export const deleteOCRRecord = async (id: string): Promise<boolean> => {
  */
 export const rateOCRResult = async (scanId: string, rating: number): Promise<boolean> => {
   try {
+    await ensureOnline();
     const token = await getAuthToken();
     if (!token) return false;
 

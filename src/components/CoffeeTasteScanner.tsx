@@ -13,6 +13,7 @@ import {
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from 'react-native';
 import {
   Camera,
@@ -22,6 +23,7 @@ import {
 } from 'react-native-vision-camera';
 import { launchImageLibrary, ImagePickerResponse, ImageLibraryOptions } from 'react-native-image-picker';
 import RNFS from 'react-native-fs';
+import NetInfo from '@react-native-community/netinfo';
 import { scannerStyles } from './styles/ProfessionalOCRScanner.styles';
 import {
   processOCR,
@@ -31,6 +33,7 @@ import {
   markCoffeePurchased,
   extractCoffeeName
 } from '../services/ocrServices.ts';
+import { saveOCRResult, loadOCRResult } from '../services/offlineCache';
 
 interface OCRHistory {
   id: string;
@@ -67,6 +70,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
   const [userRating, setUserRating] = useState<number>(0);
   const [purchaseSelection, setPurchaseSelection] = useState<boolean | null>(null);
   const [purchased, setPurchased] = useState<boolean | null>(null);
+  const [isConnected, setIsConnected] = useState<boolean | null>(null);
+  const [offlineModalVisible, setOfflineModalVisible] = useState(false);
 
   const camera = useRef<Camera>(null);
   const device = useCameraDevice('back');
@@ -81,6 +86,19 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     }
     loadHistory();
   }, [hasPermission, requestPermission]);
+
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsConnected(state.isConnected);
+      if (!state.isConnected) {
+        setOfflineModalVisible(true);
+      }
+    });
+    return () => {
+      unsubscribe();
+      setIsConnected(null);
+    };
+  }, []);
 
   /**
    * Načíta nedávne OCR skeny pre používateľa.
@@ -164,6 +182,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
         setEditedText(result.corrected);
         setPurchaseSelection(null);
         setPurchased(null);
+        await saveOCRResult(result.scanId || 'last', result);
 
         // Načítaj aktualizovanú históriu
         await loadHistory();
@@ -308,6 +327,17 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     }
   };
 
+  const handleUseLastResult = async () => {
+    setOfflineModalVisible(false);
+    const cached = await loadOCRResult();
+    if (cached) {
+      setScanResult(cached);
+      setEditedText(cached.corrected);
+    } else {
+      Alert.alert('Chyba', 'Žiadny uložený výsledok');
+    }
+  };
+
   const exportText = async () => {
     try {
       await Share.share({
@@ -388,6 +418,35 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      <Modal
+        visible={offlineModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOfflineModalVisible(false)}
+      >
+        <View style={styles.offlineModalOverlay}>
+          <View style={styles.offlineModalContent}>
+            <Text style={styles.offlineModalText}>
+              Ste offline, chcete použiť posledný výsledok?
+            </Text>
+            <TouchableOpacity style={styles.button} onPress={handleUseLastResult}>
+              <Text style={styles.buttonText}>Použiť naposledy uložený výsledok</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      {isConnected !== null && (
+        <View
+          style={[
+            styles.connectionBanner,
+            isConnected ? styles.bannerOnline : styles.bannerOffline,
+          ]}
+        >
+          <Text style={styles.bannerText}>
+            {isConnected ? 'Online' : 'Offline'}
+          </Text>
+        </View>
+      )}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
