@@ -51,6 +51,40 @@ export const scannerStyles = (isDarkMode: boolean = false) => {
       paddingBottom: 20,
     },
 
+    connectionBanner: {
+      padding: 6,
+      alignItems: 'center',
+    },
+    bannerOnline: {
+      backgroundColor: colors.success,
+    },
+    bannerOffline: {
+      backgroundColor: colors.danger,
+    },
+    bannerText: {
+      color: colors.textLight,
+      fontWeight: '600',
+    },
+    offlineModalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    offlineModalContent: {
+      backgroundColor: colors.surface,
+      padding: 20,
+      borderRadius: 10,
+      width: '80%',
+      alignItems: 'center',
+    },
+    offlineModalText: {
+      fontSize: 16,
+      color: colors.textPrimary,
+      textAlign: 'center',
+      marginBottom: 20,
+    },
+
     // Elegant Header
     header: {
       paddingTop: Platform.OS === 'ios' ? 50 : 30,
