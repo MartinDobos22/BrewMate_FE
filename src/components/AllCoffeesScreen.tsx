@@ -156,7 +156,7 @@ const AllCoffeesScreen: React.FC<AllCoffeesScreenProps> = ({
 
       </ScrollView>
       <BottomNav
-        active="discover"
+        active="favorites"
         onHomePress={onHomePress}
         onDiscoverPress={onDiscoverPress}
         onRecipesPress={onRecipesPress}
