@@ -1,4 +1,10 @@
 {
   "name": "BrewMateNew",
-  "displayName": "BrewMateNew"
+  "displayName": "BrewMateNew",
+  "expo": {
+    "widgets": {
+      "name": "BrewMateWidget",
+      "description": "Quick scan widget showing daily tips"
+    }
+  }
 }
