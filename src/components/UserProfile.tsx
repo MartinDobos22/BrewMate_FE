@@ -17,7 +17,7 @@ import auth from '@react-native-firebase/auth';
 import { getSafeAreaTop, getSafeAreaBottom, scale } from './utils/safeArea';
 import { AIResponseDisplay } from './AIResponseDisplay';
 import { unifiedStyles } from '../theme/unifiedStyles';
-import BottomNav from './BottomNav';
+import BottomNav, { BOTTOM_NAV_HEIGHT } from './BottomNav';
 
 const { width } = Dimensions.get('window');
 const { colors, typography, spacing, componentStyles } = unifiedStyles;
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: getSafeAreaBottom() + scale(20),
+    paddingBottom: getSafeAreaBottom() + BOTTOM_NAV_HEIGHT + scale(20),
   },
   centerContainer: {
     flex: 1,

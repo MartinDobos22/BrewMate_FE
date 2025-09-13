@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, Text } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
-import { bottomNavStyles } from './styles/BottomNav.styles';
+import { bottomNavStyles, BOTTOM_NAV_HEIGHT } from './styles/BottomNav.styles';
 
 export type NavItem = 'home' | 'discover' | 'recipes' | 'favorites' | 'profile';
 
@@ -52,3 +52,6 @@ const BottomNav: React.FC<BottomNavProps> = ({
 };
 
 export default BottomNav;
+
+// Re-export height constant for convenience when offsetting screen content
+export { BOTTOM_NAV_HEIGHT };
