@@ -16,6 +16,9 @@ export const bottomNavStyles = (colors: Colors) =>
       backgroundColor: colors.cardBackground,
       borderTopWidth: 1,
       borderTopColor: colors.border,
+      paddingVertical: 8,
+      paddingBottom: Platform.OS === 'ios' ? 20 : 8,
+
       paddingVertical: 12,
       paddingBottom: Platform.OS === 'ios' ? 28 : 12,
       flexDirection: 'row',
@@ -28,12 +31,13 @@ export const bottomNavStyles = (colors: Colors) =>
     },
   navItem: {
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 4,
     paddingHorizontal: 16,
   },
   navIcon: {
     fontSize: 24,
-    marginBottom: 4,
+    lineHeight: 24,
+    marginBottom: 2,
     color: colors.text,
   },
   navLabel: {
