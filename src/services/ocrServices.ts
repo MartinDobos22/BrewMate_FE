@@ -1,9 +1,12 @@
 // services/ocrService.ts
 import auth from '@react-native-firebase/auth';
+import NetInfo from '@react-native-community/netinfo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CONFIG } from '../config/config';
 import { API_HOST, API_URL } from './api';
 
 const OPENAI_API_KEY = CONFIG.OPENAI_API_KEY;
+const OCR_CACHE_KEY = 'ocrResults';
 
 /**
  * Wrapper okolo fetchu pre logovanie požiadaviek a odpovedí.
@@ -243,10 +246,26 @@ export const getBrewRecipe = async (
  */
 export const processOCR = async (base64image: string): Promise<OCRResult | null> => {
   try {
+    const netState = await NetInfo.fetch();
+    if (!netState.isConnected) {
+      try {
+        const cached = await AsyncStorage.getItem(OCR_CACHE_KEY);
+        if (cached) {
+          const parsed: OCRResult[] = JSON.parse(cached);
+          if (parsed.length > 0) {
+            return parsed[parsed.length - 1];
+          }
+        }
+      } catch (storageError) {
+        console.warn('Failed to load cached OCR result:', storageError);
+      }
+      throw new Error('Nie ste pripojený k internetu a nie sú dostupné uložené výsledky.');
+    }
+
     // 1. Pošli na Google Vision API
     const ocrResponse = await loggedFetch(`${API_HOST}/ocr`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ base64image }),
     });
 
@@ -295,7 +314,7 @@ export const processOCR = async (base64image: string): Promise<OCRResult | null>
     // 4. Získaj AI hodnotenie
     let recommendation = '';
     try {
-        const evalResponse = await loggedFetch(`${API_URL}/ocr/evaluate`, {
+      const evalResponse = await loggedFetch(`${API_URL}/ocr/evaluate`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -305,8 +324,8 @@ export const processOCR = async (base64image: string): Promise<OCRResult | null>
       });
 
       if (evalResponse.ok) {
-          const evalData = await evalResponse.json();
-          console.log('📥 [BE] Evaluate response:', evalData);
+        const evalData = await evalResponse.json();
+        console.log('📥 [BE] Evaluate response:', evalData);
         recommendation = evalData.recommendation || '';
       }
     } catch (evalError) {
@@ -317,7 +336,7 @@ export const processOCR = async (base64image: string): Promise<OCRResult | null>
     // 5. Navrhni spôsoby prípravy
     const brewingMethods = await suggestBrewingMethods(correctedText);
 
-    return {
+    const result: OCRResult = {
       original: originalText,
       corrected: correctedText,
       recommendation,
@@ -326,6 +345,17 @@ export const processOCR = async (base64image: string): Promise<OCRResult | null>
       scanId,
       brewingMethods,
     };
+
+    try {
+      const existing = await AsyncStorage.getItem(OCR_CACHE_KEY);
+      const history: OCRResult[] = existing ? JSON.parse(existing) : [];
+      history.push(result);
+      await AsyncStorage.setItem(OCR_CACHE_KEY, JSON.stringify(history));
+    } catch (storageError) {
+      console.warn('Failed to cache OCR result:', storageError);
+    }
+
+    return result;
   } catch (error) {
     console.error('OCR processing error:', error);
     throw error;
