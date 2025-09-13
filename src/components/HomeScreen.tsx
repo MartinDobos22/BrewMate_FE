@@ -189,6 +189,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        contentContainerStyle={{ paddingBottom: 16 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Hero Welcome Card */}
