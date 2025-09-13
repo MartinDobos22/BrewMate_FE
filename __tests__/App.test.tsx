@@ -29,6 +29,14 @@ jest.mock(
   { virtual: true },
 );
 
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  __esModule: true,
+  default: {
+    getItem: jest.fn(() => Promise.resolve(null)),
+    setItem: jest.fn(() => Promise.resolve()),
+  },
+}));
+
 jest.mock('../src/components/CoffeeTasteScanner.tsx', () => 'View');
 
 import App from '../App';
