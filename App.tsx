@@ -22,6 +22,7 @@ import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 import { scale } from './src/theme/responsive';
 import ResponsiveWrapper from './src/components/ResponsiveWrapper';
 import SavedRecipesScreen from './src/components/SavedRecipesScreen';
+import BottomNav from './src/components/BottomNav';
 
 type ScreenName =
   | 'home'
@@ -109,6 +110,14 @@ const AppContent = (): React.JSX.Element => {
           </TouchableOpacity>
         </View>
         <CoffeeTasteScanner />
+        <BottomNav
+          active="home"
+          onHomePress={handleBackPress}
+          onDiscoverPress={handleDiscoverPress}
+          onRecipesPress={handleRecipesPress}
+          onFavoritesPress={handleFavoritesPress}
+          onProfilePress={handleProfilePress}
+        />
       </ResponsiveWrapper>
     );
   }
@@ -133,6 +142,14 @@ const AppContent = (): React.JSX.Element => {
             setCurrentScreen('recipe-steps');
           }}
         />
+        <BottomNav
+          active="home"
+          onHomePress={handleBackPress}
+          onDiscoverPress={handleDiscoverPress}
+          onRecipesPress={handleRecipesPress}
+          onFavoritesPress={handleFavoritesPress}
+          onProfilePress={handleProfilePress}
+        />
       </ResponsiveWrapper>
     );
   }
@@ -147,6 +164,14 @@ const AppContent = (): React.JSX.Element => {
         <RecipeStepsScreen
           recipe={generatedRecipe}
           onBack={() => setCurrentScreen('brew')}
+        />
+        <BottomNav
+          active="home"
+          onHomePress={handleBackPress}
+          onDiscoverPress={handleDiscoverPress}
+          onRecipesPress={handleRecipesPress}
+          onFavoritesPress={handleFavoritesPress}
+          onProfilePress={handleProfilePress}
         />
       </ResponsiveWrapper>
     );
@@ -188,6 +213,14 @@ const AppContent = (): React.JSX.Element => {
         statusBarBackground={colors.primary}
       >
         <EditUserProfile onBack={() => setCurrentScreen('profile')} />
+        <BottomNav
+          active="profile"
+          onHomePress={handleBackPress}
+          onDiscoverPress={handleDiscoverPress}
+          onRecipesPress={handleRecipesPress}
+          onFavoritesPress={handleFavoritesPress}
+          onProfilePress={handleProfilePress}
+        />
       </ResponsiveWrapper>
     );
   }
@@ -200,6 +233,14 @@ const AppContent = (): React.JSX.Element => {
         statusBarBackground={colors.primary}
       >
         <CoffeePreferenceForm onBack={() => setCurrentScreen('profile')} />
+        <BottomNav
+          active="profile"
+          onHomePress={handleBackPress}
+          onDiscoverPress={handleDiscoverPress}
+          onRecipesPress={handleRecipesPress}
+          onFavoritesPress={handleFavoritesPress}
+          onProfilePress={handleProfilePress}
+        />
       </ResponsiveWrapper>
     );
   }
@@ -212,6 +253,14 @@ const AppContent = (): React.JSX.Element => {
         statusBarBackground={colors.primary}
       >
         <EditPreferences onBack={() => setCurrentScreen('profile')} />
+        <BottomNav
+          active="profile"
+          onHomePress={handleBackPress}
+          onDiscoverPress={handleDiscoverPress}
+          onRecipesPress={handleRecipesPress}
+          onFavoritesPress={handleFavoritesPress}
+          onProfilePress={handleProfilePress}
+        />
       </ResponsiveWrapper>
     );
   }
