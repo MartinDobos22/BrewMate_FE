@@ -82,37 +82,6 @@ const AppContent = (): React.JSX.Element => {
     setCurrentScreen('edit-profile');
   };
 
-  const handleLogout = async () => {
-    try {
-      const user = auth().currentUser;
-      if (!user) {
-        Alert.alert('Chyba', 'Používateľ nie je prihlásený.');
-        return;
-      }
-
-      const idToken = await user.getIdToken();
-
-      const response = await fetch('http://10.0.2.2:3001/api/logout', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${idToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        const result = await response.json();
-        console.error('❌ Logout error:', result);
-        Alert.alert('Chyba odhlásenia', result?.error || 'Neznáma chyba');
-      }
-
-      await auth().signOut();
-    } catch (err) {
-      console.error('❌ Logout exception:', err);
-      Alert.alert('Chyba', 'Nastala chyba pri odhlasovaní.');
-    }
-  };
-
   if (!isAuthenticated) {
     return (
       <ResponsiveWrapper
@@ -201,6 +170,11 @@ const AppContent = (): React.JSX.Element => {
           onEdit={handleEditProfilePress}
           onPreferences={() => setCurrentScreen('edit-preferences')}
           onForm={() => setCurrentScreen('preferences')}
+          onHomePress={handleBackPress}
+          onDiscoverPress={handleDiscoverPress}
+          onRecipesPress={handleRecipesPress}
+          onFavoritesPress={handleFavoritesPress}
+          onProfilePress={handleProfilePress}
         />
       </ResponsiveWrapper>
     );
@@ -249,7 +223,14 @@ const AppContent = (): React.JSX.Element => {
         statusBarStyle={isDark ? 'light-content' : 'dark-content'}
         statusBarBackground={colors.primary}
       >
-        <SavedRecipesScreen onBack={handleBackPress} />
+        <SavedRecipesScreen
+          onBack={handleBackPress}
+          onHomePress={handleBackPress}
+          onDiscoverPress={handleDiscoverPress}
+          onRecipesPress={handleRecipesPress}
+          onFavoritesPress={handleFavoritesPress}
+          onProfilePress={handleProfilePress}
+        />
       </ResponsiveWrapper>
     );
   }
@@ -261,7 +242,14 @@ const AppContent = (): React.JSX.Element => {
         statusBarStyle={isDark ? 'light-content' : 'dark-content'}
         statusBarBackground={colors.primary}
       >
-        <AllCoffeesScreen onBack={handleBackPress} />
+        <AllCoffeesScreen
+          onBack={handleBackPress}
+          onHomePress={handleBackPress}
+          onDiscoverPress={handleDiscoverPress}
+          onRecipesPress={handleRecipesPress}
+          onFavoritesPress={handleFavoritesPress}
+          onProfilePress={handleProfilePress}
+        />
       </ResponsiveWrapper>
     );
   }
@@ -273,13 +261,13 @@ const AppContent = (): React.JSX.Element => {
       statusBarBackground={colors.background}
     >
       <HomeScreen
+        onHomePress={handleBackPress}
         onScanPress={handleScannerPress}
         onBrewPress={handleBrewPress}
         onProfilePress={handleProfilePress}
         onDiscoverPress={handleDiscoverPress}
         onRecipesPress={handleRecipesPress}
         onFavoritesPress={handleFavoritesPress}
-        onLogout={handleLogout}
       />
     </ResponsiveWrapper>
   );

@@ -17,6 +17,7 @@ import auth from '@react-native-firebase/auth';
 import { getSafeAreaTop, getSafeAreaBottom, scale } from './utils/safeArea';
 import { AIResponseDisplay } from './AIResponseDisplay';
 import { unifiedStyles } from '../theme/unifiedStyles';
+import BottomNav from './BottomNav';
 
 const { width } = Dimensions.get('window');
 const { colors, typography, spacing, componentStyles } = unifiedStyles;
@@ -40,12 +41,22 @@ const UserProfile = ({
                        onEdit,
                        onPreferences,
                        onForm,
-                       onBack
+                       onBack,
+                       onHomePress,
+                       onDiscoverPress,
+                       onRecipesPress,
+                       onFavoritesPress,
+                       onProfilePress,
                      }: {
   onEdit: () => void;
   onPreferences: () => void;
   onForm?: () => void;
   onBack?: () => void;
+  onHomePress: () => void;
+  onDiscoverPress: () => void;
+  onRecipesPress: () => void;
+  onFavoritesPress: () => void;
+  onProfilePress: () => void;
 }) => {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -367,6 +378,14 @@ const UserProfile = ({
       >
         {loading ? <LoadingView /> : !profile ? <ErrorView /> : <ProfileContent />}
       </KeyboardAvoidingView>
+      <BottomNav
+        active="profile"
+        onHomePress={onHomePress}
+        onDiscoverPress={onDiscoverPress}
+        onRecipesPress={onRecipesPress}
+        onFavoritesPress={onFavoritesPress}
+        onProfilePress={onProfilePress}
+      />
     </View>
   );
 };

@@ -2,12 +2,25 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { homeStyles } from './styles/HomeScreen.styles';
 import { fetchRecipeHistory, RecipeHistory } from '../services/recipeServices';
+import BottomNav from './BottomNav';
 
 interface SavedRecipesScreenProps {
   onBack: () => void;
+  onHomePress: () => void;
+  onDiscoverPress: () => void;
+  onRecipesPress: () => void;
+  onFavoritesPress: () => void;
+  onProfilePress: () => void;
 }
 
-const SavedRecipesScreen: React.FC<SavedRecipesScreenProps> = ({ onBack }) => {
+const SavedRecipesScreen: React.FC<SavedRecipesScreenProps> = ({
+  onBack,
+  onHomePress,
+  onDiscoverPress,
+  onRecipesPress,
+  onFavoritesPress,
+  onProfilePress,
+}) => {
   const styles = homeStyles();
   const [recipes, setRecipes] = useState<RecipeHistory[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -64,6 +77,14 @@ const SavedRecipesScreen: React.FC<SavedRecipesScreenProps> = ({ onBack }) => {
           ))
         )}
       </ScrollView>
+      <BottomNav
+        active="recipes"
+        onHomePress={onHomePress}
+        onDiscoverPress={onDiscoverPress}
+        onRecipesPress={onRecipesPress}
+        onFavoritesPress={onFavoritesPress}
+        onProfilePress={onProfilePress}
+      />
     </View>
   );
 };

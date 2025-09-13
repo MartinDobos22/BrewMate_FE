@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { homeStyles } from './styles/HomeScreen.styles.ts';
 import { fetchCoffees } from '../services/homePagesService.ts';
+import BottomNav from './BottomNav';
 
 interface CoffeeItem {
   id: string;
@@ -26,9 +27,21 @@ interface CoffeeItem {
 
 interface AllCoffeesScreenProps {
   onBack: () => void;
+  onHomePress: () => void;
+  onDiscoverPress: () => void;
+  onRecipesPress: () => void;
+  onFavoritesPress: () => void;
+  onProfilePress: () => void;
 }
 
-const AllCoffeesScreen: React.FC<AllCoffeesScreenProps> = ({ onBack }) => {
+const AllCoffeesScreen: React.FC<AllCoffeesScreenProps> = ({
+  onBack,
+  onHomePress,
+  onDiscoverPress,
+  onRecipesPress,
+  onFavoritesPress,
+  onProfilePress,
+}) => {
   const styles = homeStyles();
   const [coffees, setCoffees] = useState<CoffeeItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -142,6 +155,14 @@ const AllCoffeesScreen: React.FC<AllCoffeesScreenProps> = ({ onBack }) => {
 
 
       </ScrollView>
+      <BottomNav
+        active="discover"
+        onHomePress={onHomePress}
+        onDiscoverPress={onDiscoverPress}
+        onRecipesPress={onRecipesPress}
+        onFavoritesPress={onFavoritesPress}
+        onProfilePress={onProfilePress}
+      />
     </View>
   );
 };
