@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { homeStyles } from './styles/HomeScreen.styles';
 import { fetchRecipeHistory, RecipeHistory } from '../services/recipeServices';
-import BottomNav from './BottomNav';
+import BottomNav, { BOTTOM_NAV_HEIGHT } from './BottomNav';
 
 interface SavedRecipesScreenProps {
   onBack: () => void;
@@ -55,7 +55,7 @@ const SavedRecipesScreen: React.FC<SavedRecipesScreenProps> = ({
       </View>
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        contentContainerStyle={{ padding: 16 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: BOTTOM_NAV_HEIGHT }}
         showsVerticalScrollIndicator={false}
       >
         {recipes.length === 0 ? (

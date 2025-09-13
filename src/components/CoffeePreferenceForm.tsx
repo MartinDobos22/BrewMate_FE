@@ -15,6 +15,7 @@ import auth from '@react-native-firebase/auth';
 import { getColors } from '../theme/colors';
 import AIResponseDisplay from './AIResponseDisplay';
 import { CONFIG } from '../config/config';
+import { BOTTOM_NAV_HEIGHT } from './BottomNav';
 
 const OPENAI_API_KEY = CONFIG.OPENAI_API_KEY;
 
@@ -796,7 +797,7 @@ const createStyles = (isDarkMode: boolean) => {
       fontWeight: '600',
     },
     bottomPadding: {
-      height: 20,
+      height: BOTTOM_NAV_HEIGHT,
     },
     modalContainer: {
       flex: 1,

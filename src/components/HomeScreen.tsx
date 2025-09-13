@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { homeStyles } from './styles/HomeScreen.styles.ts';
 import { fetchCoffees } from '../services/homePagesService.ts';
-import BottomNav from './BottomNav';
+import BottomNav, { BOTTOM_NAV_HEIGHT } from './BottomNav';
 
 interface CoffeeItem {
   id: string;
@@ -189,6 +189,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        contentContainerStyle={{ paddingBottom: BOTTOM_NAV_HEIGHT }}
         showsVerticalScrollIndicator={false}
       >
         {/* Hero Welcome Card */}
