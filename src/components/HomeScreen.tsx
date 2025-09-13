@@ -44,11 +44,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                                                  onDiscoverPress,
                                                  onRecipesPress,
                                                  onFavoritesPress,
-                                                 userName = 'Martin',
-                                               }) => {
+                                               userName = 'Martin',
+                                             }) => {
   const [refreshing, setRefreshing] = useState(false);
-  const [caffeineAmount, _setCaffeineAmount] = useState(195);
-  const [coffeesToday, _setCoffeesToday] = useState(3);
+  const [coffeeCount, setCoffeeCount] = useState(0);
   const [activeTasteTags, setActiveTasteTags] = useState([
     'Stredná intenzita',
     'Čokoládové tóny',
@@ -63,6 +62,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     try {
       const coffees = await fetchCoffees();
       setRecommendedCoffees(coffees);
+      setCoffeeCount(coffees.length);
     } catch (err) {
       console.error('Error loading coffees:', err);
     }
@@ -81,10 +81,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const getTimeBasedMessage = () => {
     const hour = new Date().getHours();
-    if (hour < 10) return 'Čas na rannú kávu';
-    if (hour < 14) return 'Čas na obednú kávu';
-    if (hour < 17) return 'Popoludňajší boost';
-    return 'Večerná káva?';
+    if (hour < 11) return 'Ranná káva je ideálna';
+    if (hour < 16) return 'Skús espresso';
+    return 'Pozor na spánok';
+  };
+
+  const getCoffeeAdvice = () => {
+    const hour = new Date().getHours();
+    if (hour < 11)
+      return 'Ráno je ideálny čas na kávu – Taliani si cappuccino doprajú len do 11:00 kvôli tráveniu.';
+    if (hour < 16)
+      return 'Po 11:00 Taliani odporúčajú už len espresso, cappuccino kvôli mlieku môže zaťažiť trávenie.';
+    return 'Pitie kávy po 16:00 môže negatívne ovplyvniť spánok.';
   };
 
   const getWeatherBasedCoffee = () => {
@@ -138,13 +146,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
       ]
     );
   };
-
-  // const getCaffeineLevel = () => {
-  //   const percentage = (caffeineAmount / 300) * 100;
-  //   if (percentage < 50) return 'low';
-  //   if (percentage < 80) return 'medium';
-  //   return 'high';
-  // };
 
   const suggestedCoffee = getWeatherBasedCoffee();
 
@@ -225,6 +226,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
           </View>
         </View>
 
+        {/* Coffee Time Advice Widget */}
+        <View style={styles.coffeeTip}>
+          <Text style={styles.coffeeTipText}>{getCoffeeAdvice()}</Text>
+        </View>
+
         {/* Quick Actions */}
         <View style={styles.quickActions}>
           <TouchableOpacity
@@ -252,33 +258,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
           </TouchableOpacity>
         </View>
 
-        {/* Coffee Tracker */}
-        <View style={styles.coffeeTracker}>
-          <View style={styles.trackerHeader}>
-            <Text style={styles.trackerTitle}>☕ Denný tracker kofeínu</Text>
-            <Text style={styles.trackerDate}>Dnes</Text>
-          </View>
-          <View style={styles.caffeineMeter}>
-            {/*<View style={[*/}
-            {/*  styles.caffeineFill,*/}
-            {/*  styles[`caffeine${getCaffeineLevel().charAt(0).toUpperCase() + getCaffeineLevel().slice(1)}`]*/}
-            {/*]} />*/}
-            <Text style={styles.caffeineAmount}>{caffeineAmount}mg / 300mg</Text>
-          </View>
-          <View style={styles.trackerStats}>
-            <View style={styles.trackerStat}>
-              <Text style={styles.statValue}>{coffeesToday}</Text>
-              <Text style={styles.statLabel}>Kávy dnes</Text>
-            </View>
-            <View style={styles.trackerStat}>
-              <Text style={styles.statValue}>89%</Text>
-              <Text style={styles.statLabel}>Zhoda chuti</Text>
-            </View>
-            <View style={styles.trackerStat}>
-              <Text style={styles.statValue}>4.5</Text>
-              <Text style={styles.statLabel}>Priem. hodnotenie</Text>
-            </View>
-          </View>
+        {/* Coffee Inventory */}
+        <View style={styles.coffeeInventory}>
+          <Text style={styles.inventoryTitle}>📦 Počet balíkov kávy</Text>
+          <Text style={styles.inventoryCount}>{coffeeCount}</Text>
         </View>
 
         {/* Taste Profile */}
