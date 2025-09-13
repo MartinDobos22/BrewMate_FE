@@ -13,12 +13,15 @@ import Timer from './Timer';
 import { AIResponseDisplay } from './AIResponseDisplay';
 import { colors, spacing, unifiedStyles } from '../theme/unifiedStyles';
 
+import { useNavigation } from '@react-navigation/native';
 interface RecipeStepsScreenProps {
   recipe: string;
+  recipeId?: string;
   onBack: () => void;
 }
 
-const RecipeStepsScreen: React.FC<RecipeStepsScreenProps> = ({ recipe, onBack }) => {
+const RecipeStepsScreen: React.FC<RecipeStepsScreenProps> = ({ recipe, recipeId, onBack }) => {
+  const navigation = useNavigation<any>();
   const { colors: themeColors } = useTheme();
   const { colors, typography, spacing, componentStyles } = unifiedStyles;
   const steps = useMemo(() => formatRecipeSteps(recipe), [recipe]);
@@ -127,7 +130,7 @@ const RecipeStepsScreen: React.FC<RecipeStepsScreenProps> = ({ recipe, onBack })
           ]}
           onPress={() => {
             if (currentStep === steps.length - 1) {
-              onBack();
+              navigation.navigate('BrewLog', { recipeId });
             } else {
               setCurrentStep(currentStep + 1);
             }
