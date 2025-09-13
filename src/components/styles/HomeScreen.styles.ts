@@ -315,8 +315,8 @@ export const homeStyles = () => {
       color: 'white',
     },
 
-    // Coffee Tracker
-    coffeeTracker: {
+    // Coffee Inventory
+    coffeeInventory: {
       marginHorizontal: 16,
       marginBottom: 20,
       padding: 20,
@@ -327,78 +327,18 @@ export const homeStyles = () => {
       shadowOpacity: 0.08,
       shadowRadius: 8,
       elevation: 4,
-    },
-    trackerHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 16,
     },
-    trackerTitle: {
+    inventoryTitle: {
       fontSize: 16,
       fontWeight: '600',
       color: colors.textPrimary,
+      marginBottom: 8,
     },
-    trackerDate: {
-      fontSize: 12,
-      color: colors.textSecondary,
-    },
-    caffeineMeter: {
-      height: 40,
-      backgroundColor: '#F5F5F5',
-      borderRadius: 20,
-      overflow: 'hidden',
-      marginBottom: 12,
-      justifyContent: 'center',
-    },
-    caffeineFill: {
-      position: 'absolute',
-      left: 0,
-      top: 0,
-      height: '100%',
-      width: '65%',
-      borderRadius: 20,
-      justifyContent: 'center',
-      alignItems: 'flex-end',
-      paddingRight: 12,
-    },
-    caffeineLow: {
-      backgroundColor: colors.success,
-    },
-    caffeineMedium: {
-      backgroundColor: colors.warning,
-    },
-    caffeineHigh: {
-      backgroundColor: colors.danger,
-    },
-    caffeineAmount: {
-      position: 'absolute',
-      right: 12,
-      color: 'white',
-      fontSize: 14,
-      fontWeight: '600',
-    },
-    trackerStats: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-    },
-    trackerStat: {
-      flex: 1,
-      alignItems: 'center',
-      padding: 8,
-      backgroundColor: colors.bgLight,
-      borderRadius: 12,
-      marginHorizontal: 4,
-    },
-    statValue: {
-      fontSize: 20,
+    inventoryCount: {
+      fontSize: 32,
       fontWeight: '700',
       color: colors.primary,
-      marginBottom: 2,
-    },
-    statLabel: {
-      fontSize: 11,
-      color: colors.textSecondary,
     },
 
     // Taste Profile
