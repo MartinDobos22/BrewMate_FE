@@ -25,6 +25,7 @@ const GoogleLogin = () => {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${firebaseIdToken}`,
+          'X-Auth-Provider': 'google',
           'Content-Type': 'application/json',
         },
       });
