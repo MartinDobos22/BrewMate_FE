@@ -18,6 +18,9 @@ export const bottomNavStyles = (colors: Colors) =>
       borderTopColor: colors.border,
       paddingVertical: 8,
       paddingBottom: Platform.OS === 'ios' ? 20 : 8,
+
+      paddingVertical: 12,
+      paddingBottom: Platform.OS === 'ios' ? 28 : 12,
       flexDirection: 'row',
       justifyContent: 'space-around',
       shadowColor: '#000',
