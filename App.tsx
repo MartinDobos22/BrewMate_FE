@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import AuthScreen from './src/components/AuthVisual.tsx';
 import HomeScreen from './src/components/HomeScreen';
 import CoffeeTasteScanner from './src/components/CoffeeTasteScanner.tsx';
@@ -18,6 +19,7 @@ import EditUserProfile from './src/components/EditUserProfile';
 import CoffeePreferenceForm from './src/components/CoffeePreferenceForm';
 import EditPreferences from './src/components/EditPreferences';
 import RecipeStepsScreen from './src/components/RecipeStepsScreen';
+import OnboardingScreen from './src/components/OnboardingScreen';
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 import { scale } from './src/theme/responsive';
 import ResponsiveWrapper from './src/components/ResponsiveWrapper';
@@ -41,6 +43,8 @@ const AppContent = (): React.JSX.Element => {
   const [currentScreen, setCurrentScreen] = useState<ScreenName>('home');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [generatedRecipe, setGeneratedRecipe] = useState('');
+  const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
+  const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const { isDark, colors } = useTheme();
 
   useEffect(() => {
@@ -48,6 +52,15 @@ const AppContent = (): React.JSX.Element => {
       setIsAuthenticated(!!user);
     });
     return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      const value = await AsyncStorage.getItem('onboardingComplete');
+      setIsOnboardingComplete(value === 'true');
+      setCheckingOnboarding(false);
+    };
+    checkOnboarding();
   }, []);
 
   const handleScannerPress = () => {
@@ -91,6 +104,22 @@ const AppContent = (): React.JSX.Element => {
         statusBarBackground={colors.background}
       >
         <AuthScreen />
+      </ResponsiveWrapper>
+    );
+  }
+
+  if (checkingOnboarding) {
+    return null;
+  }
+
+  if (!isOnboardingComplete) {
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.background}
+      >
+        <OnboardingScreen onFinish={() => setIsOnboardingComplete(true)} />
       </ResponsiveWrapper>
     );
   }
