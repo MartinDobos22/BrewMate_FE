@@ -5,7 +5,6 @@ import {
   Text,
   View,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import AuthScreen from './src/components/AuthVisual.tsx';
@@ -13,6 +12,7 @@ import HomeScreen from './src/components/HomeScreen';
 import CoffeeTasteScanner from './src/components/CoffeeTasteScanner.tsx';
 import CoffeeReceipeScanner from './src/components/CoffeeReceipeScanner.tsx';
 import AllCoffeesScreen from './src/components/AllCoffeesScreen';
+import AIChatScreen from './src/components/AIChatScreen';
 import UserProfile from './src/components/UserProfile';
 import EditUserProfile from './src/components/EditUserProfile';
 import CoffeePreferenceForm from './src/components/CoffeePreferenceForm';
@@ -72,7 +72,7 @@ const AppContent = (): React.JSX.Element => {
   };
 
   const handleFavoritesPress = () => {
-    Alert.alert('Obľúbené', 'Vaše obľúbené kávy budú čoskoro dostupné!');
+    setCurrentScreen('favorites');
   };
 
   const handleBackPress = () => {
@@ -284,7 +284,7 @@ const AppContent = (): React.JSX.Element => {
     );
   }
 
-  if (currentScreen === 'discover') {
+  if (currentScreen === 'favorites') {
     return (
       <ResponsiveWrapper
         backgroundColor={colors.background}
@@ -292,6 +292,25 @@ const AppContent = (): React.JSX.Element => {
         statusBarBackground={colors.primary}
       >
         <AllCoffeesScreen
+          onBack={handleBackPress}
+          onHomePress={handleBackPress}
+          onDiscoverPress={handleDiscoverPress}
+          onRecipesPress={handleRecipesPress}
+          onFavoritesPress={handleFavoritesPress}
+          onProfilePress={handleProfilePress}
+        />
+      </ResponsiveWrapper>
+    );
+  }
+
+  if (currentScreen === 'discover') {
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.primary}
+      >
+        <AIChatScreen
           onBack={handleBackPress}
           onHomePress={handleBackPress}
           onDiscoverPress={handleDiscoverPress}
