@@ -549,42 +549,5 @@ export const homeStyles = () => {
       color: colors.warning,
     },
 
-    // Bottom Navigation
-    bottomNav: {
-      position: 'absolute',
-      bottom: 0,
-      left: 0,
-      right: 0,
-      backgroundColor: 'white',
-      borderTopWidth: 1,
-      borderTopColor: colors.borderLight,
-      paddingVertical: 12,
-      paddingBottom: Platform.OS === 'ios' ? 28 : 12,
-      flexDirection: 'row',
-      justifyContent: 'space-around',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: -4 },
-      shadowOpacity: 0.08,
-      shadowRadius: 20,
-      elevation: 10,
-    },
-    navItem: {
-      alignItems: 'center',
-      paddingVertical: 8,
-      paddingHorizontal: 16,
-    },
-    navIcon: {
-      fontSize: 24,
-      marginBottom: 4,
-      color: colors.textPrimary,
-    },
-    navLabel: {
-      fontSize: 11,
-      fontWeight: '500',
-      color: colors.textPrimary,
-    },
-    navActive: {
-      color: colors.primary,
-    },
   });
 };

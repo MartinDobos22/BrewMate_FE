@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { homeStyles } from './styles/HomeScreen.styles.ts';
 import { fetchCoffees } from '../services/homePagesService.ts';
+import BottomNav from './BottomNav';
 
 interface CoffeeItem {
   id: string;
@@ -25,16 +26,18 @@ interface CoffeeItem {
 }
 
 interface HomeScreenProps {
+  onHomePress: () => void;
   onScanPress: () => void;
   onBrewPress: () => void;
   onProfilePress: () => void;
-  onDiscoverPress?: () => void;
-  onRecipesPress?: () => void;
-  onFavoritesPress?: () => void;
+  onDiscoverPress: () => void;
+  onRecipesPress: () => void;
+  onFavoritesPress: () => void;
   userName?: string;
 }
 
 const HomeScreen: React.FC<HomeScreenProps> = ({
+                                                 onHomePress,
                                                  onScanPress,
                                                  onBrewPress,
                                                  onProfilePress,
@@ -44,7 +47,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                                                  userName = 'Martin',
                                                }) => {
   const [refreshing, setRefreshing] = useState(false);
-  const [activeNavItem, setActiveNavItem] = useState('home');
   const [caffeineAmount, _setCaffeineAmount] = useState(195);
   const [coffeesToday, _setCoffeesToday] = useState(3);
   const [activeTasteTags, setActiveTasteTags] = useState([
@@ -376,45 +378,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
           )}
         </View>
       </ScrollView>
-
-      {/* Bottom Navigation */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => setActiveNavItem('home')}
-        >
-          <Text style={[styles.navIcon, activeNavItem === 'home' && styles.navActive]}>🏠</Text>
-          <Text style={[styles.navLabel, activeNavItem === 'home' && styles.navActive]}>Domov</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => { setActiveNavItem('discover'); onDiscoverPress?.(); }}
-        >
-          <Text style={[styles.navIcon, activeNavItem === 'discover' && styles.navActive]}>🔍</Text>
-          <Text style={[styles.navLabel, activeNavItem === 'discover' && styles.navActive]}>Objaviť</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => { setActiveNavItem('recipes'); onRecipesPress?.(); }}
-        >
-          <Text style={[styles.navIcon, activeNavItem === 'recipes' && styles.navActive]}>📖</Text>
-          <Text style={[styles.navLabel, activeNavItem === 'recipes' && styles.navActive]}>Recepty</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => { setActiveNavItem('favorites'); onFavoritesPress?.(); }}
-        >
-          <Text style={[styles.navIcon, activeNavItem === 'favorites' && styles.navActive]}>❤️</Text>
-          <Text style={[styles.navLabel, activeNavItem === 'favorites' && styles.navActive]}>Obľúbené</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => { setActiveNavItem('profile'); onProfilePress(); }}
-        >
-          <Text style={[styles.navIcon, activeNavItem === 'profile' && styles.navActive]}>👤</Text>
-          <Text style={[styles.navLabel, activeNavItem === 'profile' && styles.navActive]}>Profil</Text>
-        </TouchableOpacity>
-      </View>
+      <BottomNav
+        active="home"
+        onHomePress={onHomePress}
+        onDiscoverPress={onDiscoverPress}
+        onRecipesPress={onRecipesPress}
+        onFavoritesPress={onFavoritesPress}
+        onProfilePress={onProfilePress}
+      />
     </View>
   );
 };
