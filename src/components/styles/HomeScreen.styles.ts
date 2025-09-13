@@ -246,6 +246,24 @@ export const homeStyles = () => {
       color: colors.primary,
     },
 
+    coffeeTip: {
+      marginHorizontal: 16,
+      marginBottom: 16,
+      padding: 16,
+      backgroundColor: 'white',
+      borderRadius: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    coffeeTipText: {
+      fontSize: 14,
+      color: colors.textPrimary,
+      lineHeight: 20,
+    },
+
     // Quick Actions
     quickActions: {
       flexDirection: 'row',

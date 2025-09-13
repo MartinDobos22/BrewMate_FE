@@ -81,10 +81,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const getTimeBasedMessage = () => {
     const hour = new Date().getHours();
-    if (hour < 10) return 'Čas na rannú kávu';
-    if (hour < 14) return 'Čas na obednú kávu';
-    if (hour < 17) return 'Popoludňajší boost';
-    return 'Večerná káva?';
+    if (hour < 11) return 'Ranná káva je ideálna';
+    if (hour < 16) return 'Skús espresso';
+    return 'Pozor na spánok';
+  };
+
+  const getCoffeeAdvice = () => {
+    const hour = new Date().getHours();
+    if (hour < 11)
+      return 'Ráno je ideálny čas na kávu – Taliani si cappuccino doprajú len do 11:00 kvôli tráveniu.';
+    if (hour < 16)
+      return 'Po 11:00 Taliani odporúčajú už len espresso, cappuccino kvôli mlieku môže zaťažiť trávenie.';
+    return 'Pitie kávy po 16:00 môže negatívne ovplyvniť spánok.';
   };
 
   const getWeatherBasedCoffee = () => {
@@ -223,6 +231,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
               <Text>{suggestedCoffee.icon}</Text>
             </View>
           </View>
+        </View>
+
+        {/* Coffee Time Advice Widget */}
+        <View style={styles.coffeeTip}>
+          <Text style={styles.coffeeTipText}>{getCoffeeAdvice()}</Text>
         </View>
 
         {/* Quick Actions */}
