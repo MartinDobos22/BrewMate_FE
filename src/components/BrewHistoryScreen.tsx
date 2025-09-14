@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, TextInput, Alert } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { BrewLog, BrewDevice } from '../types/BrewLog';
+import { BrewLog } from '../types/BrewLog';
+import { BREW_DEVICES } from '../types/Recipe';
 import { getBrewLogs } from '../services/brewLogService';
 
 const BrewHistoryScreen: React.FC = () => {
@@ -45,7 +46,7 @@ const BrewHistoryScreen: React.FC = () => {
           onValueChange={(v) => setDeviceFilter(String(v))}
         >
           <Picker.Item label="Všetky" value="all" />
-          {Object.values(BrewDevice).map((d) => (
+          {BREW_DEVICES.map((d) => (
             <Picker.Item key={d} label={d} value={d} />
           ))}
         </Picker>

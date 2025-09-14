@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { homeStyles } from './styles/HomeScreen.styles';
 import { fetchRecipeHistory, RecipeHistory } from '../services/recipeServices';
+import { BrewDevice, BREW_DEVICES } from '../types/Recipe';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from './BottomNav';
 
 interface SavedRecipesScreenProps {
@@ -24,6 +26,10 @@ const SavedRecipesScreen: React.FC<SavedRecipesScreenProps> = ({
   const styles = homeStyles();
   const [recipes, setRecipes] = useState<RecipeHistory[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [deviceFilter, setDeviceFilter] = useState<'All' | BrewDevice>('All');
+  const filteredRecipes = recipes.filter(
+    (r) => r.brewDevice === deviceFilter || deviceFilter === 'All'
+  );
 
   const loadRecipes = useCallback(async () => {
     try {
@@ -58,12 +64,22 @@ const SavedRecipesScreen: React.FC<SavedRecipesScreenProps> = ({
         contentContainerStyle={{ padding: 16, paddingBottom: BOTTOM_NAV_HEIGHT }}
         showsVerticalScrollIndicator={false}
       >
-        {recipes.length === 0 ? (
+        <Picker
+          selectedValue={deviceFilter}
+          onValueChange={(v) => setDeviceFilter(v as any)}
+          style={{ marginBottom: 16 }}
+        >
+          <Picker.Item label="All" value="All" />
+          {BREW_DEVICES.map((d) => (
+            <Picker.Item key={d} label={d} value={d} />
+          ))}
+        </Picker>
+        {filteredRecipes.length === 0 ? (
           <Text style={{ textAlign: 'center', color: '#666', marginTop: 20 }}>
             Žiadne uložené recepty
           </Text>
         ) : (
-          recipes.map((item) => (
+          filteredRecipes.map((item) => (
             <View
               key={item.id}
               style={[styles.coffeeCard, { width: '100%', marginRight: 0, marginBottom: 16 }]}

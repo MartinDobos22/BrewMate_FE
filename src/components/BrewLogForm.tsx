@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { BrewLog, BrewDevice } from '../types/BrewLog';
+import { BrewLog } from '../types/BrewLog';
+import { BrewDevice, BREW_DEVICES } from '../types/Recipe';
 import { saveBrewLog } from '../services/brewLogService';
 
 interface Props {
@@ -14,7 +15,7 @@ const BrewLogForm: React.FC<Props> = ({ recipeId, initialDevice }) => {
   const [coffeeDose, setCoffeeDose] = useState('');
   const [ratio, setRatio] = useState('');
   const [grindSize, setGrindSize] = useState('medium');
-  const [brewDevice, setBrewDevice] = useState<BrewDevice>(initialDevice || BrewDevice.V60);
+  const [brewDevice, setBrewDevice] = useState<BrewDevice>(initialDevice || BREW_DEVICES[0]);
   const [brewTime, setBrewTime] = useState('');
   const [notes, setNotes] = useState('');
   const [errors, setErrors] = useState<{ waterTemp?: string; coffeeDose?: string; ratio?: string }>({});
@@ -92,7 +93,7 @@ const BrewLogForm: React.FC<Props> = ({ recipeId, initialDevice }) => {
 
       <Text>Zariadenie</Text>
       <Picker selectedValue={brewDevice} onValueChange={(v) => setBrewDevice(v as BrewDevice)}>
-        {Object.values(BrewDevice).map((device) => (
+        {BREW_DEVICES.map((device) => (
           <Picker.Item key={device} label={device} value={device} />
         ))}
       </Picker>

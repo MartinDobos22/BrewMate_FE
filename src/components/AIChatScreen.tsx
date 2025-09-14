@@ -7,9 +7,11 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from './BottomNav';
 import { useTheme } from '../theme/ThemeProvider';
 import { CONFIG } from '../config/config';
+import { BrewDevice, BREW_DEVICES } from '../types/Recipe';
 
 interface AIChatScreenProps {
   onBack: () => void;
@@ -37,6 +39,7 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [brewDevice, setBrewDevice] = useState<BrewDevice>(BREW_DEVICES[0]);
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -57,12 +60,12 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({
           messages: [
             {
               role: 'system',
-              content:
-                'Si priateľský odborník na kávu. Zisťuj preferencie používateľa a odporúčaj kávu, mlynčeky a kávovary.',
+              content: `Si priateľský odborník na kávu. Zisťuj preferencie používateľa a odporúčaj kávu, mlynčeky a kávovary. Generuj recept pre zariadenie ${brewDevice}.`,
             },
             ...newMessages.map((m) => ({ role: m.role, content: m.content })),
           ],
           temperature: 0.4,
+          brewDevice,
         }),
       });
       const data = await response.json();
@@ -91,6 +94,15 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({
         <Text style={styles.headerTitle}>AI odporúčania</Text>
         <View style={{ width: 32 }} />
       </View>
+      <Picker
+        selectedValue={brewDevice}
+        onValueChange={(v) => setBrewDevice(v as BrewDevice)}
+        style={styles.devicePicker}
+      >
+        {BREW_DEVICES.map((d) => (
+          <Picker.Item key={d} label={d} value={d} />
+        ))}
+      </Picker>
       <ScrollView
         contentContainerStyle={{ padding: 16, paddingBottom: BOTTOM_NAV_HEIGHT }}
         showsVerticalScrollIndicator={false}
@@ -197,6 +209,9 @@ const createStyles = (colors: any) =>
       borderTopWidth: 1,
       borderColor: '#ccc',
       backgroundColor: colors.background,
+    },
+    devicePicker: {
+      marginHorizontal: 16,
     },
     input: {
       flex: 1,
