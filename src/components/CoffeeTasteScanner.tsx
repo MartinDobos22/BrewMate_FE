@@ -33,6 +33,7 @@ import {
   markCoffeePurchased,
   extractCoffeeName
 } from '../services/ocrServices.ts';
+import { incrementProgress } from '../services/profileServices';
 import { saveOCRResult, loadOCRResult } from '../services/offlineCache';
 
 interface OCRHistory {
@@ -183,6 +184,13 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
         setPurchaseSelection(null);
         setPurchased(null);
         await saveOCRResult(result.scanId || 'last', result);
+
+        // Update user progress for successful scan
+        try {
+          await incrementProgress('scan');
+        } catch (e) {
+          console.error('Failed to update progress', e);
+        }
 
         // Načítaj aktualizovanú históriu
         await loadHistory();
