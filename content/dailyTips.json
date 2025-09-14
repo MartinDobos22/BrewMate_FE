@@ -1,4 +1,16 @@
 [
-  "Clean your equipment before brewing for best taste.",
-  "Use fresh water for a crisper brew."
+  {
+    "id": 1,
+    "text": "Clean your equipment before brewing for best taste.",
+    "date": "2024-01-01"
+  },
+  {
+    "id": 2,
+    "text": "Use fresh water for a crisper brew.",
+    "date": "2024-01-02"
+  },
+  {
+    "id": 3,
+    "text": "Store coffee beans in an airtight container."
+  }
 ]
