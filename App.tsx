@@ -55,14 +55,14 @@ const AppContent = (): React.JSX.Element => {
     return unsubscribe;
   }, []);
 
-  useEffect(() => {
-    const checkOnboarding = async () => {
-      const value = await AsyncStorage.getItem('onboardingComplete');
-      setIsOnboardingComplete(value === 'true');
-      setCheckingOnboarding(false);
-    };
-    checkOnboarding();
-  }, []);
+    useEffect(() => {
+      const checkOnboarding = async () => {
+        const value = await AsyncStorage.getItem('@OnboardingComplete');
+        setIsOnboardingComplete(value === 'true');
+        setCheckingOnboarding(false);
+      };
+      checkOnboarding();
+    }, []);
 
   useEffect(() => {
     scheduleLowStockCheck();
@@ -111,18 +111,6 @@ const AppContent = (): React.JSX.Element => {
     setCurrentScreen('edit-profile');
   };
 
-  if (!isAuthenticated) {
-    return (
-      <ResponsiveWrapper
-        backgroundColor={colors.background}
-        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
-        statusBarBackground={colors.background}
-      >
-        <AuthScreen />
-      </ResponsiveWrapper>
-    );
-  }
-
   if (checkingOnboarding) {
     return null;
   }
@@ -135,6 +123,18 @@ const AppContent = (): React.JSX.Element => {
         statusBarBackground={colors.background}
       >
         <OnboardingScreen onFinish={() => setIsOnboardingComplete(true)} />
+      </ResponsiveWrapper>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.background}
+      >
+        <AuthScreen />
       </ResponsiveWrapper>
     );
   }
