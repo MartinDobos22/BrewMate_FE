@@ -407,6 +407,10 @@ export const homeStyles = () => {
       marginHorizontal: 16,
       marginBottom: 100,
     },
+    recentScans: {
+      marginHorizontal: 16,
+      marginBottom: 24,
+    },
     sectionHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
