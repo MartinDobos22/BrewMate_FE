@@ -5,6 +5,7 @@ create table if not exists brew_recipes (
     method text not null,
     taste text,
     recipe text not null,
+    brew_device text,
     created_at timestamptz default now()
 );
 
@@ -25,3 +26,4 @@ begin
 end $$;
 
 create index if not exists brew_recipes_user_id_idx on brew_recipes(user_id);
+alter table brew_recipes add column if not exists brew_device text;

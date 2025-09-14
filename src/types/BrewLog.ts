@@ -1,11 +1,4 @@
-export enum BrewDevice {
-  V60 = 'V60',
-  Aeropress = 'Aeropress',
-  Espresso = 'Espresso',
-  FrenchPress = 'FrenchPress',
-  Chemex = 'Chemex',
-  Other = 'Other',
-}
+import { BrewDevice } from './Recipe';
 
 export interface BrewLog {
   id: string;

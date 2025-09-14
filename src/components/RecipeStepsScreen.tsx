@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 import { formatRecipeSteps } from './utils/AITextFormatter';
+import { BrewDevice } from '../types/Recipe';
 import Timer from './Timer';
 import { AIResponseDisplay } from './AIResponseDisplay';
 import { colors, spacing, unifiedStyles } from '../theme/unifiedStyles';
@@ -18,7 +19,7 @@ import { useNavigation } from '@react-navigation/native';
 interface RecipeStepsScreenProps {
   recipe: string;
   recipeId?: string;
-  brewDevice?: string;
+  brewDevice?: BrewDevice;
   onBack: () => void;
 }
 
