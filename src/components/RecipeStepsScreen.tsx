@@ -14,17 +14,13 @@ import Timer from './Timer';
 import { AIResponseDisplay } from './AIResponseDisplay';
 import { colors, spacing, unifiedStyles } from '../theme/unifiedStyles';
 import { incrementProgress } from '../services/profileServices';
-
-import { useNavigation } from '@react-navigation/native';
 interface RecipeStepsScreenProps {
   recipe: string;
-  recipeId?: string;
   brewDevice?: BrewDevice;
   onBack: () => void;
 }
 
-const RecipeStepsScreen: React.FC<RecipeStepsScreenProps> = ({ recipe, recipeId, brewDevice, onBack }) => {
-  const navigation = useNavigation<any>();
+const RecipeStepsScreen: React.FC<RecipeStepsScreenProps> = ({ recipe, brewDevice, onBack }) => {
   const { colors: themeColors } = useTheme();
   const { colors, typography, spacing, componentStyles } = unifiedStyles;
   const steps = useMemo(() => formatRecipeSteps(recipe), [recipe]);
@@ -138,7 +134,7 @@ const RecipeStepsScreen: React.FC<RecipeStepsScreenProps> = ({ recipe, recipeId,
               } catch (e) {
                 console.error('Failed to update progress', e);
               }
-              navigation.navigate('BrewLog', { recipeId });
+              onBack();
             } else {
               setCurrentStep(currentStep + 1);
             }
