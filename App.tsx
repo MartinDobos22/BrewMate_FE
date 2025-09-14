@@ -14,7 +14,7 @@ import CoffeeTasteScanner from './src/components/CoffeeTasteScanner.tsx';
 import CoffeeReceipeScanner from './src/components/CoffeeReceipeScanner.tsx';
 import AllCoffeesScreen from './src/components/AllCoffeesScreen';
 import AIChatScreen from './src/components/AIChatScreen';
-import UserProfile from './src/components/UserProfile';
+import ProfileScreen from './src/screens/ProfileScreen';
 import EditUserProfile from './src/components/EditUserProfile';
 import CoffeePreferenceForm from './src/components/CoffeePreferenceForm';
 import EditPreferences from './src/components/EditPreferences';
@@ -121,10 +121,6 @@ const AppContent = (): React.JSX.Element | null => {
 
   const handleBackPress = () => {
     setCurrentScreen('home');
-  };
-
-  const handleEditProfilePress = () => {
-    setCurrentScreen('edit-profile');
   };
 
   if (checkingOnboarding) {
@@ -251,10 +247,9 @@ const AppContent = (): React.JSX.Element | null => {
             <Text style={styles.backButtonText}>← Spť</Text>
           </TouchableOpacity>
         </View>
-        <UserProfile
-          onEdit={handleEditProfilePress}
-          onPreferences={() => setCurrentScreen('edit-preferences')}
-          onForm={() => setCurrentScreen('preferences')}
+        <ProfileScreen />
+        <BottomNav
+          active="profile"
           onHomePress={handleBackPress}
           onDiscoverPress={handleDiscoverPress}
           onRecipesPress={handleRecipesPress}
