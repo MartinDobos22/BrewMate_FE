@@ -19,7 +19,6 @@ interface CoffeeItem {
   intensity?: number;
   flavorNotes?: string[];
 
-  origin?: string;
 
   rating?: number;
   match?: number;

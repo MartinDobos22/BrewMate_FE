@@ -31,7 +31,6 @@ import {
   processOCR,
   fetchOCRHistory,
   deleteOCRRecord,
-  rateOCRResult,
   getBrewRecipe,
   suggestBrewingMethods,
 } from '../services/ocrServices.ts';

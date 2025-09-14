@@ -228,7 +228,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
-        contentContainerStyle={{ paddingBottom: 16 }}
+        // contentContainerStyle={{ paddingBottom: 16 }}
         contentContainerStyle={{ paddingBottom: BOTTOM_NAV_HEIGHT }}
         showsVerticalScrollIndicator={false}
       >

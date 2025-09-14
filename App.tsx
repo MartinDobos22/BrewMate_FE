@@ -40,7 +40,7 @@ type ScreenName =
   | 'recipe-steps'
   | 'favorites';
 
-const AppContent = (): React.JSX.Element => {
+const AppContent = (): React.JSX.Element | null => {
   const [currentScreen, setCurrentScreen] = useState<ScreenName>('home');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [generatedRecipe, setGeneratedRecipe] = useState('');
