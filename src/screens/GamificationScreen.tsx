@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { badges, Badge } from '../data/badges';
 import { getUserProgress, UserProgress } from '../services/profileServices';
 
-const ProfileScreen: React.FC = () => {
+const GamificationScreen: React.FC = () => {
   const [progress, setProgress] = useState<UserProgress | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [newBadge, setNewBadge] = useState<Badge | null>(null);
@@ -84,4 +84,4 @@ const styles = StyleSheet.create({
   modalBadgeTitle: { fontSize:16 },
 });
 
-export default ProfileScreen;
+export default GamificationScreen;

@@ -48,6 +48,7 @@ const UserProfile = ({
                        onRecipesPress,
                        onFavoritesPress,
                        onProfilePress,
+                       onGamification,
                      }: {
   onEdit: () => void;
   onPreferences: () => void;
@@ -58,6 +59,7 @@ const UserProfile = ({
   onRecipesPress: () => void;
   onFavoritesPress: () => void;
   onProfilePress: () => void;
+  onGamification: () => void;
 }) => {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -307,6 +309,17 @@ const UserProfile = ({
             <Text style={styles.actionEmoji}>✏️</Text>
           </View>
           <Text style={styles.actionButtonText}>Upraviť profil</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, styles.secondaryActionButton]}
+          onPress={onGamification}
+          activeOpacity={0.8}
+        >
+          <View style={styles.actionIcon}>
+            <Text style={styles.actionEmoji}>🏆</Text>
+          </View>
+          <Text style={styles.actionButtonText}>Gamifikácia</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -566,6 +579,7 @@ const styles = StyleSheet.create({
   },
   quickActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     marginHorizontal: scale(16),
     marginBottom: scale(16),
     gap: scale(10),

@@ -14,7 +14,8 @@ import CoffeeTasteScanner from './src/components/CoffeeTasteScanner.tsx';
 import CoffeeReceipeScanner from './src/components/CoffeeReceipeScanner.tsx';
 import AllCoffeesScreen from './src/components/AllCoffeesScreen';
 import AIChatScreen from './src/components/AIChatScreen';
-import ProfileScreen from './src/screens/ProfileScreen';
+import UserProfile from './src/components/UserProfile';
+import GamificationScreen from './src/screens/GamificationScreen';
 import EditUserProfile from './src/components/EditUserProfile';
 import CoffeePreferenceForm from './src/components/CoffeePreferenceForm';
 import EditPreferences from './src/components/EditPreferences';
@@ -40,7 +41,8 @@ type ScreenName =
   | 'recipes'
   | 'recipe-steps'
   | 'favorites'
-  | 'inventory';
+  | 'inventory'
+  | 'gamification';
 
 const AppContent = (): React.JSX.Element | null => {
   const [currentScreen, setCurrentScreen] = useState<ScreenName>('home');
@@ -246,14 +248,36 @@ const AppContent = (): React.JSX.Element | null => {
         statusBarStyle={isDark ? 'light-content' : 'dark-content'}
         statusBarBackground={colors.primary}
       >
+        <UserProfile
+          onEdit={() => setCurrentScreen('edit-profile')}
+          onPreferences={() => setCurrentScreen('preferences')}
+          onBack={handleBackPress}
+          onHomePress={handleBackPress}
+          onDiscoverPress={handleDiscoverPress}
+          onRecipesPress={handleRecipesPress}
+          onFavoritesPress={handleFavoritesPress}
+          onProfilePress={handleProfilePress}
+          onGamification={() => setCurrentScreen('gamification')}
+        />
+      </ResponsiveWrapper>
+    );
+  }
+
+  if (currentScreen === 'gamification') {
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.primary}
+      >
         <View style={styles.header}>
           <TouchableOpacity
             style={[styles.backButton, { backgroundColor: colors.primary }]}
-            onPress={handleBackPress}>
-            <Text style={styles.backButtonText}>← Spť</Text>
+            onPress={() => setCurrentScreen('profile')}>
+            <Text style={styles.backButtonText}>← Späť</Text>
           </TouchableOpacity>
         </View>
-        <ProfileScreen />
+        <GamificationScreen />
         <BottomNav
           active="profile"
           onHomePress={handleBackPress}
