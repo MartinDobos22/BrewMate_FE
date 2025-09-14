@@ -26,6 +26,7 @@ import ResponsiveWrapper from './src/components/ResponsiveWrapper';
 import SavedRecipesScreen from './src/components/SavedRecipesScreen';
 import BottomNav from './src/components/BottomNav';
 import { scheduleLowStockCheck } from './src/utils/reminders';
+import InventoryScreen from './src/screens/InventoryScreen';
 
 type ScreenName =
   | 'home'
@@ -38,7 +39,8 @@ type ScreenName =
   | 'discover'
   | 'recipes'
   | 'recipe-steps'
-  | 'favorites';
+  | 'favorites'
+  | 'inventory';
 
 const AppContent = (): React.JSX.Element | null => {
   const [currentScreen, setCurrentScreen] = useState<ScreenName>('home');
@@ -117,6 +119,10 @@ const AppContent = (): React.JSX.Element | null => {
 
   const handleFavoritesPress = () => {
     setCurrentScreen('favorites');
+  };
+
+  const handleInventoryPress = () => {
+    setCurrentScreen('inventory');
   };
 
   const handleBackPress = () => {
@@ -358,6 +364,33 @@ const AppContent = (): React.JSX.Element | null => {
     );
   }
 
+  if (currentScreen === 'inventory') {
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.background}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={[styles.backButton, { backgroundColor: colors.primary }]}
+            onPress={handleBackPress}>
+            <Text style={styles.backButtonText}>← Späť</Text>
+          </TouchableOpacity>
+        </View>
+        <InventoryScreen />
+        <BottomNav
+          active="home"
+          onHomePress={handleBackPress}
+          onDiscoverPress={handleDiscoverPress}
+          onRecipesPress={handleRecipesPress}
+          onFavoritesPress={handleFavoritesPress}
+          onProfilePress={handleProfilePress}
+        />
+      </ResponsiveWrapper>
+    );
+  }
+
   if (currentScreen === 'discover') {
     return (
       <ResponsiveWrapper
@@ -391,6 +424,7 @@ const AppContent = (): React.JSX.Element | null => {
         onDiscoverPress={handleDiscoverPress}
         onRecipesPress={handleRecipesPress}
         onFavoritesPress={handleFavoritesPress}
+        onInventoryPress={handleInventoryPress}
       />
     </ResponsiveWrapper>
   );
