@@ -25,6 +25,7 @@ import { scale } from './src/theme/responsive';
 import ResponsiveWrapper from './src/components/ResponsiveWrapper';
 import SavedRecipesScreen from './src/components/SavedRecipesScreen';
 import BottomNav from './src/components/BottomNav';
+import { scheduleLowStockCheck } from './src/utils/reminders';
 
 type ScreenName =
   | 'home'
@@ -61,6 +62,20 @@ const AppContent = (): React.JSX.Element => {
       setCheckingOnboarding(false);
     };
     checkOnboarding();
+  }, []);
+
+  useEffect(() => {
+    scheduleLowStockCheck();
+    const now = new Date();
+    const next = new Date();
+    next.setHours(9, 0, 0, 0);
+    let timeout = next.getTime() - now.getTime();
+    if (timeout < 0) timeout += 24 * 60 * 60 * 1000;
+    const timer = setTimeout(() => {
+      scheduleLowStockCheck();
+      setInterval(scheduleLowStockCheck, 24 * 60 * 60 * 1000);
+    }, timeout);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleScannerPress = () => {
