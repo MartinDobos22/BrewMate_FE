@@ -10,6 +10,9 @@ import {
 } from 'react-native';
 import { homeStyles } from './styles/HomeScreen.styles.ts';
 import { fetchCoffees } from '../services/homePagesService.ts';
+import DailyTipCard from './DailyTipCard';
+import { fetchDailyTip, Tip } from '../services/contentServices';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from './BottomNav';
 
 interface CoffeeItem {
@@ -56,6 +59,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   ]);
 
   const [recommendedCoffees, setRecommendedCoffees] = useState<CoffeeItem[]>([]);
+  const [dailyTip, setDailyTip] = useState<Tip | null>(null);
   const styles = homeStyles();
 
   const loadCoffees = useCallback(async () => {
@@ -71,6 +75,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   useEffect(() => {
     loadCoffees();
   }, [loadCoffees]);
+
+  useEffect(() => {
+    const loadTip = async () => {
+      try {
+        const tip = await fetchDailyTip();
+        setDailyTip(tip);
+      } catch (e) {
+        const stored = await AsyncStorage.getItem('lastTip');
+        if (stored) setDailyTip(JSON.parse(stored));
+      }
+    };
+    loadTip();
+  }, []);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -205,6 +222,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
             <Text style={styles.statusText}>{getTimeBasedMessage()}</Text>
           </View>
         </View>
+
+        {dailyTip && (
+          <View style={{ marginVertical: 16 }}>
+            <DailyTipCard tip={dailyTip} />
+          </View>
+        )}
 
         {/* Weather & Coffee Widget */}
         <View style={styles.weatherWidget}>
