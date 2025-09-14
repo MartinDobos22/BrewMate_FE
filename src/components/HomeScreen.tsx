@@ -342,14 +342,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
           </View>
         </View>
 
-        {recentScans.length > 0 && (
-          <View style={styles.recentScans}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Naposledy naskenované</Text>
-            </View>
-            <RecentScansCarousel scans={recentScans} />
+        <View style={styles.recentScans}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Naposledy naskenované</Text>
+            <TouchableOpacity style={styles.seeAll} onPress={onScanPress}>
+              <Text style={styles.seeAllText}>Skenovať teraz</Text>
+            </TouchableOpacity>
           </View>
-        )}
+          {recentScans.length === 0 ? (
+            <Text style={{ color: '#666', paddingHorizontal: 16 }}>Zatiaľ nič naskenované</Text>
+          ) : (
+            <RecentScansCarousel scans={recentScans} />
+          )}
+        </View>
 
         {/* Recommendations */}
         <View style={styles.recommendations}>
