@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Button, Platform } from 'react-native';
-import { requestMultiple, PERMISSIONS, RESULTS } from 'react-native-permissions';
+import {
+  requestMultiple,
+  PERMISSIONS,
+  RESULTS,
+  openSettings,
+} from 'react-native-permissions';
 import { useTheme } from '../../theme/ThemeProvider';
 
 interface Props {
@@ -15,7 +20,12 @@ const PermissionsScreen: React.FC<Props> = ({ navigation }) => {
     setDenied(false);
     const permissions = Platform.select({
       ios: [PERMISSIONS.IOS.CAMERA, PERMISSIONS.IOS.PHOTO_LIBRARY],
-      android: [PERMISSIONS.ANDROID.CAMERA, PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE],
+      android: [
+        PERMISSIONS.ANDROID.CAMERA,
+        Platform.Version >= 33
+          ? PERMISSIONS.ANDROID.READ_MEDIA_IMAGES
+          : PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE,
+      ],
     }) as string[];
 
     const statuses = await requestMultiple(permissions);
@@ -23,7 +33,12 @@ const PermissionsScreen: React.FC<Props> = ({ navigation }) => {
     if (granted) {
       navigation.navigate('Features');
     } else {
-      setDenied(true);
+      const blocked = Object.values(statuses).some((s) => s === RESULTS.BLOCKED);
+      if (blocked) {
+        await openSettings();
+      } else {
+        setDenied(true);
+      }
     }
   };
 
