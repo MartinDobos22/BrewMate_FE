@@ -14,6 +14,8 @@ import DailyTipCard from './DailyTipCard';
 import { fetchDailyTip, Tip } from '../services/contentServices';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from './BottomNav';
+import RecentScansCarousel from './RecentScansCarousel';
+import { fetchRecentScans, RecentScan } from '../services/coffeeServices.ts';
 
 interface CoffeeItem {
   id: string;
@@ -60,6 +62,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const [recommendedCoffees, setRecommendedCoffees] = useState<CoffeeItem[]>([]);
   const [dailyTip, setDailyTip] = useState<Tip | null>(null);
+  const [recentScans, setRecentScans] = useState<RecentScan[]>([]);
   const styles = homeStyles();
 
   const loadCoffees = useCallback(async () => {
@@ -87,6 +90,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
       }
     };
     loadTip();
+  }, []);
+
+  useEffect(() => {
+    const loadScans = async () => {
+      try {
+        const scans = await fetchRecentScans(10);
+        setRecentScans(scans);
+      } catch (err) {
+        console.error('Error loading recent scans:', err);
+      }
+    };
+    loadScans();
   }, []);
 
   const getGreeting = () => {
@@ -131,6 +146,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   const onRefresh = async () => {
     setRefreshing(true);
     await loadCoffees();
+    try {
+      const scans = await fetchRecentScans(10);
+      setRecentScans(scans);
+    } catch (err) {
+      console.error('Error refreshing scans:', err);
+    }
     setRefreshing(false);
   };
 
@@ -315,6 +336,15 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
             ))}
           </View>
         </View>
+
+        {recentScans.length > 0 && (
+          <View style={styles.recentScans}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Naposledy naskenované</Text>
+            </View>
+            <RecentScansCarousel scans={recentScans} />
+          </View>
+        )}
 
         {/* Recommendations */}
         <View style={styles.recommendations}>

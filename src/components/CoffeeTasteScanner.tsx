@@ -35,6 +35,7 @@ import {
 } from '../services/ocrServices.ts';
 import { incrementProgress } from '../services/profileServices';
 import { saveOCRResult, loadOCRResult } from '../services/offlineCache';
+import { addRecentScan } from '../services/coffeeServices.ts';
 
 interface OCRHistory {
   id: string;
@@ -191,6 +192,14 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
         } catch (e) {
           console.error('Failed to update progress', e);
         }
+
+        // Ulož do zoznamu posledných skenov
+        const name = extractCoffeeName(result.corrected || result.original);
+        await addRecentScan({
+          id: result.scanId || Date.now().toString(),
+          name,
+          imageUrl: `data:image/jpeg;base64,${base64image}`,
+        });
 
         // Načítaj aktualizovanú históriu
         await loadHistory();
