@@ -2,6 +2,7 @@ import React from 'react';
 import { Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import auth from '@react-native-firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // 🔐 Konfigurácia Google Sign-In (spusti len raz)
 GoogleSignin.configure({
@@ -20,6 +21,7 @@ const GoogleLogin = () => {
       const userCredential = await auth().signInWithCredential(googleCredential);
 
       const firebaseIdToken = await userCredential.user.getIdToken();
+      await AsyncStorage.setItem('@AuthToken', firebaseIdToken);
 
       await fetch('http://10.0.2.2:3001/api/auth', {
         method: 'POST',

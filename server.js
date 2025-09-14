@@ -248,10 +248,27 @@ app.put('/api/profile', async (req, res) => {
  */
 app.post('/api/auth', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
-  const provider = req.headers['x-auth-provider'] || 'unknown';
+  const provider = req.headers['x-auth-provider'];
+
+  if (!idToken || !provider) {
+    return res.status(400).json({ error: 'Token alebo provider chýba' });
+  }
+
+  const providerMap = {
+    google: 'google.com',
+    email: 'password',
+    apple: 'apple.com',
+  };
+
+  if (!providerMap[provider]) {
+    return res.status(400).json({ error: 'Neznámy provider' });
+  }
 
   try {
     const decoded = await admin.auth().verifyIdToken(idToken);
+    if (decoded.firebase?.sign_in_provider !== providerMap[provider]) {
+      return res.status(401).json({ error: 'Neplatný token pre daného poskytovateľa' });
+    }
     const uid = decoded.uid;
     const email = decoded.email;
     const timestamp = new Date().toISOString();
