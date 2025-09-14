@@ -18,6 +18,7 @@ import { getSafeAreaTop, getSafeAreaBottom, scale } from './utils/safeArea';
 import { AIResponseDisplay } from './AIResponseDisplay';
 import { unifiedStyles } from '../theme/unifiedStyles';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from './BottomNav';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 const { colors, typography, spacing, componentStyles } = unifiedStyles;
@@ -98,6 +99,23 @@ const UserProfile = ({
       setRefreshing(false);
     }
   }, []);
+
+  const handleLogout = async () => {
+    try {
+      const token = await AsyncStorage.getItem('@AuthToken');
+      if (token) {
+        await fetch('http://10.0.2.2:3001/api/logout', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+      await auth().signOut();
+      await AsyncStorage.removeItem('@AuthToken');
+    } catch (err) {
+      Alert.alert('Chyba', 'Nepodarilo sa odhlásiť');
+      console.error('Sign out error:', err);
+    }
+  };
 
   useEffect(() => {
     fetchProfile();
@@ -289,6 +307,17 @@ const UserProfile = ({
             <Text style={styles.actionEmoji}>✏️</Text>
           </View>
           <Text style={styles.actionButtonText}>Upraviť profil</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionButton, styles.secondaryActionButton]}
+          onPress={handleLogout}
+          activeOpacity={0.8}
+        >
+          <View style={styles.actionIcon}>
+            <Text style={styles.actionEmoji}>🚪</Text>
+          </View>
+          <Text style={styles.actionButtonText}>Odhlásiť sa</Text>
         </TouchableOpacity>
       </View>
 

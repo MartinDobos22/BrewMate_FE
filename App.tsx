@@ -49,8 +49,24 @@ const AppContent = (): React.JSX.Element => {
   const { isDark, colors } = useTheme();
 
   useEffect(() => {
-    const unsubscribe = auth().onAuthStateChanged((user) => {
-      setIsAuthenticated(!!user);
+    const init = async () => {
+      const stored = await AsyncStorage.getItem('@AuthToken');
+      if (stored) {
+        setIsAuthenticated(true);
+      }
+    };
+    init();
+
+    const unsubscribe = auth().onAuthStateChanged(async (user) => {
+      if (user) {
+        const token = await user.getIdToken();
+        await AsyncStorage.setItem('@AuthToken', token);
+        setIsAuthenticated(true);
+        setCurrentScreen('home');
+      } else {
+        await AsyncStorage.removeItem('@AuthToken');
+        setIsAuthenticated(false);
+      }
     });
     return unsubscribe;
   }, []);

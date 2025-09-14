@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, useColorScheme } from 'react-native';
 import auth from '@react-native-firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getColors, Colors } from '../theme/colors';
 
 interface EmailAuthProps {
@@ -18,18 +19,8 @@ const EmailAuth: React.FC<EmailAuthProps> = ({ onBack }) => {
   const handleAuth = async () => {
     try {
       if (isRegistering) {
-        const response = await fetch('http://10.0.2.2:3001/api/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        });
-
-        const result = await response.json();
-        if (!response.ok) {
-          Alert.alert('Chyba registrácie', result?.error || 'Neznáma chyba');
-          return;
-        }
-
+        const userCredential = await auth().createUserWithEmailAndPassword(email, password);
+        await userCredential.user.sendEmailVerification();
         Alert.alert('Registrácia úspešná', 'Skontroluj svoj email pre overenie účtu.');
       } else {
         const userCredential = await auth().signInWithEmailAndPassword(email, password);
@@ -38,10 +29,12 @@ const EmailAuth: React.FC<EmailAuthProps> = ({ onBack }) => {
         if (!user.emailVerified) {
           Alert.alert('Email nie je overený', 'Prosím, over svoju emailovú adresu.');
           await auth().signOut();
+          await AsyncStorage.removeItem('@AuthToken');
           return;
         }
 
         const idToken = await user.getIdToken();
+        await AsyncStorage.setItem('@AuthToken', idToken);
         await fetch('http://10.0.2.2:3001/api/auth', {
           method: 'POST',
           headers: {
