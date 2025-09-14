@@ -38,6 +38,7 @@ interface HomeScreenProps {
   onDiscoverPress: () => void;
   onRecipesPress: () => void;
   onFavoritesPress: () => void;
+  onInventoryPress: () => void;
   userName?: string;
 }
 
@@ -49,6 +50,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                                                  onDiscoverPress,
                                                  onRecipesPress,
                                                  onFavoritesPress,
+                                                 onInventoryPress,
                                                userName = 'Martin',
                                              }) => {
   const [refreshing, setRefreshing] = useState(false);
@@ -303,10 +305,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
         </View>
 
         {/* Coffee Inventory */}
-        <View style={styles.coffeeInventory}>
+        <TouchableOpacity
+          style={styles.coffeeInventory}
+          onPress={onInventoryPress}
+          activeOpacity={0.8}>
           <Text style={styles.inventoryTitle}>📦 Počet balíkov kávy</Text>
           <Text style={styles.inventoryCount}>{coffeeCount}</Text>
-        </View>
+        </TouchableOpacity>
 
         {/* Taste Profile */}
         <View style={styles.tasteProfile}>
