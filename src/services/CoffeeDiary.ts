@@ -159,6 +159,64 @@ export class CoffeeDiary {
     };
   }
 
+  public async addManualEntry(payload: {
+    recipe: string;
+    notes?: string;
+    brewedAt?: Date | string;
+    rating?: number;
+    recipeId?: string;
+    metadata?: Record<string, unknown>;
+    context?: BrewContext;
+  }): Promise<BrewHistoryEntry> {
+    const now = payload.brewedAt ? new Date(payload.brewedAt) : new Date();
+    const isoNow = formatISO(now);
+    const baseContext: BrewContext = payload.context ?? {
+      timeOfDay: this.resolveTimeOfDay(now),
+      weekday: this.getIsoWeekday(now),
+    };
+
+    const context: BrewContext = {
+      ...baseContext,
+      metadata: {
+        ...(baseContext.metadata ?? {}),
+        ...(payload.metadata ?? {}),
+      },
+    };
+
+    const modifications: string[] = [];
+    if (payload.recipe) {
+      modifications.push(`recipe:${payload.recipe}`);
+    }
+    if (payload.notes) {
+      modifications.push(`note:${payload.notes}`);
+    }
+    if (payload.metadata) {
+      Object.entries(payload.metadata).forEach(([key, value]) => {
+        if (value === undefined || value === null) {
+          return;
+        }
+        const normalizedValue =
+          typeof value === 'string' ? value : JSON.stringify(value);
+        modifications.push(`meta:${key}=${normalizedValue}`.slice(0, 160));
+      });
+    }
+
+    const entry: BrewHistoryEntry = {
+      id: `manual-${Date.now()}`,
+      userId: this.learningEngine.getProfile()?.userId ?? 'local-user',
+      recipeId: payload.recipeId,
+      rating: payload.rating ?? 0,
+      flavorNotes: {},
+      context,
+      modifications,
+      createdAt: isoNow,
+      updatedAt: isoNow,
+    };
+
+    await this.persistEntry(entry);
+    return entry;
+  }
+
   /**
    * Spracuje fotografiu pomocou OCR a doplní nastavenia kávovaru.
    */

@@ -31,6 +31,7 @@ import {
   processOCR,
   fetchOCRHistory,
   deleteOCRRecord,
+  rateOCRResult,
   getBrewRecipe,
   suggestBrewingMethods,
 } from '../services/ocrServices.ts';
@@ -40,6 +41,8 @@ import {
   RecipeHistory,
 } from '../services/recipeServices.ts';
 import { AIResponseDisplay } from './AIResponseDisplay';
+import { coffeeDiary, preferenceEngine } from '../services/personalizationGateway';
+import { BrewContext } from '../types/Personalization';
 
 interface OCRHistory {
   id: string;
@@ -66,6 +69,39 @@ interface BrewScannerProps {
   onBack?: () => void;
   onRecipeGenerated?: (recipe: string) => void;
 }
+
+const resolveTimeOfDay = (date: Date): BrewContext['timeOfDay'] => {
+  const hour = date.getHours();
+  if (hour < 12) {
+    return 'morning';
+  }
+  if (hour < 18) {
+    return 'afternoon';
+  }
+  if (hour < 22) {
+    return 'evening';
+  }
+  return 'night';
+};
+
+const getIsoWeekday = (date: Date): number => {
+  const weekday = date.getDay();
+  return weekday === 0 ? 7 : weekday;
+};
+
+const buildBrewContext = (metadata?: Record<string, unknown>): BrewContext => {
+  const now = new Date();
+  const context: BrewContext = {
+    timeOfDay: resolveTimeOfDay(now),
+    weekday: getIsoWeekday(now),
+  };
+
+  if (metadata && Object.keys(metadata).length > 0) {
+    context.metadata = { ...metadata };
+  }
+
+  return context;
+};
 
 const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
   onBack,
@@ -302,16 +338,60 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     );
   };
 
-  // const handleRating = async (rating: number) => {
-  //   setUserRating(rating);
-  //   if (scanResult?.scanId) {
-  //     try {
-  //       await rateOCRResult(scanResult.scanId, rating);
-  //     } catch (error) {
-  //       console.error('Error rating result:', error);
-  //     }
-  //   }
-  // };
+  const handleRating = async (rating: number) => {
+    setUserRating(rating);
+    if (!scanResult) {
+      return;
+    }
+
+    const fallbackId = `recipe-${Date.now()}`;
+    const recordId = scanResult.scanId ?? fallbackId;
+
+    try {
+      const success = scanResult.scanId ? await rateOCRResult(scanResult.scanId, rating) : true;
+
+      if (!success) {
+        Alert.alert('Chyba', 'Nepodarilo sa uložiť hodnotenie');
+        return;
+      }
+
+      const recipeMetadata: Record<string, unknown> = {
+        source: 'recipe-scanner',
+        scanId: scanResult.scanId,
+        brewingMethods: scanResult.brewingMethods ?? [],
+        selectedMethod: selectedMethod ?? undefined,
+        tastePreference: tastePreference || undefined,
+        generatedRecipe: generatedRecipe || undefined,
+        correctedText: editedText,
+      };
+
+      const context = buildBrewContext(recipeMetadata);
+      const notesSegments = [
+        selectedMethod ? `Metóda: ${selectedMethod}` : undefined,
+        tastePreference ? `Preferencia: ${tastePreference}` : undefined,
+      ].filter((part): part is string => Boolean(part));
+
+      await coffeeDiary.addManualEntry({
+        recipe: generatedRecipe || scanResult.corrected || scanResult.original,
+        notes: notesSegments.length > 0 ? notesSegments.join('\n') : undefined,
+        brewedAt: new Date(),
+        rating,
+        recipeId: recordId,
+        metadata: recipeMetadata,
+        context,
+      });
+
+      const learningEvent = await preferenceEngine.recordBrew(recordId, rating, context);
+      await preferenceEngine.saveEvents(learningEvent);
+
+      await Promise.all([loadHistory(), loadRecipeHistory()]);
+
+      Alert.alert('Hodnotenie uložené', `Ohodnotil si recept na ${rating}/5 ⭐`);
+    } catch (error) {
+      console.error('Error rating result:', error);
+      Alert.alert('Chyba', 'Nepodarilo sa spracovať hodnotenie');
+    }
+  };
 
   const exportText = async () => {
     try {
