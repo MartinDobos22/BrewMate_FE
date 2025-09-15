@@ -3,6 +3,7 @@ import { formatISO } from 'date-fns';
 
 import { CoffeeDiary } from './CoffeeDiary';
 import { PreferenceLearningEngine } from './PreferenceLearningEngine';
+import { PrivacyManager, LearningEventProvider } from './PrivacyManager';
 import {
   BrewContext,
   BrewHistoryEntry,
@@ -12,6 +13,7 @@ import {
   RecipeProfile,
   CommunityFlavorStats,
   UserTasteProfile,
+  TasteProfileVector,
 } from '../types/Personalization';
 
 const DEFAULT_USER_ID = 'local-user';
@@ -139,6 +141,51 @@ class PreferenceEngineFacade {
 
   public getEngine(): PreferenceLearningEngine {
     return this.engine;
+  }
+
+  public async getProfile(): Promise<UserTasteProfile | null> {
+    try {
+      await this.engine.initialize();
+    } catch (error) {
+      console.warn('personalizationGateway: failed to initialize engine for profile', error);
+      return null;
+    }
+    return this.engine.getProfile();
+  }
+
+  public async getCommunityAverage(): Promise<TasteProfileVector | null> {
+    try {
+      await this.engine.initialize();
+    } catch (error) {
+      console.warn('personalizationGateway: failed to resolve community average', error);
+      return null;
+    }
+
+    const profile = this.engine.getProfile();
+    if (profile) {
+      return profile.preferences;
+    }
+
+    const stats = await this.storage.fetchCommunityFlavorStats?.();
+    if (!stats) {
+      return null;
+    }
+
+    const clamp = (value: number | undefined): number | undefined => {
+      if (typeof value !== 'number' || Number.isNaN(value)) {
+        return undefined;
+      }
+      return Math.min(10, Math.max(0, value));
+    };
+
+    const fallback: TasteProfileVector = { sweetness: 5, acidity: 5, bitterness: 5, body: 5 };
+
+    return {
+      sweetness: clamp(stats.sweetness?.average) ?? fallback.sweetness,
+      acidity: clamp(stats.acidity?.average) ?? fallback.acidity,
+      bitterness: clamp(stats.bitterness?.average) ?? fallback.bitterness,
+      body: clamp(stats.body?.average) ?? fallback.body,
+    };
   }
 
   public async recordBrew(recipeId: string, rating: number, context?: BrewContext): Promise<LearningEvent> {
@@ -270,7 +317,29 @@ class PreferenceEngineFacade {
 
 const diaryStorage = new AsyncDiaryStorageAdapter();
 const learningStorage = new AsyncLearningStorageAdapter();
+const eventsStorageProvider: LearningEventProvider = {
+  async getEvents(userId: string): Promise<LearningEvent[]> {
+    const events = safeParse<LearningEvent[]>(await AsyncStorage.getItem(EVENTS_STORAGE_KEY)) ?? [];
+    return events.filter(event => event.userId === userId);
+  },
+  async deleteEvents(userId: string): Promise<void> {
+    const events = safeParse<LearningEvent[]>(await AsyncStorage.getItem(EVENTS_STORAGE_KEY)) ?? [];
+    const remaining = events.filter(event => event.userId !== userId);
+    if (remaining.length === 0) {
+      await AsyncStorage.removeItem(EVENTS_STORAGE_KEY);
+      return;
+    }
+    await AsyncStorage.setItem(EVENTS_STORAGE_KEY, JSON.stringify(remaining));
+  },
+};
+
 export const preferenceEngine = new PreferenceEngineFacade(DEFAULT_USER_ID, learningStorage);
+export const PERSONALIZATION_USER_ID = DEFAULT_USER_ID;
+export const privacyManager = new PrivacyManager({
+  learningStorage,
+  diaryStorage,
+  eventProvider: eventsStorageProvider,
+});
 
 export const coffeeDiary = new CoffeeDiary({
   storage: diaryStorage,
