@@ -67,6 +67,7 @@ export interface BrewContext {
   };
   moodBefore?: string;
   moodAfter?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface BrewHistoryEntry {

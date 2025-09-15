@@ -36,6 +36,8 @@ import {
 import { incrementProgress } from '../services/profileServices';
 import { saveOCRResult, loadOCRResult } from '../services/offlineCache';
 import { addRecentScan } from '../services/coffeeServices.ts';
+import { coffeeDiary, preferenceEngine } from '../services/personalizationGateway';
+import { BrewContext } from '../types/Personalization';
 
 interface OCRHistory {
   id: string;
@@ -61,6 +63,39 @@ interface ScanResult {
 interface ProfessionalOCRScannerProps {
   onBack?: () => void;
 }
+
+const resolveTimeOfDay = (date: Date): BrewContext['timeOfDay'] => {
+  const hour = date.getHours();
+  if (hour < 12) {
+    return 'morning';
+  }
+  if (hour < 18) {
+    return 'afternoon';
+  }
+  if (hour < 22) {
+    return 'evening';
+  }
+  return 'night';
+};
+
+const getIsoWeekday = (date: Date): number => {
+  const weekday = date.getDay();
+  return weekday === 0 ? 7 : weekday;
+};
+
+const buildBrewContext = (metadata?: Record<string, unknown>): BrewContext => {
+  const now = new Date();
+  const context: BrewContext = {
+    timeOfDay: resolveTimeOfDay(now),
+    weekday: getIsoWeekday(now),
+  };
+
+  if (metadata && Object.keys(metadata).length > 0) {
+    context.metadata = { ...metadata };
+  }
+
+  return context;
+};
 
 const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
@@ -318,12 +353,60 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
   };
   const handleRating = async (rating: number) => {
     setUserRating(rating);
-    if (scanResult?.scanId) {
-      try {
-        await rateOCRResult(scanResult.scanId, rating);
-      } catch (error) {
-        console.error('Error rating result:', error);
+    if (!scanResult) {
+      return;
+    }
+
+    const fallbackId = `taste-${Date.now()}`;
+    const recordId = scanResult.scanId ?? fallbackId;
+
+    try {
+      const success = scanResult.scanId ? await rateOCRResult(scanResult.scanId, rating) : true;
+
+      if (!success) {
+        Alert.alert('Chyba', 'Nepodarilo sa uložiť hodnotenie');
+        return;
       }
+
+      const metadata: Record<string, unknown> = {
+        source: 'taste-scanner',
+        scanId: scanResult.scanId,
+        matchPercentage: scanResult.matchPercentage,
+        isRecommended: scanResult.isRecommended,
+      };
+
+      if (scanResult.recommendation) {
+        metadata.recommendation = scanResult.recommendation;
+      }
+      if (editedText) {
+        metadata.correctedText = editedText;
+      }
+
+      const context = buildBrewContext(metadata);
+      const recipeLabel = extractCoffeeName(editedText || scanResult.corrected || scanResult.original);
+      const noteParts = [scanResult.recommendation, editedText].filter(
+        (part): part is string => Boolean(part),
+      );
+
+      await coffeeDiary.addManualEntry({
+        recipe: recipeLabel,
+        notes: noteParts.length > 0 ? noteParts.join('\n\n') : undefined,
+        brewedAt: new Date(),
+        rating,
+        recipeId: recordId,
+        metadata,
+        context,
+      });
+
+      const learningEvent = await preferenceEngine.recordBrew(recordId, rating, context);
+      await preferenceEngine.saveEvents(learningEvent);
+
+      await loadHistory();
+
+      Alert.alert('Hodnotenie uložené', `Ohodnotil si kávu na ${rating}/5 ⭐`);
+    } catch (error) {
+      console.error('Error rating result:', error);
+      Alert.alert('Chyba', 'Nepodarilo sa spracovať hodnotenie');
     }
   };
 
