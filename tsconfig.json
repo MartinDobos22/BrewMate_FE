@@ -1,3 +1,23 @@
 {
-  "extends": "@react-native/typescript-config"
+  "extends": "@react-native/typescript-config",
+  "compilerOptions": {
+    "allowJs": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "*": ["src/*", "*"],
+      "@components/*": ["src/components/*"],
+      "@services/*": ["src/services/*"]
+    }
+  },
+  "include": [
+    "App.tsx",
+    "src",
+    "src/components",
+    "src/services",
+    "__tests__",
+    "index.js",
+    "server.js"
+  ]
 }
