@@ -1,5 +1,5 @@
 // UserProfile.tsx
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -19,9 +19,22 @@ import { AIResponseDisplay } from './AIResponseDisplay';
 import { unifiedStyles } from '../theme/unifiedStyles';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from './BottomNav';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { usePersonalization } from '../context/PersonalizationContext';
+import TasteProfileVisualization from './TasteProfileVisualization';
+import { PrivacyManager } from '../services/PrivacyManager';
+import { preferenceEngine } from '../services/personalizationGateway';
+import { privacyManager, optIn, DEFAULT_COMMUNITY_AVERAGE, PERSONALIZATION_USER_ID } from '../services/Personalization';
+import type { TrackingPreferences, TasteProfileVector } from '../types/Personalization';
 
 const { width } = Dimensions.get('window');
 const { colors, typography, spacing, componentStyles } = unifiedStyles;
+
+const clampTasteValue = (value: number | undefined, fallback: number): number => {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return fallback;
+  }
+  return Math.max(0, Math.min(10, value));
+};
 
 interface ProfileData {
   email: string;
@@ -61,11 +74,19 @@ const UserProfile = ({
   onProfilePress: () => void;
   onGamification: () => void;
 }) => {
+  const { ready: personalizationReady } = usePersonalization();
+  const privacyManagerRef = useRef<PrivacyManager>(privacyManager.manager);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [recommendation, setRecommendation] = useState<string | null>(null);
   const [coffeeStats, setCoffeeStats] = useState<Stat[]>([]);
+  const [tasteProfile, setTasteProfile] = useState<TasteProfileVector | null>(null);
+  const [communityAverage, setCommunityAverage] = useState<TasteProfileVector>(DEFAULT_COMMUNITY_AVERAGE);
+  const [trackingConsent, setTrackingConsent] = useState<TrackingPreferences | null>(null);
+  const [exportingData, setExportingData] = useState(false);
+  const [deletingData, setDeletingData] = useState(false);
+  const hasDataConsent = trackingConsent ? optIn.dataControl.every(flag => trackingConsent[flag]) : false;
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -102,6 +123,52 @@ const UserProfile = ({
     }
   }, []);
 
+  const readPersonalization = useCallback(async () => {
+    const profilePromise = personalizationReady ? preferenceEngine.getProfile() : Promise.resolve(null);
+
+    try {
+      const managerInstance = privacyManagerRef.current;
+      const [personalProfile, preferences, insights] = await Promise.all([
+        profilePromise,
+        managerInstance.loadPreferences(PERSONALIZATION_USER_ID),
+        managerInstance.buildCommunityInsights(PERSONALIZATION_USER_ID),
+      ]);
+
+      const nextTasteProfile = personalProfile?.preferences ?? null;
+
+      const nextCommunityAverage: TasteProfileVector = insights.sampleSize > 0
+        ? {
+            sweetness: clampTasteValue(insights.flavorTrends.sweetness, DEFAULT_COMMUNITY_AVERAGE.sweetness),
+            acidity: clampTasteValue(insights.flavorTrends.acidity, DEFAULT_COMMUNITY_AVERAGE.acidity),
+            bitterness: clampTasteValue(insights.flavorTrends.bitterness, DEFAULT_COMMUNITY_AVERAGE.bitterness),
+            body: clampTasteValue(insights.flavorTrends.body, DEFAULT_COMMUNITY_AVERAGE.body),
+          }
+        : { ...DEFAULT_COMMUNITY_AVERAGE };
+
+      return {
+        profile: nextTasteProfile,
+        preferences,
+        communityAverage: nextCommunityAverage,
+      };
+    } catch (error) {
+      console.warn('UserProfile: failed to load personalization data', error);
+      throw error;
+    }
+  }, [personalizationReady]);
+
+  const applyPersonalization = useCallback(async () => {
+    try {
+      const data = await readPersonalization();
+      setTasteProfile(data.profile);
+      setTrackingConsent(data.preferences);
+      setCommunityAverage(data.communityAverage);
+    } catch (error) {
+      console.warn('UserProfile: personalization state update failed', error);
+      setTasteProfile(null);
+      setCommunityAverage(DEFAULT_COMMUNITY_AVERAGE);
+    }
+  }, [readPersonalization]);
+
   const handleLogout = async () => {
     try {
       const token = await AsyncStorage.getItem('@AuthToken');
@@ -122,6 +189,34 @@ const UserProfile = ({
   useEffect(() => {
     fetchProfile();
   }, [fetchProfile]);
+
+  useEffect(() => {
+    let active = true;
+
+    const load = async () => {
+      try {
+        const data = await readPersonalization();
+        if (!active) {
+          return;
+        }
+        setTasteProfile(data.profile);
+        setTrackingConsent(data.preferences);
+        setCommunityAverage(data.communityAverage);
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+        setTasteProfile(null);
+        setCommunityAverage(DEFAULT_COMMUNITY_AVERAGE);
+      }
+    };
+
+    load();
+
+    return () => {
+      active = false;
+    };
+  }, [readPersonalization]);
 
   const generateStats = (data: ProfileData) => {
     const stats: Stat[] = [];
@@ -204,7 +299,59 @@ const UserProfile = ({
   const onRefresh = () => {
     setRefreshing(true);
     fetchProfile();
+    applyPersonalization();
   };
+
+  const handleExportData = useCallback(async () => {
+    if (!hasDataConsent || exportingData) {
+      return;
+    }
+
+    setExportingData(true);
+    try {
+      const payload = await privacyManager.exportData();
+      console.log('UserProfile: export payload', payload);
+      Alert.alert('Export pripravený', 'Tvoje personalizačné dáta boli pripravené na export.');
+    } catch (error) {
+      Alert.alert('Chyba', 'Nepodarilo sa exportovať dáta.');
+      console.error('UserProfile: export data failed', error);
+    } finally {
+      setExportingData(false);
+    }
+  }, [exportingData, hasDataConsent]);
+
+  const handleDeleteData = useCallback(async () => {
+    if (!hasDataConsent || deletingData) {
+      return;
+    }
+
+    setDeletingData(true);
+    try {
+      await privacyManager.deleteData();
+      await applyPersonalization();
+      Alert.alert('Vymazané', 'Tvoje personalizačné dáta boli odstránené.');
+    } catch (error) {
+      Alert.alert('Chyba', 'Vymazanie dát sa nepodarilo.');
+      console.error('UserProfile: delete data failed', error);
+    } finally {
+      setDeletingData(false);
+    }
+  }, [applyPersonalization, deletingData, hasDataConsent]);
+
+  const confirmDeleteData = useCallback(() => {
+    if (!hasDataConsent || deletingData) {
+      return;
+    }
+
+    Alert.alert(
+      'Vymazať dáta',
+      'Naozaj chceš vymazať všetky personalizačné údaje? Tento krok je nevratný.',
+      [
+        { text: 'Zrušiť', style: 'cancel' },
+        { text: 'Vymazať', style: 'destructive', onPress: () => handleDeleteData() },
+      ],
+    );
+  }, [deletingData, handleDeleteData, hasDataConsent]);
 
   const getInitials = (name?: string, email?: string) => {
     if (name) {
@@ -270,6 +417,12 @@ const UserProfile = ({
             </Text>
           </View>
         )}
+
+        {tasteProfile && (
+          <View style={styles.tasteProfileWrapper}>
+            <TasteProfileVisualization profile={tasteProfile} communityAverage={communityAverage} />
+          </View>
+        )}
       </View>
 
       {/* Quick Actions */}
@@ -332,6 +485,45 @@ const UserProfile = ({
           </View>
           <Text style={styles.actionButtonText}>Odhlásiť sa</Text>
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.section}>
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>🔐 Ovládanie dát</Text>
+          <Text style={styles.sectionDescription}>
+            Spravuj export a vymazanie svojich personalizačných údajov.
+          </Text>
+          <TouchableOpacity
+            style={[
+              styles.dataButton,
+              (!hasDataConsent || exportingData) && styles.dataButtonDisabled,
+            ]}
+            onPress={handleExportData}
+            disabled={!hasDataConsent || exportingData}
+          >
+            <Text style={styles.dataButtonText}>
+              {exportingData ? 'Exportujem...' : 'Exportovať dáta'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.dataButton,
+              styles.deleteButton,
+              (!hasDataConsent || deletingData) && styles.dataButtonDisabled,
+            ]}
+            onPress={confirmDeleteData}
+            disabled={!hasDataConsent || deletingData}
+          >
+            <Text style={styles.dataButtonText}>
+              {deletingData ? 'Mazanie...' : 'Vymazať dáta'}
+            </Text>
+          </TouchableOpacity>
+          {!hasDataConsent && (
+            <Text style={styles.dataConsentHint}>
+              Na export alebo vymazanie je potrebný súhlas so spracovaním dát v nastaveniach súkromia.
+            </Text>
+          )}
+        </View>
       </View>
 
       {/* Coffee Stats */}
@@ -577,6 +769,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: scale(12),
   },
+  tasteProfileWrapper: {
+    width: '100%',
+    marginTop: scale(16),
+    alignItems: 'center',
+  },
   quickActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -641,6 +838,11 @@ const styles = StyleSheet.create({
     color: '#2C2C2C',
     marginBottom: scale(12),
   },
+  sectionDescription: {
+    fontSize: scale(12),
+    color: '#6B6B6B',
+    marginBottom: scale(12),
+  },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -688,6 +890,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#D2691E',
     borderRadius: scale(16),
     padding: scale(16),
+  },
+  dataButton: {
+    backgroundColor: '#6B4423',
+    borderRadius: scale(12),
+    paddingVertical: scale(12),
+    alignItems: 'center',
+    marginBottom: scale(10),
+  },
+  deleteButton: {
+    backgroundColor: '#C62828',
+  },
+  dataButtonDisabled: {
+    opacity: 0.5,
+  },
+  dataButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: scale(13),
+  },
+  dataConsentHint: {
+    fontSize: scale(11),
+    color: '#8A8A8A',
+    marginTop: scale(8),
   },
   tipText: {
     fontSize: scale(13),
