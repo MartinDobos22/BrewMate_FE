@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { format } from 'date-fns';
+import { format, formatISO } from 'date-fns';
 import { sk } from 'date-fns/locale';
 import { PreferenceLearningEngine } from './PreferenceLearningEngine';
 import {
@@ -9,6 +9,8 @@ import {
   CalendarProvider,
   BrewContext,
   PredictionContext,
+  BrewHistoryEntry,
+  LearningEvent,
 } from '../types/Personalization';
 
 export interface MorningRitualContext {
@@ -29,9 +31,17 @@ export interface MorningRitualManagerConfig {
   weatherProvider: WeatherProvider;
   calendarProvider: CalendarProvider;
   learningEngine: PreferenceLearningEngine;
+  userId?: string;
 }
 
 const AB_STORAGE_KEY = 'brewmate:ritual_ab_variant';
+const RESPONSES_STORAGE_KEY = 'brewmate:ritual_responses';
+
+interface RitualResponseLog {
+  recipeId: string;
+  accepted: boolean;
+  timestamp: string;
+}
 
 /**
  * MorningRitualManager riadi notifikácie, odporúčania a experimenty pre ranný rituál.
@@ -41,12 +51,112 @@ export class MorningRitualManager {
   private readonly weatherProvider: WeatherProvider;
   private readonly calendarProvider: CalendarProvider;
   private readonly learningEngine: PreferenceLearningEngine;
+  private readonly userId: string;
 
   constructor(config: MorningRitualManagerConfig) {
     this.notificationChannel = config.notificationChannel;
     this.weatherProvider = config.weatherProvider;
     this.calendarProvider = config.calendarProvider;
     this.learningEngine = config.learningEngine;
+    this.userId = config.userId ?? 'local-user';
+  }
+
+  public async scheduleNotifications(context: MorningRitualContext = {}): Promise<void> {
+    await this.scheduleMorningNotification(this.userId, context);
+  }
+
+  public async getRecommendation(
+    context: MorningRitualContext = {},
+  ): Promise<
+    | (PredictionResult & {
+        message: string;
+        strengthHint: RitualRecommendation['strengthHint'];
+        weatherCondition?: string;
+      })
+    | null
+  > {
+    try {
+      return await this.getRecommendationForCard(context);
+    } catch (error) {
+      console.warn('MorningRitualManager: failed to resolve recommendation', error);
+      return null;
+    }
+  }
+
+  public async recordResponse(
+    recipeId: string,
+    accepted: boolean,
+    context: MorningRitualContext = {},
+  ): Promise<void> {
+    const now = new Date();
+    const isoNow = formatISO(now);
+
+    const brewContext: BrewContext = {
+      timeOfDay: 'morning',
+      weekday: this.getIsoWeekday(now),
+    };
+
+    if (context.location) {
+      brewContext.location = context.location;
+    }
+
+    if (context.anticipatedMood) {
+      brewContext.metadata = {
+        ...(brewContext.metadata ?? {}),
+        anticipatedMood: context.anticipatedMood,
+      };
+    }
+
+    if (context.fallbackRecipeId) {
+      brewContext.metadata = {
+        ...(brewContext.metadata ?? {}),
+        fallbackRecipeId: context.fallbackRecipeId,
+      };
+    }
+
+    const brewEntry: BrewHistoryEntry = {
+      id: `ritual-${now.getTime()}`,
+      userId: this.userId,
+      recipeId,
+      rating: accepted ? 5 : 2,
+      flavorNotes: {},
+      context: brewContext,
+      modifications: ['morning-ritual'],
+      createdAt: isoNow,
+      updatedAt: isoNow,
+    };
+
+    const learningEvent: LearningEvent = {
+      id: `ritual-event-${now.getTime()}`,
+      userId: this.userId,
+      brewHistoryId: brewEntry.id,
+      eventType: accepted ? 'liked' : 'disliked',
+      eventWeight: accepted ? 1 : 0.6,
+      metadata: {
+        recipeId,
+        accepted,
+        source: 'morning-ritual',
+      },
+      createdAt: isoNow,
+    };
+
+    try {
+      await this.learningEngine.ingestBrew(brewEntry, learningEvent);
+    } catch (error) {
+      console.warn('MorningRitualManager: failed to record feedback in learning engine', error);
+    }
+
+    try {
+      const stored = (await AsyncStorage.getItem(RESPONSES_STORAGE_KEY)) ?? '[]';
+      const parsed = JSON.parse(stored) as RitualResponseLog[];
+      const updated: RitualResponseLog[] = [
+        { recipeId, accepted, timestamp: isoNow },
+        ...parsed,
+      ].slice(0, 30);
+      await AsyncStorage.setItem(RESPONSES_STORAGE_KEY, JSON.stringify(updated));
+    } catch (error) {
+      console.warn('MorningRitualManager: failed to persist ritual response', error);
+    }
   }
 
   /**

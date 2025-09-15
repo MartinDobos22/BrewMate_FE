@@ -1,9 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { PredictionResult } from '../types/Personalization';
+import { usePersonalization } from '../context/PersonalizationContext';
 
 export interface DailyRitualCardProps {
   recommendation: PredictionResult & {
@@ -11,19 +12,40 @@ export interface DailyRitualCardProps {
     strengthHint: 'light' | 'balanced' | 'strong';
     weatherCondition?: string;
   };
-  onAccept: (recipeId: string) => void;
-  onDecline: (recipeId: string) => void;
-  onShowAlternative: () => void;
+  onShowAlternative?: () => void;
 }
 
 /**
  * Ranná kartička s odporúčaním a gestami na alternatívy.
  */
-const DailyRitualCard: React.FC<DailyRitualCardProps> = ({ recommendation, onAccept, onDecline, onShowAlternative }) => {
+const DailyRitualCard: React.FC<DailyRitualCardProps> = ({ recommendation, onShowAlternative }) => {
   const translateX = useSharedValue(0);
+  const { manager } = usePersonalization();
 
   const gradient = useMemo(() => buildGradient(recommendation.weatherCondition), [recommendation.weatherCondition]);
   const indicatorColor = useMemo(() => strengthColor(recommendation.strengthHint), [recommendation.strengthHint]);
+
+  const handleAlternative = useCallback(() => {
+    onShowAlternative?.();
+  }, [onShowAlternative]);
+
+  const handleAccept = useCallback(() => {
+    if (!manager) {
+      return;
+    }
+    manager
+      .recordResponse(recommendation.recipeId, true)
+      .catch((error) => console.warn('DailyRitualCard: failed to record accept action', error));
+  }, [manager, recommendation.recipeId]);
+
+  const handleDecline = useCallback(() => {
+    if (!manager) {
+      return;
+    }
+    manager
+      .recordResponse(recommendation.recipeId, false)
+      .catch((error) => console.warn('DailyRitualCard: failed to record decline action', error));
+  }, [manager, recommendation.recipeId]);
 
   const gesture = Gesture.Pan()
     .onUpdate((event) => {
@@ -31,7 +53,7 @@ const DailyRitualCard: React.FC<DailyRitualCardProps> = ({ recommendation, onAcc
     })
     .onEnd(() => {
       if (translateX.value < -100) {
-        runOnJS(onShowAlternative)();
+        runOnJS(handleAlternative)();
       }
       translateX.value = withSpring(0, { damping: 15, stiffness: 120 });
     });
@@ -53,10 +75,10 @@ const DailyRitualCard: React.FC<DailyRitualCardProps> = ({ recommendation, onAcc
               Predikcia {recommendation.predictedRating}/5 · Dôvera {Math.round(recommendation.confidence * 100)}%
             </Text>
             <View style={styles.actions}>
-              <TouchableOpacity style={styles.acceptButton} onPress={() => onAccept(recommendation.recipeId)}>
+              <TouchableOpacity style={styles.acceptButton} onPress={handleAccept}>
                 <Text style={styles.acceptText}>Uvariť</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.declineButton} onPress={() => onDecline(recommendation.recipeId)}>
+              <TouchableOpacity style={styles.declineButton} onPress={handleDecline}>
                 <Text style={styles.declineText}>Preskočiť</Text>
               </TouchableOpacity>
             </View>
