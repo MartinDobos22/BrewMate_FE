@@ -11,11 +11,13 @@ import {
 import { homeStyles } from './styles/HomeScreen.styles.ts';
 import { fetchCoffees } from '../services/homePagesService.ts';
 import DailyTipCard from './DailyTipCard';
+import DailyRitualCard, { DailyRitualCardProps } from './DailyRitualCard';
 import { fetchDailyTip, Tip } from '../services/contentServices';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from './BottomNav';
 import RecentScansCarousel from './RecentScansCarousel';
 import { fetchRecentScans, RecentScan } from '../services/coffeeServices.ts';
+import { usePersonalization } from '../context/PersonalizationContext';
 
 interface CoffeeItem {
   id: string;
@@ -65,7 +67,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   const [recommendedCoffees, setRecommendedCoffees] = useState<CoffeeItem[]>([]);
   const [dailyTip, setDailyTip] = useState<Tip | null>(null);
   const [recentScans, setRecentScans] = useState<RecentScan[]>([]);
+  const [ritualRecommendation, setRitualRecommendation] = useState<DailyRitualCardProps['recommendation'] | null>(null);
   const styles = homeStyles();
+  const { manager } = usePersonalization();
 
   const loadCoffees = useCallback(async () => {
     try {
@@ -80,6 +84,36 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   useEffect(() => {
     loadCoffees();
   }, [loadCoffees]);
+
+  useEffect(() => {
+    if (!manager) {
+      setRitualRecommendation(null);
+      return;
+    }
+
+    let active = true;
+
+    manager.scheduleNotifications().catch((error) => {
+      console.warn('HomeScreen: failed to schedule ritual notifications', error);
+    });
+
+    const resolveRecommendation = async () => {
+      try {
+        const rec = await manager.getRecommendation();
+        if (active) {
+          setRitualRecommendation(rec);
+        }
+      } catch (error) {
+        console.warn('HomeScreen: failed to fetch ritual recommendation', error);
+      }
+    };
+
+    resolveRecommendation();
+
+    return () => {
+      active = false;
+    };
+  }, [manager]);
 
   useEffect(() => {
     const loadTip = async () => {
@@ -193,6 +227,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   // @ts-ignore
   return (
     <View style={styles.container}>
+      {ritualRecommendation && (
+        <View style={{ marginTop: 12 }}>
+          <DailyRitualCard recommendation={ritualRecommendation} />
+        </View>
+      )}
       {/* Status Bar */}
       <View style={styles.statusBar}>
         <Text style={styles.statusTime}>9:41</Text>

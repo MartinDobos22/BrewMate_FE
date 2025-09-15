@@ -6,6 +6,7 @@ import {
   View,
   TouchableOpacity,
 } from 'react-native';
+import PushNotification from 'react-native-push-notification';
 import auth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AuthScreen from './src/components/AuthVisual.tsx';
@@ -28,6 +29,9 @@ import SavedRecipesScreen from './src/components/SavedRecipesScreen';
 import BottomNav from './src/components/BottomNav';
 import { scheduleLowStockCheck } from './src/utils/reminders';
 import InventoryScreen from './src/screens/InventoryScreen';
+import { MorningRitualManager } from './src/services/MorningRitualManager';
+import { PersonalizationProvider, usePersonalization } from './src/context/PersonalizationContext';
+import { CalendarProvider, NotificationChannel, WeatherProvider } from './src/types/Personalization';
 
 type ScreenName =
   | 'home'
@@ -44,6 +48,11 @@ type ScreenName =
   | 'inventory'
   | 'gamification';
 
+const MORNING_RITUAL_CHANNEL_ID = 'brewmate-morning-ritual';
+const WEATHER_CACHE_KEY = 'brewmate:ritual:last_weather';
+const WAKE_TIME_STORAGE_KEY = 'brewmate:ritual:wake_time';
+const WEEKDAY_PLAN_STORAGE_KEY = 'brewmate:ritual:weekday_plan';
+
 const AppContent = (): React.JSX.Element | null => {
   const [currentScreen, setCurrentScreen] = useState<ScreenName>('home');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -51,6 +60,12 @@ const AppContent = (): React.JSX.Element | null => {
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const { isDark, colors } = useTheme();
+  const {
+    ready: personalizationReady,
+    manager: morningRitualManager,
+    setManager: setMorningRitualManager,
+    learningEngine,
+  } = usePersonalization();
 
   useEffect(() => {
     const init = async () => {
@@ -97,6 +112,154 @@ const AppContent = (): React.JSX.Element | null => {
     }, timeout);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (!personalizationReady || !learningEngine || morningRitualManager) {
+      return;
+    }
+
+    PushNotification.createChannel(
+      {
+        channelId: MORNING_RITUAL_CHANNEL_ID,
+        channelName: 'Ranný rituál BrewMate',
+        channelDescription: 'Personalizované ranné pripomienky a odporúčania',
+        importance: 4,
+      },
+      () => {},
+    );
+
+    const notificationChannel: NotificationChannel = {
+      async scheduleNotification({ id, title, message, date, payload }) {
+        PushNotification.localNotificationSchedule({
+          channelId: MORNING_RITUAL_CHANNEL_ID,
+          id,
+          title,
+          message,
+          date,
+          allowWhileIdle: true,
+          userInfo: payload,
+        });
+      },
+      async cancelNotification(id: string) {
+        PushNotification.cancelLocalNotifications({ id });
+      },
+    };
+
+    const weatherProvider: WeatherProvider = {
+      async getWeather() {
+        try {
+          const cached = await AsyncStorage.getItem(WEATHER_CACHE_KEY);
+          if (cached) {
+            const parsed = JSON.parse(cached) as { condition?: string; temperatureC?: number; humidity?: number };
+            if (parsed?.condition) {
+              return parsed;
+            }
+          }
+        } catch (error) {
+          console.warn('App: failed to read cached weather', error);
+        }
+
+        const now = new Date();
+        const hour = now.getHours();
+
+        if (hour < 6) {
+          return { condition: 'Skoré jasno', temperatureC: 12 };
+        }
+        if (hour < 12) {
+          return { condition: 'Ranné slnko', temperatureC: 18 };
+        }
+        if (hour < 18) {
+          return { condition: 'Jemná oblačnosť', temperatureC: 23 };
+        }
+        return { condition: 'Večerný vánok', temperatureC: 17 };
+      },
+    };
+
+    const calendarProvider: CalendarProvider = {
+      async getNextWakeUpTime() {
+        const fallback = () => {
+          const next = new Date();
+          next.setHours(7, 0, 0, 0);
+          if (next.getTime() <= Date.now()) {
+            next.setDate(next.getDate() + 1);
+          }
+          return next;
+        };
+
+        try {
+          const stored = await AsyncStorage.getItem(WAKE_TIME_STORAGE_KEY);
+          if (!stored) {
+            return fallback();
+          }
+
+          try {
+            const parsed = JSON.parse(stored) as unknown;
+
+            if (typeof parsed === 'string') {
+              const candidate = new Date(parsed);
+              if (!Number.isNaN(candidate.getTime())) {
+                if (candidate.getTime() <= Date.now()) {
+                  candidate.setDate(candidate.getDate() + 1);
+                }
+                return candidate;
+              }
+            }
+
+            if (parsed && typeof parsed === 'object') {
+              const { hour, minute } = parsed as { hour?: number; minute?: number };
+              if (typeof hour === 'number') {
+                const candidate = new Date();
+                candidate.setHours(hour, typeof minute === 'number' ? minute : 0, 0, 0);
+                if (candidate.getTime() <= Date.now()) {
+                  candidate.setDate(candidate.getDate() + 1);
+                }
+                return candidate;
+              }
+            }
+          } catch (parseError) {
+            const candidate = new Date(stored);
+            if (!Number.isNaN(candidate.getTime())) {
+              if (candidate.getTime() <= Date.now()) {
+                candidate.setDate(candidate.getDate() + 1);
+              }
+              return candidate;
+            }
+            console.warn('App: failed to parse stored wake time', parseError);
+          }
+        } catch (error) {
+          console.warn('App: failed to read wake time preference', error);
+        }
+
+        return fallback();
+      },
+      async getWeekdayPlan(weekday: number) {
+        try {
+          const stored = await AsyncStorage.getItem(WEEKDAY_PLAN_STORAGE_KEY);
+          if (!stored) {
+            return undefined;
+          }
+          const parsed = JSON.parse(stored) as Record<string, unknown>;
+          const value = parsed[String(weekday)];
+          if (value === 'light' || value === 'balanced' || value === 'strong') {
+            return value;
+          }
+        } catch (error) {
+          console.warn('App: failed to read weekday ritual plan', error);
+        }
+        return undefined;
+      },
+    };
+
+    const manager = new MorningRitualManager({
+      notificationChannel,
+      weatherProvider,
+      calendarProvider,
+      learningEngine,
+      userId: 'local-user',
+    });
+
+    setMorningRitualManager(manager);
+  }, [personalizationReady, learningEngine, morningRitualManager, setMorningRitualManager]);
 
   const handleScannerPress = () => {
     setCurrentScreen('scanner');
@@ -477,7 +640,9 @@ const styles = StyleSheet.create({
 export default function App(): React.JSX.Element {
   return (
     <ThemeProvider>
-      <AppContent />
+      <PersonalizationProvider>
+        <AppContent />
+      </PersonalizationProvider>
     </ThemeProvider>
   );
 }
