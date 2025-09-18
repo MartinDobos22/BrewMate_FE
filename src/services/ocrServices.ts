@@ -1,7 +1,9 @@
 // services/ocrService.ts
 import auth from '@react-native-firebase/auth';
 import NetInfo from '@react-native-community/netinfo';
+import RNFS from 'react-native-fs';
 import { coffeeOfflineManager } from '../offline';
+import { recognizeCoffee } from '../offline/VisionService';
 import { CONFIG } from '../config/config';
 import { API_HOST, API_URL } from './api';
 
@@ -75,6 +77,7 @@ interface OCRResult {
   isRecommended?: boolean;
   scanId?: string;
   brewingMethods?: string[];
+  source?: 'offline' | 'online';
 }
 
 interface OCRHistory {
@@ -324,7 +327,51 @@ export const getBrewRecipe = async (
 /**
  * Spracuje OCR z obrázka
  */
-export const processOCR = async (base64image: string): Promise<OCRResult | null> => {
+const ensureOfflineImagePath = async (
+  base64image: string,
+  providedPath?: string,
+): Promise<string> => {
+  if (providedPath) return providedPath;
+
+  const cacheDir =
+    RNFS.CachesDirectoryPath || RNFS.TemporaryDirectoryPath || RNFS.DocumentDirectoryPath;
+  if (!cacheDir) {
+    throw new Error('Missing temporary directory for offline recognition');
+  }
+
+  const path = `${cacheDir}/ocr-offline-${Date.now()}.jpg`;
+  await RNFS.writeFile(path, base64image, 'base64');
+  return path;
+};
+
+const offlineFallback = async (
+  base64image: string,
+  imagePath?: string,
+): Promise<OCRResult | null> => {
+  try {
+    const path = await ensureOfflineImagePath(base64image, imagePath);
+    const label = await recognizeCoffee(path);
+    if (!label) {
+      return null;
+    }
+
+    return {
+      original: '',
+      corrected: label,
+      recommendation: 'Výsledok z lokálneho modelu.',
+      scanId: `offline-${Date.now()}`,
+      source: 'offline',
+    };
+  } catch (fallbackError) {
+    console.error('Offline OCR fallback failed:', fallbackError);
+    return null;
+  }
+};
+
+export const processOCR = async (
+  base64image: string,
+  options?: { imagePath?: string },
+): Promise<OCRResult | null> => {
   try {
     await ensureOnline();
     // 1. Pošli na Google Vision API
@@ -409,9 +456,13 @@ export const processOCR = async (base64image: string): Promise<OCRResult | null>
       isRecommended,
       scanId,
       brewingMethods,
+      source: 'online',
     };
   } catch (error) {
     console.error('OCR processing error:', error);
+    if (error instanceof Error && error.message === 'Offline') {
+      return await offlineFallback(base64image, options?.imagePath);
+    }
     throw error;
   }
 };

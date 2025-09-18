@@ -38,6 +38,8 @@ import { saveOCRResult, loadOCRResult } from '../services/offlineCache';
 import { addRecentScan } from '../services/coffeeServices.ts';
 import { coffeeDiary, preferenceEngine } from '../services/personalizationGateway';
 import { BrewContext } from '../types/Personalization';
+import { recognizeCoffee } from '../offline/VisionService';
+import { coffeeOfflineManager } from '../offline';
 
 interface OCRHistory {
   id: string;
@@ -58,6 +60,7 @@ interface ScanResult {
   matchPercentage?: number;
   isRecommended?: boolean;
   scanId?: string;
+  source?: 'offline' | 'online';
 }
 
 interface ProfessionalOCRScannerProps {
@@ -109,6 +112,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
   const [purchased, setPurchased] = useState<boolean | null>(null);
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
   const [offlineModalVisible, setOfflineModalVisible] = useState(false);
+  const [offlineStatus, setOfflineStatus] = useState<'prompt' | 'modelUsed'>('prompt');
 
   const camera = useRef<Camera>(null);
   const device = useCameraDevice('back');
@@ -128,7 +132,11 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     const unsubscribe = NetInfo.addEventListener(state => {
       setIsConnected(state.isConnected);
       if (!state.isConnected) {
+        setOfflineStatus('prompt');
         setOfflineModalVisible(true);
+      } else {
+        setOfflineModalVisible(false);
+        setOfflineStatus('prompt');
       }
     });
     return () => {
@@ -173,8 +181,15 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
         flash: 'auto',
       });
 
+      setShowCamera(false);
       const base64 = await RNFS.readFile(photo.path, 'base64');
-      await processImage(base64);
+
+      if (isConnected === false) {
+        await handleOfflineScan(photo.path, base64);
+        return;
+      }
+
+      await processImage(base64, { imagePath: photo.path, base64 });
     } catch (error) {
       console.error('Take photo error:', error);
       Alert.alert('Chyba', 'Nepodarilo sa urobiť fotografiu');
@@ -193,11 +208,36 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
       includeBase64: true,
     };
 
-    launchImageLibrary(options, (response: ImagePickerResponse) => {
+    launchImageLibrary(options, async (response: ImagePickerResponse) => {
       if (response.didCancel || response.errorMessage) return;
 
       if (response.assets && response.assets[0]?.base64) {
-        processImage(response.assets[0].base64);
+        const base64 = response.assets[0].base64;
+        try {
+          const cacheDir =
+            RNFS.CachesDirectoryPath || RNFS.TemporaryDirectoryPath || RNFS.DocumentDirectoryPath;
+          if (!cacheDir) {
+            throw new Error('Temporary directory is not available');
+          }
+          const tempPath = `${cacheDir}/brew-offline-${Date.now()}.jpg`;
+          await RNFS.writeFile(tempPath, base64, 'base64');
+
+          if (isConnected === false) {
+            setIsLoading(true);
+            setShowCamera(false);
+            try {
+              await handleOfflineScan(tempPath, base64);
+            } finally {
+              setIsLoading(false);
+            }
+            return;
+          }
+
+          await processImage(base64, { imagePath: tempPath, base64 });
+        } catch (err) {
+          console.error('Gallery processing error:', err);
+          Alert.alert('Chyba', 'Nepodarilo sa spracovať obrázok');
+        }
       } else {
         Alert.alert('Chyba', 'Nepodarilo sa načítať obrázok');
       }
@@ -207,14 +247,21 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
   /**
    * Vykoná OCR pipeline a uloží výsledok do stavu.
    */
-  const processImage = async (base64image: string) => {
+  type ProcessImageExtra = { imagePath?: string; base64?: string };
+
+  const processImage = async (base64image: string, extra?: ProcessImageExtra) => {
     try {
       setIsLoading(true);
       setShowCamera(false);
 
-      const result = await processOCR(base64image);
+      const result = await processOCR(base64image, { imagePath: extra?.imagePath });
 
       if (result) {
+        if (result.source === 'offline') {
+          await handleOfflineScan(extra?.imagePath || '', extra?.base64 ?? base64image, result);
+          return;
+        }
+
         setScanResult(result);
         setEditedText(result.corrected);
         setPurchaseSelection(null);
@@ -230,8 +277,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
 
         // Ulož do zoznamu posledných skenov
         const name = extractCoffeeName(result.corrected || result.original);
+        const scanIdentifier = result.scanId || Date.now().toString();
         await addRecentScan({
-          id: result.scanId || Date.now().toString(),
+          id: scanIdentifier,
           name,
           imageUrl: `data:image/jpeg;base64,${base64image}`,
         });
@@ -252,9 +300,85 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
       }
     } catch (error) {
       console.error('Error processing image:', error);
+      if (
+        extra?.imagePath &&
+        error instanceof Error &&
+        /offline|network request failed/i.test(error.message)
+      ) {
+        await handleOfflineScan(extra.imagePath, extra.base64 ?? base64image);
+        return;
+      }
       Alert.alert('Chyba', 'Nepodarilo sa spracovať obrázok');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleOfflineScan = async (
+    imagePath: string,
+    base64image: string,
+    existingResult?: ScanResult | null
+  ) => {
+    try {
+      const label = existingResult?.corrected || (await recognizeCoffee(imagePath));
+      if (!label) {
+        Alert.alert('Chyba', 'Nepodarilo sa rozpoznať kávu offline');
+        return;
+      }
+
+      const timestamp = Date.now();
+      const scanId = existingResult?.scanId || `offline-${timestamp}`;
+      const offlineResult: ScanResult = existingResult
+        ? { ...existingResult, source: 'offline' }
+        : {
+          original: '',
+          corrected: label,
+          recommendation: 'Výsledok z lokálneho modelu.',
+          scanId,
+          source: 'offline',
+        };
+
+      setScanResult(offlineResult);
+      setEditedText(offlineResult.corrected);
+      setPurchaseSelection(null);
+      setPurchased(null);
+
+      try {
+        const payload = imagePath
+          ? { ...offlineResult, imagePath, createdAt: timestamp }
+          : { ...offlineResult, createdAt: timestamp };
+        await coffeeOfflineManager.setItem(
+          'taste:last-offline',
+          payload,
+          24 * 30,
+          5
+        );
+      } catch (cacheError) {
+        console.error('Failed to cache offline scan', cacheError);
+      }
+
+      try {
+        await saveOCRResult(scanId, offlineResult);
+      } catch (cacheError) {
+        console.error('Failed to save offline result', cacheError);
+      }
+
+      try {
+        const name = extractCoffeeName(label);
+        await addRecentScan({
+          id: scanId,
+          name,
+          imageUrl: `data:image/jpeg;base64,${base64image}`,
+        });
+      } catch (recentError) {
+        console.error('Failed to store offline recent scan', recentError);
+      }
+
+      setOfflineStatus('modelUsed');
+      setOfflineModalVisible(true);
+    } catch (err) {
+      console.error('Offline recognition failed:', err);
+      Alert.alert('Chyba', 'Nepodarilo sa spracovať obrázok offline');
     }
   };
 
@@ -429,6 +553,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
 
   const handleUseLastResult = async () => {
     setOfflineModalVisible(false);
+    setOfflineStatus('prompt');
     const cached = await loadOCRResult();
     if (cached) {
       setScanResult(cached);
@@ -522,16 +647,33 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
         visible={offlineModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setOfflineModalVisible(false)}
+        onRequestClose={() => {
+          setOfflineModalVisible(false);
+          setOfflineStatus('prompt');
+        }}
       >
         <View style={styles.offlineModalOverlay}>
           <View style={styles.offlineModalContent}>
             <Text style={styles.offlineModalText}>
-              Ste offline, chcete použiť posledný výsledok?
+              {offlineStatus === 'modelUsed'
+                ? 'Použitý lokálny model'
+                : 'Ste offline, chcete použiť posledný výsledok?'}
             </Text>
-            <TouchableOpacity style={styles.button} onPress={handleUseLastResult}>
-              <Text style={styles.buttonText}>Použiť naposledy uložený výsledok</Text>
-            </TouchableOpacity>
+            {offlineStatus === 'modelUsed' ? (
+              <TouchableOpacity
+                style={styles.button}
+                onPress={() => {
+                  setOfflineModalVisible(false);
+                  setOfflineStatus('prompt');
+                }}
+              >
+                <Text style={styles.buttonText}>OK</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.button} onPress={handleUseLastResult}>
+                <Text style={styles.buttonText}>Použiť naposledy uložený výsledok</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </Modal>

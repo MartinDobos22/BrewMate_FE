@@ -22,7 +22,11 @@ jest.mock('react-native-image-picker', () => ({
   }),
 }));
 
-jest.mock('react-native-fs', () => ({}));
+jest.mock('react-native-fs', () => ({
+  CachesDirectoryPath: '/tmp',
+  writeFile: jest.fn(() => Promise.resolve()),
+  readFile: jest.fn(() => Promise.resolve('')),
+}));
 
 jest.mock('../src/services/ocrServices.ts', () => ({
   processOCR: jest.fn(() => Promise.resolve({
