@@ -12,6 +12,7 @@ import BottomNav, { BOTTOM_NAV_HEIGHT } from './BottomNav';
 import { useTheme } from '../theme/ThemeProvider';
 import { CONFIG } from '../config/config';
 import { BrewDevice, BREW_DEVICES } from '../types/Recipe';
+import { AIFallback } from '../offline/AIFallback';
 
 interface AIChatScreenProps {
   onBack: () => void;
@@ -25,6 +26,7 @@ interface AIChatScreenProps {
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  offline?: boolean;
 }
 
 const AIChatScreen: React.FC<AIChatScreenProps> = ({
@@ -42,43 +44,75 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({
   const [brewDevice, setBrewDevice] = useState<BrewDevice>(BREW_DEVICES[0]);
 
   const sendMessage = async () => {
-    if (!input.trim()) return;
-    const newMessages = [...messages, { role: 'user', content: input }];
+    const trimmedInput = input.trim();
+    if (!trimmedInput) return;
+
+    const userMessage: Message = { role: 'user', content: trimmedInput };
+    const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setInput('');
 
-    try {
+    const onlineFetcher = async (question: string) => {
       setLoading(true);
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${CONFIG.OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [
-            {
-              role: 'system',
-              content: `Si priateľský odborník na kávu. Zisťuj preferencie používateľa a odporúčaj kávu, mlynčeky a kávovary. Generuj recept pre zariadenie ${brewDevice}.`,
-            },
-            ...newMessages.map((m) => ({ role: m.role, content: m.content })),
-          ],
-          temperature: 0.4,
-          brewDevice,
-        }),
-      });
-      const data = await response.json();
-      const reply = data?.choices?.[0]?.message?.content?.trim();
-      if (reply) {
-        setMessages((msgs) => [...msgs, { role: 'assistant', content: reply }]);
+      try {
+        const conversation = [
+          ...newMessages.slice(0, -1),
+          { role: 'user', content: question },
+        ];
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${CONFIG.OPENAI_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o',
+            messages: [
+              {
+                role: 'system',
+                content: `Si priateľský odborník na kávu. Zisťuj preferencie používateľa a odporúčaj kávu, mlynčeky a kávovary. Generuj recept pre zariadenie ${brewDevice}.`,
+              },
+              ...conversation.map((m) => ({ role: m.role, content: m.content })),
+            ],
+            temperature: 0.4,
+            brewDevice,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Request failed with status ${response.status}`);
+        }
+
+        const data = await response.json();
+        const reply = data?.choices?.[0]?.message?.content?.trim();
+
+        if (!reply) {
+          throw new Error('Empty response from AI');
+        }
+
+        return reply;
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    try {
+      const { answer, offline } = await AIFallback.getAnswer(trimmedInput, onlineFetcher);
+      if (answer) {
+        setMessages((msgs) => [
+          ...msgs,
+          {
+            role: 'assistant',
+            content: answer,
+            offline,
+          },
+        ]);
       }
     } catch (err) {
       setMessages((msgs) => [
         ...msgs,
         { role: 'assistant', content: 'Nastala chyba pri komunikácii s AI.' },
       ]);
-    } finally {
       setLoading(false);
     }
   };
@@ -123,6 +157,11 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({
             >
               {msg.content}
             </Text>
+            {msg.role === 'assistant' && msg.offline && (
+              <View style={styles.offlineBadge}>
+                <Text style={styles.offlineBadgeText}>Offline odpoveď</Text>
+              </View>
+            )}
           </View>
         ))}
       </ScrollView>
@@ -232,6 +271,19 @@ const createStyles = (colors: any) =>
     sendText: {
       color: '#fff',
       fontWeight: 'bold',
+    },
+    offlineBadge: {
+      marginTop: 6,
+      alignSelf: 'flex-start',
+      backgroundColor: '#f9d67a',
+      borderRadius: 6,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+    },
+    offlineBadgeText: {
+      fontSize: 12,
+      color: '#4a3b0b',
+      fontWeight: '600',
     },
   });
 
