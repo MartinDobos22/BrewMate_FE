@@ -17,7 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from './BottomNav';
 import RecentScansCarousel from './RecentScansCarousel';
 import { fetchRecentScans, RecentScan } from '../services/coffeeServices.ts';
-import { usePersonalization } from '../context/PersonalizationContext';
+import { usePersonalization } from '../hooks/usePersonalization';
 
 interface CoffeeItem {
   id: string;
@@ -69,7 +69,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   const [recentScans, setRecentScans] = useState<RecentScan[]>([]);
   const [ritualRecommendation, setRitualRecommendation] = useState<DailyRitualCardProps['recommendation'] | null>(null);
   const styles = homeStyles();
-  const { manager } = usePersonalization();
+  const { morningRitualManager } = usePersonalization();
 
   const loadCoffees = useCallback(async () => {
     try {
@@ -86,20 +86,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   }, [loadCoffees]);
 
   useEffect(() => {
-    if (!manager) {
+    if (!morningRitualManager) {
       setRitualRecommendation(null);
       return;
     }
 
     let active = true;
 
-    manager.scheduleNotifications().catch((error) => {
+    morningRitualManager.scheduleNotifications().catch((error) => {
       console.warn('HomeScreen: failed to schedule ritual notifications', error);
     });
 
     const resolveRecommendation = async () => {
       try {
-        const rec = await manager.getRecommendation();
+        const rec = await morningRitualManager.getRecommendation();
         if (active) {
           setRitualRecommendation(rec);
         }
@@ -113,7 +113,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     return () => {
       active = false;
     };
-  }, [manager]);
+  }, [morningRitualManager]);
 
   useEffect(() => {
     const loadTip = async () => {

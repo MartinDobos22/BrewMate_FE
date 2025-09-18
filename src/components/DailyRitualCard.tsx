@@ -4,7 +4,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { PredictionResult } from '../types/Personalization';
-import { usePersonalization } from '../context/PersonalizationContext';
+import { usePersonalization } from '../hooks/usePersonalization';
 
 export interface DailyRitualCardProps {
   recommendation: PredictionResult & {
@@ -20,7 +20,7 @@ export interface DailyRitualCardProps {
  */
 const DailyRitualCard: React.FC<DailyRitualCardProps> = ({ recommendation, onShowAlternative }) => {
   const translateX = useSharedValue(0);
-  const { manager } = usePersonalization();
+  const { morningRitualManager } = usePersonalization();
 
   const gradient = useMemo(() => buildGradient(recommendation.weatherCondition), [recommendation.weatherCondition]);
   const indicatorColor = useMemo(() => strengthColor(recommendation.strengthHint), [recommendation.strengthHint]);
@@ -30,22 +30,22 @@ const DailyRitualCard: React.FC<DailyRitualCardProps> = ({ recommendation, onSho
   }, [onShowAlternative]);
 
   const handleAccept = useCallback(() => {
-    if (!manager) {
+    if (!morningRitualManager) {
       return;
     }
-    manager
+    morningRitualManager
       .recordResponse(recommendation.recipeId, true)
       .catch((error) => console.warn('DailyRitualCard: failed to record accept action', error));
-  }, [manager, recommendation.recipeId]);
+  }, [morningRitualManager, recommendation.recipeId]);
 
   const handleDecline = useCallback(() => {
-    if (!manager) {
+    if (!morningRitualManager) {
       return;
     }
-    manager
+    morningRitualManager
       .recordResponse(recommendation.recipeId, false)
       .catch((error) => console.warn('DailyRitualCard: failed to record decline action', error));
-  }, [manager, recommendation.recipeId]);
+  }, [morningRitualManager, recommendation.recipeId]);
 
   const gesture = Gesture.Pan()
     .onUpdate((event) => {
