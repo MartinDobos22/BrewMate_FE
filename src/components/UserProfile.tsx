@@ -19,7 +19,7 @@ import { AIResponseDisplay } from './AIResponseDisplay';
 import { unifiedStyles } from '../theme/unifiedStyles';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from './BottomNav';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { usePersonalization } from '../context/PersonalizationContext';
+import { usePersonalization } from '../hooks/usePersonalization';
 import TasteProfileVisualization from './TasteProfileVisualization';
 import { PrivacyManager } from '../services/PrivacyManager';
 import { preferenceEngine } from '../services/personalizationGateway';
@@ -74,8 +74,8 @@ const UserProfile = ({
   onProfilePress: () => void;
   onGamification: () => void;
 }) => {
-  const { ready: personalizationReady } = usePersonalization();
-  const privacyManagerRef = useRef<PrivacyManager>(privacyManager.manager);
+  const { ready: personalizationReady, privacyManager: contextPrivacyManager } = usePersonalization();
+  const privacyManagerRef = useRef<PrivacyManager>(contextPrivacyManager ?? privacyManager.manager);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -87,6 +87,12 @@ const UserProfile = ({
   const [exportingData, setExportingData] = useState(false);
   const [deletingData, setDeletingData] = useState(false);
   const hasDataConsent = trackingConsent ? optIn.dataControl.every(flag => trackingConsent[flag]) : false;
+
+  useEffect(() => {
+    if (contextPrivacyManager) {
+      privacyManagerRef.current = contextPrivacyManager;
+    }
+  }, [contextPrivacyManager]);
 
   const fetchProfile = useCallback(async () => {
     try {
