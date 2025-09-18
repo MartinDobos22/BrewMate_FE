@@ -29,15 +29,15 @@ import SavedRecipesScreen from './src/components/SavedRecipesScreen';
 import BottomNav from './src/components/BottomNav';
 import { scheduleLowStockCheck } from './src/utils/reminders';
 import InventoryScreen from './src/screens/InventoryScreen';
-import { coffeeOfflineManager, offlineSync } from 'src/offline';
+import { coffeeOfflineManager, offlineSync } from './src/offline';
 import {
   ConnectionStatusBar,
   QueueStatusBadge,
   SyncProgressIndicator,
 } from 'src/components/offline';
-import { fetchRecipes, fetchRecipeHistory } from 'src/services/recipeServices';
-import { fetchCoffees, fetchScanHistory } from 'src/services/homePagesService';
-import { fetchRecentScans } from 'src/services/coffeeServices';
+import { fetchRecipes, fetchRecipeHistory } from './src/services/recipeServices';
+import { fetchCoffees, fetchScanHistory } from './src/services/homePagesService';
+import { fetchRecentScans } from './src/services/coffeeServices';
 import { MorningRitualManager } from './src/services/MorningRitualManager';
 import { PreferenceLearningEngine } from './src/services/PreferenceLearningEngine';
 import { CoffeeDiary } from './src/services/CoffeeDiary';
@@ -197,12 +197,10 @@ class SupabaseLearningStorageAdapter implements LearningStorageAdapter {
       rating: typeof row.rating === 'number' ? row.rating : 0,
       tasteFeedback: (row.taste_feedback as BrewHistoryEntry['tasteFeedback']) ?? undefined,
       flavorNotes: (row.flavor_notes as BrewHistoryEntry['flavorNotes']) ?? undefined,
-      context: {
-        timeOfDay: row.context_time_of_day ?? undefined,
-        weather: (row.context_weather as BrewHistoryEntry['context']?.weather) ?? undefined,
-        moodBefore: row.mood_before ?? undefined,
-        moodAfter: row.mood_after ?? undefined,
-      },
+      // context: {
+      //   timeOfDay: row.context_time_of_day ?? undefined,
+      //   weather: (row.context_weather as BrewHistoryEntry['context']?.weather) ?? undefined,
+      //  },
       modifications: (row.modifications as string[]) ?? undefined,
       createdAt: row.created_at ?? new Date().toISOString(),
       updatedAt: row.updated_at ?? new Date().toISOString(),
@@ -278,12 +276,12 @@ class SupabaseDiaryStorageAdapter implements DiaryStorageAdapter {
       rating: typeof row.rating === 'number' ? row.rating : 0,
       tasteFeedback: (row.taste_feedback as BrewHistoryEntry['tasteFeedback']) ?? undefined,
       flavorNotes: (row.flavor_notes as BrewHistoryEntry['flavorNotes']) ?? undefined,
-      context: {
-        timeOfDay: row.context_time_of_day ?? undefined,
-        weather: (row.context_weather as BrewHistoryEntry['context']?.weather) ?? undefined,
-        moodBefore: row.mood_before ?? undefined,
-        moodAfter: row.mood_after ?? undefined,
-      },
+      // context: {
+      //   timeOfDay: row.context_time_of_day ?? undefined,
+      //   weather: (row.context_weather as BrewHistoryEntry['context']?.weather) ?? undefined,
+      //   moodBefore: row.mood_before ?? undefined,
+      //   moodAfter: row.mood_after ?? undefined,
+      // },
       modifications: (row.modifications as string[]) ?? undefined,
       createdAt: row.created_at ?? new Date().toISOString(),
       updatedAt: row.updated_at ?? new Date().toISOString(),
