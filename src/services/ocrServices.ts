@@ -1,10 +1,29 @@
 // services/ocrService.ts
 import auth from '@react-native-firebase/auth';
 import NetInfo from '@react-native-community/netinfo';
+import { coffeeOfflineManager } from '../offline';
 import { CONFIG } from '../config/config';
 import { API_HOST, API_URL } from './api';
 
 const OPENAI_API_KEY = CONFIG.OPENAI_API_KEY;
+const AI_CACHE_TTL = 24;
+
+const createCacheKey = (prefix: string, input: string) => {
+  const normalized = input.replace(/\s+/g, ' ').trim();
+  const encoded = encodeURIComponent(normalized).slice(0, 96);
+  return `ai:${prefix}:${encoded}`;
+};
+
+const getCachedAIValue = async <T>(key: string): Promise<T | null> =>
+  coffeeOfflineManager.getItem<T>(key);
+
+const setCachedAIValue = async (key: string, value: any, priority = 6) => {
+  try {
+    await coffeeOfflineManager.setItem(key, value, AI_CACHE_TTL, priority);
+  } catch (error) {
+    console.warn('Failed to cache AI response', error);
+  }
+};
 
 /**
  * Overí sieťové pripojenie
@@ -123,9 +142,12 @@ OCR text:
 ${ocrText}
   `;
 
+  const cacheKey = createCacheKey('ocr:fix', ocrText);
+  const cached = await getCachedAIValue<string>(cacheKey);
+
   if (!OPENAI_API_KEY) {
     console.error('Chýba OpenAI API key. Text sa neodošle na opravu.');
-    return ocrText;
+    return cached ?? ocrText;
   }
 
   try {
@@ -156,13 +178,15 @@ ${ocrText}
     console.log('📥 [OpenAI] OCR response:', data);
 
     if (data?.choices?.[0]?.message?.content) {
-      return data.choices[0].message.content.trim();
+      const fixed = data.choices[0].message.content.trim();
+      await setCachedAIValue(cacheKey, fixed, 7);
+      return fixed;
     }
 
-    return ocrText;
+    return cached ?? ocrText;
   } catch (error) {
     console.error('AI correction error:', error);
-    return ocrText;
+    return cached ?? ocrText;
   }
 };
 
@@ -177,10 +201,12 @@ export const suggestBrewingMethods = async (
     `Odpovedz len zoznamom metód oddelených novým riadkom. Popis: "${coffeeText}"`;
 
   const fallback = ['Espresso', 'French press', 'V60', 'Cold brew'];
+  const cacheKey = createCacheKey('ocr:methods', coffeeText);
+  const cached = await getCachedAIValue<string[]>(cacheKey);
 
   if (!OPENAI_API_KEY) {
     console.error('Chýba OpenAI API key. Vráti sa predvolený zoznam metód.');
-    return fallback;
+    return cached ?? fallback;
   }
 
   try {
@@ -226,9 +252,13 @@ export const suggestBrewingMethods = async (
       methods = methods.slice(0, 4);
     }
 
+    await setCachedAIValue(cacheKey, methods, 6);
     return methods;
   } catch (error) {
     console.error('Brewing suggestion error:', error);
+    if (cached) {
+      return cached;
+    }
     return fallback;
   }
 };
@@ -242,9 +272,12 @@ export const getBrewRecipe = async (
 ): Promise<string> => {
   const prompt = `Priprav detailný recept na kávu pomocou metódy ${method}. Používateľ preferuje ${taste} chuť. Uveď ideálny pomer kávy k vode, teplotu vody a ďalšie dôležité kroky. Odpovedz stručne.`;
 
+  const cacheKey = createCacheKey('ocr:recipe', `${method}|${taste}`);
+  const cached = await getCachedAIValue<string>(cacheKey);
+
   if (!OPENAI_API_KEY) {
     console.error('Chýba OpenAI API key. Recept sa nevygeneruje.');
-    return '';
+    return cached ?? '';
   }
 
   try {
@@ -273,9 +306,17 @@ export const getBrewRecipe = async (
 
     const data = await response.json();
     console.log('📥 [OpenAI] Recipe response:', data);
-    return data?.choices?.[0]?.message?.content?.trim() || '';
+    const recipe = data?.choices?.[0]?.message?.content?.trim() || '';
+    if (recipe) {
+      await setCachedAIValue(cacheKey, recipe, 6);
+      return recipe;
+    }
+    return cached ?? '';
   } catch (error) {
     console.error('Brew recipe error:', error);
+    if (cached) {
+      return cached;
+    }
     return '';
   }
 };

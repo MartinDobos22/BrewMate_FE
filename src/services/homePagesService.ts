@@ -1,6 +1,7 @@
 // services/homeService.ts
 import auth from '@react-native-firebase/auth';
 import { API_URL } from './api';
+import { coffeeOfflineManager, offlineSync } from '../offline';
 
 /**
  * Wrapper okolo fetchu ktorý loguje požiadavky a odpovede medzi frontendom a backendom.
@@ -38,6 +39,24 @@ interface DashboardData {
   recommendations: CoffeeData[];
   dailyTip: string;
 }
+
+const COFFEE_CACHE_KEY = 'coffees:favorites';
+const SCAN_HISTORY_CACHE_KEY = 'scans:history';
+const CACHE_TTL_HOURS = 24;
+
+const normalizeCachedTimestamp = (item: CoffeeData): CoffeeData => ({
+  ...item,
+  timestamp: item.timestamp ? new Date(item.timestamp) : undefined,
+});
+
+const isOfflineError = (error: unknown) => {
+  const message = (error as Error)?.message?.toLowerCase?.() ?? '';
+  return (
+    message.includes('network request failed') ||
+    message.includes('offline') ||
+    message.includes('networkerror')
+  );
+};
 
 /**
  * Získa autorizačný token
@@ -178,6 +197,7 @@ export const fetchUserStats = async (): Promise<UserStats> => {
  * Načíta všetky kávy z databázy
  */
 export const fetchCoffees = async (): Promise<CoffeeData[]> => {
+  const cached = await coffeeOfflineManager.getItem<CoffeeData[]>(COFFEE_CACHE_KEY);
   try {
     const token = await getAuthToken();
     if (!token) return [];
@@ -191,11 +211,11 @@ export const fetchCoffees = async (): Promise<CoffeeData[]> => {
     });
 
     if (!response.ok) {
-      return [];
+      return cached ?? [];
     }
 
     const data = await response.json();
-    return data.map((item: any) => ({
+    const mapped = data.map((item: any) => ({
       id: item.id?.toString() || '',
       name: item.name,
       brand: item.brand,
@@ -206,8 +226,18 @@ export const fetchCoffees = async (): Promise<CoffeeData[]> => {
       rating: item.rating,
       match: item.match,
     }));
+    await coffeeOfflineManager.setItem(
+      COFFEE_CACHE_KEY,
+      mapped,
+      CACHE_TTL_HOURS,
+      8,
+    );
+    return mapped;
   } catch (error) {
     console.error('Error fetching coffees:', error);
+    if (cached) {
+      return cached;
+    }
     return [];
   }
 };
@@ -216,6 +246,7 @@ export const fetchCoffees = async (): Promise<CoffeeData[]> => {
  * Načíta históriu skenovaní
  */
 export const fetchScanHistory = async (limit: number = 5): Promise<CoffeeData[]> => {
+  const cached = await coffeeOfflineManager.getItem<CoffeeData[]>(SCAN_HISTORY_CACHE_KEY);
   try {
     const token = await getAuthToken();
     if (!token) return [];
@@ -230,11 +261,11 @@ export const fetchScanHistory = async (limit: number = 5): Promise<CoffeeData[]>
 
     if (!response.ok) {
       console.warn('Scan history API returned error:', response.status);
-      return [];
+      return (cached ?? []).map(normalizeCachedTimestamp);
     }
 
     const data = await response.json();
-    return data.map((item: any) => ({
+    const mapped = data.map((item: any) => ({
       id: item.id.toString(),
       name: item.coffee_name || 'Neznáma káva',
       rating: parseFloat(item.rating || 0),
@@ -244,8 +275,18 @@ export const fetchScanHistory = async (limit: number = 5): Promise<CoffeeData[]>
       brand: item.brand,
       origin: item.origin,
     }));
+    await coffeeOfflineManager.setItem(
+      SCAN_HISTORY_CACHE_KEY,
+      mapped,
+      CACHE_TTL_HOURS,
+      6,
+    );
+    return mapped;
   } catch (error) {
     console.error('Error fetching scan history:', error);
+    if (cached) {
+      return cached.map(normalizeCachedTimestamp);
+    }
     return [];
   }
 };
@@ -303,9 +344,20 @@ export const saveCoffeeRating = async (
       }),
     });
 
-    return response.ok;
+    if (response.ok) {
+      return true;
+    }
+    if (response.status === 401) {
+      await offlineSync.enqueue('coffee:rate', { coffeeId, rating, notes });
+      return true;
+    }
+    return false;
   } catch (error) {
     console.error('Error saving coffee rating:', error);
+    if (isOfflineError(error)) {
+      await offlineSync.enqueue('coffee:rate', { coffeeId, rating, notes });
+      return true;
+    }
     return false;
   }
 };
@@ -326,9 +378,20 @@ export const toggleFavorite = async (coffeeId: string): Promise<boolean> => {
       },
     });
 
-    return response.ok;
+    if (response.ok) {
+      return true;
+    }
+    if (response.status === 401) {
+      await offlineSync.enqueue('coffee:favorite', { coffeeId });
+      return true;
+    }
+    return false;
   } catch (error) {
     console.error('Error toggling favorite:', error);
+    if (isOfflineError(error)) {
+      await offlineSync.enqueue('coffee:favorite', { coffeeId });
+      return true;
+    }
     return false;
   }
 };
