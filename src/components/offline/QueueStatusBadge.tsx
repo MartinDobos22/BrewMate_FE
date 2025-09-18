@@ -12,6 +12,9 @@ const QueueStatusBadge: React.FC = () => {
     const listener = (value: number) => setCount(value);
     offlineSync.addListener(listener);
     return () => offlineSync.removeListener(listener);
+
+    const unsubscribe = offlineSync.addListener(setCount);
+    return () => unsubscribe();
   }, []);
 
   if (count === 0) return null;

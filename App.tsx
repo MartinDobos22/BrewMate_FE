@@ -29,6 +29,15 @@ import SavedRecipesScreen from './src/components/SavedRecipesScreen';
 import BottomNav from './src/components/BottomNav';
 import { scheduleLowStockCheck } from './src/utils/reminders';
 import InventoryScreen from './src/screens/InventoryScreen';
+import { coffeeOfflineManager, offlineSync } from 'src/offline';
+import {
+  ConnectionStatusBar,
+  QueueStatusBadge,
+  SyncProgressIndicator,
+} from 'src/components/offline';
+import { fetchRecipes, fetchRecipeHistory } from 'src/services/recipeServices';
+import { fetchCoffees, fetchScanHistory } from 'src/services/homePagesService';
+import { fetchRecentScans } from 'src/services/coffeeServices';
 import { MorningRitualManager } from './src/services/MorningRitualManager';
 import { PreferenceLearningEngine } from './src/services/PreferenceLearningEngine';
 import { CoffeeDiary } from './src/services/CoffeeDiary';
@@ -335,8 +344,12 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   const [generatedRecipe, setGeneratedRecipe] = useState('');
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
+  const [queueLength, setQueueLength] = useState(0);
+  const [syncProgress, setSyncProgress] = useState(0);
+  const [syncVisible, setSyncVisible] = useState(false);
   const { isDark, colors } = useTheme();
   const { ready: personalizationReady, morningRitualManager, learningEngine, userId } = personalization;
+  const indicatorVisible = syncVisible || queueLength > 0;
 
   useEffect(() => {
     const init = async () => {
@@ -376,6 +389,33 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
+
+    coffeeOfflineManager
+      .purgeExpired()
+      .catch((error) => console.warn('App: failed to purge offline cache', error));
+
+    coffeeOfflineManager.startWifiPrefetch(fetchRecipes);
+    offlineSync.start();
+
+    const handleQueueChange = (count: number) => {
+      if (!isMounted) {
+        return;
+      }
+      setQueueLength(count);
+      setSyncVisible(count > 0);
+      setSyncProgress(count === 0 ? 1 : Math.max(0.1, Math.min(0.95, 1 / (count + 1))));
+    };
+
+    const unsubscribe = offlineSync.addListener(handleQueueChange);
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
     scheduleLowStockCheck();
     const now = new Date();
     const next = new Date();
@@ -388,6 +428,28 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     }, timeout);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    const prefetchPriorityContent = async () => {
+      try {
+        await Promise.allSettled([
+          fetchRecipes(),
+          fetchCoffees(),
+          fetchRecipeHistory(50),
+          fetchScanHistory(20),
+          fetchRecentScans(20),
+        ]);
+      } catch (error) {
+        console.warn('App: priority cache prefetch failed', error);
+      }
+    };
+
+    prefetchPriorityContent();
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -656,7 +718,12 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         statusBarStyle={isDark ? 'light-content' : 'dark-content'}
         statusBarBackground={colors.background}
       >
+        <ConnectionStatusBar />
+        <View style={styles.header}>
+          <QueueStatusBadge />
+        </View>
         <OnboardingScreen onFinish={() => setIsOnboardingComplete(true)} />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
       </ResponsiveWrapper>
     );
   }
@@ -668,7 +735,12 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         statusBarStyle={isDark ? 'light-content' : 'dark-content'}
         statusBarBackground={colors.background}
       >
+        <ConnectionStatusBar />
+        <View style={styles.header}>
+          <QueueStatusBadge />
+        </View>
         <AuthScreen />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
       </ResponsiveWrapper>
     );
   }
@@ -680,12 +752,14 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         statusBarStyle={isDark ? 'light-content' : 'dark-content'}
         statusBarBackground={colors.background}
       >
+        <ConnectionStatusBar />
         <View style={styles.header}>
           <TouchableOpacity
             style={[styles.backButton, { backgroundColor: colors.primary }]}
             onPress={handleBackPress}>
             <Text style={styles.backButtonText}>← Späť</Text>
           </TouchableOpacity>
+          <QueueStatusBadge />
         </View>
         <CoffeeTasteScanner />
         <BottomNav
@@ -696,6 +770,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           onFavoritesPress={handleFavoritesPress}
           onProfilePress={handleProfilePress}
         />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
       </ResponsiveWrapper>
     );
   }
@@ -707,12 +782,14 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         statusBarStyle={isDark ? 'light-content' : 'dark-content'}
         statusBarBackground={colors.background}
       >
+        <ConnectionStatusBar />
         <View style={styles.header}>
           <TouchableOpacity
             style={[styles.backButton, { backgroundColor: colors.primary }]}
             onPress={handleBackPress}>
             <Text style={styles.backButtonText}>← Späť</Text>
           </TouchableOpacity>
+          <QueueStatusBadge />
         </View>
         <CoffeeReceipeScanner
           onRecipeGenerated={(recipe) => {
@@ -728,6 +805,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           onFavoritesPress={handleFavoritesPress}
           onProfilePress={handleProfilePress}
         />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
       </ResponsiveWrapper>
     );
   }
@@ -739,6 +817,10 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         statusBarStyle={isDark ? 'light-content' : 'dark-content'}
         statusBarBackground={colors.background}
       >
+        <ConnectionStatusBar />
+        <View style={styles.header}>
+          <QueueStatusBadge />
+        </View>
         <RecipeStepsScreen
           recipe={generatedRecipe}
           onBack={() => setCurrentScreen('brew')}
@@ -751,6 +833,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           onFavoritesPress={handleFavoritesPress}
           onProfilePress={handleProfilePress}
         />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
       </ResponsiveWrapper>
     );
   }
@@ -762,6 +845,10 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         statusBarStyle={isDark ? 'light-content' : 'dark-content'}
         statusBarBackground={colors.primary}
       >
+        <ConnectionStatusBar />
+        <View style={styles.header}>
+          <QueueStatusBadge />
+        </View>
         <UserProfile
           onEdit={() => setCurrentScreen('edit-profile')}
           onPreferences={() => setCurrentScreen('preferences')}
@@ -773,6 +860,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           onProfilePress={handleProfilePress}
           onGamification={() => setCurrentScreen('gamification')}
         />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
       </ResponsiveWrapper>
     );
   }
@@ -784,12 +872,14 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         statusBarStyle={isDark ? 'light-content' : 'dark-content'}
         statusBarBackground={colors.primary}
       >
+        <ConnectionStatusBar />
         <View style={styles.header}>
           <TouchableOpacity
             style={[styles.backButton, { backgroundColor: colors.primary }]}
             onPress={() => setCurrentScreen('profile')}>
             <Text style={styles.backButtonText}>← Späť</Text>
           </TouchableOpacity>
+          <QueueStatusBadge />
         </View>
         <GamificationScreen />
         <BottomNav
@@ -800,6 +890,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           onFavoritesPress={handleFavoritesPress}
           onProfilePress={handleProfilePress}
         />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
       </ResponsiveWrapper>
     );
   }
@@ -811,6 +902,10 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         statusBarStyle={isDark ? 'light-content' : 'dark-content'}
         statusBarBackground={colors.primary}
       >
+        <ConnectionStatusBar />
+        <View style={styles.header}>
+          <QueueStatusBadge />
+        </View>
         <EditUserProfile onBack={() => setCurrentScreen('profile')} />
         <BottomNav
           active="profile"
@@ -820,6 +915,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           onFavoritesPress={handleFavoritesPress}
           onProfilePress={handleProfilePress}
         />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
       </ResponsiveWrapper>
     );
   }
@@ -831,6 +927,10 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         statusBarStyle={isDark ? 'light-content' : 'dark-content'}
         statusBarBackground={colors.primary}
       >
+        <ConnectionStatusBar />
+        <View style={styles.header}>
+          <QueueStatusBadge />
+        </View>
         <CoffeePreferenceForm onBack={() => setCurrentScreen('profile')} />
         <BottomNav
           active="profile"
@@ -840,6 +940,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           onFavoritesPress={handleFavoritesPress}
           onProfilePress={handleProfilePress}
         />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
       </ResponsiveWrapper>
     );
   }
@@ -851,6 +952,10 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         statusBarStyle={isDark ? 'light-content' : 'dark-content'}
         statusBarBackground={colors.primary}
       >
+        <ConnectionStatusBar />
+        <View style={styles.header}>
+          <QueueStatusBadge />
+        </View>
         <EditPreferences onBack={() => setCurrentScreen('profile')} />
         <BottomNav
           active="profile"
@@ -860,6 +965,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           onFavoritesPress={handleFavoritesPress}
           onProfilePress={handleProfilePress}
         />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
       </ResponsiveWrapper>
     );
   }
@@ -871,6 +977,10 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         statusBarStyle={isDark ? 'light-content' : 'dark-content'}
         statusBarBackground={colors.primary}
       >
+        <ConnectionStatusBar />
+        <View style={styles.header}>
+          <QueueStatusBadge />
+        </View>
         <SavedRecipesScreen
           onBack={handleBackPress}
           onHomePress={handleBackPress}
@@ -879,6 +989,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           onFavoritesPress={handleFavoritesPress}
           onProfilePress={handleProfilePress}
         />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
       </ResponsiveWrapper>
     );
   }
@@ -890,6 +1001,10 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         statusBarStyle={isDark ? 'light-content' : 'dark-content'}
         statusBarBackground={colors.primary}
       >
+        <ConnectionStatusBar />
+        <View style={styles.header}>
+          <QueueStatusBadge />
+        </View>
         <AllCoffeesScreen
           onBack={handleBackPress}
           onHomePress={handleBackPress}
@@ -898,6 +1013,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           onFavoritesPress={handleFavoritesPress}
           onProfilePress={handleProfilePress}
         />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
       </ResponsiveWrapper>
     );
   }
@@ -909,12 +1025,14 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         statusBarStyle={isDark ? 'light-content' : 'dark-content'}
         statusBarBackground={colors.background}
       >
+        <ConnectionStatusBar />
         <View style={styles.header}>
           <TouchableOpacity
             style={[styles.backButton, { backgroundColor: colors.primary }]}
             onPress={handleBackPress}>
             <Text style={styles.backButtonText}>← Späť</Text>
           </TouchableOpacity>
+          <QueueStatusBadge />
         </View>
         <InventoryScreen />
         <BottomNav
@@ -925,6 +1043,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           onFavoritesPress={handleFavoritesPress}
           onProfilePress={handleProfilePress}
         />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
       </ResponsiveWrapper>
     );
   }
@@ -936,6 +1055,10 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         statusBarStyle={isDark ? 'light-content' : 'dark-content'}
         statusBarBackground={colors.primary}
       >
+        <ConnectionStatusBar />
+        <View style={styles.header}>
+          <QueueStatusBadge />
+        </View>
         <AIChatScreen
           onBack={handleBackPress}
           onHomePress={handleBackPress}
@@ -944,6 +1067,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           onFavoritesPress={handleFavoritesPress}
           onProfilePress={handleProfilePress}
         />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
       </ResponsiveWrapper>
     );
   }
@@ -954,6 +1078,10 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
       statusBarStyle={isDark ? 'light-content' : 'dark-content'}
       statusBarBackground={colors.background}
     >
+      <ConnectionStatusBar />
+      <View style={styles.header}>
+        <QueueStatusBadge />
+      </View>
       <HomeScreen
         onHomePress={handleBackPress}
         onScanPress={handleScannerPress}
@@ -964,6 +1092,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         onFavoritesPress={handleFavoritesPress}
         onInventoryPress={handleInventoryPress}
       />
+      <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
     </ResponsiveWrapper>
   );
 };

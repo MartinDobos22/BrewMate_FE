@@ -76,8 +76,20 @@ export class OfflineSync {
   /**
    * Zaregistruj listener na zmeny dĺžky fronty.
    */
-  public addListener(cb: (count: number) => void) {
+  public addListener(cb: (count: number) => void): () => void {
     this.listeners.push(cb);
+    void this.getQueue()
+      .then((queue) => {
+        cb(queue.length);
+      })
+      .catch(() => {
+        cb(0);
+      });
+    return () => this.removeListener(cb);
+  }
+
+  public removeListener(cb: (count: number) => void) {
+    this.listeners = this.listeners.filter((listener) => listener !== cb);
   }
 
   public removeListener(cb: (count: number) => void) {
