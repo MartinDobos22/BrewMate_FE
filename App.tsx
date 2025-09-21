@@ -56,6 +56,13 @@ import {
 } from './src/types/Personalization';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { LearningEventProvider } from './src/services/PrivacyManager';
+import { GamificationService } from './src/services/gamification/GamificationService';
+import { GamificationServiceProvider } from './src/hooks/useGamificationServices';
+import { useGamificationStore } from './src/hooks/useGamificationStore';
+import { GamificationAnalytics } from './src/services/analytics/GamificationAnalytics';
+import { GamificationHapticManager } from './src/services/haptics/GamificationHaptics';
+import { SoundEffectManager } from './src/services/audio/SoundEffectManager';
+import { GamificationNotifications } from './src/services/gamification/GamificationNotifications';
 
 type ScreenName =
   | 'home'
@@ -71,6 +78,14 @@ type ScreenName =
   | 'favorites'
   | 'inventory'
   | 'gamification';
+
+const SOUND_EFFECT_PATHS: Record<'level_up' | 'achievement' | 'quest_complete' | 'xp_gain', string | undefined> = {
+  // Zvukové súbory budú doplnené v rámci asset pipeline; momentálne disable pre stabilitu.
+  level_up: undefined,
+  achievement: undefined,
+  quest_complete: undefined,
+  xp_gain: undefined,
+};
 
 const MORNING_RITUAL_CHANNEL_ID = 'brewmate-morning-ritual';
 const WEATHER_CACHE_KEY = 'brewmate:ritual:last_weather';
@@ -336,9 +351,10 @@ class SupabaseLearningEventAdapter implements LearningEventProvider {
 interface AppContentProps {
   personalization: PersonalizationContextValue;
   setPersonalization: React.Dispatch<React.SetStateAction<PersonalizationContextValue>>;
+  setGamificationService: React.Dispatch<React.SetStateAction<GamificationService | null>>;
 }
 
-const AppContent = ({ personalization, setPersonalization }: AppContentProps): React.JSX.Element | null => {
+const AppContent = ({ personalization, setPersonalization, setGamificationService }: AppContentProps): React.JSX.Element | null => {
   const [currentScreen, setCurrentScreen] = useState<ScreenName>('home');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [generatedRecipe, setGeneratedRecipe] = useState('');
@@ -350,6 +366,22 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   const { isDark, colors } = useTheme();
   const { ready: personalizationReady, morningRitualManager, learningEngine, userId } = personalization;
   const indicatorVisible = syncVisible || queueLength > 0;
+  const { setUser: setGamificationUser, setInitialized: setGamificationInitialized } = useGamificationStore((state) => ({
+    setUser: state.setUser,
+    setInitialized: state.setInitialized,
+  }));
+  const soundEffects = useMemo(() => new SoundEffectManager(SOUND_EFFECT_PATHS), []);
+  const haptics = useMemo(() => new GamificationHapticManager(), []);
+  const analytics = useMemo(
+    () =>
+      new GamificationAnalytics(async (event) => {
+        console.log('Gamification event', event);
+      }),
+    [],
+  );
+  const notifications = useMemo(() => new GamificationNotifications(), []);
+
+  useEffect(() => () => soundEffects.dispose(), [soundEffects]);
 
   useEffect(() => {
     const init = async () => {
@@ -387,6 +419,63 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     };
     checkOnboarding();
   }, []);
+
+  useEffect(() => {
+    const activeUserId = personalization.userId ?? auth().currentUser?.uid ?? null;
+    setGamificationUser(activeUserId);
+  }, [personalization.userId, setGamificationUser]);
+
+  useEffect(() => {
+    const activeUserId = personalization.userId ?? auth().currentUser?.uid ?? null;
+    if (!isAuthenticated || !activeUserId || !supabaseClient) {
+      setGamificationService(null);
+      setGamificationInitialized(false);
+      return;
+    }
+
+    let cancelled = false;
+    const service = new GamificationService({
+      supabaseClient,
+      userId: activeUserId,
+      store: useGamificationStore,
+      analytics,
+      sounds: soundEffects,
+      haptics,
+      notifications,
+    });
+
+    (async () => {
+      try {
+        await service.initialize();
+        if (cancelled) {
+          return;
+        }
+        setGamificationService(service);
+        setGamificationInitialized(true);
+        await service.updateLoginStreak();
+      } catch (error) {
+        console.warn('App: inicializácia gamifikácie zlyhala', error);
+        if (!cancelled) {
+          setGamificationInitialized(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      setGamificationService(null);
+      setGamificationInitialized(false);
+    };
+  }, [
+    analytics,
+    haptics,
+    isAuthenticated,
+    notifications,
+    personalization.userId,
+    setGamificationInitialized,
+    setGamificationService,
+    soundEffects,
+  ]);
 
   useEffect(() => {
     let isMounted = true;
@@ -1121,13 +1210,20 @@ export default function App(): React.JSX.Element {
   const [personalization, setPersonalization] = useState<PersonalizationContextValue>(
     () => ({ ...emptyPersonalizationState }),
   );
+  const [gamificationService, setGamificationService] = useState<GamificationService | null>(null);
 
   const contextValue = useMemo(() => personalization, [personalization]);
 
   return (
     <ThemeProvider>
       <PersonalizationContext.Provider value={contextValue}>
-        <AppContent personalization={personalization} setPersonalization={setPersonalization} />
+        <GamificationServiceProvider service={gamificationService}>
+          <AppContent
+            personalization={personalization}
+            setPersonalization={setPersonalization}
+            setGamificationService={setGamificationService}
+          />
+        </GamificationServiceProvider>
       </PersonalizationContext.Provider>
     </ThemeProvider>
   );
