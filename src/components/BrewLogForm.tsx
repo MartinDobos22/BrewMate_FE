@@ -4,6 +4,8 @@ import { Picker } from '@react-native-picker/picker';
 import { BrewLog } from '../types/BrewLog';
 import { BrewDevice, BREW_DEVICES } from '../types/Recipe';
 import { saveBrewLog } from '../services/brewLogService';
+import usePersonalization from '../hooks/usePersonalization';
+import { useGamificationServiceContext } from '../services/gamification/GamificationServiceProvider';
 
 interface Props {
   recipeId?: string;
@@ -19,6 +21,8 @@ const BrewLogForm: React.FC<Props> = ({ recipeId, initialDevice }) => {
   const [brewTime, setBrewTime] = useState('');
   const [notes, setNotes] = useState('');
   const [errors, setErrors] = useState<{ waterTemp?: string; coffeeDose?: string; ratio?: string }>({});
+  const { userId } = usePersonalization();
+  const { service: gamificationService } = useGamificationServiceContext();
 
   const validate = () => {
     const err: { waterTemp?: string; coffeeDose?: string; ratio?: string } = {};
@@ -53,6 +57,18 @@ const BrewLogForm: React.FC<Props> = ({ recipeId, initialDevice }) => {
     setRatio('');
     setBrewTime('');
     setNotes('');
+
+    if (gamificationService && userId) {
+      try {
+        await gamificationService.handleBrewLogSaved(userId, {
+          recipeId: recipeId ?? null,
+          brewDevice,
+          ratio: ratioNum,
+        });
+      } catch (error) {
+        console.warn('BrewLogForm: failed to award XP for brew log save', error);
+      }
+    }
   };
 
   return (
