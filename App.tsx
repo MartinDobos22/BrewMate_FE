@@ -1,5 +1,5 @@
 // App.tsx
-import React, { useState, useEffect, useMemo, useRef, createContext } from 'react';
+import React, { useState, useEffect, useMemo, createContext } from 'react';
 import {
   StyleSheet,
   Text,
@@ -42,15 +42,6 @@ import { MorningRitualManager } from './src/services/MorningRitualManager';
 import { PreferenceLearningEngine } from './src/services/PreferenceLearningEngine';
 import { CoffeeDiary } from './src/services/CoffeeDiary';
 import { PrivacyManager } from './src/services/PrivacyManager';
-import GamificationService from './src/services/gamification/GamificationService';
-import { createGamificationStore } from './src/services/gamification/GamificationStore';
-import { GamificationServiceProvider } from './src/services/gamification/GamificationServiceProvider';
-import {
-  createDefaultGamificationAnalytics,
-  createDefaultGamificationHaptics,
-  createDefaultGamificationNotifications,
-  createDefaultGamificationSoundPlayer,
-} from './src/services/gamification/dependencyFactories';
 import {
   CalendarProvider,
   DiaryStorageAdapter,
@@ -343,16 +334,9 @@ class SupabaseLearningEventAdapter implements LearningEventProvider {
 interface AppContentProps {
   personalization: PersonalizationContextValue;
   setPersonalization: React.Dispatch<React.SetStateAction<PersonalizationContextValue>>;
-  gamificationService: GamificationService | null;
-  setGamificationService: React.Dispatch<React.SetStateAction<GamificationService | null>>;
 }
 
-const AppContent = ({
-  personalization,
-  setPersonalization,
-  gamificationService,
-  setGamificationService,
-}: AppContentProps): React.JSX.Element | null => {
+const AppContent = ({ personalization, setPersonalization }: AppContentProps): React.JSX.Element | null => {
   const [currentScreen, setCurrentScreen] = useState<ScreenName>('home');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [generatedRecipe, setGeneratedRecipe] = useState('');
@@ -364,57 +348,6 @@ const AppContent = ({
   const { isDark, colors } = useTheme();
   const { ready: personalizationReady, morningRitualManager, learningEngine, userId } = personalization;
   const indicatorVisible = syncVisible || queueLength > 0;
-  const gamificationStoreRef = useRef(createGamificationStore());
-  const gamificationAnalyticsRef = useRef(createDefaultGamificationAnalytics());
-  const gamificationSoundsRef = useRef(createDefaultGamificationSoundPlayer());
-  const gamificationHapticsRef = useRef(createDefaultGamificationHaptics());
-  const gamificationNotificationsRef = useRef(createDefaultGamificationNotifications());
-
-  const gamificationDependencies = useMemo(
-    () => ({
-      supabaseClient,
-      store: gamificationStoreRef.current,
-      analytics: gamificationAnalyticsRef.current,
-      sounds: gamificationSoundsRef.current,
-      haptics: gamificationHapticsRef.current,
-      notifications: gamificationNotificationsRef.current,
-    }),
-    [supabaseClient],
-  );
-
-  useEffect(() => {
-    if (!isAuthenticated || !gamificationDependencies.supabaseClient) {
-      setGamificationService((current) => {
-        if (current) {
-          current.dispose();
-        }
-        return null;
-      });
-      return;
-    }
-
-    if (gamificationService) {
-      return;
-    }
-
-    const service = new GamificationService(gamificationDependencies);
-    setGamificationService(service);
-
-    return () => {
-      setGamificationService((current) => {
-        if (current === service) {
-          current.dispose();
-          return null;
-        }
-        return current;
-      });
-    };
-  }, [
-    gamificationDependencies,
-    gamificationService,
-    isAuthenticated,
-    setGamificationService,
-  ]);
 
   useEffect(() => {
     const init = async () => {
@@ -1186,25 +1119,13 @@ export default function App(): React.JSX.Element {
   const [personalization, setPersonalization] = useState<PersonalizationContextValue>(
     () => ({ ...emptyPersonalizationState }),
   );
-  const [gamificationService, setGamificationService] = useState<GamificationService | null>(null);
 
   const contextValue = useMemo(() => personalization, [personalization]);
-  const gamificationContextValue = useMemo(
-    () => ({ service: gamificationService, setService: setGamificationService }),
-    [gamificationService],
-  );
 
   return (
     <ThemeProvider>
       <PersonalizationContext.Provider value={contextValue}>
-        <GamificationServiceProvider value={gamificationContextValue}>
-          <AppContent
-            personalization={personalization}
-            setPersonalization={setPersonalization}
-            gamificationService={gamificationService}
-            setGamificationService={setGamificationService}
-          />
-        </GamificationServiceProvider>
+        <AppContent personalization={personalization} setPersonalization={setPersonalization} />
       </PersonalizationContext.Provider>
     </ThemeProvider>
   );
