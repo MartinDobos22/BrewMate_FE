@@ -2,12 +2,7 @@
  * Orchestrácia všetkých gamifikačných súčastí.
  */
 import gamificationStore from '../../store/gamificationStore';
-import type {
-  DailyQuestProgress,
-  GamificationStateSnapshot,
-  LeaderboardEntry,
-  XpEvent,
-} from '../../types/gamification';
+import type {DailyQuestProgress, LeaderboardEntry, XpEvent} from '../../types/gamification';
 import AchievementManager from './AchievementManager';
 import DailyQuestGenerator from './DailyQuestGenerator';
 import GamificationRepository from './GamificationRepository';
@@ -99,10 +94,10 @@ class GamificationEngine {
       streakDays: state.streakDays,
       doubleXpActive: state.doubleXpUntil ? new Date(state.doubleXpUntil).getTime() > Date.now() : this.xpSystem.isDoubleXpWeekend(),
     });
+    const seasonalMultiplier = state.seasonalEvent?.bonusMultiplier ?? 1;
+    const finalXpGain = Math.round(xpGain * seasonalMultiplier);
 
-    const outcome = this.xpSystem.processXp(state.level, state.xp, xpGain);
-
-    gamificationStore.registerXp({...event, baseAmount: xpGain});
+    const {leveledUp} = gamificationStore.registerXp(event, finalXpGain);
     const metadata = (event.metadata ?? {}) as Record<string, unknown>;
     if (event.source === 'brew' || event.source === 'perfect_brew') {
       gamificationStore.updateStreaks({brew: true});
@@ -115,7 +110,7 @@ class GamificationEngine {
     }
     const updated = gamificationStore.getState();
 
-    if (outcome.leveledUp) {
+    if (leveledUp) {
       HapticsService.triggerImpact('heavy');
       SoundEffectService.play('level_up');
     } else {
@@ -123,22 +118,10 @@ class GamificationEngine {
       SoundEffectService.play('xp_gain');
     }
 
-    const snapshot: GamificationStateSnapshot = {
-      userId: event.userId,
-      level: outcome.level,
-      xp: outcome.xp,
-      xpToNextLevel: outcome.xpToNext,
-      streakDays: updated.streakDays,
-      loginStreak: updated.loginStreak,
-      brewStreak: updated.brewStreak,
-      perfectWeek: updated.perfectWeek,
-      freezeTokens: updated.freezeTokens,
-      comboMultiplier: updated.comboMultiplier,
-      doubleXpActive: updated.doubleXpUntil ? new Date(updated.doubleXpUntil).getTime() > Date.now() : false,
-      skillPoints: updated.skillPoints,
-      title: outcome.title,
-    };
-    await this.repository.upsertUserState(snapshot);
+    const snapshot = gamificationStore.getSnapshot();
+    if (snapshot) {
+      await this.repository.upsertUserState(snapshot);
+    }
 
     if (this.achievementManager) {
       await this.achievementManager.evaluate(event);

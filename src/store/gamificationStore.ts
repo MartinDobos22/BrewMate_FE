@@ -43,7 +43,7 @@ interface GamificationState {
   setAchievements: (definitions: AchievementDefinition[]) => void;
   setDailyQuests: (quests: DailyQuestInstance[]) => void;
   updateStreaks: (payload: {login?: boolean; brew?: boolean; perfectWeek?: boolean; freezeUsed?: boolean}) => void;
-  registerXp: (event: XpEvent) => {newLevel: number; leveledUp: boolean};
+  registerXp: (event: XpEvent, xpGain: number) => {leveledUp: boolean};
   registerQuestProgress: (progress: DailyQuestProgress) => void;
   registerAchievementProgress: (progress: AchievementProgress) => void;
   setLeaderboard: (entries: LeaderboardEntry[]) => void;
@@ -97,16 +97,11 @@ const gamificationStore = create<GamificationState>((set, get) => ({
       lastInteraction: new Date().toISOString(),
     });
   },
-  registerXp: (event) => {
+  registerXp: (event, xpGain) => {
     const state = get();
-    const isDoubleXp = state.doubleXpUntil
-      ? new Date(state.doubleXpUntil).getTime() > new Date(event.timestamp).getTime()
-      : false;
-    const streakMultiplier = 1 + Math.min(2, state.streakDays / 7);
-    const seasonalMultiplier = state.seasonalEvent?.bonusMultiplier ?? 1;
-    const comboMultiplier = state.comboMultiplier;
-    const totalMultiplier = (isDoubleXp ? 2 : 1) * streakMultiplier * seasonalMultiplier * comboMultiplier;
-    const xpGain = Math.round(event.baseAmount * totalMultiplier);
+    if (!state.userId) {
+      throw new Error('Cannot register XP without user context');
+    }
 
     let newXp = state.xp + xpGain;
     let newLevel = state.level;
@@ -122,19 +117,23 @@ const gamificationStore = create<GamificationState>((set, get) => ({
       }
     }
 
-    const snapshotLevel = newLevel;
     const xpToNext = newLevel >= MAX_LEVEL ? 0 : computeXpForLevel(newLevel);
+    const titleIndex = Math.min(
+      TITLES.length - 1,
+      Math.floor((newLevel - 1) / Math.ceil(MAX_LEVEL / TITLES.length)),
+    );
 
     set({
-      level: snapshotLevel,
+      level: newLevel,
       xp: newXp,
       xpToNextLevel: xpToNext,
       skillPoints: state.skillPoints + skillPointsGain,
-      xpLog: [...state.xpLog.slice(-49), event],
-      title: TITLES[Math.min(TITLES.length - 1, Math.floor((snapshotLevel - 1) / Math.ceil(MAX_LEVEL / TITLES.length)))],
+      xpLog: [...state.xpLog.slice(-49), {...event, baseAmount: xpGain}],
+      title: TITLES[titleIndex],
+      lastInteraction: event.timestamp,
     });
 
-    return {newLevel: snapshotLevel, leveledUp};
+    return {leveledUp};
   },
   registerQuestProgress: (progress) => {
     set(({questProgress}) => ({
