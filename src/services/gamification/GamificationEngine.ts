@@ -5,6 +5,7 @@ import gamificationStore from '../../store/gamificationStore';
 import type {
   DailyQuestProgress,
   GamificationStateSnapshot,
+  LeaderboardEntry,
   XpEvent,
 } from '../../types/gamification';
 import AchievementManager from './AchievementManager';
@@ -16,6 +17,8 @@ import HapticsService from './HapticsService';
 import SoundEffectService from './SoundEffectService';
 import AnalyticsService from './AnalyticsService';
 
+export type LeaderboardScope = 'global' | 'friends' | 'local';
+
 class GamificationEngine {
   private xpSystem = new XpSystem();
 
@@ -24,6 +27,12 @@ class GamificationEngine {
   private questGenerator = new DailyQuestGenerator();
 
   private achievementManager?: AchievementManager;
+
+  private leaderboardCache: Record<LeaderboardScope, LeaderboardEntry[]> = {
+    global: [],
+    friends: [],
+    local: [],
+  };
 
   useFreeze() {
     const state = gamificationStore.getState();
@@ -75,6 +84,8 @@ class GamificationEngine {
     SoundEffectService.preload('level_up', 'assets/sounds/level-up.mp3');
     SoundEffectService.preload('xp_gain', 'assets/sounds/xp-gain.mp3');
     SoundEffectService.preload('quest_complete', 'assets/sounds/quest-complete.mp3');
+
+    void this.loadLeaderboard('global');
   }
 
   async handleXpEvent(event: XpEvent) {
@@ -156,6 +167,29 @@ class GamificationEngine {
     const quests = this.questGenerator.generate(state.userId, state.level, preferences);
     gamificationStore.setDailyQuests(quests);
     QuestNotificationService.scheduleQuestReminders(quests);
+  }
+
+  async featureAchievement(achievementId: string) {
+    if (!this.achievementManager) {
+      return;
+    }
+    this.achievementManager.featureBadge(achievementId);
+    const progress = gamificationStore.getState().achievementProgress[achievementId];
+    if (progress) {
+      await this.repository.syncAchievementProgress(progress);
+    }
+  }
+
+  async loadLeaderboard(scope: LeaderboardScope) {
+    const cached = this.leaderboardCache[scope];
+    if (cached.length > 0) {
+      gamificationStore.setLeaderboard(cached);
+      return cached;
+    }
+    const entries = await this.repository.fetchLeaderboard(scope);
+    this.leaderboardCache[scope] = entries;
+    gamificationStore.setLeaderboard(entries);
+    return entries;
   }
 }
 
