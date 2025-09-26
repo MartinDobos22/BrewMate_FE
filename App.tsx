@@ -96,6 +96,11 @@ const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const supabaseClient: SupabaseClient | null =
   SUPABASE_URL && SUPABASE_ANON_KEY ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
+interface ConfidenceDatum {
+  label: string;
+  value: number;
+}
+
 interface PersonalizationContextValue {
   ready: boolean;
   userId: string | null;
@@ -109,6 +114,9 @@ interface PersonalizationContextValue {
   experimentsEnabled: boolean;
   moodSignals: MoodSignal[];
   sendCoachMessage: ((message: string) => Promise<string>) | null;
+  profile: UserTasteProfile | null;
+  confidenceScores: ConfidenceDatum[];
+  insights: SmartDiaryInsight[];
 }
 
 export const PersonalizationContext = createContext<PersonalizationContextValue | undefined>(undefined);
@@ -126,6 +134,9 @@ const emptyPersonalizationState: PersonalizationContextValue = {
   experimentsEnabled: false,
   moodSignals: [],
   sendCoachMessage: null,
+  profile: null,
+  confidenceScores: [],
+  insights: [],
 };
 
 class SupabaseLearningStorageAdapter implements LearningStorageAdapter {
@@ -372,7 +383,6 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   const [queueLength, setQueueLength] = useState(0);
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncVisible, setSyncVisible] = useState(false);
-  const [confidenceData, setConfidenceData] = useState<Array<{ label: string; value: number }>>([]);
   const { isDark, colors } = useTheme();
   const {
     ready: personalizationReady,
@@ -388,7 +398,6 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     [flavorJourneyRepository],
   );
   const indicatorVisible = syncVisible || queueLength > 0;
-  const [smartDiaryInsights, setSmartDiaryInsights] = useState<SmartDiaryInsight[]>([]);
 
   const timelineData = useMemo(() => {
     return personalization.journeyMilestones.slice(0, 6).map((milestone) => {
@@ -452,7 +461,6 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         await AsyncStorage.removeItem('@AuthToken');
         setIsAuthenticated(false);
         setPersonalization(() => ({ ...emptyPersonalizationState }));
-        setSmartDiaryInsights([]);
       }
     });
     return unsubscribe;
@@ -569,8 +577,10 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
       privacyManager: null,
       morningRitualManager: null,
       smartDiary: null,
+      profile: null,
+      confidenceScores: [],
+      insights: [],
     }));
-    setSmartDiaryInsights([]);
 
     const initializeServices = async () => {
       try {
@@ -588,7 +598,15 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           smartDiary: smartDiaryService,
           onInsightsUpdated: (insights) => {
             if (!cancelled) {
-              setSmartDiaryInsights(insights);
+              setPersonalization((prev) => {
+                const identical =
+                  prev.insights.length === insights.length &&
+                  prev.insights.every((item, index) => item.id === insights[index]?.id);
+                if (identical) {
+                  return prev;
+                }
+                return { ...prev, insights };
+              });
             }
           },
         });
@@ -607,7 +625,10 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         if (cancelled) {
           return;
         }
-        setSmartDiaryInsights(insights);
+        setPersonalization((prev) => ({
+          ...prev,
+          insights,
+        }));
 
         setPersonalization((prev) => ({
           ...prev,
@@ -617,6 +638,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           privacyManager: privacy,
           smartDiary: smartDiaryService,
           ready: true,
+          profile: engine.getProfile(),
         }));
       } catch (error) {
         console.warn('App: failed to initialize personalization services', error);
@@ -624,8 +646,10 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           setPersonalization((prev) => ({
             ...prev,
             ready: false,
+            insights: [],
+            profile: null,
+            confidenceScores: [],
           }));
-          setSmartDiaryInsights([]);
         }
       }
     };
@@ -986,29 +1010,42 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
       }
     };
 
+    const profile = learningEngine?.getProfile() ?? null;
+
+    let confidence: ConfidenceDatum[] = [];
+
     if (personalization.quizResult) {
-      const mapped = personalization.quizResult.confidenceScores.map((item) => ({
+      confidence = personalization.quizResult.confidenceScores.map((item) => ({
         label: mapLabel(item.dimension),
         value: Math.min(1, Math.max(0, item.confidence)),
       }));
-      setConfidenceData(mapped);
-      return;
+    } else if (profile) {
+      confidence = [
+        { label: 'Chuťové preferencie', value: Math.min(1, Math.max(0, profile.preferenceConfidence)) },
+        { label: 'Mliečne nápoje', value: 0.6 },
+        { label: 'Experimentovanie', value: 0.5 },
+      ];
     }
 
-    if (learningEngine) {
-      const profile = learningEngine.getProfile();
-      if (profile) {
-        setConfidenceData([
-          { label: 'Chuťové preferencie', value: Math.min(1, Math.max(0, profile.preferenceConfidence)) },
-          { label: 'Mliečne nápoje', value: 0.6 },
-          { label: 'Experimentovanie', value: 0.5 },
-        ]);
-        return;
+    setPersonalization((prev) => {
+      const sameProfile = prev.profile === profile;
+      const sameConfidence =
+        prev.confidenceScores.length === confidence.length &&
+        prev.confidenceScores.every(
+          (item, index) => item.label === confidence[index]?.label && item.value === confidence[index]?.value,
+        );
+
+      if (sameProfile && sameConfidence) {
+        return prev;
       }
-    }
 
-    setConfidenceData([]);
-  }, [learningEngine, personalization.quizResult]);
+      return {
+        ...prev,
+        profile,
+        confidenceScores: confidence,
+      };
+    });
+  }, [learningEngine, personalization.quizResult, setPersonalization]);
 
   const handleScannerPress = () => {
     setCurrentScreen('scanner');
@@ -1438,12 +1475,13 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           <View style={{ flexGrow: 0, flexShrink: 1 }}>
             <PersonalizationDashboard
               quizResult={personalization.quizResult ?? undefined}
-              confidence={confidenceData}
+              profile={personalization.profile ?? undefined}
+              confidence={personalization.confidenceScores}
               timeline={timelineData}
               onToggleExperiment={handleExperimentToggle}
               experimentsEnabled={personalization.experimentsEnabled}
               journey={personalization.journeyMilestones}
-              insights={smartDiaryInsights}
+              insights={personalization.insights}
             />
           </View>
           {personalization.journeyMilestones.length ? (

@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { TasteQuizResult } from '../../types/PersonalizationAI';
 import { FlavorJourneyMilestone } from '../../types/PersonalizationAI';
 import { SmartDiaryInsight } from '../../services/SmartDiaryService';
+import { UserTasteProfile } from '../../types/Personalization';
 
 interface PersonalizationDashboardProps {
   quizResult?: TasteQuizResult;
@@ -12,6 +13,7 @@ interface PersonalizationDashboardProps {
   experimentsEnabled: boolean;
   journey?: FlavorJourneyMilestone[];
   insights?: SmartDiaryInsight[];
+  profile?: UserTasteProfile | null;
 }
 
 export const PersonalizationDashboard: React.FC<PersonalizationDashboardProps> = ({
@@ -22,11 +24,38 @@ export const PersonalizationDashboard: React.FC<PersonalizationDashboardProps> =
   experimentsEnabled,
   journey,
   insights,
+  profile,
 }) => {
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Personalizačné učenie</Text>
       <Text style={styles.subtitle}>Systém sa prispôsobuje každej interakcii.</Text>
+
+      {profile ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Tvoj chuťový profil</Text>
+          <View style={styles.profileRow}>
+            <Text style={styles.profileLabel}>Sladkosť</Text>
+            <Text style={styles.profileValue}>{profile.preferences.sweetness.toFixed(1)}/10</Text>
+          </View>
+          <View style={styles.profileRow}>
+            <Text style={styles.profileLabel}>Kyslosť</Text>
+            <Text style={styles.profileValue}>{profile.preferences.acidity.toFixed(1)}/10</Text>
+          </View>
+          <View style={styles.profileRow}>
+            <Text style={styles.profileLabel}>Horkosť</Text>
+            <Text style={styles.profileValue}>{profile.preferences.bitterness.toFixed(1)}/10</Text>
+          </View>
+          <View style={styles.profileRow}>
+            <Text style={styles.profileLabel}>Telo</Text>
+            <Text style={styles.profileValue}>{profile.preferences.body.toFixed(1)}/10</Text>
+          </View>
+          <View style={styles.profileMeta}>
+            <Text style={styles.profileMetaText}>Preferovaná sila: {profile.preferredStrength}</Text>
+            <Text style={styles.profileMetaText}>Citlivosť na kofeín: {profile.caffeineSensitivity}</Text>
+          </View>
+        </View>
+      ) : null}
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Miera istoty</Text>
@@ -194,6 +223,26 @@ const styles = StyleSheet.create({
   insightBody: {
     color: '#555',
     lineHeight: 20,
+  },
+  profileRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  profileLabel: {
+    fontWeight: '600',
+    color: '#555',
+  },
+  profileValue: {
+    fontVariant: ['tabular-nums'],
+    color: '#2F2A1F',
+  },
+  profileMeta: {
+    marginTop: 12,
+    gap: 4,
+  },
+  profileMetaText: {
+    color: '#555',
   },
 });
 
