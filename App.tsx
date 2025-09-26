@@ -914,47 +914,28 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   if (currentScreen === 'gamification') {
     return (
       <ResponsiveWrapper
-        backgroundColor="#020617"
-        statusBarStyle="light-content"
-        statusBarBackground="#020617"
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.primary}
       >
         <ConnectionStatusBar />
-        <Animated.View
-          entering={FadeInRight.duration(320)}
-          exiting={FadeOutLeft.duration(200)}
-          layout={ReanimatedLayout.springify()}
-          style={styles.gamificationHeader}
-        >
+        <View style={styles.header}>
           <TouchableOpacity
-            style={styles.gamificationBack}
-            onPress={() => setCurrentScreen('profile')}
-          >
-            <Text style={styles.gamificationBackText}>← Profil</Text>
+            style={[styles.backButton, { backgroundColor: colors.primary }]}
+            onPress={() => setCurrentScreen('profile')}>
+            <Text style={styles.backButtonText}>← Späť</Text>
           </TouchableOpacity>
           <QueueStatusBadge />
-        </Animated.View>
-        <Animated.View
-          entering={FadeInRight.delay(90).duration(420)}
-          exiting={FadeOutLeft.duration(200)}
-          layout={ReanimatedLayout.springify()}
-          style={styles.gamificationWrapper}
-        >
-          <GamificationScreen />
-        </Animated.View>
-        <Animated.View
-          entering={FadeInRight.delay(180).duration(420)}
-          exiting={FadeOutLeft.duration(200)}
-          layout={ReanimatedLayout.springify()}
-        >
-          <BottomNav
-            active="profile"
-            onHomePress={handleBackPress}
-            onDiscoverPress={handleDiscoverPress}
-            onRecipesPress={handleRecipesPress}
-            onFavoritesPress={handleFavoritesPress}
-            onProfilePress={handleProfilePress}
-          />
-        </Animated.View>
+        </View>
+        <GamificationScreen />
+        <BottomNav
+          active="profile"
+          onHomePress={handleBackPress}
+          onDiscoverPress={handleDiscoverPress}
+          onRecipesPress={handleRecipesPress}
+          onFavoritesPress={handleFavoritesPress}
+          onProfilePress={handleProfilePress}
+        />
         <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
       </ResponsiveWrapper>
     );
@@ -1179,29 +1160,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
     fontSize: scale(14),
-  },
-  gamificationHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: scale(20),
-    paddingTop: scale(18),
-    paddingBottom: scale(6),
-  },
-  gamificationBack: {
-    backgroundColor: 'rgba(59,130,246,0.2)',
-    paddingHorizontal: scale(14),
-    paddingVertical: scale(8),
-    borderRadius: scale(16),
-  },
-  gamificationBackText: {
-    color: '#bfdbfe',
-    fontWeight: '600',
-    fontSize: scale(13),
-  },
-  gamificationWrapper: {
-    flex: 1,
-    width: '100%',
   },
 });
 
