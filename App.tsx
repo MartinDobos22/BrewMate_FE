@@ -26,6 +26,7 @@ import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 import { scale } from './src/theme/responsive';
 import ResponsiveWrapper from './src/components/ResponsiveWrapper';
 import SavedRecipesScreen from './src/components/SavedRecipesScreen';
+import TasteProfileQuizScreen from './src/screens/TasteProfileQuizScreen';
 import BottomNav from './src/components/BottomNav';
 import { scheduleLowStockCheck } from './src/utils/reminders';
 import InventoryScreen from './src/screens/InventoryScreen';
@@ -38,6 +39,8 @@ import {
 import { fetchRecipes, fetchRecipeHistory } from './src/services/recipeServices';
 import { fetchCoffees, fetchScanHistory } from './src/services/homePagesService';
 import { fetchRecentScans } from './src/services/coffeeServices';
+import EncryptedStorage from 'react-native-encrypted-storage';
+import Animated, {FadeInRight, FadeOutLeft, Layout as ReanimatedLayout} from 'react-native-reanimated';
 import { MorningRitualManager } from './src/services/MorningRitualManager';
 import { PreferenceLearningEngine } from './src/services/PreferenceLearningEngine';
 import { CoffeeDiary } from './src/services/CoffeeDiary';
@@ -70,12 +73,14 @@ type ScreenName =
   | 'recipe-steps'
   | 'favorites'
   | 'inventory'
-  | 'gamification';
+  | 'gamification'
+  | 'taste-quiz';
 
 const MORNING_RITUAL_CHANNEL_ID = 'brewmate-morning-ritual';
 const WEATHER_CACHE_KEY = 'brewmate:ritual:last_weather';
 const WAKE_TIME_STORAGE_KEY = 'brewmate:ritual:wake_time';
 const WEEKDAY_PLAN_STORAGE_KEY = 'brewmate:ritual:weekday_plan';
+const TASTE_QUIZ_STORAGE_KEY = 'brewmate:taste_quiz:complete';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -342,6 +347,8 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   const [generatedRecipe, setGeneratedRecipe] = useState('');
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
+  const [isTasteQuizComplete, setIsTasteQuizComplete] = useState(false);
+  const [checkingTasteQuiz, setCheckingTasteQuiz] = useState(true);
   const [queueLength, setQueueLength] = useState(0);
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncVisible, setSyncVisible] = useState(false);
@@ -384,6 +391,20 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
       setCheckingOnboarding(false);
     };
     checkOnboarding();
+  }, []);
+
+  useEffect(() => {
+    const checkTasteQuiz = async () => {
+      try {
+        const value = await EncryptedStorage.getItem(TASTE_QUIZ_STORAGE_KEY);
+        setIsTasteQuizComplete(value === 'true');
+      } catch (error) {
+        console.warn('App: failed to read taste quiz status', error);
+      } finally {
+        setCheckingTasteQuiz(false);
+      }
+    };
+    checkTasteQuiz();
   }, []);
 
   useEffect(() => {
@@ -705,7 +726,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     setCurrentScreen('home');
   };
 
-  if (checkingOnboarding) {
+  if (checkingOnboarding || checkingTasteQuiz) {
     return null;
   }
 
@@ -721,6 +742,33 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           <QueueStatusBadge />
         </View>
         <OnboardingScreen onFinish={() => setIsOnboardingComplete(true)} />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
+      </ResponsiveWrapper>
+    );
+  }
+
+  if (!isTasteQuizComplete && personalizationReady) {
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.background}
+      >
+        <ConnectionStatusBar />
+        <View style={styles.header}>
+          <QueueStatusBadge />
+        </View>
+        <TasteProfileQuizScreen
+          onComplete={async (quizResult) => {
+            void quizResult;
+            try {
+              await EncryptedStorage.setItem(TASTE_QUIZ_STORAGE_KEY, 'true');
+            } catch (error) {
+              console.warn('App: failed to persist taste quiz status', error);
+            }
+            setIsTasteQuizComplete(true);
+          }}
+        />
         <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
       </ResponsiveWrapper>
     );

@@ -83,6 +83,8 @@ export interface BrewHistoryEntry {
   flavorNotes?: FlavorNotePreferences;
   context?: BrewContext;
   modifications?: string[];
+  tags?: string[];
+  metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }

@@ -1,5 +1,6 @@
 import { differenceInCalendarDays, differenceInMinutes, formatISO } from 'date-fns';
 import {
+  BrewContext,
   BrewHistoryEntry,
   CommunityFlavorStats,
   LearningEvent,
@@ -183,6 +184,78 @@ export class PreferenceLearningEngine {
    */
   public getProfile(): UserTasteProfile | null {
     return this.profile;
+  }
+
+  public async getUserTasteProfile(userId: string): Promise<UserTasteProfile> {
+    await this.ensureInitialized();
+    if (!this.profile || this.profile.userId !== userId) {
+      throw new Error('Profil používateľa nie je inicializovaný pre dané ID');
+    }
+    return this.profile;
+  }
+
+  public async updateProfile(profile: UserTasteProfile): Promise<void> {
+    this.profile = profile;
+    await this.storage.persistProfile(profile);
+  }
+
+  public calculateTasteSimilarity(target: TasteProfileVector, baseline: TasteProfileVector): number {
+    return this.computeCosineSimilarity(target, baseline);
+  }
+
+  public async predictMood({
+    weekday,
+    timeOfDay,
+  }: {
+    weekday: number;
+    timeOfDay: BrewContext['timeOfDay'];
+  }): Promise<string | undefined> {
+    await this.ensureInitialized();
+    const recent = this.historyCache.slice(0, 20);
+    if (!recent.length) {
+      return undefined;
+    }
+
+    const stressSignals = recent.filter((entry) => entry.context?.moodBefore === 'stressed');
+    if (stressSignals.length >= 3 && timeOfDay === 'morning') {
+      return 'stressed';
+    }
+
+    if (weekday >= 5 && timeOfDay === 'evening') {
+      return 'relaxed';
+    }
+
+    const tiredSignals = recent.filter((entry) => entry.context?.moodBefore === 'tired');
+    if (tiredSignals.length > 2) {
+      return 'tired';
+    }
+
+    return 'focused';
+  }
+
+  public async calculateTasteTrend(
+    userId: string,
+    entries: BrewHistoryEntry[],
+  ): Promise<{ periodDays: number; direction: string } | undefined> {
+    await this.ensureInitialized();
+    if (!entries.length) {
+      return undefined;
+    }
+
+    const slice = entries.slice(0, 10);
+    const avgBody = slice.reduce((sum, entry) => sum + (entry.tasteFeedback?.body ?? 0), 0) / slice.length;
+    const avgSweetness = slice.reduce((sum, entry) => sum + (entry.tasteFeedback?.sweetness ?? 0), 0) / slice.length;
+    if (!avgBody && !avgSweetness) {
+      return undefined;
+    }
+
+    const direction = avgBody > avgSweetness ? 'bohatším telom' : 'sladším tónom';
+    const periodDays = Math.max(
+      1,
+      differenceInCalendarDays(new Date(slice[0].createdAt), new Date(slice[slice.length - 1].createdAt)),
+    );
+
+    return { periodDays, direction };
   }
 
   private async ensureInitialized(): Promise<void> {
