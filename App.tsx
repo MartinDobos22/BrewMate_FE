@@ -49,6 +49,8 @@ import { PreferenceLearningEngine } from './src/services/PreferenceLearningEngin
 import { CoffeeDiary } from './src/services/CoffeeDiary';
 import { PrivacyManager } from './src/services/PrivacyManager';
 import { FlavorJourneyRepository } from './src/services/flavor/FlavorJourneyRepository';
+import { FlavorEmbeddingService } from './src/services/flavor/FlavorEmbeddingService';
+import { SmartDiaryInsight, SmartDiaryService } from './src/services/SmartDiaryService';
 import {
   CalendarProvider,
   DiaryStorageAdapter,
@@ -101,6 +103,7 @@ interface PersonalizationContextValue {
   coffeeDiary: CoffeeDiary | null;
   morningRitualManager: MorningRitualManager | null;
   privacyManager: PrivacyManager | null;
+  smartDiary: SmartDiaryService | null;
   quizResult: TasteQuizResult | null;
   journeyMilestones: FlavorJourneyMilestone[];
   experimentsEnabled: boolean;
@@ -117,6 +120,7 @@ const emptyPersonalizationState: PersonalizationContextValue = {
   coffeeDiary: null,
   morningRitualManager: null,
   privacyManager: null,
+  smartDiary: null,
   quizResult: null,
   journeyMilestones: [],
   experimentsEnabled: false,
@@ -379,7 +383,12 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     userId,
   } = personalization;
   const flavorJourneyRepository = useMemo(() => new FlavorJourneyRepository(), []);
+  const flavorEmbeddingService = useMemo(
+    () => new FlavorEmbeddingService(flavorJourneyRepository),
+    [flavorJourneyRepository],
+  );
   const indicatorVisible = syncVisible || queueLength > 0;
+  const [smartDiaryInsights, setSmartDiaryInsights] = useState<SmartDiaryInsight[]>([]);
 
   const timelineData = useMemo(() => {
     return personalization.journeyMilestones.slice(0, 6).map((milestone) => {
@@ -443,6 +452,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         await AsyncStorage.removeItem('@AuthToken');
         setIsAuthenticated(false);
         setPersonalization(() => ({ ...emptyPersonalizationState }));
+        setSmartDiaryInsights([]);
       }
     });
     return unsubscribe;
@@ -558,7 +568,9 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
       coffeeDiary: null,
       privacyManager: null,
       morningRitualManager: null,
+      smartDiary: null,
     }));
+    setSmartDiaryInsights([]);
 
     const initializeServices = async () => {
       try {
@@ -569,7 +581,17 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         const engine = new PreferenceLearningEngine(activeUserId, { storage: learningStorage });
         await engine.initialize();
 
-        const diary = new CoffeeDiary({ storage: diaryStorage, learningEngine: engine });
+        const smartDiaryService = new SmartDiaryService(engine, flavorEmbeddingService);
+        const diary = new CoffeeDiary({
+          storage: diaryStorage,
+          learningEngine: engine,
+          smartDiary: smartDiaryService,
+          onInsightsUpdated: (insights) => {
+            if (!cancelled) {
+              setSmartDiaryInsights(insights);
+            }
+          },
+        });
         const privacy = new PrivacyManager({
           learningStorage,
           diaryStorage,
@@ -580,12 +602,20 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           return;
         }
 
+        const existingEntries = await diaryStorage.getEntries(activeUserId);
+        const insights = await smartDiaryService.generateInsights(activeUserId, existingEntries);
+        if (cancelled) {
+          return;
+        }
+        setSmartDiaryInsights(insights);
+
         setPersonalization((prev) => ({
           ...prev,
           userId: activeUserId,
           learningEngine: engine,
           coffeeDiary: diary,
           privacyManager: privacy,
+          smartDiary: smartDiaryService,
           ready: true,
         }));
       } catch (error) {
@@ -595,6 +625,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
             ...prev,
             ready: false,
           }));
+          setSmartDiaryInsights([]);
         }
       }
     };
@@ -604,7 +635,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, setPersonalization, userId]);
+  }, [flavorEmbeddingService, isAuthenticated, setPersonalization, userId]);
 
   useEffect(() => {
     if (!personalizationReady || !learningEngine || morningRitualManager) {
@@ -1412,6 +1443,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
               onToggleExperiment={handleExperimentToggle}
               experimentsEnabled={personalization.experimentsEnabled}
               journey={personalization.journeyMilestones}
+              insights={smartDiaryInsights}
             />
           </View>
           {personalization.journeyMilestones.length ? (
