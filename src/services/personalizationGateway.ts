@@ -4,6 +4,9 @@ import { formatISO } from 'date-fns';
 import { CoffeeDiary } from './CoffeeDiary';
 import { PreferenceLearningEngine } from './PreferenceLearningEngine';
 import { PrivacyManager, LearningEventProvider } from './PrivacyManager';
+import { FlavorEmbeddingService } from './flavor/FlavorEmbeddingService';
+import { FlavorJourneyRepository } from './flavor/FlavorJourneyRepository';
+import { SmartDiaryService } from './SmartDiaryService';
 import {
   BrewContext,
   BrewHistoryEntry,
@@ -341,8 +344,15 @@ export const privacyManager = new PrivacyManager({
   eventProvider: eventsStorageProvider,
 });
 
+const flavorJourneyRepository = new FlavorJourneyRepository();
+const flavorEmbeddingService = new FlavorEmbeddingService(flavorJourneyRepository);
+const gatewaySmartDiary = new SmartDiaryService(preferenceEngine.getEngine(), flavorEmbeddingService);
+
 export const coffeeDiary = new CoffeeDiary({
   storage: diaryStorage,
   learningEngine: preferenceEngine.getEngine(),
+  smartDiary: gatewaySmartDiary,
 });
+
+export const smartDiary = gatewaySmartDiary;
 
