@@ -3,7 +3,7 @@ import { BrewHistoryEntry } from '../types/Personalization';
 import { FlavorEmbeddingService } from './flavor/FlavorEmbeddingService';
 import { PreferenceLearningEngine } from './PreferenceLearningEngine';
 
-interface Insight {
+export interface SmartDiaryInsight {
   id: string;
   title: string;
   body: string;
@@ -12,18 +12,32 @@ interface Insight {
 }
 
 export class SmartDiaryService {
+  private latestInsights: SmartDiaryInsight[] = [];
+
+  private lastProcessedEntryId: string | null = null;
+
   constructor(
     private readonly learningEngine: PreferenceLearningEngine,
     private readonly flavorEmbeddingService: FlavorEmbeddingService,
   ) {}
 
-  public async generateInsights(userId: string, entries: BrewHistoryEntry[]): Promise<Insight[]> {
-    const insights: Insight[] = [];
+  public async generateInsights(userId: string, entries: BrewHistoryEntry[]): Promise<SmartDiaryInsight[]> {
+    const insights: SmartDiaryInsight[] = [];
     if (!entries.length) {
+      this.latestInsights = insights;
       return insights;
     }
 
-    const latest = entries[0];
+    const [latest] = entries;
+    if (latest?.id && latest.id !== this.lastProcessedEntryId) {
+      try {
+        await this.flavorEmbeddingService.recordDiaryEntry(latest);
+      } catch (error) {
+        console.warn('SmartDiaryService: failed to record diary embedding', error);
+      }
+      this.lastProcessedEntryId = latest.id;
+    }
+
     const tasteTrend = await this.learningEngine.calculateTasteTrend(userId, entries);
     if (tasteTrend) {
       insights.push({
@@ -62,7 +76,12 @@ export class SmartDiaryService {
       insights.push(mondayReminder);
     }
 
+    this.latestInsights = insights;
     return insights;
+  }
+
+  public getLatestInsights(): SmartDiaryInsight[] {
+    return [...this.latestInsights];
   }
 
   private predictBeanDepletion(entries: BrewHistoryEntry[]): { daysLeft: number } | undefined {
@@ -99,7 +118,7 @@ export class SmartDiaryService {
     return gramsUsed / days;
   }
 
-  private buildColdBrewReminder(entries: BrewHistoryEntry[]): Insight | undefined {
+  private buildColdBrewReminder(entries: BrewHistoryEntry[]): SmartDiaryInsight | undefined {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     if (tomorrow.getDay() !== 1) {

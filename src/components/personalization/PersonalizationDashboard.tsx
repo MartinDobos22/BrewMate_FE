@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { TasteQuizResult } from '../../types/PersonalizationAI';
 import { FlavorJourneyMilestone } from '../../types/PersonalizationAI';
+import { SmartDiaryInsight } from '../../services/SmartDiaryService';
 
 interface PersonalizationDashboardProps {
   quizResult?: TasteQuizResult;
@@ -10,6 +11,7 @@ interface PersonalizationDashboardProps {
   onToggleExperiment: (enabled: boolean) => void;
   experimentsEnabled: boolean;
   journey?: FlavorJourneyMilestone[];
+  insights?: SmartDiaryInsight[];
 }
 
 export const PersonalizationDashboard: React.FC<PersonalizationDashboardProps> = ({
@@ -19,6 +21,7 @@ export const PersonalizationDashboard: React.FC<PersonalizationDashboardProps> =
   onToggleExperiment,
   experimentsEnabled,
   journey,
+  insights,
 }) => {
   return (
     <ScrollView style={styles.container}>
@@ -67,6 +70,18 @@ export const PersonalizationDashboard: React.FC<PersonalizationDashboardProps> =
             <View key={milestone.id} style={styles.milestone}>
               <Text style={styles.milestoneTitle}>{milestone.title}</Text>
               <Text style={styles.milestoneDescription}>{milestone.description}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {insights && insights.length ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Denníkové náhľady</Text>
+          {insights.map((insight) => (
+            <View key={insight.id} style={styles.insightCard}>
+              <Text style={styles.insightTitle}>{insight.title}</Text>
+              <Text style={styles.insightBody}>{insight.body}</Text>
             </View>
           ))}
         </View>
@@ -160,6 +175,25 @@ const styles = StyleSheet.create({
   milestoneDescription: {
     marginTop: 6,
     color: '#555',
+  },
+  insightCard: {
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  insightTitle: {
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  insightBody: {
+    color: '#555',
+    lineHeight: 20,
   },
 });
 

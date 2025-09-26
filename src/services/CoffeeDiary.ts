@@ -1,5 +1,6 @@
 import { differenceInMinutes, formatISO, isAfter, startOfWeek, startOfMonth } from 'date-fns';
 import { PreferenceLearningEngine } from './PreferenceLearningEngine';
+import { SmartDiaryInsight, SmartDiaryService } from './SmartDiaryService';
 import {
   BrewContext,
   BrewHistoryEntry,
@@ -33,6 +34,8 @@ export interface CoffeeDiaryConfig {
   moodEstimator?: MoodEstimator;
   ocrAnalyzer?: OCRAnalyzer;
   learningEngine: PreferenceLearningEngine;
+  smartDiary?: SmartDiaryService;
+  onInsightsUpdated?: (insights: SmartDiaryInsight[]) => void;
 }
 
 export interface QuickEntryPayload {
@@ -80,6 +83,8 @@ export class CoffeeDiary {
   private readonly moodEstimator?: MoodEstimator;
   private readonly ocrAnalyzer?: OCRAnalyzer;
   private readonly learningEngine: PreferenceLearningEngine;
+  private readonly smartDiary?: SmartDiaryService;
+  private readonly onInsightsUpdated?: (insights: SmartDiaryInsight[]) => void;
 
   private autoTrackingActive = false;
 
@@ -90,6 +95,8 @@ export class CoffeeDiary {
     this.moodEstimator = config.moodEstimator;
     this.ocrAnalyzer = config.ocrAnalyzer;
     this.learningEngine = config.learningEngine;
+    this.smartDiary = config.smartDiary;
+    this.onInsightsUpdated = config.onInsightsUpdated;
   }
 
   /**
@@ -273,6 +280,21 @@ export class CoffeeDiary {
     await this.storage.saveEntry(entry);
     if (entry.rating > 0) {
       await this.learningEngine.ingestBrew(entry, event);
+    }
+    await this.refreshSmartDiary(entry);
+  }
+
+  private async refreshSmartDiary(entry: BrewHistoryEntry): Promise<void> {
+    if (!this.smartDiary || !entry.userId) {
+      return;
+    }
+
+    try {
+      const entries = await this.storage.getEntries(entry.userId);
+      const insights = await this.smartDiary.generateInsights(entry.userId, entries);
+      this.onInsightsUpdated?.(insights);
+    } catch (error) {
+      console.warn('CoffeeDiary: failed to refresh smart diary insights', error);
     }
   }
 
