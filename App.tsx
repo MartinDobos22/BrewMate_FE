@@ -109,6 +109,7 @@ interface PersonalizationContextValue {
   morningRitualManager: MorningRitualManager | null;
   privacyManager: PrivacyManager | null;
   smartDiary: SmartDiaryService | null;
+  refreshInsights: (() => Promise<void>) | null;
   quizResult: TasteQuizResult | null;
   journeyMilestones: FlavorJourneyMilestone[];
   experimentsEnabled: boolean;
@@ -129,6 +130,7 @@ const emptyPersonalizationState: PersonalizationContextValue = {
   morningRitualManager: null,
   privacyManager: null,
   smartDiary: null,
+  refreshInsights: null,
   quizResult: null,
   journeyMilestones: [],
   experimentsEnabled: false,
@@ -577,6 +579,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
       privacyManager: null,
       morningRitualManager: null,
       smartDiary: null,
+      refreshInsights: null,
       profile: null,
       confidenceScores: [],
       insights: [],
@@ -621,14 +624,28 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         }
 
         const existingEntries = await diaryStorage.getEntries(activeUserId);
-        const insights = await smartDiaryService.generateInsights(activeUserId, existingEntries);
+        const initialInsights = await smartDiaryService.generateInsights(activeUserId, existingEntries);
         if (cancelled) {
           return;
         }
-        setPersonalization((prev) => ({
-          ...prev,
-          insights,
-        }));
+
+        const refreshInsights = async () => {
+          if (cancelled) {
+            return;
+          }
+          try {
+            const entries = await diaryStorage.getEntries(activeUserId);
+            const nextInsights = await smartDiaryService.generateInsights(activeUserId, entries);
+            if (!cancelled) {
+              setPersonalization((prev) => ({
+                ...prev,
+                insights: nextInsights,
+              }));
+            }
+          } catch (error) {
+            console.warn('App: failed to refresh smart diary insights', error);
+          }
+        };
 
         setPersonalization((prev) => ({
           ...prev,
@@ -637,8 +654,10 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           coffeeDiary: diary,
           privacyManager: privacy,
           smartDiary: smartDiaryService,
+          refreshInsights,
           ready: true,
           profile: engine.getProfile(),
+          insights: initialInsights,
         }));
       } catch (error) {
         console.warn('App: failed to initialize personalization services', error);
@@ -649,6 +668,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
             insights: [],
             profile: null,
             confidenceScores: [],
+            refreshInsights: null,
           }));
         }
       }
@@ -1481,7 +1501,6 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
               onToggleExperiment={handleExperimentToggle}
               experimentsEnabled={personalization.experimentsEnabled}
               journey={personalization.journeyMilestones}
-              insights={personalization.insights}
             />
           </View>
           {personalization.journeyMilestones.length ? (

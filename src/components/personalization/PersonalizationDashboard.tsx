@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { TasteQuizResult } from '../../types/PersonalizationAI';
 import { FlavorJourneyMilestone } from '../../types/PersonalizationAI';
-import { SmartDiaryInsight } from '../../services/SmartDiaryService';
 import { UserTasteProfile } from '../../types/Personalization';
+import { usePersonalization } from '../../hooks/usePersonalization';
 
 interface PersonalizationDashboardProps {
   quizResult?: TasteQuizResult;
@@ -12,7 +12,6 @@ interface PersonalizationDashboardProps {
   onToggleExperiment: (enabled: boolean) => void;
   experimentsEnabled: boolean;
   journey?: FlavorJourneyMilestone[];
-  insights?: SmartDiaryInsight[];
   profile?: UserTasteProfile | null;
 }
 
@@ -23,9 +22,20 @@ export const PersonalizationDashboard: React.FC<PersonalizationDashboardProps> =
   onToggleExperiment,
   experimentsEnabled,
   journey,
-  insights,
   profile,
 }) => {
+  const { insights, refreshInsights, ready } = usePersonalization();
+
+  useEffect(() => {
+    if (!refreshInsights || !ready) {
+      return;
+    }
+
+    refreshInsights().catch((error) => {
+      console.warn('PersonalizationDashboard: failed to refresh smart diary insights', error);
+    });
+  }, [ready, refreshInsights]);
+
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Personalizačné učenie</Text>

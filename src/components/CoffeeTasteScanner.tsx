@@ -36,8 +36,9 @@ import {
 import { incrementProgress } from '../services/profileServices';
 import { saveOCRResult, loadOCRResult } from '../services/offlineCache';
 import { addRecentScan } from '../services/coffeeServices.ts';
-import { coffeeDiary, preferenceEngine } from '../services/personalizationGateway';
+import { coffeeDiary as fallbackCoffeeDiary, preferenceEngine } from '../services/personalizationGateway';
 import { BrewContext } from '../types/Personalization';
+import { usePersonalization } from '../hooks/usePersonalization';
 import { recognizeCoffee } from '../offline/VisionService';
 import { coffeeOfflineManager } from '../offline';
 
@@ -101,6 +102,8 @@ const buildBrewContext = (metadata?: Record<string, unknown>): BrewContext => {
 };
 
 const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
+  const { coffeeDiary: personalizationDiary, refreshInsights } = usePersonalization();
+  const diary = personalizationDiary ?? fallbackCoffeeDiary;
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [editedText, setEditedText] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -512,7 +515,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
         (part): part is string => Boolean(part),
       );
 
-      await coffeeDiary.addManualEntry({
+      await diary.addManualEntry({
         recipe: recipeLabel,
         notes: noteParts.length > 0 ? noteParts.join('\n\n') : undefined,
         brewedAt: new Date(),
@@ -521,6 +524,12 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
         metadata,
         context,
       });
+
+      if (refreshInsights) {
+        refreshInsights().catch((error) => {
+          console.warn('CoffeeTasteScanner: failed to refresh diary insights', error);
+        });
+      }
 
       const learningEvent = await preferenceEngine.recordBrew(recordId, rating, context);
       await preferenceEngine.saveEvents(learningEvent);

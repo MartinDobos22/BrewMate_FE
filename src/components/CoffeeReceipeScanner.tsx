@@ -41,8 +41,9 @@ import {
   RecipeHistory,
 } from '../services/recipeServices.ts';
 import { AIResponseDisplay } from './AIResponseDisplay';
-import { coffeeDiary, preferenceEngine } from '../services/personalizationGateway';
+import { coffeeDiary as fallbackCoffeeDiary, preferenceEngine } from '../services/personalizationGateway';
 import { BrewContext } from '../types/Personalization';
+import { usePersonalization } from '../hooks/usePersonalization';
 
 interface OCRHistory {
   id: string;
@@ -107,6 +108,8 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
   onBack,
   onRecipeGenerated,
 }) => {
+  const { coffeeDiary: personalizationDiary, refreshInsights } = usePersonalization();
+  const diary = personalizationDiary ?? fallbackCoffeeDiary;
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [editedText, setEditedText] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -371,7 +374,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
         tastePreference ? `Preferencia: ${tastePreference}` : undefined,
       ].filter((part): part is string => Boolean(part));
 
-      await coffeeDiary.addManualEntry({
+      await diary.addManualEntry({
         recipe: generatedRecipe || scanResult.corrected || scanResult.original,
         notes: notesSegments.length > 0 ? notesSegments.join('\n') : undefined,
         brewedAt: new Date(),
@@ -380,6 +383,12 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
         metadata: recipeMetadata,
         context,
       });
+
+      if (refreshInsights) {
+        refreshInsights().catch((error) => {
+          console.warn('CoffeeReceipeScanner: failed to refresh diary insights', error);
+        });
+      }
 
       const learningEvent = await preferenceEngine.recordBrew(recordId, rating, context);
       await preferenceEngine.saveEvents(learningEvent);
