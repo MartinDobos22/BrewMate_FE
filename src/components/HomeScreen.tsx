@@ -41,6 +41,7 @@ interface HomeScreenProps {
   onRecipesPress: () => void;
   onFavoritesPress: () => void;
   onInventoryPress: () => void;
+  onPersonalizationPress: () => void;
   userName?: string;
 }
 
@@ -53,6 +54,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                                                  onRecipesPress,
                                                  onFavoritesPress,
                                                  onInventoryPress,
+                                                 onPersonalizationPress,
                                                userName = 'Martin',
                                              }) => {
   const [refreshing, setRefreshing] = useState(false);
@@ -340,6 +342,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
             </View>
             <Text style={styles.actionTitle}>Pripraviť drink</Text>
             <Text style={styles.actionDesc}>Návod krok po kroku</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={onPersonalizationPress}
+            activeOpacity={0.8}
+          >
+            <View style={styles.actionIcon}>
+              <Text style={styles.actionEmoji}>🧠</Text>
+            </View>
+            <Text style={styles.actionTitle}>Personalizácia</Text>
+            <Text style={styles.actionDesc}>Pozri svoje odporúčania</Text>
           </TouchableOpacity>
         </View>
 

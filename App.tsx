@@ -1,5 +1,5 @@
 // App.tsx
-import React, { useState, useEffect, useMemo, createContext } from 'react';
+import React, { useState, useEffect, useMemo, createContext, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -22,6 +22,9 @@ import CoffeePreferenceForm from './src/components/CoffeePreferenceForm';
 import EditPreferences from './src/components/EditPreferences';
 import RecipeStepsScreen from './src/components/RecipeStepsScreen';
 import OnboardingScreen from './src/components/OnboardingScreen';
+import PersonalizationDashboard from './src/components/personalization/PersonalizationDashboard';
+import FlavorJourneyMap from './src/components/personalization/FlavorJourneyMap';
+import AICoachChat from './src/components/personalization/AICoachChat';
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 import { scale } from './src/theme/responsive';
 import ResponsiveWrapper from './src/components/ResponsiveWrapper';
@@ -45,6 +48,7 @@ import { MorningRitualManager } from './src/services/MorningRitualManager';
 import { PreferenceLearningEngine } from './src/services/PreferenceLearningEngine';
 import { CoffeeDiary } from './src/services/CoffeeDiary';
 import { PrivacyManager } from './src/services/PrivacyManager';
+import { FlavorJourneyRepository } from './src/services/flavor/FlavorJourneyRepository';
 import {
   CalendarProvider,
   DiaryStorageAdapter,
@@ -57,6 +61,7 @@ import {
   CommunityFlavorStats,
   UserTasteProfile,
 } from './src/types/Personalization';
+import type { FlavorJourneyMilestone, MoodSignal, TasteQuizResult } from './src/types/PersonalizationAI';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { LearningEventProvider } from './src/services/PrivacyManager';
 
@@ -74,7 +79,8 @@ type ScreenName =
   | 'favorites'
   | 'inventory'
   | 'gamification'
-  | 'taste-quiz';
+  | 'taste-quiz'
+  | 'personalization';
 
 const MORNING_RITUAL_CHANNEL_ID = 'brewmate-morning-ritual';
 const WEATHER_CACHE_KEY = 'brewmate:ritual:last_weather';
@@ -95,6 +101,11 @@ interface PersonalizationContextValue {
   coffeeDiary: CoffeeDiary | null;
   morningRitualManager: MorningRitualManager | null;
   privacyManager: PrivacyManager | null;
+  quizResult: TasteQuizResult | null;
+  journeyMilestones: FlavorJourneyMilestone[];
+  experimentsEnabled: boolean;
+  moodSignals: MoodSignal[];
+  sendCoachMessage: ((message: string) => Promise<string>) | null;
 }
 
 export const PersonalizationContext = createContext<PersonalizationContextValue | undefined>(undefined);
@@ -106,6 +117,11 @@ const emptyPersonalizationState: PersonalizationContextValue = {
   coffeeDiary: null,
   morningRitualManager: null,
   privacyManager: null,
+  quizResult: null,
+  journeyMilestones: [],
+  experimentsEnabled: false,
+  moodSignals: [],
+  sendCoachMessage: null,
 };
 
 class SupabaseLearningStorageAdapter implements LearningStorageAdapter {
@@ -352,9 +368,57 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   const [queueLength, setQueueLength] = useState(0);
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncVisible, setSyncVisible] = useState(false);
+  const [confidenceData, setConfidenceData] = useState<Array<{ label: string; value: number }>>([]);
   const { isDark, colors } = useTheme();
-  const { ready: personalizationReady, morningRitualManager, learningEngine, userId } = personalization;
+  const {
+    ready: personalizationReady,
+    morningRitualManager,
+    learningEngine,
+    coffeeDiary,
+    privacyManager,
+    userId,
+  } = personalization;
+  const flavorJourneyRepository = useMemo(() => new FlavorJourneyRepository(), []);
   const indicatorVisible = syncVisible || queueLength > 0;
+
+  const timelineData = useMemo(() => {
+    return personalization.journeyMilestones.slice(0, 6).map((milestone) => {
+      const date = new Date(milestone.date);
+      const formatted = Number.isNaN(date.getTime())
+        ? milestone.date
+        : date.toLocaleDateString('sk-SK');
+      return {
+        date: formatted,
+        description: milestone.description,
+      };
+    });
+  }, [personalization.journeyMilestones]);
+
+  const handleExperimentToggle = useCallback(
+    async (enabled: boolean) => {
+      if (!privacyManager || !userId) {
+        return;
+      }
+
+      try {
+        await privacyManager.setTrackingConsent(userId, 'analytics', enabled);
+        setPersonalization((prev) => ({ ...prev, experimentsEnabled: enabled }));
+      } catch (error) {
+        console.warn('App: failed to update experiment consent', error);
+      }
+    },
+    [privacyManager, setPersonalization, userId],
+  );
+
+  const handleCoachSend = useCallback(
+    async (message: string) => {
+      if (personalization.sendCoachMessage) {
+        return personalization.sendCoachMessage(message);
+      }
+      return 'Personalizačné dáta sa ešte pripravujú.';
+    },
+    [personalization.sendCoachMessage],
+  );
 
   useEffect(() => {
     const init = async () => {
@@ -693,6 +757,228 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     }));
   }, [personalizationReady, learningEngine, morningRitualManager, setPersonalization, userId]);
 
+  useEffect(() => {
+    if (!userId || !privacyManager) {
+      return;
+    }
+
+    let active = true;
+
+    privacyManager
+      .loadPreferences(userId)
+      .then((prefs) => {
+        if (!active) {
+          return;
+        }
+        setPersonalization((prev) => {
+          const enabled = Boolean(prefs.analytics);
+          if (prev.experimentsEnabled === enabled) {
+            return prev;
+          }
+          return { ...prev, experimentsEnabled: enabled };
+        });
+      })
+      .catch((error) => {
+        console.warn('App: failed to load privacy preferences', error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [privacyManager, setPersonalization, userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+
+    let active = true;
+
+    const loadJourney = async () => {
+      try {
+        const milestones = await flavorJourneyRepository.fetchJourney(userId);
+        if (!active) {
+          return;
+        }
+        setPersonalization((prev) => {
+          const identical =
+            prev.journeyMilestones.length === milestones.length &&
+            prev.journeyMilestones.every((existing, index) => existing.id === milestones[index]?.id);
+          if (identical) {
+            return prev;
+          }
+          return { ...prev, journeyMilestones: milestones };
+        });
+      } catch (error) {
+        console.warn('App: failed to load flavor journey', error);
+      }
+    };
+
+    loadJourney();
+
+    return () => {
+      active = false;
+    };
+  }, [flavorJourneyRepository, setPersonalization, userId, personalization.quizResult]);
+
+  useEffect(() => {
+    if (!personalizationReady || !coffeeDiary || !userId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const resolveSignals = async () => {
+      try {
+        const insights = await coffeeDiary.generateInsights(userId);
+        if (cancelled) {
+          return;
+        }
+
+        const now = Date.now();
+        const normalizedScore = Math.min(1, Math.max(-1, insights.moodImpact.moodShiftScore / 3));
+        const baseSignal: MoodSignal = {
+          source: 'diary',
+          value: normalizedScore >= 0 ? 'energized' : 'tired',
+          confidence: Math.abs(normalizedScore),
+          timestamp: new Date(now).toISOString(),
+        };
+
+        const additionalSignals: MoodSignal[] = [];
+        insights.moodImpact.positiveMoods.forEach((_mood, index) => {
+          additionalSignals.push({
+            source: 'diary',
+            value: 'focused',
+            confidence: 0.6,
+            timestamp: new Date(now - (index + 1) * 60 * 60 * 1000).toISOString(),
+          });
+        });
+        insights.moodImpact.negativeMoods.forEach((_mood, index) => {
+          additionalSignals.push({
+            source: 'diary',
+            value: 'stressed',
+            confidence: 0.4,
+            timestamp: new Date(now - (index + insights.moodImpact.positiveMoods.length + 1) * 60 * 60 * 1000).toISOString(),
+          });
+        });
+
+        const signals = [baseSignal, ...additionalSignals].slice(0, 5);
+
+        setPersonalization((prev) => {
+          const identical =
+            prev.moodSignals.length === signals.length &&
+            prev.moodSignals.every((signal, index) => signal.value === signals[index]?.value);
+          if (identical) {
+            return prev;
+          }
+          return { ...prev, moodSignals: signals };
+        });
+      } catch (error) {
+        console.warn('App: failed to compute mood signals', error);
+      }
+    };
+
+    resolveSignals();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [coffeeDiary, personalizationReady, setPersonalization, userId]);
+
+  const coachResponder = useMemo(() => {
+    if (!learningEngine) {
+      return null;
+    }
+
+    return async (message: string) => {
+      const profile = learningEngine.getProfile();
+      const preferenceSummary = profile
+        ? `Tvoje preferencie sú nastavené na sladkosť ${profile.preferences.sweetness.toFixed(1)}/10, aciditu ${profile.preferences.acidity.toFixed(1)}/10 a silu ${profile.preferredStrength}.`
+        : 'Zatiaľ zbieram dáta o tvojich chuťových preferenciách.';
+
+      let diarySummary: string | null = null;
+      if (coffeeDiary && userId) {
+        try {
+          const insights = await coffeeDiary.generateInsights(userId);
+          diarySummary = `Najviac ti chutí káva cez ${insights.bestMomentOfDay} a tvoje zručnosti sú momentálne ${insights.skillProgression.trend}.`;
+        } catch (error) {
+          console.warn('App: coach responder failed to load diary insights', error);
+        }
+      }
+
+      const lowered = message.toLowerCase();
+      let suggestion = 'Pokojne pokračuj v experimentoch a daj vedieť, ako chutnali.';
+      if (profile) {
+        if (lowered.includes('energ')) {
+          suggestion = profile.preferredStrength === 'strong'
+            ? 'Skús dvojité espresso alebo aeropress s kratšou extrakciou pre rýchly energizujúci efekt.'
+            : 'Odporúčam flat white s vyváženou sladkosťou – podporí energiu bez prílišného kofeínu.';
+        } else if (lowered.includes('relax') || lowered.includes('večer')) {
+          suggestion = 'Vhodnou voľbou môže byť decaf pour-over s jemným ovocným profilom.';
+        } else if (lowered.includes('nov')) {
+          suggestion = 'Do chuťového denníka si skús zapísať cold brew s citrusovými tónmi – rozšíri tvoju flavor journey.';
+        }
+      }
+
+      return [preferenceSummary, diarySummary, suggestion].filter(Boolean).join('\n\n');
+    };
+  }, [coffeeDiary, learningEngine, userId]);
+
+  useEffect(() => {
+    setPersonalization((prev) => {
+      if (prev.sendCoachMessage === coachResponder) {
+        return prev;
+      }
+      return { ...prev, sendCoachMessage: coachResponder };
+    });
+  }, [coachResponder, setPersonalization]);
+
+  useEffect(() => {
+    const mapLabel = (dimension: string): string => {
+      switch (dimension) {
+        case 'sweetness':
+          return 'Sladkosť';
+        case 'acidity':
+          return 'Kyslosť';
+        case 'bitterness':
+          return 'Horkosť';
+        case 'body':
+          return 'Telo';
+        case 'milk':
+          return 'Mlieko';
+        case 'diet':
+          return 'Životný štýl';
+        case 'budget':
+          return 'Rozpočet';
+        default:
+          return dimension;
+      }
+    };
+
+    if (personalization.quizResult) {
+      const mapped = personalization.quizResult.confidenceScores.map((item) => ({
+        label: mapLabel(item.dimension),
+        value: Math.min(1, Math.max(0, item.confidence)),
+      }));
+      setConfidenceData(mapped);
+      return;
+    }
+
+    if (learningEngine) {
+      const profile = learningEngine.getProfile();
+      if (profile) {
+        setConfidenceData([
+          { label: 'Chuťové preferencie', value: Math.min(1, Math.max(0, profile.preferenceConfidence)) },
+          { label: 'Mliečne nápoje', value: 0.6 },
+          { label: 'Experimentovanie', value: 0.5 },
+        ]);
+        return;
+      }
+    }
+
+    setConfidenceData([]);
+  }, [learningEngine, personalization.quizResult]);
+
   const handleScannerPress = () => {
     setCurrentScreen('scanner');
   };
@@ -720,6 +1006,10 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
 
   const handleInventoryPress = () => {
     setCurrentScreen('inventory');
+  };
+
+  const handlePersonalizationPress = () => {
+    setCurrentScreen('personalization');
   };
 
   const handleBackPress = () => {
@@ -760,12 +1050,15 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         </View>
         <TasteProfileQuizScreen
           onComplete={async (quizResult) => {
-            void quizResult;
             try {
               await EncryptedStorage.setItem(TASTE_QUIZ_STORAGE_KEY, 'true');
             } catch (error) {
               console.warn('App: failed to persist taste quiz status', error);
             }
+            setPersonalization((prev) => ({
+              ...prev,
+              quizResult,
+            }));
             setIsTasteQuizComplete(true);
           }}
         />
@@ -1094,6 +1387,55 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     );
   }
 
+  if (currentScreen === 'personalization') {
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.background}
+      >
+        <ConnectionStatusBar />
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={[styles.backButton, { backgroundColor: colors.primary }]}
+            onPress={handleBackPress}>
+            <Text style={styles.backButtonText}>← Späť</Text>
+          </TouchableOpacity>
+          <QueueStatusBadge />
+        </View>
+        <View style={{ flex: 1 }}>
+          <View style={{ flexGrow: 0, flexShrink: 1 }}>
+            <PersonalizationDashboard
+              quizResult={personalization.quizResult ?? undefined}
+              confidence={confidenceData}
+              timeline={timelineData}
+              onToggleExperiment={handleExperimentToggle}
+              experimentsEnabled={personalization.experimentsEnabled}
+              journey={personalization.journeyMilestones}
+            />
+          </View>
+          {personalization.journeyMilestones.length ? (
+            <View style={{ paddingHorizontal: scale(24), marginBottom: scale(16) }}>
+              <FlavorJourneyMap milestones={personalization.journeyMilestones} />
+            </View>
+          ) : null}
+          <View style={{ flex: 1, marginTop: scale(8) }}>
+            <AICoachChat onSend={handleCoachSend} moodSignals={personalization.moodSignals} />
+          </View>
+        </View>
+        <BottomNav
+          active="home"
+          onHomePress={handleBackPress}
+          onDiscoverPress={handleDiscoverPress}
+          onRecipesPress={handleRecipesPress}
+          onFavoritesPress={handleFavoritesPress}
+          onProfilePress={handleProfilePress}
+        />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
+      </ResponsiveWrapper>
+    );
+  }
+
   if (currentScreen === 'discover') {
     return (
       <ResponsiveWrapper
@@ -1137,6 +1479,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         onRecipesPress={handleRecipesPress}
         onFavoritesPress={handleFavoritesPress}
         onInventoryPress={handleInventoryPress}
+        onPersonalizationPress={handlePersonalizationPress}
       />
       <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
     </ResponsiveWrapper>
