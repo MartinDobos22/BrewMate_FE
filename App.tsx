@@ -23,6 +23,9 @@ import CoffeePreferenceForm from './src/components/CoffeePreferenceForm';
 import EditPreferences from './src/components/EditPreferences';
 import RecipeStepsScreen from './src/components/RecipeStepsScreen';
 import OnboardingScreen from './src/components/OnboardingScreen';
+import PersonalizationOnboarding, {
+  PersonalizationResult,
+} from './src/components/PersonalizationOnboarding';
 import PersonalizationDashboard from './src/components/personalization/PersonalizationDashboard';
 import FlavorJourneyMap from './src/components/personalization/FlavorJourneyMap';
 import AICoachChat from './src/components/personalization/AICoachChat';
@@ -64,6 +67,7 @@ import {
   BrewHistoryEntry,
   RecipeProfile,
   CommunityFlavorStats,
+  TasteDimension,
   UserTasteProfile,
 } from './src/types/Personalization';
 import type { FlavorJourneyMilestone, MoodSignal, TasteQuizResult } from './src/types/PersonalizationAI';
@@ -94,6 +98,8 @@ const WEATHER_CACHE_KEY = 'brewmate:ritual:last_weather';
 const WAKE_TIME_STORAGE_KEY = 'brewmate:ritual:wake_time';
 const WEEKDAY_PLAN_STORAGE_KEY = 'brewmate:ritual:weekday_plan';
 const TASTE_QUIZ_STORAGE_KEY = 'brewmate:taste_quiz:complete';
+const PERSONALIZATION_ONBOARDING_STATUS_KEY = 'brewmate:personalization:onboarding_status_v1';
+const PERSONALIZATION_ONBOARDING_RESULT_KEY = 'brewmate:personalization:onboarding_result_v1';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -123,6 +129,7 @@ interface PersonalizationContextValue {
   profile: UserTasteProfile | null;
   confidenceScores: ConfidenceDatum[];
   insights: SmartDiaryInsight[];
+  onboardingResult: PersonalizationResult | null;
 }
 
 export const PersonalizationContext = createContext<PersonalizationContextValue | undefined>(undefined);
@@ -144,6 +151,7 @@ const emptyPersonalizationState: PersonalizationContextValue = {
   profile: null,
   confidenceScores: [],
   insights: [],
+  onboardingResult: null,
 };
 
 class SupabaseLearningStorageAdapter implements LearningStorageAdapter {
@@ -387,6 +395,12 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [isTasteQuizComplete, setIsTasteQuizComplete] = useState(false);
   const [checkingTasteQuiz, setCheckingTasteQuiz] = useState(true);
+  const [isPersonalizationOnboardingComplete, setIsPersonalizationOnboardingComplete] = useState(false);
+  const [checkingPersonalizationOnboarding, setCheckingPersonalizationOnboarding] = useState(true);
+  const [personalizationOnboardingResult, setPersonalizationOnboardingResult] =
+    useState<PersonalizationResult | null>(null);
+  const [hasAppliedPersonalizationOnboarding, setHasAppliedPersonalizationOnboarding] =
+    useState(false);
   const [queueLength, setQueueLength] = useState(0);
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncVisible, setSyncVisible] = useState(false);
@@ -435,6 +449,44 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     [privacyManager, setPersonalization, userId],
   );
 
+  const handlePersonalizationOnboardingComplete = useCallback(
+    async (result: PersonalizationResult) => {
+      setPersonalizationOnboardingResult(result);
+      setIsPersonalizationOnboardingComplete(true);
+      setHasAppliedPersonalizationOnboarding(false);
+      setPersonalization((prev) => ({
+        ...prev,
+        onboardingResult: result,
+      }));
+
+      try {
+        await AsyncStorage.setItem(PERSONALIZATION_ONBOARDING_STATUS_KEY, 'completed');
+        await AsyncStorage.setItem(PERSONALIZATION_ONBOARDING_RESULT_KEY, JSON.stringify(result));
+      } catch (error) {
+        console.warn('App: failed to persist personalization onboarding result', error);
+      }
+    },
+    [setPersonalization],
+  );
+
+  const handlePersonalizationOnboardingSkip = useCallback(async () => {
+    setIsPersonalizationOnboardingComplete(true);
+    setPersonalizationOnboardingResult(null);
+    setPersonalization((prev) => {
+      if (prev.onboardingResult === null) {
+        return prev;
+      }
+      return { ...prev, onboardingResult: null };
+    });
+
+    try {
+      await AsyncStorage.setItem(PERSONALIZATION_ONBOARDING_STATUS_KEY, 'skipped');
+      await AsyncStorage.removeItem(PERSONALIZATION_ONBOARDING_RESULT_KEY);
+    } catch (error) {
+      console.warn('App: failed to persist personalization onboarding skip', error);
+    }
+  }, [setPersonalization]);
+
   const handleCoachSend = useCallback(
     async (message: string) => {
       if (personalization.sendCoachMessage) {
@@ -444,6 +496,10 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     },
     [personalization.sendCoachMessage],
   );
+
+  useEffect(() => {
+    setHasAppliedPersonalizationOnboarding(false);
+  }, [learningEngine]);
 
   useEffect(() => {
     const init = async () => {
@@ -497,6 +553,63 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const checkPersonalizationOnboarding = async () => {
+      try {
+        const status = await AsyncStorage.getItem(PERSONALIZATION_ONBOARDING_STATUS_KEY);
+        if (cancelled) {
+          return;
+        }
+
+        if (status === 'completed') {
+          try {
+            const storedResult = await AsyncStorage.getItem(PERSONALIZATION_ONBOARDING_RESULT_KEY);
+            if (!cancelled && storedResult) {
+              try {
+                const parsed = JSON.parse(storedResult) as PersonalizationResult;
+                setPersonalizationOnboardingResult(parsed);
+                setPersonalization((prev) => ({
+                  ...prev,
+                  onboardingResult: parsed,
+                }));
+                setHasAppliedPersonalizationOnboarding(false);
+              } catch (parseError) {
+                console.warn('App: failed to parse personalization onboarding result', parseError);
+              }
+            }
+          } catch (error) {
+            console.warn('App: failed to load personalization onboarding result', error);
+          }
+          setIsPersonalizationOnboardingComplete(true);
+        } else if (status === 'skipped') {
+          setIsPersonalizationOnboardingComplete(true);
+          setPersonalization((prev) => {
+            if (prev.onboardingResult === null) {
+              return prev;
+            }
+            return { ...prev, onboardingResult: null };
+          });
+        } else {
+          setIsPersonalizationOnboardingComplete(false);
+        }
+      } catch (error) {
+        console.warn('App: failed to read personalization onboarding status', error);
+      } finally {
+        if (!cancelled) {
+          setCheckingPersonalizationOnboarding(false);
+        }
+      }
+    };
+
+    checkPersonalizationOnboarding();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [setPersonalization]);
+
+  useEffect(() => {
     let isMounted = true;
 
     coffeeOfflineManager
@@ -522,6 +635,103 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
       unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!learningEngine || !personalizationOnboardingResult || hasAppliedPersonalizationOnboarding) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const applyResult = async () => {
+      try {
+        const profile = learningEngine.getProfile();
+        if (!profile || cancelled) {
+          return;
+        }
+
+        const updatedProfile: UserTasteProfile = {
+          ...profile,
+          preferences: { ...profile.preferences },
+          milkPreferences: { ...profile.milkPreferences },
+        };
+
+        const answers = personalizationOnboardingResult.answers;
+        const updateDimension = (dimension: TasteDimension, value: string) => {
+          const numeric = Number(value);
+          if (Number.isFinite(numeric)) {
+            updatedProfile.preferences[dimension] = Math.min(10, Math.max(0, numeric));
+          }
+        };
+
+        if (typeof answers['dimension:sweetness'] === 'string') {
+          updateDimension('sweetness', answers['dimension:sweetness']);
+        }
+        if (typeof answers['dimension:acidity'] === 'string') {
+          updateDimension('acidity', answers['dimension:acidity']);
+        }
+        if (typeof answers['dimension:bitterness'] === 'string') {
+          updateDimension('bitterness', answers['dimension:bitterness']);
+        }
+        if (typeof answers['dimension:body'] === 'string') {
+          updateDimension('body', answers['dimension:body']);
+        }
+
+        const milkPreference = answers.milk;
+        if (typeof milkPreference === 'string' && milkPreference.length > 0) {
+          updatedProfile.milkPreferences = {
+            types: [milkPreference],
+            texture: milkPreference === 'black' ? 'bez mlieka' : milkPreference,
+          };
+        }
+
+        const preferredStrength = answers.strength;
+        if (
+          preferredStrength === 'light' ||
+          preferredStrength === 'balanced' ||
+          preferredStrength === 'strong'
+        ) {
+          updatedProfile.preferredStrength = preferredStrength;
+        }
+
+        const wakeUpStyle = answers['wake-up'];
+        if (wakeUpStyle === 'fast') {
+          updatedProfile.caffeineSensitivity = 'high';
+        } else if (wakeUpStyle === 'slow') {
+          updatedProfile.caffeineSensitivity = 'low';
+        }
+
+        updatedProfile.preferenceConfidence = Math.max(
+          updatedProfile.preferenceConfidence,
+          0.45,
+        );
+
+        await learningEngine.updateProfile(updatedProfile);
+
+        if (!cancelled) {
+          setHasAppliedPersonalizationOnboarding(true);
+          setPersonalization((prev) => ({
+            ...prev,
+            profile: updatedProfile,
+            onboardingResult: personalizationOnboardingResult,
+          }));
+        }
+      } catch (error) {
+        console.warn('App: failed to apply personalization onboarding result to engine', error);
+      }
+    };
+
+    applyResult();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    hasAppliedPersonalizationOnboarding,
+    learningEngine,
+    personalizationOnboardingResult,
+    setPersonalization,
+  ]);
 
   useEffect(() => {
     scheduleLowStockCheck();
@@ -1117,7 +1327,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     setCurrentScreen('home');
   };
 
-  if (checkingOnboarding || checkingTasteQuiz) {
+  if (checkingOnboarding || checkingTasteQuiz || checkingPersonalizationOnboarding) {
     return null;
   }
 
@@ -1133,6 +1343,26 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           <QueueStatusBadge />
         </View>
         <OnboardingScreen onFinish={() => setIsOnboardingComplete(true)} />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
+      </ResponsiveWrapper>
+    );
+  }
+
+  if (!isPersonalizationOnboardingComplete) {
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.background}
+      >
+        <ConnectionStatusBar />
+        <View style={styles.header}>
+          <QueueStatusBadge />
+        </View>
+        <PersonalizationOnboarding
+          onComplete={handlePersonalizationOnboardingComplete}
+          onSkip={handlePersonalizationOnboardingSkip}
+        />
         <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
       </ResponsiveWrapper>
     );
