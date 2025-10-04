@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { BrewLog } from '../types/BrewLog';
 import { BrewDevice, BREW_DEVICES } from '../types/Recipe';
@@ -8,9 +8,11 @@ import { saveBrewLog } from '../services/brewLogService';
 interface Props {
   recipeId?: string;
   initialDevice?: BrewDevice;
+  onSaved?: (log: BrewLog) => void;
+  onError?: (error: unknown) => void;
 }
 
-const BrewLogForm: React.FC<Props> = ({ recipeId, initialDevice }) => {
+const BrewLogForm: React.FC<Props> = ({ recipeId, initialDevice, onSaved, onError }) => {
   const [waterTemp, setWaterTemp] = useState('');
   const [coffeeDose, setCoffeeDose] = useState('');
   const [ratio, setRatio] = useState('');
@@ -47,12 +49,22 @@ const BrewLogForm: React.FC<Props> = ({ recipeId, initialDevice }) => {
       notes,
       brewDevice,
     };
-    await saveBrewLog(log);
-    setWaterTemp('');
-    setCoffeeDose('');
-    setRatio('');
-    setBrewTime('');
-    setNotes('');
+    try {
+      await saveBrewLog(log, { showFeedback: false });
+      setWaterTemp('');
+      setCoffeeDose('');
+      setRatio('');
+      setBrewTime('');
+      setNotes('');
+      onSaved?.(log);
+    } catch (error) {
+      console.error('BrewLogForm: failed to save log', error);
+      if (onError) {
+        onError(error);
+      } else {
+        Alert.alert('Chyba', 'Záznam sa nepodarilo uložiť. Skúste to prosím znova.');
+      }
+    }
   };
 
   return (

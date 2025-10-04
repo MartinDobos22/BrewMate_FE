@@ -5,7 +5,11 @@ import { BrewLog } from '../types/BrewLog';
 import { BREW_DEVICES } from '../types/Recipe';
 import { getBrewLogs } from '../services/brewLogService';
 
-const BrewHistoryScreen: React.FC = () => {
+interface BrewHistoryScreenProps {
+  onAddLog?: () => void;
+}
+
+const BrewHistoryScreen: React.FC<BrewHistoryScreenProps> = ({ onAddLog }) => {
   const [logs, setLogs] = useState<BrewLog[]>([]);
   const [deviceFilter, setDeviceFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState('');
@@ -39,6 +43,13 @@ const BrewHistoryScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
+      {onAddLog ? (
+        <View style={styles.actionsRow}>
+          <TouchableOpacity style={styles.addButton} onPress={onAddLog} testID="history-add-log">
+            <Text style={styles.addButtonText}>Pridať záznam</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
       <View style={styles.filters}>
         <Picker
           selectedValue={deviceFilter}
@@ -64,6 +75,17 @@ const BrewHistoryScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
+  actionsRow: {
+    marginBottom: 12,
+    alignItems: 'flex-end',
+  },
+  addButton: {
+    backgroundColor: '#6B4423',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+  },
+  addButtonText: { color: 'white', fontWeight: '600' },
   filters: { flexDirection: 'row', marginBottom: 12 },
   devicePicker: { flex: 1 },
   dateInput: { borderWidth: 1, borderColor: '#ccc', padding: 8, marginLeft: 8, flex: 1 },
