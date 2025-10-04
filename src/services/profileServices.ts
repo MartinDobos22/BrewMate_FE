@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { badges, Badge } from '../data/badges';
-import  scheduleLocalNotification  from './notificationService';
+import { scheduleLocalNotification } from './NotificationService';
 
 const STORAGE_KEY = 'userProgress';
 
