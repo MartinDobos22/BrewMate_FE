@@ -315,6 +315,47 @@ export const homeStyles = () => {
       color: 'white',
     },
 
+    brewDiarySection: {
+      marginHorizontal: 16,
+      marginBottom: 20,
+      padding: 20,
+      backgroundColor: 'white',
+      borderRadius: 20,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    brewDiaryActions: {
+      flexDirection: 'row',
+      gap: 12,
+      marginTop: 12,
+    },
+    brewDiaryButton: {
+      flex: 1,
+      paddingVertical: 14,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.borderLight,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    brewDiaryPrimary: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    brewDiaryButtonText: {
+      color: 'white',
+      fontWeight: '600',
+      fontSize: 14,
+    },
+    brewDiaryButtonSecondaryText: {
+      color: colors.textPrimary,
+      fontWeight: '600',
+      fontSize: 14,
+    },
+
     // Coffee Inventory
     coffeeInventory: {
       marginHorizontal: 16,

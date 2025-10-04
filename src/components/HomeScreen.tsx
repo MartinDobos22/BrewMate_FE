@@ -36,6 +36,8 @@ interface HomeScreenProps {
   onHomePress: () => void;
   onScanPress: () => void;
   onBrewPress: () => void;
+  onBrewHistoryPress: () => void;
+  onLogBrewPress: () => void;
   onProfilePress: () => void;
   onDiscoverPress: () => void;
   onRecipesPress: () => void;
@@ -49,6 +51,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                                                  onHomePress,
                                                  onScanPress,
                                                  onBrewPress,
+                                                 onBrewHistoryPress,
+                                                 onLogBrewPress,
                                                  onProfilePress,
                                                  onDiscoverPress,
                                                  onRecipesPress,
@@ -355,6 +359,28 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
             <Text style={styles.actionTitle}>Personalizácia</Text>
             <Text style={styles.actionDesc}>Pozri svoje odporúčania</Text>
           </TouchableOpacity>
+        </View>
+
+        <View style={styles.brewDiarySection}>
+          <Text style={styles.sectionTitle}>Denník varenia</Text>
+          <View style={styles.brewDiaryActions}>
+            <TouchableOpacity
+              style={[styles.brewDiaryButton, styles.brewDiaryPrimary]}
+              onPress={onLogBrewPress}
+              activeOpacity={0.85}
+              testID="brew-log-cta"
+            >
+              <Text style={styles.brewDiaryButtonText}>Pridať záznam</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.brewDiaryButton}
+              onPress={onBrewHistoryPress}
+              activeOpacity={0.85}
+              testID="brew-history-cta"
+            >
+              <Text style={styles.brewDiaryButtonSecondaryText}>História varení</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Coffee Inventory */}

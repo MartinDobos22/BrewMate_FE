@@ -1,6 +1,7 @@
 // App.tsx
 import React, { useState, useEffect, useMemo, createContext, useCallback } from 'react';
 import {
+  Alert,
   StyleSheet,
   Text,
   View,
@@ -25,6 +26,8 @@ import OnboardingScreen from './src/components/OnboardingScreen';
 import PersonalizationDashboard from './src/components/personalization/PersonalizationDashboard';
 import FlavorJourneyMap from './src/components/personalization/FlavorJourneyMap';
 import AICoachChat from './src/components/personalization/AICoachChat';
+import BrewHistoryScreen from './src/components/BrewHistoryScreen';
+import BrewLogForm from './src/components/BrewLogForm';
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 import { scale } from './src/theme/responsive';
 import ResponsiveWrapper from './src/components/ResponsiveWrapper';
@@ -82,7 +85,9 @@ type ScreenName =
   | 'inventory'
   | 'gamification'
   | 'taste-quiz'
-  | 'personalization';
+  | 'personalization'
+  | 'brew-history'
+  | 'brew-log';
 
 const MORNING_RITUAL_CHANNEL_ID = 'brewmate-morning-ritual';
 const WEATHER_CACHE_KEY = 'brewmate:ritual:last_weather';
@@ -1100,6 +1105,14 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     setCurrentScreen('personalization');
   };
 
+  const handleBrewHistoryPress = () => {
+    setCurrentScreen('brew-history');
+  };
+
+  const handleBrewLogPress = () => {
+    setCurrentScreen('brew-log');
+  };
+
   const handleBackPress = () => {
     setCurrentScreen('home');
   };
@@ -1475,6 +1488,86 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     );
   }
 
+  if (currentScreen === 'brew-history') {
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.background}
+      >
+        <ConnectionStatusBar />
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={[styles.backButton, { backgroundColor: colors.primary }]}
+            onPress={handleBackPress}>
+            <Text style={styles.backButtonText}>← Späť</Text>
+          </TouchableOpacity>
+          <View style={styles.headerActionsGroup}>
+            <TouchableOpacity
+              style={[styles.headerActionButton, { backgroundColor: colors.accent }]}
+              onPress={handleBrewLogPress}
+              testID="open-brew-log-form">
+              <Text style={styles.headerActionButtonText}>+ Nový záznam</Text>
+            </TouchableOpacity>
+            <QueueStatusBadge />
+          </View>
+        </View>
+        <BrewHistoryScreen onAddLog={handleBrewLogPress} />
+        <BottomNav
+          active="home"
+          onHomePress={handleBackPress}
+          onDiscoverPress={handleDiscoverPress}
+          onRecipesPress={handleRecipesPress}
+          onFavoritesPress={handleFavoritesPress}
+          onProfilePress={handleProfilePress}
+        />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
+      </ResponsiveWrapper>
+    );
+  }
+
+  if (currentScreen === 'brew-log') {
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.background}
+      >
+        <ConnectionStatusBar />
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={[styles.backButton, { backgroundColor: colors.primary }]}
+            onPress={handleBackPress}>
+            <Text style={styles.backButtonText}>← Späť</Text>
+          </TouchableOpacity>
+          <QueueStatusBadge />
+        </View>
+        <BrewLogForm
+          onSaved={() => {
+            Alert.alert('Záznam uložený', 'Tvoj záznam bol pridaný do histórie.', [
+              {
+                text: 'OK',
+                onPress: () => setCurrentScreen('brew-history'),
+              },
+            ]);
+          }}
+          onError={() => {
+            Alert.alert('Chyba', 'Nepodarilo sa uložiť záznam. Skúste to znova neskôr.');
+          }}
+        />
+        <BottomNav
+          active="home"
+          onHomePress={handleBackPress}
+          onDiscoverPress={handleDiscoverPress}
+          onRecipesPress={handleRecipesPress}
+          onFavoritesPress={handleFavoritesPress}
+          onProfilePress={handleProfilePress}
+        />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
+      </ResponsiveWrapper>
+    );
+  }
+
   if (currentScreen === 'personalization') {
     return (
       <ResponsiveWrapper
@@ -1563,6 +1656,8 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         onHomePress={handleBackPress}
         onScanPress={handleScannerPress}
         onBrewPress={handleBrewPress}
+        onBrewHistoryPress={handleBrewHistoryPress}
+        onLogBrewPress={handleBrewLogPress}
         onProfilePress={handleProfilePress}
         onDiscoverPress={handleDiscoverPress}
         onRecipesPress={handleRecipesPress}
@@ -1582,6 +1677,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: scale(20),
     paddingVertical: scale(10),
+  },
+  headerActionsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: scale(12),
+  },
+  headerActionButton: {
+    paddingHorizontal: scale(16),
+    paddingVertical: scale(8),
+    borderRadius: scale(14),
+  },
+  headerActionButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: scale(14),
   },
   backButton: {
     paddingHorizontal: scale(15),
