@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { homeStyles } from './styles/HomeScreen.styles.ts';
 import { fetchCoffees } from '../services/homePagesService.ts';
@@ -44,6 +45,8 @@ interface HomeScreenProps {
   onFavoritesPress: () => void;
   onInventoryPress: () => void;
   onPersonalizationPress: () => void;
+  onCommunityRecipesPress: () => void;
+  onSavedTipsPress: () => void;
   userName?: string;
 }
 
@@ -59,6 +62,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                                                  onFavoritesPress,
                                                  onInventoryPress,
                                                  onPersonalizationPress,
+                                                 onCommunityRecipesPress,
+                                                 onSavedTipsPress,
                                                userName = 'Martin',
                                              }) => {
   const [refreshing, setRefreshing] = useState(false);
@@ -72,6 +77,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const [recommendedCoffees, setRecommendedCoffees] = useState<CoffeeItem[]>([]);
   const [dailyTip, setDailyTip] = useState<Tip | null>(null);
+  const [tipLoading, setTipLoading] = useState(true);
+  const [tipError, setTipError] = useState<string | null>(null);
   const [recentScans, setRecentScans] = useState<RecentScan[]>([]);
   const [ritualRecommendation, setRitualRecommendation] = useState<DailyRitualCardProps['recommendation'] | null>(null);
   const styles = homeStyles();
@@ -121,18 +128,37 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     };
   }, [morningRitualManager]);
 
-  useEffect(() => {
-    const loadTip = async () => {
+  const loadTip = useCallback(async () => {
+    setTipLoading(true);
+    setTipError(null);
+    try {
+      const tip = await fetchDailyTip();
+      setDailyTip(tip);
       try {
-        const tip = await fetchDailyTip();
-        setDailyTip(tip);
-      } catch (e) {
-        const stored = await AsyncStorage.getItem('lastTip');
-        if (stored) setDailyTip(JSON.parse(stored));
+        await AsyncStorage.setItem('lastTip', JSON.stringify(tip));
+      } catch (storageError) {
+        console.warn('HomeScreen: failed to persist last tip', storageError);
       }
-    };
-    loadTip();
+    } catch (e) {
+      console.warn('HomeScreen: failed to fetch daily tip', e);
+      setTipError('Nepodarilo sa načítať tip. Skúste to znova.');
+      try {
+        const stored = await AsyncStorage.getItem('lastTip');
+        if (stored) {
+          setDailyTip(JSON.parse(stored));
+          setTipError(null);
+        }
+      } catch (storageError) {
+        console.warn('HomeScreen: failed to read cached tip', storageError);
+      }
+    } finally {
+      setTipLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadTip();
+  }, [loadTip]);
 
   useEffect(() => {
     const loadScans = async () => {
@@ -188,6 +214,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   const onRefresh = async () => {
     setRefreshing(true);
     await loadCoffees();
+    await loadTip();
     try {
       const scans = await fetchRecentScans(10);
       setRecentScans(scans);
@@ -291,11 +318,38 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
           </View>
         </View>
 
-        {dailyTip && (
-          <View style={{ marginVertical: 16 }}>
+        <View style={{ marginVertical: 16 }}>
+          {tipLoading ? (
+            <View style={styles.tipFeedback} testID="daily-tip-loading">
+              <ActivityIndicator color="#6B4423" />
+              <Text style={styles.tipFeedbackText}>Načítavam tip...</Text>
+            </View>
+          ) : tipError ? (
+            <View style={styles.tipFeedback} testID="daily-tip-error">
+              <Text style={styles.tipFeedbackText}>{tipError}</Text>
+              <TouchableOpacity
+                style={styles.tipRetry}
+                onPress={loadTip}
+                activeOpacity={0.85}
+                testID="retry-daily-tip">
+                <Text style={styles.tipRetryText}>Skúsiť znova</Text>
+              </TouchableOpacity>
+            </View>
+          ) : dailyTip ? (
             <DailyTipCard tip={dailyTip} />
-          </View>
-        )}
+          ) : (
+            <View style={styles.tipFeedback} testID="daily-tip-empty">
+              <Text style={styles.tipFeedbackText}>Žiadny tip nie je k dispozícii.</Text>
+            </View>
+          )}
+          <TouchableOpacity
+            style={styles.savedTipsLink}
+            onPress={onSavedTipsPress}
+            activeOpacity={0.85}
+            testID="saved-tips-cta">
+            <Text style={styles.savedTipsLinkText}>Zobraziť uložené tipy</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Weather & Coffee Widget */}
         <View style={styles.weatherWidget}>
@@ -358,6 +412,19 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
             </View>
             <Text style={styles.actionTitle}>Personalizácia</Text>
             <Text style={styles.actionDesc}>Pozri svoje odporúčania</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={onCommunityRecipesPress}
+            activeOpacity={0.8}
+            testID="community-recipes-cta"
+          >
+            <View style={styles.actionIcon}>
+              <Text style={styles.actionEmoji}>👥</Text>
+            </View>
+            <Text style={styles.actionTitle}>Komunitné recepty</Text>
+            <Text style={styles.actionDesc}>Objav, čo pripravujú ostatní</Text>
           </TouchableOpacity>
         </View>
 

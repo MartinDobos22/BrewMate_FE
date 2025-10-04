@@ -37,6 +37,8 @@ describe('HomeScreen brew diary actions', () => {
       onFavoritesPress: jest.fn(),
       onInventoryPress: jest.fn(),
       onPersonalizationPress: jest.fn(),
+      onCommunityRecipesPress: jest.fn(),
+      onSavedTipsPress: jest.fn(),
       userName: 'Tester',
     };
 
@@ -53,12 +55,19 @@ describe('HomeScreen brew diary actions', () => {
     expect(historyButton).toBeDefined();
     expect(logButton).toBeDefined();
 
+    const savedTipsButton = component.root.findByProps({ testID: 'saved-tips-cta' });
+    const communityButton = component.root.findByProps({ testID: 'community-recipes-cta' });
+
     act(() => {
       historyButton?.props.onPress();
       logButton?.props.onPress();
+      savedTipsButton.props.onPress();
+      communityButton.props.onPress();
     });
 
     expect(props.onBrewHistoryPress).toHaveBeenCalled();
     expect(props.onLogBrewPress).toHaveBeenCalled();
+    expect(props.onSavedTipsPress).toHaveBeenCalled();
+    expect(props.onCommunityRecipesPress).toHaveBeenCalled();
   });
 });
