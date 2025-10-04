@@ -39,6 +39,8 @@ import TasteProfileQuizScreen from './src/screens/TasteProfileQuizScreen';
 import BottomNav from './src/components/BottomNav';
 import { scheduleLowStockCheck } from './src/utils/reminders';
 import InventoryScreen from './src/screens/InventoryScreen';
+import CommunityRecipesScreen from './src/screens/CommunityRecipesScreen';
+import SavedTipsScreen from './src/screens/SavedTipsScreen';
 import { coffeeOfflineManager, offlineSync } from './src/offline';
 import {
   ConnectionStatusBar,
@@ -91,7 +93,9 @@ type ScreenName =
   | 'taste-quiz'
   | 'personalization'
   | 'brew-history'
-  | 'brew-log';
+  | 'brew-log'
+  | 'community-recipes'
+  | 'saved-tips';
 
 const MORNING_RITUAL_CHANNEL_ID = 'brewmate-morning-ritual';
 const WEATHER_CACHE_KEY = 'brewmate:ritual:last_weather';
@@ -1323,6 +1327,14 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     setCurrentScreen('brew-log');
   };
 
+  const handleCommunityRecipesPress = () => {
+    setCurrentScreen('community-recipes');
+  };
+
+  const handleSavedTipsPress = () => {
+    setCurrentScreen('saved-tips');
+  };
+
   const handleBackPress = () => {
     setCurrentScreen('home');
   };
@@ -1664,6 +1676,36 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     );
   }
 
+  if (currentScreen === 'community-recipes') {
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.primary}
+      >
+        <ConnectionStatusBar />
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={[styles.backButton, { backgroundColor: colors.primary }]}
+            onPress={handleBackPress}>
+            <Text style={styles.backButtonText}>← Späť</Text>
+          </TouchableOpacity>
+          <QueueStatusBadge />
+        </View>
+        <CommunityRecipesScreen />
+        <BottomNav
+          active="recipes"
+          onHomePress={handleBackPress}
+          onDiscoverPress={handleDiscoverPress}
+          onRecipesPress={handleRecipesPress}
+          onFavoritesPress={handleFavoritesPress}
+          onProfilePress={handleProfilePress}
+        />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
+      </ResponsiveWrapper>
+    );
+  }
+
   if (currentScreen === 'favorites') {
     return (
       <ResponsiveWrapper
@@ -1677,6 +1719,36 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         </View>
         <AllCoffeesScreen
           onBack={handleBackPress}
+          onHomePress={handleBackPress}
+          onDiscoverPress={handleDiscoverPress}
+          onRecipesPress={handleRecipesPress}
+          onFavoritesPress={handleFavoritesPress}
+          onProfilePress={handleProfilePress}
+        />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
+      </ResponsiveWrapper>
+    );
+  }
+
+  if (currentScreen === 'saved-tips') {
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.background}
+      >
+        <ConnectionStatusBar />
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={[styles.backButton, { backgroundColor: colors.primary }]}
+            onPress={handleBackPress}>
+            <Text style={styles.backButtonText}>← Späť</Text>
+          </TouchableOpacity>
+          <QueueStatusBadge />
+        </View>
+        <SavedTipsScreen />
+        <BottomNav
+          active="home"
           onHomePress={handleBackPress}
           onDiscoverPress={handleDiscoverPress}
           onRecipesPress={handleRecipesPress}
@@ -1894,6 +1966,8 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         onFavoritesPress={handleFavoritesPress}
         onInventoryPress={handleInventoryPress}
         onPersonalizationPress={handlePersonalizationPress}
+        onCommunityRecipesPress={handleCommunityRecipesPress}
+        onSavedTipsPress={handleSavedTipsPress}
       />
       <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
     </ResponsiveWrapper>

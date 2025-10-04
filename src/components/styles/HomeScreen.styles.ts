@@ -264,9 +264,51 @@ export const homeStyles = () => {
       lineHeight: 20,
     },
 
+    tipFeedback: {
+      backgroundColor: colors.cardLight,
+      borderRadius: 16,
+      padding: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    tipFeedbackText: {
+      color: colors.textPrimary,
+      fontSize: 14,
+      textAlign: 'center',
+      lineHeight: 20,
+    },
+    tipRetry: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 12,
+    },
+    tipRetryText: {
+      color: 'white',
+      fontWeight: '600',
+      fontSize: 14,
+    },
+    savedTipsLink: {
+      marginTop: 12,
+      alignSelf: 'center',
+    },
+    savedTipsLinkText: {
+      color: colors.primary,
+      fontWeight: '600',
+      fontSize: 14,
+      textDecorationLine: 'underline',
+    },
+
     // Quick Actions
     quickActions: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       marginHorizontal: 16,
       marginBottom: 20,
       gap: 12,
