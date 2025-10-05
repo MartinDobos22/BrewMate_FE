@@ -95,3 +95,7 @@ To learn more about React Native, take a look at the following resources:
 - [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
 - [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
 - [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+
+## Widget refresh scheduling
+
+The BrewMate home screen widget reuses the same daily tip helper that powers the app UI. After every fetch, the helper schedules the next refresh at the upcoming local midnight using `scheduleDailyTipRefresh`. This keeps both the widget and app aligned on the same persistence keys and prevents multiple timers from stacking because the helper clears any existing timeout before creating a new one. If the widget needs to inspect the delay directly it can call `getWidgetRefreshDelay` from `src/utils/widgets.ts`.

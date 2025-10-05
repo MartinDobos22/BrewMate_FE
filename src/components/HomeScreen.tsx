@@ -13,8 +13,7 @@ import { homeStyles } from './styles/HomeScreen.styles.ts';
 import { fetchCoffees, fetchDashboardData, fetchUserStats } from '../services/homePagesService.ts';
 import DailyTipCard from './DailyTipCard';
 import DailyRitualCard, { DailyRitualCardProps } from './DailyRitualCard';
-import { fetchDailyTip, Tip } from '../services/contentServices';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { fetchDailyTip, getTipFromCache, Tip } from '../services/contentServices';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from './BottomNav';
 import RecentScansCarousel from './RecentScansCarousel';
 import { fetchRecentScans, RecentScan } from '../services/coffeeServices.ts';
@@ -179,22 +178,17 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     try {
       const tip = await fetchDailyTip();
       setDailyTip(tip);
-      try {
-        await AsyncStorage.setItem('lastTip', JSON.stringify(tip));
-      } catch (storageError) {
-        console.warn('HomeScreen: failed to persist last tip', storageError);
-      }
     } catch (e) {
       console.warn('HomeScreen: failed to fetch daily tip', e);
       setTipError('Nepodarilo sa načítať tip. Skúste to znova.');
       try {
-        const stored = await AsyncStorage.getItem('lastTip');
-        if (stored) {
-          setDailyTip(JSON.parse(stored));
+        const cached = await getTipFromCache(new Date().toISOString().slice(0, 10));
+        if (cached) {
+          setDailyTip(cached);
           setTipError(null);
         }
-      } catch (storageError) {
-        console.warn('HomeScreen: failed to read cached tip', storageError);
+      } catch (cacheError) {
+        console.warn('HomeScreen: failed to read cached tip', cacheError);
       }
     } finally {
       setTipLoading(false);
