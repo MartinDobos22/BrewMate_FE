@@ -30,7 +30,8 @@ import {
   fetchOCRHistory,
   deleteOCRRecord,
   markCoffeePurchased,
-  extractCoffeeName
+  extractCoffeeName,
+  rateOCRResult,
 } from '../services/ocrServices.ts';
 import { incrementProgress } from '../services/profileServices';
 import { saveOCRResult, loadOCRResult } from '../services/offlineCache';
@@ -39,8 +40,8 @@ import { coffeeDiary as fallbackCoffeeDiary, preferenceEngine } from '../service
 import { BrewContext } from '../types/Personalization';
 import { usePersonalization } from '../hooks/usePersonalization';
 import { recognizeCoffee } from '../offline/VisionService';
-import { coffeeOfflineManager } from '../offline';
-import { saveCoffeeRating, toggleFavorite } from '../services/homePagesService';
+import { coffeeOfflineManager, offlineSync } from '../offline';
+import { toggleFavorite } from '../services/homePagesService';
 import { showToast } from '../utils/toast';
 
 interface OCRHistory {
@@ -102,6 +103,13 @@ const buildBrewContext = (metadata?: Record<string, unknown>): BrewContext => {
   }
 
   return context;
+};
+
+const isOfflineError = (error: unknown): boolean => {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  return error.message === 'Offline' || error.message.includes('Network request failed');
 };
 
 const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
@@ -487,31 +495,54 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     setShowCamera(true);
   };
   const handleRating = async (rating: number) => {
-    const previousRating = userRating;
-    setUserRating(rating);
     if (!scanResult) {
       return;
     }
 
+    const previousRating = userRating;
+    setUserRating(rating);
+
     const fallbackId = `taste-${Date.now()}`;
     const recordId = scanResult.scanId ?? fallbackId;
+    const noteParts = [scanResult.recommendation, editedText].filter(
+      (part): part is string => Boolean(part),
+    );
+    const notes = noteParts.length > 0 ? noteParts.join('\n\n') : undefined;
+
+    let queuedOffline = false;
+
+    if (scanResult.scanId) {
+      try {
+        const success = await rateOCRResult(scanResult.scanId, rating);
+        if (!success) {
+          throw new Error('RATE_FAILED');
+        }
+      } catch (error) {
+        if (isOfflineError(error) || isConnected === false) {
+          try {
+            const payload = notes
+              ? { coffeeId: scanResult.scanId, rating, notes }
+              : { coffeeId: scanResult.scanId, rating };
+            await offlineSync.enqueue('coffee:rate', payload);
+            queuedOffline = true;
+          } catch (queueError) {
+            console.error('Failed to enqueue rating for offline sync', queueError);
+            setUserRating(previousRating);
+            Alert.alert('Chyba', 'Nepodarilo sa uložiť hodnotenie offline');
+            return;
+          }
+        } else {
+          console.error('Error rating result:', error);
+          setUserRating(previousRating);
+          Alert.alert('Chyba', 'Nepodarilo sa uložiť hodnotenie');
+          return;
+        }
+      }
+    } else {
+      queuedOffline = true;
+    }
 
     try {
-      const noteParts = [scanResult.recommendation, editedText].filter(
-        (part): part is string => Boolean(part),
-      );
-      const saveSuccess = await saveCoffeeRating(
-        recordId,
-        rating,
-        noteParts.length > 0 ? noteParts.join('\n\n') : undefined,
-      );
-
-      if (!saveSuccess) {
-        setUserRating(previousRating);
-        Alert.alert('Chyba', 'Nepodarilo sa uložiť hodnotenie');
-        return;
-      }
-
       const metadata: Record<string, unknown> = {
         source: 'taste-scanner',
         scanId: scanResult.scanId,
@@ -530,7 +561,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
       const recipeLabel = extractCoffeeName(editedText || scanResult.corrected || scanResult.original);
       await diary.addManualEntry({
         recipe: recipeLabel,
-        notes: noteParts.length > 0 ? noteParts.join('\n\n') : undefined,
+        notes,
         brewedAt: new Date(),
         rating,
         recipeId: recordId,
@@ -550,7 +581,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
       await loadHistory();
 
       Alert.alert('Hodnotenie uložené', `Ohodnotil si kávu na ${rating}/5 ⭐`);
-      if (isConnected === false) {
+      if (queuedOffline || isConnected === false) {
         showToast('Hodnotenie uložené offline. Synchronizujeme neskôr.');
       }
     } catch (error) {
