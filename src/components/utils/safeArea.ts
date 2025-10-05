@@ -54,3 +54,15 @@ export const scale = (size: number) => {
   const finalScale = Math.min(Math.max(scaleFactor, minScale), maxScale);
   return Math.round(size * finalScale);
 };
+
+export const verticalScale = (size: number) => {
+  const { height } = Dimensions.get('window');
+  const baseHeight = 812; // Reference height (iPhone 11 Pro)
+  const scaleFactor = height / baseHeight;
+
+  const maxScale = 1.3;
+  const minScale = 0.85;
+
+  const finalScale = Math.min(Math.max(scaleFactor, minScale), maxScale);
+  return Math.round(size * finalScale);
+};

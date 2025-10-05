@@ -1,5 +1,8 @@
 // UserProfile.styles.ts
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet, Platform, Dimensions } from 'react-native';
+import { scale, verticalScale } from '../../theme/responsive';
+
+const { width } = Dimensions.get('window');
 
 const colors = {
     primary: '#6B4423',
@@ -31,9 +34,9 @@ export const userProfileStyles = () => {
             flexDirection: 'row',
             justifyContent: 'space-between',
             alignItems: 'center',
-            paddingHorizontal: 20,
-            paddingVertical: 16,
-            paddingTop: Platform.OS === 'ios' ? 50 : 16,
+            paddingHorizontal: scale(20),
+            paddingVertical: verticalScale(16),
+            paddingTop: Platform.OS === 'ios' ? verticalScale(50) : verticalScale(16),
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 2 },
             shadowOpacity: 0.1,
@@ -84,7 +87,7 @@ export const userProfileStyles = () => {
             width: width * 0.8,
         },
         loadingText: {
-            marginTop: 15,
+            marginTop: verticalScale(15),
             fontSize: 16,
             color: colors.textSecondary,
             fontWeight: '500',
@@ -110,19 +113,19 @@ export const userProfileStyles = () => {
         },
         errorEmoji: {
             fontSize: 60,
-            marginBottom: 20,
+            marginBottom: verticalScale(20),
         },
         errorText: {
             fontSize: 18,
             color: colors.textPrimary,
-            marginBottom: 20,
+            marginBottom: verticalScale(20),
             textAlign: 'center',
             fontWeight: '600',
         },
         retryButton: {
             backgroundColor: colors.primary,
             paddingHorizontal: 30,
-            paddingVertical: 14,
+            paddingVertical: verticalScale(14),
             borderRadius: 25,
             shadowColor: colors.primary,
             shadowOffset: { width: 0, height: 4 },
@@ -160,7 +163,7 @@ export const userProfileStyles = () => {
             borderRadius: 50,
             justifyContent: 'center',
             alignItems: 'center',
-            marginBottom: 16,
+            marginBottom: verticalScale(16),
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 4 },
             shadowOpacity: 0.2,
@@ -176,18 +179,18 @@ export const userProfileStyles = () => {
             fontSize: 24,
             fontWeight: '700',
             color: colors.textPrimary,
-            marginBottom: 6,
+            marginBottom: verticalScale(6),
             textAlign: 'center',
         },
         profileEmail: {
             fontSize: 16,
             color: colors.textSecondary,
-            marginBottom: 16,
+            marginBottom: verticalScale(16),
             textAlign: 'center',
         },
         levelBadge: {
             paddingHorizontal: 20,
-            paddingVertical: 10,
+            paddingVertical: verticalScale(10),
             borderRadius: 25,
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 2 },
@@ -206,7 +209,7 @@ export const userProfileStyles = () => {
         quickActions: {
             flexDirection: 'row',
             marginHorizontal: 16,
-            marginBottom: 20,
+            marginBottom: verticalScale(20),
             gap: 12,
         },
         actionButton: {
@@ -236,7 +239,7 @@ export const userProfileStyles = () => {
             borderRadius: 16,
             justifyContent: 'center',
             alignItems: 'center',
-            marginBottom: 12,
+            marginBottom: verticalScale(12),
         },
         actionIconPrimary: {
             backgroundColor: 'rgba(255,255,255,0.2)',
@@ -257,7 +260,7 @@ export const userProfileStyles = () => {
         // Stats Section
         statsSection: {
             marginHorizontal: 16,
-            marginBottom: 20,
+            marginBottom: verticalScale(20),
         },
         sectionCard: {
             backgroundColor: 'white',
@@ -273,7 +276,7 @@ export const userProfileStyles = () => {
             fontSize: 18,
             fontWeight: '700',
             color: colors.textPrimary,
-            marginBottom: 16,
+            marginBottom: verticalScale(16),
         },
         statsGrid: {
             flexDirection: 'row',
@@ -293,13 +296,13 @@ export const userProfileStyles = () => {
         },
         statEmoji: {
             fontSize: 24,
-            marginBottom: 8,
+            marginBottom: verticalScale(8),
         },
         statValue: {
             fontSize: 16,
             fontWeight: '700',
             color: colors.primary,
-            marginBottom: 4,
+            marginBottom: verticalScale(4),
             textAlign: 'center',
         },
         statLabel: {
@@ -312,13 +315,13 @@ export const userProfileStyles = () => {
         // Recommendation Section
         recommendationSection: {
             marginHorizontal: 16,
-            marginBottom: 20,
+            marginBottom: verticalScale(20),
         },
         recommendationHeader: {
             flexDirection: 'row',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: 16,
+            marginBottom: verticalScale(16),
         },
         refreshButton: {
             width: 36,
@@ -354,7 +357,7 @@ export const userProfileStyles = () => {
         // Tips Section
         tipsSection: {
             marginHorizontal: 16,
-            marginBottom: 20,
+            marginBottom: verticalScale(20),
         },
         tipCard: {
             backgroundColor: colors.accent,
@@ -376,8 +379,8 @@ export const userProfileStyles = () => {
         // Footer
         footer: {
             marginHorizontal: 16,
-            marginBottom: 30,
-            paddingVertical: 20,
+            marginBottom: verticalScale(30),
+            paddingVertical: verticalScale(20),
             alignItems: 'center',
         },
         footerText: {

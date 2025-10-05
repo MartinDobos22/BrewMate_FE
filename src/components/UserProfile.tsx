@@ -14,7 +14,7 @@ import {
   Platform,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
-import { getSafeAreaTop, getSafeAreaBottom, scale } from './utils/safeArea';
+import { getSafeAreaTop, getSafeAreaBottom, scale, verticalScale } from './utils/safeArea';
 import { AIResponseDisplay } from './AIResponseDisplay';
 import { unifiedStyles } from '../theme/unifiedStyles';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from './BottomNav';
@@ -642,12 +642,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: scale(16),
-    paddingVertical: scale(12),
-    paddingTop: Platform.OS === 'ios' ? scale(12) : scale(16) + getSafeAreaTop(),
+    paddingVertical: verticalScale(12),
+    paddingTop: Platform.OS === 'ios' ? verticalScale(12) : verticalScale(16) + getSafeAreaTop(),
   },
   headerButton: {
     width: scale(36),
-    height: scale(36),
+    height: verticalScale(36),
     backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: scale(18),
     justifyContent: 'center',
@@ -673,7 +673,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: getSafeAreaBottom() + BOTTOM_NAV_HEIGHT + scale(20),
+    paddingBottom: getSafeAreaBottom() + BOTTOM_NAV_HEIGHT + verticalScale(20),
   },
   centerContainer: {
     flex: 1,
@@ -693,7 +693,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   loadingText: {
-    marginTop: scale(15),
+    marginTop: verticalScale(15),
     fontSize: scale(16),
     color: '#666666',
   },
@@ -710,18 +710,18 @@ const styles = StyleSheet.create({
   },
   errorEmoji: {
     fontSize: scale(50),
-    marginBottom: scale(15),
+    marginBottom: verticalScale(15),
   },
   errorText: {
     fontSize: scale(16),
     color: '#2C2C2C',
-    marginBottom: scale(20),
+    marginBottom: verticalScale(20),
     textAlign: 'center',
   },
   retryButton: {
     backgroundColor: '#6B4423',
     paddingHorizontal: scale(25),
-    paddingVertical: scale(12),
+    paddingVertical: verticalScale(12),
     borderRadius: scale(20),
   },
   retryButtonText: {
@@ -743,11 +743,11 @@ const styles = StyleSheet.create({
   },
   avatar: {
     width: scale(80),
-    height: scale(80),
+    height: verticalScale(80),
     borderRadius: scale(40),
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: scale(12),
+    marginBottom: verticalScale(12),
   },
   avatarText: {
     fontSize: scale(30),
@@ -758,16 +758,16 @@ const styles = StyleSheet.create({
     fontSize: scale(20),
     fontWeight: '700',
     color: '#2C2C2C',
-    marginBottom: scale(4),
+    marginBottom: verticalScale(4),
   },
   profileEmail: {
     fontSize: scale(14),
     color: '#666666',
-    marginBottom: scale(12),
+    marginBottom: verticalScale(12),
   },
   levelBadge: {
     paddingHorizontal: scale(16),
-    paddingVertical: scale(8),
+    paddingVertical: verticalScale(8),
     borderRadius: scale(20),
   },
   levelBadgeText: {
@@ -777,14 +777,14 @@ const styles = StyleSheet.create({
   },
   tasteProfileWrapper: {
     width: '100%',
-    marginTop: scale(16),
+    marginTop: verticalScale(16),
     alignItems: 'center',
   },
   quickActions: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginHorizontal: scale(16),
-    marginBottom: scale(16),
+    marginBottom: verticalScale(16),
     gap: scale(10),
   },
   actionButton: {
@@ -803,12 +803,12 @@ const styles = StyleSheet.create({
   },
   actionIcon: {
     width: scale(40),
-    height: scale(40),
+    height: verticalScale(40),
     backgroundColor: 'rgba(107, 68, 35, 0.1)',
     borderRadius: scale(12),
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: scale(8),
+    marginBottom: verticalScale(8),
   },
   actionIconPrimary: {
     backgroundColor: 'rgba(255,255,255,0.2)',
@@ -826,7 +826,7 @@ const styles = StyleSheet.create({
   },
   section: {
     marginHorizontal: scale(16),
-    marginBottom: scale(16),
+    marginBottom: verticalScale(16),
   },
   sectionCard: {
     backgroundColor: 'white',
@@ -842,12 +842,12 @@ const styles = StyleSheet.create({
     fontSize: scale(16),
     fontWeight: '700',
     color: '#2C2C2C',
-    marginBottom: scale(12),
+    marginBottom: verticalScale(12),
   },
   sectionDescription: {
     fontSize: scale(12),
     color: '#6B6B6B',
-    marginBottom: scale(12),
+    marginBottom: verticalScale(12),
   },
   statsGrid: {
     flexDirection: 'row',
@@ -863,13 +863,13 @@ const styles = StyleSheet.create({
   },
   statEmoji: {
     fontSize: scale(20),
-    marginBottom: scale(4),
+    marginBottom: verticalScale(4),
   },
   statValue: {
     fontSize: scale(14),
     fontWeight: '700',
     color: '#6B4423',
-    marginBottom: scale(2),
+    marginBottom: verticalScale(2),
   },
   statLabel: {
     fontSize: scale(10),
@@ -883,7 +883,7 @@ const styles = StyleSheet.create({
   },
   refreshButton: {
     width: scale(30),
-    height: scale(30),
+    height: verticalScale(30),
     backgroundColor: colors.background,
     borderRadius: scale(15),
     justifyContent: 'center',
@@ -900,9 +900,9 @@ const styles = StyleSheet.create({
   dataButton: {
     backgroundColor: '#6B4423',
     borderRadius: scale(12),
-    paddingVertical: scale(12),
+    paddingVertical: verticalScale(12),
     alignItems: 'center',
-    marginBottom: scale(10),
+    marginBottom: verticalScale(10),
   },
   deleteButton: {
     backgroundColor: '#C62828',
@@ -918,18 +918,18 @@ const styles = StyleSheet.create({
   dataConsentHint: {
     fontSize: scale(11),
     color: '#8A8A8A',
-    marginTop: scale(8),
+    marginTop: verticalScale(8),
   },
   tipText: {
     fontSize: scale(13),
-    lineHeight: scale(18),
+    lineHeight: verticalScale(18),
     color: 'white',
-    marginTop: scale(8),
+    marginTop: verticalScale(8),
   },
   footer: {
     alignItems: 'center',
-    paddingVertical: scale(16),
-    marginBottom: scale(20),
+    paddingVertical: verticalScale(16),
+    marginBottom: verticalScale(20),
   },
   footerText: {
     fontSize: scale(12),

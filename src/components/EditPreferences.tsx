@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import { getColors, Colors } from '../theme/colors';
-import { getSafeAreaTop, getSafeAreaBottom, scale } from './utils/safeArea';
+import { getSafeAreaTop, getSafeAreaBottom, scale, verticalScale } from './utils/safeArea';
 import { AIResponseDisplay } from './AIResponseDisplay';
 import { CONFIG } from '../config/config';
 
@@ -369,12 +369,12 @@ const createStyles = (colors: Colors) =>
       justifyContent: 'space-between',
       alignItems: 'center',
       paddingHorizontal: scale(16),
-      paddingVertical: scale(12),
-      paddingTop: Platform.OS === 'ios' ? scale(12) : scale(16) + getSafeAreaTop(),
+      paddingVertical: verticalScale(12),
+      paddingTop: Platform.OS === 'ios' ? verticalScale(12) : verticalScale(16) + getSafeAreaTop(),
     },
     headerButton: {
       width: scale(36),
-      height: scale(36),
+      height: verticalScale(36),
       backgroundColor: 'rgba(255,255,255,0.2)',
       borderRadius: scale(18),
       justifyContent: 'center',
@@ -403,21 +403,21 @@ const createStyles = (colors: Colors) =>
     },
     scrollContent: {
       padding: scale(16),
-      paddingBottom: getSafeAreaBottom() + scale(30),
+      paddingBottom: getSafeAreaBottom() + verticalScale(30),
     },
     section: {
-      marginBottom: scale(20),
+      marginBottom: verticalScale(20),
     },
     label: {
       fontSize: scale(16),
       fontWeight: '600',
       color: colors.text,
-      marginBottom: scale(8),
+      marginBottom: verticalScale(8),
     },
     helperText: {
       fontSize: scale(13),
       color: colors.textSecondary,
-      marginBottom: scale(10),
+      marginBottom: verticalScale(10),
       fontStyle: 'italic',
     },
     currentRecommendation: {
@@ -431,12 +431,12 @@ const createStyles = (colors: Colors) =>
       fontSize: scale(16),
       fontWeight: '600',
       color: colors.text,
-      marginBottom: scale(8),
+      marginBottom: verticalScale(8),
     },
     recommendationText: {
       color: colors.text,
       fontSize: scale(14),
-      lineHeight: scale(20),
+      lineHeight: verticalScale(20),
     },
     input: {
       borderWidth: 1,
@@ -448,7 +448,7 @@ const createStyles = (colors: Colors) =>
       fontSize: scale(14),
     },
     multiline: {
-      height: scale(100),
+      height: verticalScale(100),
       textAlignVertical: 'top',
     },
     historyBox: {
@@ -457,25 +457,25 @@ const createStyles = (colors: Colors) =>
       borderRadius: scale(12),
       borderWidth: 1,
       borderColor: colors.border,
-      maxHeight: scale(120),
+      maxHeight: verticalScale(120),
     },
     historyScroll: {
-      maxHeight: scale(100),
+      maxHeight: verticalScale(100),
     },
     historyText: {
       color: colors.textSecondary,
       fontSize: scale(12),
-      lineHeight: scale(18),
+      lineHeight: verticalScale(18),
     },
     buttonsContainer: {
-      marginTop: scale(10),
+      marginTop: verticalScale(10),
     },
     saveButton: {
       backgroundColor: colors.primary,
       padding: scale(15),
       borderRadius: scale(20),
       alignItems: 'center',
-      marginBottom: scale(10),
+      marginBottom: verticalScale(10),
     },
     disabledButton: {
       opacity: 0.6,
