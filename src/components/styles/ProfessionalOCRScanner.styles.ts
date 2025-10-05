@@ -704,6 +704,31 @@ export const scannerStyles = (isDarkMode: boolean = false) => {
       fontSize: 20,
     },
 
+    favoriteButton: {
+      marginLeft: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.background,
+    },
+
+    favoriteButtonActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+
+    favoriteButtonText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.textPrimary,
+    },
+
+    favoriteButtonTextActive: {
+      color: colors.textLight,
+    },
+
     // Brewing Methods
     brewingSection: {
       padding: 16,

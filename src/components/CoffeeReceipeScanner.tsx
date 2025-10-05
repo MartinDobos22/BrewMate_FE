@@ -26,12 +26,12 @@ import {
   ImageLibraryOptions,
 } from 'react-native-image-picker';
 import RNFS from 'react-native-fs';
+import NetInfo from '@react-native-community/netinfo';
 import { scannerStyles } from './styles/ProfessionalOCRScanner.styles';
 import {
   processOCR,
   fetchOCRHistory,
   deleteOCRRecord,
-  rateOCRResult,
   getBrewRecipe,
   suggestBrewingMethods,
 } from '../services/ocrServices.ts';
@@ -44,6 +44,8 @@ import { AIResponseDisplay } from './AIResponseDisplay';
 import { coffeeDiary as fallbackCoffeeDiary, preferenceEngine } from '../services/personalizationGateway';
 import { BrewContext } from '../types/Personalization';
 import { usePersonalization } from '../hooks/usePersonalization';
+import { saveCoffeeRating, toggleFavorite } from '../services/homePagesService';
+import { showToast } from '../utils/toast';
 
 interface OCRHistory {
   id: string;
@@ -54,6 +56,7 @@ interface OCRHistory {
   rating?: number;
   match_percentage?: number;
   is_recommended?: boolean;
+  is_favorite?: boolean;
 }
 
 interface ScanResult {
@@ -64,6 +67,7 @@ interface ScanResult {
   isRecommended?: boolean;
   scanId?: string;
   brewingMethods?: string[];
+  isFavorite?: boolean;
 }
 
 interface BrewScannerProps {
@@ -122,6 +126,8 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedRecipe, setGeneratedRecipe] = useState<string>('');
   const [recipeHistory, setRecipeHistory] = useState<RecipeHistory[]>([]);
+  const [isConnected, setIsConnected] = useState<boolean | null>(null);
+  const [isFavorite, setIsFavorite] = useState(false);
 
   const camera = useRef<Camera>(null);
   const device = useCameraDevice('back');
@@ -137,6 +143,20 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     loadHistory();
     loadRecipeHistory();
   }, [hasPermission, requestPermission]);
+
+  useEffect(() => {
+    const setInitialConnection = async () => {
+      const state = await NetInfo.fetch();
+      setIsConnected(state.isConnected ?? null);
+    };
+    void setInitialConnection();
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      setIsConnected(state.isConnected ?? null);
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   /**
    * Načíta posledné OCR skenovania zo servera.
@@ -226,6 +246,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
 
       if (result) {
         setScanResult(result);
+        setIsFavorite(result.isFavorite ?? false);
         setEditedText(result.corrected);
 
         // Načítaj aktualizovanú históriu
@@ -313,10 +334,12 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
       matchPercentage: item.match_percentage,
       isRecommended: item.is_recommended,
       brewingMethods: methods,
+      isFavorite: item.is_favorite,
     });
     setEditedText(item.corrected_text);
     setUserRating(item.rating || 0);
     setSelectedMethod(null);
+    setIsFavorite(item.is_favorite ?? false);
   };
 
   const deleteFromHistory = async (id: string) => {
@@ -342,6 +365,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
   };
 
   const handleRating = async (rating: number) => {
+    const previousRating = userRating;
     setUserRating(rating);
     if (!scanResult) {
       return;
@@ -351,9 +375,19 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     const recordId = scanResult.scanId ?? fallbackId;
 
     try {
-      const success = scanResult.scanId ? await rateOCRResult(scanResult.scanId, rating) : true;
+      const notesSegments = [
+        selectedMethod ? `Metóda: ${selectedMethod}` : undefined,
+        tastePreference ? `Preferencia: ${tastePreference}` : undefined,
+      ].filter((part): part is string => Boolean(part));
 
-      if (!success) {
+      const saveSuccess = await saveCoffeeRating(
+        recordId,
+        rating,
+        notesSegments.length > 0 ? notesSegments.join('\n') : undefined,
+      );
+
+      if (!saveSuccess) {
+        setUserRating(previousRating);
         Alert.alert('Chyba', 'Nepodarilo sa uložiť hodnotenie');
         return;
       }
@@ -369,11 +403,6 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
       };
 
       const context = buildBrewContext(recipeMetadata);
-      const notesSegments = [
-        selectedMethod ? `Metóda: ${selectedMethod}` : undefined,
-        tastePreference ? `Preferencia: ${tastePreference}` : undefined,
-      ].filter((part): part is string => Boolean(part));
-
       await diary.addManualEntry({
         recipe: generatedRecipe || scanResult.corrected || scanResult.original,
         notes: notesSegments.length > 0 ? notesSegments.join('\n') : undefined,
@@ -396,9 +425,41 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
       await Promise.all([loadHistory(), loadRecipeHistory()]);
 
       Alert.alert('Hodnotenie uložené', `Ohodnotil si recept na ${rating}/5 ⭐`);
+      if (isConnected === false) {
+        showToast('Hodnotenie uložené offline. Synchronizácia prebehne neskôr.');
+      }
     } catch (error) {
       console.error('Error rating result:', error);
+      setUserRating(previousRating);
       Alert.alert('Chyba', 'Nepodarilo sa spracovať hodnotenie');
+    }
+  };
+
+  const handleFavoriteToggle = async () => {
+    if (!scanResult) {
+      return;
+    }
+
+    const fallbackId = `recipe-${Date.now()}`;
+    const recordId = scanResult.scanId ?? fallbackId;
+    const nextValue = !isFavorite;
+    setIsFavorite(nextValue);
+
+    try {
+      const success = await toggleFavorite(recordId);
+      if (!success) {
+        setIsFavorite(!nextValue);
+        Alert.alert('Chyba', 'Nepodarilo sa upraviť obľúbené recepty');
+        return;
+      }
+
+      if (isConnected === false) {
+        showToast('Zmena obľúbených uložená offline.');
+      }
+    } catch (error) {
+      console.error('Error toggling favorite recipe:', error);
+      setIsFavorite(!nextValue);
+      Alert.alert('Chyba', 'Nepodarilo sa upraviť obľúbené recepty');
     }
   };
 
@@ -420,6 +481,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     setSelectedMethod(null);
     setTastePreference('');
     setGeneratedRecipe('');
+    setIsFavorite(false);
   };
 
   // Camera View
@@ -600,6 +662,31 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
               />
             </View>
 
+            <View style={styles.ratingContainer}>
+              <Text style={styles.ratingLabel}>Hodnotenie:</Text>
+              <View style={styles.ratingStars}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <TouchableOpacity
+                    key={star}
+                    style={styles.starButton}
+                    onPress={() => handleRating(star)}
+                  >
+                    <Text style={styles.starText}>{star <= userRating ? '⭐' : '☆'}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TouchableOpacity
+                style={[styles.favoriteButton, isFavorite && styles.favoriteButtonActive]}
+                onPress={handleFavoriteToggle}
+              >
+                <Text
+                  style={[styles.favoriteButtonText, isFavorite && styles.favoriteButtonTextActive]}
+                >
+                  {isFavorite ? '❤️ Uložené' : '♡ Obľúbené'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             {/* Generate Button */}
             <TouchableOpacity
               style={styles.generateButton}
@@ -622,6 +709,30 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
         {generatedRecipe && (
           <View style={styles.resultContainer}>
             <AIResponseDisplay content={generatedRecipe} />
+            <View style={styles.ratingContainer}>
+              <Text style={styles.ratingLabel}>Ako ti chutí?</Text>
+              <View style={styles.ratingStars}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <TouchableOpacity
+                    key={star}
+                    style={styles.starButton}
+                    onPress={() => handleRating(star)}
+                  >
+                    <Text style={styles.starText}>{star <= userRating ? '⭐' : '☆'}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TouchableOpacity
+                style={[styles.favoriteButton, isFavorite && styles.favoriteButtonActive]}
+                onPress={handleFavoriteToggle}
+              >
+                <Text
+                  style={[styles.favoriteButtonText, isFavorite && styles.favoriteButtonTextActive]}
+                >
+                  {isFavorite ? '❤️ Uložené' : '♡ Obľúbené'}
+                </Text>
+              </TouchableOpacity>
+            </View>
             <View style={styles.actionButtons}>
               <TouchableOpacity
                 style={styles.button}
