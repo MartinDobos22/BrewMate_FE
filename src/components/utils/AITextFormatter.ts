@@ -119,15 +119,31 @@ export const formatRecipeSteps = (recipe: string): RecipeStep[] => {
   lines.forEach(line => {
     const trimmedLine = line.trim();
 
-    // Detekcia krokov
-    if (/^\d+[.)]\s*/.test(trimmedLine) || /^Krok\s+\d+/i.test(trimmedLine)) {
-      const content = trimmedLine.replace(/^\d+[.)]\s*/, '').replace(/^Krok\s+\d+:?\s*/i, '');
+    // Detekcia krokov (číslované, pomenované alebo odrážkové)
+    const isNumberedStep = /^\d+[.)]\s*/.test(trimmedLine);
+    const isNamedStep = /^Krok\s+\d+/i.test(trimmedLine) || /^Step\s+\d+/i.test(trimmedLine);
+    const isBulletStep = /^[-•*]\s+/.test(trimmedLine);
+
+    if (isNumberedStep || isNamedStep || isBulletStep) {
+      const content = trimmedLine
+        .replace(/^\d+[.)]\s*/, '')
+        .replace(/^Krok\s+\d+:?\s*/i, '')
+        .replace(/^Step\s+\d+:?\s*/i, '')
+        .replace(/^[-•*]\s*/, '')
+        .trim();
+
+      if (content.length === 0) {
+        return;
+      }
+
       const timeMatch = content.match(/(\d+)\s*(min|sek|s)/i);
 
       steps.push({
         number: stepNumber++,
         text: content,
-        time: timeMatch ? parseInt(timeMatch[1]) * (timeMatch[2].toLowerCase().startsWith('m') ? 60 : 1) : undefined,
+        time: timeMatch
+          ? parseInt(timeMatch[1]) * (timeMatch[2].toLowerCase().startsWith('m') ? 60 : 1)
+          : undefined,
         icon: getStepIcon(content)
       });
     }
@@ -135,14 +151,51 @@ export const formatRecipeSteps = (recipe: string): RecipeStep[] => {
 
   // Ak nie sú očíslované kroky, rozdeľ po vetách
   if (steps.length === 0) {
-    const sentences = recipe.split(/[.!?]+/).filter(s => s.trim().length > 10);
+    const sentences = recipe.split(/[.!?]+/).filter(s => s.trim().length > 3);
     sentences.forEach((sentence, index) => {
-      const timeMatch = sentence.match(/(\d+)\s*(min|sek|s)/i);
+      const cleaned = sentence.trim();
+      if (!cleaned) {
+        return;
+      }
+
+      const timeMatch = cleaned.match(/(\d+)\s*(min|sek|s)/i);
       steps.push({
         number: index + 1,
-        text: sentence.trim(),
-        time: timeMatch ? parseInt(timeMatch[1]) * (timeMatch[2].toLowerCase().startsWith('m') ? 60 : 1) : undefined,
-        icon: getStepIcon(sentence)
+        text: cleaned.replace(/^[-•*]\s*/, ''),
+        time: timeMatch
+          ? parseInt(timeMatch[1]) * (timeMatch[2].toLowerCase().startsWith('m') ? 60 : 1)
+          : undefined,
+        icon: getStepIcon(cleaned)
+      });
+    });
+  }
+
+  if (steps.length === 0 && lines.length > 0) {
+    lines.forEach((line, index) => {
+      const cleaned = line.trim();
+      if (!cleaned) {
+        return;
+      }
+
+      const normalized = cleaned
+        .replace(/^\d+[.)]\s*/, '')
+        .replace(/^Krok\s+\d+:?\s*/i, '')
+        .replace(/^Step\s+\d+:?\s*/i, '')
+        .replace(/^[-•*]\s*/, '')
+        .trim();
+
+      if (!normalized) {
+        return;
+      }
+
+      const timeMatch = normalized.match(/(\d+)\s*(min|sek|s)/i);
+      steps.push({
+        number: index + 1,
+        text: normalized,
+        time: timeMatch
+          ? parseInt(timeMatch[1]) * (timeMatch[2].toLowerCase().startsWith('m') ? 60 : 1)
+          : undefined,
+        icon: getStepIcon(normalized)
       });
     });
   }
