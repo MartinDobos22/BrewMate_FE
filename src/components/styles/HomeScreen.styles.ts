@@ -181,6 +181,65 @@ export const homeStyles = () => {
       opacity: 0.95,
     },
 
+    statsSection: {
+      marginHorizontal: 16,
+      marginBottom: 16,
+      padding: 20,
+      backgroundColor: colors.cardLight,
+      borderRadius: 18,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 10,
+      elevation: 5,
+    },
+    statsHeader: {
+      marginBottom: 16,
+    },
+    statsSubtitle: {
+      color: colors.textSecondary,
+      fontSize: 13,
+      marginTop: 4,
+    },
+    statsGrid: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    statCard: {
+      flex: 1,
+      backgroundColor: '#F3E4D7',
+      borderRadius: 14,
+      paddingVertical: 16,
+      paddingHorizontal: 12,
+      justifyContent: 'center',
+    },
+    statLabel: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      letterSpacing: 0.2,
+    },
+    statValue: {
+      marginTop: 8,
+      fontSize: 22,
+      fontWeight: '700',
+      color: colors.primaryDark,
+    },
+    statsFeedback: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+    },
+    statsFeedbackText: {
+      color: colors.textSecondary,
+      fontSize: 14,
+    },
+    statsErrorText: {
+      color: colors.danger,
+      fontSize: 13,
+      marginBottom: 12,
+    },
+
     // Weather Widget
     weatherWidget: {
       marginHorizontal: 16,

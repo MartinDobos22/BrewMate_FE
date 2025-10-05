@@ -7,8 +7,18 @@ import HomeScreen from '../src/components/HomeScreen';
 
 jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper');
 
+const fetchCoffeesMock = jest.fn(() => Promise.resolve([]));
+const fetchDashboardDataMock = jest.fn(() => Promise.resolve({
+  stats: { coffeeCount: 0, avgRating: 0, favoritesCount: 0 },
+}));
+const fetchUserStatsMock = jest.fn(() =>
+  Promise.resolve({ coffeeCount: 0, avgRating: 0, favoritesCount: 0 })
+);
+
 jest.mock('../src/services/homePagesService.ts', () => ({
-  fetchCoffees: jest.fn(() => Promise.resolve([])),
+  fetchCoffees: fetchCoffeesMock,
+  fetchDashboardData: fetchDashboardDataMock,
+  fetchUserStats: fetchUserStatsMock,
 }));
 
 jest.mock('../src/services/contentServices', () => ({

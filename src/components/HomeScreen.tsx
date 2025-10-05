@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { homeStyles } from './styles/HomeScreen.styles.ts';
-import { fetchCoffees } from '../services/homePagesService.ts';
+import { fetchCoffees, fetchDashboardData, fetchUserStats } from '../services/homePagesService.ts';
 import DailyTipCard from './DailyTipCard';
 import DailyRitualCard, { DailyRitualCardProps } from './DailyRitualCard';
 import { fetchDailyTip, Tip } from '../services/contentServices';
@@ -50,6 +50,12 @@ interface HomeScreenProps {
   userName?: string;
 }
 
+interface UserStatsSummary {
+  coffeeCount: number;
+  avgRating: number;
+  favoritesCount: number;
+}
+
 const HomeScreen: React.FC<HomeScreenProps> = ({
                                                  onHomePress,
                                                  onScanPress,
@@ -81,8 +87,43 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   const [tipError, setTipError] = useState<string | null>(null);
   const [recentScans, setRecentScans] = useState<RecentScan[]>([]);
   const [ritualRecommendation, setRitualRecommendation] = useState<DailyRitualCardProps['recommendation'] | null>(null);
+  const [stats, setStats] = useState<UserStatsSummary>({ coffeeCount: 0, avgRating: 0, favoritesCount: 0 });
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
   const styles = homeStyles();
   const { morningRitualManager } = usePersonalization();
+
+  const loadStats = useCallback(async () => {
+    setStatsLoading(true);
+    setStatsError(null);
+
+    try {
+      const [dashboardResult, userStatsResult] = await Promise.all([
+        fetchDashboardData(),
+        fetchUserStats(),
+      ]);
+
+      if (dashboardResult?.stats) {
+        setStats(dashboardResult.stats);
+      } else {
+        setStats(userStatsResult);
+        setStatsError('Zobrazujú sa posledné známe údaje.');
+      }
+    } catch (error) {
+      console.warn('HomeScreen: failed to load stats', error);
+      try {
+        const fallback = await fetchUserStats();
+        setStats(fallback);
+        setStatsError('Nepodarilo sa načítať najnovšie štatistiky.');
+      } catch (fallbackError) {
+        console.warn('HomeScreen: failed to load fallback stats', fallbackError);
+        setStats({ coffeeCount: 0, avgRating: 0, favoritesCount: 0 });
+        setStatsError('Nepodarilo sa načítať štatistiky.');
+      }
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
 
   const loadCoffees = useCallback(async () => {
     try {
@@ -97,6 +138,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   useEffect(() => {
     loadCoffees();
   }, [loadCoffees]);
+
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
 
   useEffect(() => {
     if (!morningRitualManager) {
@@ -213,6 +258,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const onRefresh = async () => {
     setRefreshing(true);
+    await loadStats();
     await loadCoffees();
     await loadTip();
     try {
@@ -316,6 +362,47 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
             </View>
             <Text style={styles.statusText}>{getTimeBasedMessage()}</Text>
           </View>
+        </View>
+
+        <View style={styles.statsSection} testID="user-stats-section">
+          <View style={styles.statsHeader}>
+            <Text style={styles.sectionTitle}>📊 Tvoje štatistiky</Text>
+            <Text style={styles.statsSubtitle}>Prehľad aktivít v BrewMate</Text>
+          </View>
+          {statsLoading ? (
+            <View style={styles.statsFeedback} testID="stats-loading">
+              <ActivityIndicator color="#6B4423" />
+              <Text style={styles.statsFeedbackText}>Načítavam štatistiky...</Text>
+            </View>
+          ) : (
+            <>
+              {statsError && (
+                <Text style={styles.statsErrorText} testID="stats-fallback-message">
+                  {statsError}
+                </Text>
+              )}
+              <View style={styles.statsGrid}>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Naskenované kávy</Text>
+                  <Text style={styles.statValue} testID="stat-value-coffeeCount">
+                    {stats.coffeeCount}
+                  </Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Priemerné hodnotenie</Text>
+                  <Text style={styles.statValue} testID="stat-value-avgRating">
+                    {stats.avgRating.toFixed(1)}
+                  </Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statLabel}>Obľúbené kávy</Text>
+                  <Text style={styles.statValue} testID="stat-value-favoritesCount">
+                    {stats.favoritesCount}
+                  </Text>
+                </View>
+              </View>
+            </>
+          )}
         </View>
 
         <View style={{ marginVertical: 16 }}>
