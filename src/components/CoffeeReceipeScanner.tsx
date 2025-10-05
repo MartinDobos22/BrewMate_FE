@@ -739,7 +739,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
         {/* Generated Recipe */}
         {generatedRecipe && (
           <View style={styles.resultContainer}>
-            <AIResponseDisplay content={generatedRecipe} />
+            <AIResponseDisplay text={generatedRecipe} type="recipe" />
             <View style={styles.ratingContainer}>
               <Text style={styles.ratingLabel}>Ako ti chutí?</Text>
               <View style={styles.ratingStars}>

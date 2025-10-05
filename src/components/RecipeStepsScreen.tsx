@@ -11,7 +11,6 @@ import { useTheme } from '../theme/ThemeProvider';
 import { formatRecipeSteps } from './utils/AITextFormatter';
 import { BrewDevice } from '../types/Recipe';
 import Timer from './Timer';
-import { AIResponseDisplay } from './AIResponseDisplay';
 import { colors, spacing, unifiedStyles } from '../theme/unifiedStyles';
 import { incrementProgress } from '../services/profileServices';
 interface RecipeStepsScreenProps {
@@ -97,11 +96,7 @@ const RecipeStepsScreen: React.FC<RecipeStepsScreenProps> = ({ recipe, brewDevic
         >
           <Text style={styles.stepIcon}>{currentStepData.icon}</Text>
           <Text style={[styles.stepTitle, typography.h3]}>Krok {currentStepData.number}</Text>
-          <AIResponseDisplay
-            text={currentStepData.text}
-            type="recipe"
-            animate={true}
-          />
+          <Text style={styles.stepDescription}>{currentStepData.text}</Text>
 
           {currentStepData.time && (
             <View style={styles.timerContainer}>
@@ -203,6 +198,12 @@ const styles = StyleSheet.create({
   },
   stepTitle: {
     marginBottom: spacing.md,
+  },
+  stepDescription: {
+    fontSize: 16,
+    lineHeight: 24,
+    textAlign: 'left',
+    color: colors.text,
   },
   timerContainer: {
     marginTop: spacing.lg,
