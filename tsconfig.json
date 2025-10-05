@@ -19,6 +19,7 @@
     "src/services",
     "__tests__",
     "index.js",
-    "server.js"
+    "server.js",
+    "widgets"
   ]
 }
