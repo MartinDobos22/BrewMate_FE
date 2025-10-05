@@ -3,8 +3,8 @@ import {View, Text, Button, TextInput, FlatList} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PushNotification from 'react-native-push-notification';
 import AddCalendarEvent from 'react-native-add-calendar-event';
-import {InventoryItem} from '../types/InventoryItem';
-import {scheduleReminder} from '../utils/reminders';
+import { InventoryItem } from '../types/InventoryItem';
+import { cancelLocalNotification, scheduleReminder } from '../utils/reminders';
 
 const InventoryScreen = (): React.JSX.Element => {
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -53,7 +53,7 @@ const InventoryScreen = (): React.JSX.Element => {
   };
 
   const cancelReminder = (id: string) => {
-    PushNotification.cancelLocalNotification(id);
+    cancelLocalNotification(id);
     loadReminders();
   };
 

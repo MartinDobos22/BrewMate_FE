@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PushNotification from 'react-native-push-notification';
+import { cancelLocalNotification as cancelLocalNotificationService } from '../services/NotificationService';
 import { InventoryItem } from '../types/InventoryItem';
 
 export const scheduleReminder = (date: Date, message: string): string => {
@@ -29,5 +30,9 @@ export const scheduleLowStockCheck = async (): Promise<void> => {
       }
     }
   });
+};
+
+export const cancelLocalNotification = (id: string): void => {
+  cancelLocalNotificationService(id);
 };
 
