@@ -1,27 +1,63 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, ActivityIndicator } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Recipe, BrewDevice, BREW_DEVICES } from '../types/Recipe';
 import { createRecipe } from '../services/recipeServices';
 
-const RecipeForm: React.FC = () => {
+interface RecipeFormProps {
+  onClose: () => void;
+  onCreated?: (recipe: Recipe) => void;
+  onReload?: () => Promise<void> | void;
+}
+
+const RecipeForm: React.FC<RecipeFormProps> = ({ onClose, onCreated, onReload }) => {
   const [title, setTitle] = useState('');
   const [instructions, setInstructions] = useState('');
   const [brewDevice, setBrewDevice] = useState<BrewDevice>(BREW_DEVICES[0]);
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSave = async () => {
+    if (submitting) {
+      return;
+    }
+    if (!title.trim()) {
+      setError('Zadajte názov receptu');
+      return;
+    }
+    if (!instructions.trim()) {
+      setError('Zadajte postup receptu');
+      return;
+    }
     if (!brewDevice) {
       setError('Vyberte zariadenie');
       return;
     }
+    setError('');
+    setSubmitting(true);
     const recipe: Recipe = {
       id: '',
       title,
       instructions,
       brewDevice,
     };
-    await createRecipe(recipe);
+    try {
+      const created = await createRecipe(recipe);
+      if (!created) {
+        setError('Nepodarilo sa uložiť recept. Skúste to prosím znova.');
+        return;
+      }
+      onCreated?.(created);
+      await onReload?.();
+      setTitle('');
+      setInstructions('');
+      onClose();
+    } catch (err) {
+      console.error('Error saving recipe', err);
+      setError('Vyskytla sa neočakávaná chyba. Skúste to prosím znova.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -42,7 +78,19 @@ const RecipeForm: React.FC = () => {
         ))}
       </Picker>
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Button title="Uložiť" onPress={handleSave} />
+      <View style={styles.actions}>
+        <Button title="Zrušiť" onPress={onClose} disabled={submitting} />
+        <View style={{ width: 12 }} />
+        <View style={{ flex: 1 }}>
+          <Button title={submitting ? 'Ukladám…' : 'Uložiť'} onPress={handleSave} disabled={submitting} />
+        </View>
+      </View>
+      {submitting ? (
+        <View style={styles.loadingRow}>
+          <ActivityIndicator size="small" color="#4A4A4A" />
+          <Text style={styles.loadingText}>Ukladám recept…</Text>
+        </View>
+      ) : null}
     </View>
   );
 };
@@ -52,6 +100,9 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderColor: '#ccc', padding: 8, marginBottom: 8 },
   textArea: { height: 80, textAlignVertical: 'top' },
   error: { color: 'red' },
+  actions: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+  loadingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
+  loadingText: { marginLeft: 8, color: '#4A4A4A' },
 });
 
 export default RecipeForm;

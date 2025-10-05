@@ -6,12 +6,14 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { homeStyles } from './styles/HomeScreen.styles';
 import { fetchUserRecipes } from '../services/recipeServices';
 import { BrewDevice, BREW_DEVICES, Recipe } from '../types/Recipe';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from './BottomNav';
+import RecipeForm from './RecipeForm';
 
 type SavedRecipe = Recipe & {
   method?: string;
@@ -43,6 +45,7 @@ const SavedRecipesScreen: React.FC<SavedRecipesScreenProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deviceFilter, setDeviceFilter] = useState<'All' | BrewDevice>('All');
+  const [showRecipeForm, setShowRecipeForm] = useState(false);
   const filteredRecipes = recipes.filter(
     (r) => r.brewDevice === deviceFilter || deviceFilter === 'All'
   );
@@ -75,6 +78,16 @@ const SavedRecipesScreen: React.FC<SavedRecipesScreenProps> = ({
     setRefreshing(false);
   };
 
+  const handleRecipeCreated = useCallback((created: SavedRecipe) => {
+    setRecipes((prev) => {
+      const withoutDuplicate = prev.filter((recipe) => recipe.id !== created.id);
+      return [created, ...withoutDuplicate];
+    });
+  }, []);
+
+  const openRecipeForm = () => setShowRecipeForm(true);
+  const closeRecipeForm = useCallback(() => setShowRecipeForm(false), []);
+
   return (
     <View style={styles.container}>
       <View style={styles.appHeader}>
@@ -82,7 +95,17 @@ const SavedRecipesScreen: React.FC<SavedRecipesScreenProps> = ({
           <Text style={{ color: 'white', fontSize: 18 }}>←</Text>
         </TouchableOpacity>
         <Text style={[styles.appTitle, { flex: 1, textAlign: 'center' }]}>Recepty</Text>
-        <View style={{ width: 32 }} />
+        <TouchableOpacity
+          onPress={openRecipeForm}
+          style={{
+            backgroundColor: '#4A4A4A',
+            paddingVertical: 6,
+            paddingHorizontal: 12,
+            borderRadius: 16,
+          }}
+        >
+          <Text style={{ color: 'white', fontSize: 18, fontWeight: '600' }}>+</Text>
+        </TouchableOpacity>
       </View>
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -161,6 +184,35 @@ const SavedRecipesScreen: React.FC<SavedRecipesScreenProps> = ({
         onFavoritesPress={onFavoritesPress}
         onProfilePress={onProfilePress}
       />
+      <Modal
+        visible={showRecipeForm}
+        animationType="slide"
+        transparent
+        onRequestClose={closeRecipeForm}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.4)',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: '#fff',
+              borderRadius: 16,
+              overflow: 'hidden',
+            }}
+          >
+            <RecipeForm
+              onClose={closeRecipeForm}
+              onCreated={handleRecipeCreated}
+              onReload={() => loadRecipes()}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
