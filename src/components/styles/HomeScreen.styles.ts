@@ -1,5 +1,6 @@
 // HomeScreen.styles.ts
 import { StyleSheet, Platform } from 'react-native';
+import { scale, verticalScale } from '../../theme/responsive';
 
 const colors = {
   primary: '#6B4423',
@@ -31,9 +32,9 @@ export const homeStyles = () => {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      paddingHorizontal: 20,
-      paddingVertical: 8,
-      paddingTop: Platform.OS === 'ios' ? 44 : 8,
+      paddingHorizontal: scale(20),
+      paddingVertical: verticalScale(8),
+      paddingTop: Platform.OS === 'ios' ? verticalScale(44) : verticalScale(8),
     },
     statusTime: {
       color: 'white',
@@ -51,8 +52,8 @@ export const homeStyles = () => {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      paddingHorizontal: 20,
-      paddingVertical: 16,
+      paddingHorizontal: scale(20),
+      paddingVertical: verticalScale(16),
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.1,
@@ -100,7 +101,7 @@ export const homeStyles = () => {
     },
     notificationBadge: {
       position: 'absolute',
-      top: -2,
+      top: verticalScale(-2),
       right: -2,
       width: 18,
       height: 18,
@@ -154,13 +155,13 @@ export const homeStyles = () => {
       color: 'white',
       fontSize: 14,
       opacity: 0.9,
-      marginBottom: 4,
+      marginBottom: verticalScale(4),
     },
     welcomeName: {
       color: 'white',
       fontSize: 24,
       fontWeight: '700',
-      marginBottom: 8,
+      marginBottom: verticalScale(8),
     },
     coffeeStatus: {
       flexDirection: 'row',
@@ -183,7 +184,7 @@ export const homeStyles = () => {
 
     statsSection: {
       marginHorizontal: 16,
-      marginBottom: 16,
+      marginBottom: verticalScale(16),
       padding: 20,
       backgroundColor: colors.cardLight,
       borderRadius: 18,
@@ -194,12 +195,12 @@ export const homeStyles = () => {
       elevation: 5,
     },
     statsHeader: {
-      marginBottom: 16,
+      marginBottom: verticalScale(16),
     },
     statsSubtitle: {
       color: colors.textSecondary,
       fontSize: 13,
-      marginTop: 4,
+      marginTop: verticalScale(4),
     },
     statsGrid: {
       flexDirection: 'row',
@@ -209,7 +210,7 @@ export const homeStyles = () => {
       flex: 1,
       backgroundColor: '#F3E4D7',
       borderRadius: 14,
-      paddingVertical: 16,
+      paddingVertical: verticalScale(16),
       paddingHorizontal: 12,
       justifyContent: 'center',
     },
@@ -219,7 +220,7 @@ export const homeStyles = () => {
       letterSpacing: 0.2,
     },
     statValue: {
-      marginTop: 8,
+      marginTop: verticalScale(8),
       fontSize: 22,
       fontWeight: '700',
       color: colors.primaryDark,
@@ -237,13 +238,13 @@ export const homeStyles = () => {
     statsErrorText: {
       color: colors.danger,
       fontSize: 13,
-      marginBottom: 12,
+      marginBottom: verticalScale(12),
     },
 
     // Weather Widget
     weatherWidget: {
       marginHorizontal: 16,
-      marginBottom: 16,
+      marginBottom: verticalScale(16),
       padding: 16,
       backgroundColor: 'white',
       borderRadius: 16,
@@ -279,7 +280,7 @@ export const homeStyles = () => {
       fontSize: 12,
       color: colors.textSecondary,
       fontWeight: '500',
-      marginBottom: 2,
+      marginBottom: verticalScale(2),
     },
     weatherTemp: {
       fontSize: 16,
@@ -292,7 +293,7 @@ export const homeStyles = () => {
     suggestionLabel: {
       fontSize: 11,
       color: colors.textSecondary,
-      marginBottom: 4,
+      marginBottom: verticalScale(4),
     },
     suggestionName: {
       flexDirection: 'row',
@@ -307,7 +308,7 @@ export const homeStyles = () => {
 
     coffeeTip: {
       marginHorizontal: 16,
-      marginBottom: 16,
+      marginBottom: verticalScale(16),
       padding: 16,
       backgroundColor: 'white',
       borderRadius: 16,
@@ -345,7 +346,7 @@ export const homeStyles = () => {
     tipRetry: {
       backgroundColor: colors.primary,
       paddingHorizontal: 16,
-      paddingVertical: 10,
+      paddingVertical: verticalScale(10),
       borderRadius: 12,
     },
     tipRetryText: {
@@ -354,7 +355,7 @@ export const homeStyles = () => {
       fontSize: 14,
     },
     savedTipsLink: {
-      marginTop: 12,
+      marginTop: verticalScale(12),
       alignSelf: 'center',
     },
     savedTipsLinkText: {
@@ -369,7 +370,7 @@ export const homeStyles = () => {
       flexDirection: 'row',
       flexWrap: 'wrap',
       marginHorizontal: 16,
-      marginBottom: 20,
+      marginBottom: verticalScale(20),
       gap: 12,
     },
     actionCard: {
@@ -394,7 +395,7 @@ export const homeStyles = () => {
       borderRadius: 16,
       justifyContent: 'center',
       alignItems: 'center',
-      marginBottom: 12,
+      marginBottom: verticalScale(12),
     },
     actionEmoji: {
       fontSize: 28,
@@ -403,7 +404,7 @@ export const homeStyles = () => {
       fontSize: 16,
       fontWeight: '600',
       color: colors.textPrimary,
-      marginBottom: 4,
+      marginBottom: verticalScale(4),
       textAlign: 'center',
     },
     actionDesc: {
@@ -418,7 +419,7 @@ export const homeStyles = () => {
 
     brewDiarySection: {
       marginHorizontal: 16,
-      marginBottom: 20,
+      marginBottom: verticalScale(20),
       padding: 20,
       backgroundColor: 'white',
       borderRadius: 20,
@@ -431,11 +432,11 @@ export const homeStyles = () => {
     brewDiaryActions: {
       flexDirection: 'row',
       gap: 12,
-      marginTop: 12,
+      marginTop: verticalScale(12),
     },
     brewDiaryButton: {
       flex: 1,
-      paddingVertical: 14,
+      paddingVertical: verticalScale(14),
       borderRadius: 14,
       borderWidth: 1,
       borderColor: colors.borderLight,
@@ -460,7 +461,7 @@ export const homeStyles = () => {
     // Coffee Inventory
     coffeeInventory: {
       marginHorizontal: 16,
-      marginBottom: 20,
+      marginBottom: verticalScale(20),
       padding: 20,
       backgroundColor: 'white',
       borderRadius: 20,
@@ -475,7 +476,7 @@ export const homeStyles = () => {
       fontSize: 16,
       fontWeight: '600',
       color: colors.textPrimary,
-      marginBottom: 8,
+      marginBottom: verticalScale(8),
     },
     inventoryCount: {
       fontSize: 32,
@@ -486,7 +487,7 @@ export const homeStyles = () => {
     // Taste Profile
     tasteProfile: {
       marginHorizontal: 16,
-      marginBottom: 20,
+      marginBottom: verticalScale(20),
       padding: 20,
       backgroundColor: 'white',
       borderRadius: 20,
@@ -500,7 +501,7 @@ export const homeStyles = () => {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 16,
+      marginBottom: verticalScale(16),
     },
     profileTitle: {
       fontSize: 16,
@@ -509,7 +510,7 @@ export const homeStyles = () => {
     },
     editBtn: {
       paddingHorizontal: 8,
-      paddingVertical: 4,
+      paddingVertical: verticalScale(4),
       backgroundColor: 'rgba(107, 68, 35, 0.1)',
       borderRadius: 8,
     },
@@ -524,12 +525,12 @@ export const homeStyles = () => {
     },
     tasteTag: {
       paddingHorizontal: 14,
-      paddingVertical: 8,
+      paddingVertical: verticalScale(8),
       backgroundColor: colors.bgLight,
       borderRadius: 20,
       borderWidth: 1,
       borderColor: colors.borderLight,
-      marginBottom: 8,
+      marginBottom: verticalScale(8),
       marginRight: 8,
     },
     tasteTagActive: {
@@ -547,17 +548,17 @@ export const homeStyles = () => {
     // Recommendations
     recommendations: {
       marginHorizontal: 16,
-      marginBottom: 100,
+      marginBottom: verticalScale(100),
     },
     recentScans: {
       marginHorizontal: 16,
-      marginBottom: 24,
+      marginBottom: verticalScale(24),
     },
     sectionHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 16,
+      marginBottom: verticalScale(16),
     },
     sectionTitle: {
       fontSize: 18,
@@ -578,7 +579,7 @@ export const homeStyles = () => {
       color: colors.primary,
     },
     coffeeCards: {
-      paddingBottom: 8,
+      paddingBottom: verticalScale(8),
     },
     coffeeCard: {
       width: 150,
@@ -594,7 +595,7 @@ export const homeStyles = () => {
     },
     coffeeBadge: {
       position: 'absolute',
-      top: 8,
+      top: verticalScale(8),
       right: 8,
       width: 24,
       height: 24,
@@ -617,7 +618,7 @@ export const homeStyles = () => {
       justifyContent: 'center',
       alignItems: 'center',
       alignSelf: 'center',
-      marginBottom: 12,
+      marginBottom: verticalScale(12),
     },
     coffeeEmoji: {
       fontSize: 36,
@@ -626,20 +627,20 @@ export const homeStyles = () => {
       fontSize: 14,
       fontWeight: '600',
       color: colors.textPrimary,
-      marginBottom: 4,
+      marginBottom: verticalScale(4),
       textAlign: 'center',
     },
     coffeeOrigin: {
       fontSize: 11,
       color: colors.textSecondary,
       textAlign: 'center',
-      marginBottom: 8,
+      marginBottom: verticalScale(8),
     },
     coffeeMatch: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      paddingTop: 8,
+      paddingTop: verticalScale(8),
       borderTopWidth: 1,
       borderTopColor: colors.borderLight,
     },
