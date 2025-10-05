@@ -6,6 +6,11 @@ import Share from 'react-native/Libraries/Share/Share';
 
 const store: Record<string, string> = {};
 
+jest.mock('../src/services/contentServices', () => ({
+  fetchDailyTip: jest.fn(),
+  getTipFromCache: jest.fn(),
+}));
+
 jest.mock('@react-native-async-storage/async-storage', () => ({
   __esModule: true,
   default: {
@@ -21,16 +26,21 @@ jest.mock('react-native/Libraries/Share/Share', () => ({
   share: jest.fn(),
 }));
 
-beforeEach(() => {
-  const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-  (AsyncStorage.getItem as jest.Mock).mockClear();
-  (AsyncStorage.setItem as jest.Mock).mockClear();
-  Object.keys(store).forEach((k) => delete store[k]);
-  (Share.share as jest.Mock).mockClear();
-});
-
 describe('DailyTipCard', () => {
   const tip = { id: 1, text: 'Tip text', date: '2024-01-01' };
+
+  beforeEach(() => {
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    (AsyncStorage.getItem as jest.Mock).mockClear();
+    (AsyncStorage.setItem as jest.Mock).mockClear();
+    Object.keys(store).forEach((k) => delete store[k]);
+    (Share.share as jest.Mock).mockClear();
+    const services = require('../src/services/contentServices');
+    services.fetchDailyTip.mockReset();
+    services.getTipFromCache.mockReset();
+    services.fetchDailyTip.mockResolvedValue(tip);
+    services.getTipFromCache.mockResolvedValue(null);
+  });
 
   it('saves tip to storage', async () => {
     let instance: any;
@@ -59,8 +69,8 @@ describe('DailyTipCard', () => {
   });
 
   it('uses stored tip when offline', async () => {
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-    await AsyncStorage.setItem('lastTip', JSON.stringify(tip));
+    const services = require('../src/services/contentServices');
+    services.getTipFromCache.mockResolvedValue(tip);
     let instance: any;
     await ReactTestRenderer.act(async () => {
       instance = ReactTestRenderer.create(<DailyTipCard />);
@@ -68,5 +78,6 @@ describe('DailyTipCard', () => {
     const texts = instance.root.findAllByType(Text);
     const hasTip = texts.some((t) => t.props.children === tip.text);
     expect(hasTip).toBe(true);
+    expect(services.fetchDailyTip).not.toHaveBeenCalled();
   });
 });

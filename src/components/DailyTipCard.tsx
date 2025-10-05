@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, Share } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Tip } from '../services/contentServices';
+import { fetchDailyTip, getTipFromCache, Tip } from '../services/contentServices';
 
 interface Props {
   tip?: Tip;
@@ -13,15 +13,32 @@ const DailyTipCard: React.FC<Props> = ({ tip }) => {
   const [currentTip, setCurrentTip] = useState<Tip | null>(tip ?? null);
 
   useEffect(() => {
+    let mounted = true;
     if (tip) {
       setCurrentTip(tip);
     } else {
-      AsyncStorage.getItem('lastTip').then((stored) => {
-        if (stored) {
-          setCurrentTip(JSON.parse(stored));
+      const loadTip = async () => {
+        const today = new Date().toISOString().slice(0, 10);
+        const cached = await getTipFromCache(today);
+        if (mounted && cached) {
+          setCurrentTip(cached);
+          return;
         }
+
+        const fetched = await fetchDailyTip();
+        if (mounted) {
+          setCurrentTip(fetched);
+        }
+      };
+
+      loadTip().catch((error) => {
+        console.warn('DailyTipCard: failed to load tip', error);
       });
     }
+
+    return () => {
+      mounted = false;
+    };
   }, [tip]);
 
   const saveTip = async () => {
