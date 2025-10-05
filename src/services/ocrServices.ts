@@ -501,6 +501,7 @@ export const fetchOCRHistory = async (limit: number = 10): Promise<OCRHistory[]>
       match_percentage: item.match_percentage,
       is_recommended: item.is_recommended,
       is_purchased: item.is_purchased,
+      is_favorite: item.is_favorite,
     }));
   } catch (error) {
     console.error('Error fetching OCR history:', error);
