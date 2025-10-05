@@ -1,7 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, Share } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fetchDailyTip, getTipFromCache, Tip } from '../services/contentServices';
+import {
+  clearScheduledDailyTipRefresh,
+  fetchDailyTip,
+  getScheduledDailyTipRefreshHandle,
+  getTipFromCache,
+  scheduleDailyTipRefresh,
+  Tip,
+} from '../services/contentServices';
 
 interface Props {
   tip?: Tip;
@@ -14,6 +21,25 @@ const DailyTipCard: React.FC<Props> = ({ tip }) => {
 
   useEffect(() => {
     let mounted = true;
+    const queueNextRefresh = () => {
+      if (!mounted) {
+        return;
+      }
+
+      if (getScheduledDailyTipRefreshHandle()) {
+        return;
+      }
+
+      scheduleDailyTipRefresh(async () => {
+        const nextTip = await fetchDailyTip();
+        if (!mounted) {
+          return;
+        }
+
+        setCurrentTip(nextTip);
+        queueNextRefresh();
+      });
+    };
     if (tip) {
       setCurrentTip(tip);
     } else {
@@ -28,6 +54,7 @@ const DailyTipCard: React.FC<Props> = ({ tip }) => {
         const fetched = await fetchDailyTip();
         if (mounted) {
           setCurrentTip(fetched);
+          queueNextRefresh();
         }
       };
 
@@ -38,6 +65,7 @@ const DailyTipCard: React.FC<Props> = ({ tip }) => {
 
     return () => {
       mounted = false;
+      clearScheduledDailyTipRefresh();
     };
   }, [tip]);
 
