@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Share } from 'react-native';
+import { View, Text, TouchableOpacity, Share, StyleSheet } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   clearScheduledDailyTipRefresh,
@@ -86,19 +87,118 @@ const DailyTipCard: React.FC<Props> = ({ tip }) => {
 
   if (!currentTip) return null;
 
+  const formattedDate = currentTip.date
+    ? new Date(currentTip.date).toLocaleDateString('sk-SK', {
+        day: '2-digit',
+        month: 'long',
+      })
+    : null;
+
   return (
-    <View style={{ padding: 16, backgroundColor: '#fff', borderRadius: 8 }}>
-      <Text>{currentTip.text}</Text>
-      <View style={{ flexDirection: 'row', marginTop: 8 }}>
-        <TouchableOpacity onPress={saveTip} style={{ marginRight: 16 }}>
-          <Text>Ulož</Text>
+    <LinearGradient
+      colors={['#D4A574', '#C8A882']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.card}
+    >
+      <View style={styles.header}>
+        <View style={styles.iconWrapper}>
+          <Text style={styles.icon}>💡</Text>
+        </View>
+        <View>
+          <Text style={styles.label}>Tip dňa</Text>
+          {formattedDate ? <Text style={styles.date}>{formattedDate}</Text> : null}
+        </View>
+      </View>
+      <Text style={styles.text}>{currentTip.text}</Text>
+      <View style={styles.actions}>
+        <TouchableOpacity onPress={saveTip} style={styles.actionPrimary}>
+          <Text style={styles.actionPrimaryText}>Ulož</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={shareTip}>
-          <Text>Zdieľaj</Text>
+        <TouchableOpacity onPress={shareTip} style={styles.actionSecondary}>
+          <Text style={styles.actionSecondaryText}>Zdieľaj</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </LinearGradient>
   );
 };
+
+const styles = StyleSheet.create({
+  card: {
+    borderRadius: 22,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  iconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  icon: {
+    fontSize: 20,
+  },
+  label: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#3E2617',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  date: {
+    fontSize: 11,
+    color: 'rgba(62,38,23,0.8)',
+    marginTop: 4,
+  },
+  text: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '500',
+    marginBottom: 18,
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionPrimary: {
+    flex: 1,
+    backgroundColor: '#6B4423',
+    paddingVertical: 10,
+    borderRadius: 14,
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  actionPrimaryText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  actionSecondary: {
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.6)',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  actionSecondaryText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+});
 
 export default DailyTipCard;
