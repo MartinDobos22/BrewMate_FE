@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import auth from '@react-native-firebase/auth';
 import { homeStyles } from './styles/HomeScreen.styles.ts';
 import { fetchCoffees, fetchDashboardData, fetchUserStats } from '../services/homePagesService.ts';
 import DailyTipCard from './DailyTipCard';
@@ -18,6 +19,13 @@ import BottomNav, { BOTTOM_NAV_HEIGHT } from './BottomNav';
 import RecentScansCarousel from './RecentScansCarousel';
 import { fetchRecentScans, RecentScan } from '../services/coffeeServices.ts';
 import { usePersonalization } from '../hooks/usePersonalization';
+import TasteProfileRadarCard from './TasteProfileRadarCard';
+import {
+  buildTasteRadarScores,
+  normalizeCoffeePreferenceSnapshot,
+  CoffeePreferenceSnapshot,
+  TasteRadarScores,
+} from '../utils/tasteProfile';
 
 interface CoffeeItem {
   id: string;
@@ -73,13 +81,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                                              }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [coffeeCount, setCoffeeCount] = useState(0);
-  const [activeTasteTags, setActiveTasteTags] = useState([
-    'Stredná intenzita',
-    'Čokoládové tóny',
-    'Oriešková',
-    'Arabica',
-  ]);
-
   const [recommendedCoffees, setRecommendedCoffees] = useState<CoffeeItem[]>([]);
   const [dailyTip, setDailyTip] = useState<Tip | null>(null);
   const [tipLoading, setTipLoading] = useState(true);
@@ -89,8 +90,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   const [stats, setStats] = useState<UserStatsSummary>({ coffeeCount: 0, avgRating: 0, favoritesCount: 0 });
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState<string | null>(null);
+  const [tastePreferenceSnapshot, setTastePreferenceSnapshot] = useState<CoffeePreferenceSnapshot | null>(null);
+  const [tasteRadarScores, setTasteRadarScores] = useState<TasteRadarScores | null>(null);
+  const [tasteProfileLoading, setTasteProfileLoading] = useState(false);
+  const [tasteProfileError, setTasteProfileError] = useState<string | null>(null);
   const styles = homeStyles();
-  const { morningRitualManager } = usePersonalization();
+  const { morningRitualManager, profile: personalizationProfile } = usePersonalization();
 
   const loadStats = useCallback(async () => {
     setStatsLoading(true);
@@ -134,6 +139,38 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     }
   }, []);
 
+  const loadTasteProfile = useCallback(async () => {
+    setTasteProfileLoading(true);
+    setTasteProfileError(null);
+
+    try {
+      const user = auth().currentUser;
+      if (!user) {
+        throw new Error('Používateľ nie je prihlásený');
+      }
+
+      const token = await user.getIdToken();
+      const response = await fetch('http://10.0.2.2:3001/api/profile', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Nepodarilo sa načítať preferencie');
+      }
+
+      const data = await response.json();
+      const normalized = normalizeCoffeePreferenceSnapshot(data?.coffee_preferences);
+      setTastePreferenceSnapshot(normalized);
+    } catch (error) {
+      console.warn('HomeScreen: failed to load taste profile', error);
+      setTasteProfileError('Nepodarilo sa načítať chuťový profil.');
+    } finally {
+      setTasteProfileLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadCoffees();
   }, [loadCoffees]);
@@ -141,6 +178,18 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   useEffect(() => {
     loadStats();
   }, [loadStats]);
+
+  useEffect(() => {
+    loadTasteProfile();
+  }, [loadTasteProfile]);
+
+  useEffect(() => {
+    const computed = buildTasteRadarScores({
+      profile: personalizationProfile ?? null,
+      preferences: tastePreferenceSnapshot,
+    });
+    setTasteRadarScores(computed);
+  }, [personalizationProfile, tastePreferenceSnapshot]);
 
   useEffect(() => {
     if (!morningRitualManager) {
@@ -241,20 +290,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     return { name: 'Cappuccino', icon: '☕' };
   };
 
-  const tasteTags = [
-    'Stredná intenzita',
-    'Čokoládové tóny',
-    'Ovocné',
-    'Oriešková',
-    'Kyslá',
-    'Arabica',
-  ];
-
   const onRefresh = async () => {
     setRefreshing(true);
     await loadStats();
     await loadCoffees();
     await loadTip();
+    await loadTasteProfile();
     try {
       const scans = await fetchRecentScans(10);
       setRecentScans(scans);
@@ -262,14 +303,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
       console.error('Error refreshing scans:', err);
     }
     setRefreshing(false);
-  };
-
-  const handleTasteTagPress = (tag: string) => {
-    setActiveTasteTags(prev =>
-      prev.includes(tag)
-        ? prev.filter(t => t !== tag)
-        : [...prev, tag]
-    );
   };
 
   const handleCoffeeCardPress = (coffee: CoffeeItem) => {
@@ -540,34 +573,13 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
           <Text style={styles.inventoryCount}>{coffeeCount}</Text>
         </TouchableOpacity>
 
-        {/* Taste Profile */}
-        <View style={styles.tasteProfile}>
-          <View style={styles.profileHeader}>
-            <Text style={styles.profileTitle}>🎯 Tvoj chuťový profil</Text>
-            <TouchableOpacity style={styles.editBtn}>
-              <Text style={styles.editBtnText}>Upraviť</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.tasteTags}>
-            {tasteTags.map((tag, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.tasteTag,
-                  activeTasteTags.includes(tag) && styles.tasteTagActive
-                ]}
-                onPress={() => handleTasteTagPress(tag)}
-              >
-                <Text style={[
-                  styles.tasteTagText,
-                  activeTasteTags.includes(tag) && styles.tasteTagTextActive
-                ]}>
-                  {tag}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+        <TasteProfileRadarCard
+          scores={tasteRadarScores}
+          loading={tasteProfileLoading}
+          error={tasteProfileError}
+          onRetry={loadTasteProfile}
+          onEdit={onPersonalizationPress}
+        />
 
         <View style={styles.recentScans}>
           <View style={styles.sectionHeader}>

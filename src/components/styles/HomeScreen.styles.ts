@@ -485,64 +485,94 @@ export const homeStyles = () => {
     },
 
     // Taste Profile
-    tasteProfile: {
+    tasteProfileCard: {
       marginHorizontal: 16,
       marginBottom: verticalScale(20),
       padding: 20,
-      backgroundColor: 'white',
-      borderRadius: 20,
+      backgroundColor: '#FFF7ED',
+      borderRadius: 22,
       shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
+      shadowOffset: { width: 0, height: 3 },
       shadowOpacity: 0.08,
-      shadowRadius: 8,
-      elevation: 4,
+      shadowRadius: 12,
+      elevation: 6,
     },
-    profileHeader: {
+    tasteProfileHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
       marginBottom: verticalScale(16),
     },
-    profileTitle: {
-      fontSize: 16,
+    tasteProfileTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.textPrimary,
+      marginBottom: 4,
+    },
+    tasteProfileSubtitle: {
+      fontSize: 13,
+      color: '#9A6B3A',
+    },
+    tasteProfileEditButton: {
+      paddingHorizontal: 14,
+      paddingVertical: verticalScale(6),
+      backgroundColor: '#FDE5C3',
+      borderRadius: 18,
+    },
+    tasteProfileEditButtonText: {
+      color: '#B45309',
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    tasteProfileLoading: {
+      alignItems: 'center',
+      paddingVertical: verticalScale(24),
+      gap: 12,
+    },
+    tasteProfileLoadingText: {
+      color: '#9A6B3A',
+      fontSize: 13,
+    },
+    tasteProfileError: {
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: verticalScale(20),
+    },
+    tasteProfileErrorText: {
+      color: colors.danger,
+      textAlign: 'center',
+      fontSize: 13,
+    },
+    tasteProfileRetryButton: {
+      paddingHorizontal: 16,
+      paddingVertical: verticalScale(8),
+      backgroundColor: '#FDE5C3',
+      borderRadius: 18,
+    },
+    tasteProfileRetryText: {
+      color: '#B45309',
+      fontWeight: '600',
+      fontSize: 13,
+    },
+    tasteProfileEmpty: {
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: verticalScale(20),
+    },
+    tasteProfileEmptyTitle: {
+      fontSize: 15,
       fontWeight: '600',
       color: colors.textPrimary,
     },
-    editBtn: {
-      paddingHorizontal: 8,
-      paddingVertical: verticalScale(4),
-      backgroundColor: 'rgba(107, 68, 35, 0.1)',
-      borderRadius: 8,
-    },
-    editBtnText: {
-      fontSize: 12,
-      color: colors.primary,
-    },
-    tasteTags: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 8,
-    },
-    tasteTag: {
-      paddingHorizontal: 14,
-      paddingVertical: verticalScale(8),
-      backgroundColor: colors.bgLight,
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: colors.borderLight,
-      marginBottom: verticalScale(8),
-      marginRight: 8,
-    },
-    tasteTagActive: {
-      backgroundColor: colors.primary,
-      borderColor: colors.primary,
-    },
-    tasteTagText: {
+    tasteProfileEmptyText: {
       fontSize: 13,
-      color: colors.textPrimary,
+      color: '#9A6B3A',
+      textAlign: 'center',
+      lineHeight: 18,
     },
-    tasteTagTextActive: {
-      color: 'white',
+    tasteProfileChartContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
     },
 
     // Recommendations

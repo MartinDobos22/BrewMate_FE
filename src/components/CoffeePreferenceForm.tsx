@@ -479,6 +479,7 @@ Píš jednoducho, zrozumiteľne a priateľsky v slovenčine.
     const preferences: any = {
       intensity,
       sweetness,
+      sugar: sweetness,
       milk,
       temperature,
     };
