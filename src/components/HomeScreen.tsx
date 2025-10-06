@@ -13,6 +13,8 @@ import {
   RefreshControl,
   Alert,
   ActivityIndicator,
+  SafeAreaView,
+  StatusBar,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import auth from '@react-native-firebase/auth';
@@ -394,16 +396,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
 
   return (
     <LinearGradient colors={BACKGROUND_GRADIENT} style={styles.gradientBackground}>
-      <View style={styles.phoneShell}>
-        <View style={styles.innerContainer}>
-          <View style={styles.statusBar}>
-            <Text style={styles.statusTime}>9:41</Text>
-            <View style={styles.statusIcons}>
-              <Text>📶 📶 🔋</Text>
-            </View>
-          </View>
-
-          <View style={styles.appHeader}>
+      <StatusBar barStyle="dark-content" backgroundColor={BACKGROUND_GRADIENT[0]} />
+      <SafeAreaView style={styles.container}>
+        <View style={styles.appHeader}>
             <View style={styles.logoSection}>
               <View style={styles.logoIconWrapper}>
                 <Text style={styles.logoIcon}>☕</Text>
@@ -427,14 +422,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
             </View>
           </View>
 
-          <ScrollView
-            style={styles.mainContent}
-            contentContainerStyle={styles.scrollContent}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-            showsVerticalScrollIndicator={false}
-          >
+        <ScrollView
+          style={styles.mainContent}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          showsVerticalScrollIndicator={false}
+        >
             {ritualRecommendation ? (
               <View style={styles.ritualWrapper}>
                 <DailyRitualCard recommendation={ritualRecommendation} />
@@ -726,26 +721,25 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                 )}
               </View>
             </View>
-          </ScrollView>
+        </ScrollView>
 
-          <TouchableOpacity
-            style={styles.fab}
-            onPress={onLogBrewPress}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.fabIcon}>➕</Text>
-          </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={onLogBrewPress}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.fabIcon}>➕</Text>
+        </TouchableOpacity>
 
-          <BottomNav
-            active="home"
-            onHomePress={onHomePress}
-            onDiscoverPress={onDiscoverPress}
-            onRecipesPress={onRecipesPress}
-            onFavoritesPress={onFavoritesPress}
-            onProfilePress={onProfilePress}
-          />
-        </View>
-      </View>
+        <BottomNav
+          active="home"
+          onHomePress={onHomePress}
+          onDiscoverPress={onDiscoverPress}
+          onRecipesPress={onRecipesPress}
+          onFavoritesPress={onFavoritesPress}
+          onProfilePress={onProfilePress}
+        />
+      </SafeAreaView>
     </LinearGradient>
   );
 };
