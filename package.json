@@ -66,6 +66,7 @@
     "@react-native/eslint-config": "0.80.1",
     "@react-native/metro-config": "0.80.1",
     "@react-native/typescript-config": "0.80.1",
+    "babel-plugin-module-resolver": "^5.0.0",
     "@types/jest": "^29.5.13",
     "@types/react": "^19.1.0",
     "@types/react-native-push-notification": "^8.1.4",
