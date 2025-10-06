@@ -24,58 +24,16 @@ const palette = {
   borderGlass: 'rgba(139, 111, 71, 0.12)',
 };
 
-const shadow = {
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 12 },
-  shadowOpacity: 0.12,
-  shadowRadius: 24,
-  elevation: 12,
-};
-
 export const homeStyles = () =>
   StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: palette.surfacePrimary,
+      position: 'relative',
     },
     gradientBackground: {
       flex: 1,
-      paddingHorizontal: scale(12),
-      paddingTop: Platform.OS === 'ios' ? verticalScale(24) : verticalScale(12),
       paddingBottom: verticalScale(12),
-    },
-    phoneShell: {
-      flex: 1,
-      backgroundColor: palette.surfacePrimary,
-      borderRadius: 40,
-      overflow: 'hidden',
-      ...shadow,
-    },
-    innerContainer: {
-      flex: 1,
-      backgroundColor: palette.surfacePrimary,
-      borderRadius: 36,
-      overflow: 'hidden',
-      position: 'relative',
-    },
-
-    // Status Bar
-    statusBar: {
-      height: verticalScale(44),
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: scale(24),
-      paddingTop: Platform.OS === 'ios' ? verticalScale(12) : verticalScale(8),
-    },
-    statusTime: {
-      color: palette.textPrimary,
-      fontSize: 14,
-      fontWeight: '600',
-    },
-    statusIcons: {
-      flexDirection: 'row',
-      alignItems: 'center',
     },
 
     // App Header
