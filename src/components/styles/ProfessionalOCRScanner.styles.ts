@@ -1,5 +1,7 @@
 // ProfessionalOCRScanner.styles.ts - BrewMate Material-inspired design
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet, Dimensions, Platform } from 'react-native';
+
+const { width } = Dimensions.get('window');
 
 const palette = {
   primary: '#6B4423',
@@ -46,10 +48,23 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
     },
     scrollContent: {
       paddingBottom: 160,
-      paddingTop: 32,
+    },
+    contentWrapper: {
+      paddingHorizontal: 20,
+      paddingVertical: 32,
+    },
+    phoneContainer: {
+      backgroundColor: palette.surface,
+      borderRadius: 36,
+      borderWidth: 1,
+      borderColor: palette.borderLight,
+      overflow: 'hidden',
+      alignSelf: 'center',
+      width: Math.min(width - 24, 420),
+      ...baseShadow,
     },
     statusBar: {
-      paddingHorizontal: 20,
+      paddingHorizontal: 24,
       paddingTop: Platform.OS === 'ios' ? 20 : 16,
       paddingBottom: 8,
       flexDirection: 'row',
@@ -73,7 +88,6 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
     appHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginTop: 8,
       paddingHorizontal: 20,
       paddingBottom: 16,
       borderBottomWidth: 1,
@@ -124,10 +138,9 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       marginTop: 4,
     },
     mainContent: {
-      marginTop: 24,
       paddingHorizontal: 20,
       paddingVertical: 24,
-      backgroundColor: 'transparent',
+      backgroundColor: palette.background,
     },
     welcomeCard: {
       borderRadius: 24,
