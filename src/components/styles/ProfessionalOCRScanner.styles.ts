@@ -1,7 +1,5 @@
 // ProfessionalOCRScanner.styles.ts - BrewMate Material-inspired design
-import { StyleSheet, Dimensions, Platform } from 'react-native';
-
-const { width } = Dimensions.get('window');
+import { StyleSheet, Platform } from 'react-native';
 
 const palette = {
   primary: '#6B4423',
@@ -47,21 +45,22 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       flex: 1,
     },
     scrollContent: {
+      flexGrow: 1,
       paddingBottom: 160,
     },
     contentWrapper: {
-      paddingHorizontal: 20,
-      paddingVertical: 32,
+      flex: 1,
+      paddingHorizontal: 0,
+      paddingVertical: 0,
     },
     phoneContainer: {
+      flex: 1,
+      width: '100%',
+      alignSelf: 'stretch',
       backgroundColor: palette.surface,
-      borderRadius: 36,
-      borderWidth: 1,
-      borderColor: palette.borderLight,
+      borderRadius: 0,
+      borderWidth: 0,
       overflow: 'hidden',
-      alignSelf: 'center',
-      width: Math.min(width - 24, 420),
-      ...baseShadow,
     },
     statusBar: {
       paddingHorizontal: 24,
