@@ -13,6 +13,7 @@ import {
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
+  SafeAreaView,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import {
@@ -1011,6 +1012,24 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
         )}
       </View>
     </KeyboardAvoidingView>
+
+      <TouchableOpacity
+        style={[styles.fab, currentView === 'recipe' ? styles.fabVisible : null]}
+        onPress={clearAll}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.fabIcon}>➕</Text>
+      </TouchableOpacity>
+
+      {overlayVisible && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#6B4423" />
+            <Text style={styles.loadingText}>{overlayText}</Text>
+          </View>
+        </View>
+      )}
+    </View>
   );
 };
 
