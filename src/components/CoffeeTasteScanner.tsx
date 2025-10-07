@@ -15,6 +15,7 @@ import {
   Platform,
   Modal,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import {
   Camera,
   useCameraDevice,
@@ -112,7 +113,12 @@ const isOfflineError = (error: unknown): boolean => {
   return error.message === 'Offline' || error.message.includes('Network request failed');
 };
 
-const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
+const BACKGROUND_GRADIENT = ['#FFE8D1', '#FFA000', '#D4A574'];
+const WELCOME_GRADIENT = ['#FF9966', '#A86B8C'];
+const COFFEE_GRADIENT = ['#8B6544', '#6B4423'];
+const WARM_GRADIENT = ['#FFA000', '#FF6B6B'];
+
+const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) => {
   const { coffeeDiary: personalizationDiary, refreshInsights } = usePersonalization();
   const diary = personalizationDiary ?? fallbackCoffeeDiary;
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
@@ -128,6 +134,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
   const [offlineModalVisible, setOfflineModalVisible] = useState(false);
   const [offlineStatus, setOfflineStatus] = useState<'prompt' | 'modelUsed'>('prompt');
   const [isFavorite, setIsFavorite] = useState(false);
+  const [currentView, setCurrentView] = useState<'home' | 'scan'>('home');
+  const [overlayVisible, setOverlayVisible] = useState(false);
+  const [overlayText, setOverlayText] = useState('Analyzujem...');
 
   const camera = useRef<Camera>(null);
   const device = useCameraDevice('back');
@@ -268,6 +277,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     try {
       setIsLoading(true);
       setShowCamera(false);
+      setOverlayText('Analyzujem...');
+      setOverlayVisible(true);
 
       const result = await processOCR(base64image, { imagePath: extra?.imagePath });
 
@@ -283,6 +294,10 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
         setPurchaseSelection(null);
         setPurchased(null);
         await saveOCRResult(result.scanId || 'last', result);
+
+        setCurrentView('scan');
+        setOverlayVisible(false);
+        setOverlayText('Analyzujem...');
 
         // Update user progress for successful scan
         try {
@@ -327,6 +342,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
       Alert.alert('Chyba', 'Nepodarilo sa spracovať obrázok');
     } finally {
       setIsLoading(false);
+      setOverlayVisible(false);
+      setOverlayText('Analyzujem...');
     }
   };
 
@@ -336,9 +353,13 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     existingResult?: ScanResult | null
   ) => {
     try {
+      setOverlayText('Analyzujem offline...');
+      setOverlayVisible(true);
       const label = existingResult?.corrected || (await recognizeCoffee(imagePath));
       if (!label) {
         Alert.alert('Chyba', 'Nepodarilo sa rozpoznať kávu offline');
+        setOverlayVisible(false);
+        setOverlayText('Analyzujem...');
         return;
       }
 
@@ -359,6 +380,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
       setEditedText(offlineResult.corrected);
       setPurchaseSelection(null);
       setPurchased(null);
+      setCurrentView('scan');
+      setOverlayVisible(false);
+      setOverlayText('Analyzujem...');
 
       try {
         const payload = imagePath
@@ -396,6 +420,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     } catch (err) {
       console.error('Offline recognition failed:', err);
       Alert.alert('Chyba', 'Nepodarilo sa spracovať obrázok offline');
+      setOverlayVisible(false);
+      setOverlayText('Analyzujem...');
     }
   };
 
@@ -450,6 +476,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     setPurchaseSelection(null);
     setPurchased(item.is_purchased ?? null);
     setIsFavorite(item.is_favorite ?? false);
+    setCurrentView('scan');
 
     // Scroll to top to show loaded result
     // scrollViewRef.current?.scrollTo({ y: 0, animated: true });
@@ -670,7 +697,42 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
     setPurchaseSelection(null);
     setPurchased(null);
     setIsFavorite(false);
+    setCurrentView('home');
+    setOverlayVisible(false);
+    setOverlayText('Analyzujem...');
   };
+
+  const handleBack = () => {
+    if (currentView === 'scan') {
+      clearAll();
+      return;
+    }
+
+    if (onBack) {
+      onBack();
+    }
+  };
+
+  const ratedHistory = ocrHistory.filter(
+    (item) => typeof item.rating === 'number' && (item.rating ?? 0) > 0
+  );
+  const averageRating = ratedHistory.length
+    ? (
+        ratedHistory.reduce((acc, item) => acc + (item.rating ?? 0), 0) /
+        ratedHistory.length
+      ).toFixed(1)
+    : '0.0';
+  const favoritesCount = ocrHistory.filter((item) => item.is_favorite).length;
+  const showBackButton = currentView !== 'home';
+  const matchLabel = scanResult?.matchPercentage
+    ? `${scanResult.matchPercentage}% zhoda`
+    : undefined;
+  const refreshControl =
+    currentView === 'home'
+      ? (
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        )
+      : undefined;
 
   // Camera View
   if (showCamera && device) {
@@ -727,363 +789,345 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = () => {
   // Main Scanner View
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <Modal
-        visible={offlineModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          setOfflineModalVisible(false);
-          setOfflineStatus('prompt');
-        }}
-      >
-        <View style={styles.offlineModalOverlay}>
-          <View style={styles.offlineModalContent}>
-            <Text style={styles.offlineModalText}>
-              {offlineStatus === 'modelUsed'
-                ? 'Použitý lokálny model'
-                : 'Ste offline, chcete použiť posledný výsledok?'}
-            </Text>
-            {offlineStatus === 'modelUsed' ? (
-              <TouchableOpacity
-                style={styles.button}
-                onPress={() => {
-                  setOfflineModalVisible(false);
-                  setOfflineStatus('prompt');
-                }}
-              >
-                <Text style={styles.buttonText}>OK</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity style={styles.button} onPress={handleUseLastResult}>
-                <Text style={styles.buttonText}>Použiť naposledy uložený výsledok</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      </Modal>
-      {isConnected !== null && (
-        <View
-          style={[
-            styles.connectionBanner,
-            isConnected ? styles.bannerOnline : styles.bannerOffline,
-          ]}
+      <View style={styles.flex}>
+        <LinearGradient colors={BACKGROUND_GRADIENT} style={styles.backgroundGradient} />
+        <Modal
+          visible={offlineModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => {
+            setOfflineModalVisible(false);
+            setOfflineStatus('prompt');
+          }}
         >
-          <Text style={styles.bannerText}>
-            {isConnected ? 'Online' : 'Offline'}
-          </Text>
-        </View>
-      )}
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerRow}>
-            <Text style={styles.coffeeIcon}>☕</Text>
-            <Text style={styles.headerTitle}>Analýza kávy</Text>
-          </View>
-          <Text style={styles.headerSubtitle}>
-            Zisti či ti káva bude chutiť pomocou AI
-          </Text>
-        </View>
-
-        {/* Main Actions */}
-        {!scanResult ? (
-          <>
-          {console.log('No scanResult - rendering main actions')}
-          <View style={styles.actionSection}>
-            <View style={styles.actionGrid}>
-              <TouchableOpacity
-                style={[styles.actionCard, styles.actionCardPrimary]}
-                onPress={openCamera}
-                activeOpacity={0.9}
-              >
-                <View style={[styles.actionIconContainer, styles.actionIconContainerPrimary]}>
-                  <Text style={styles.actionIcon}>📸</Text>
-                </View>
-                <Text style={styles.actionLabel}>Odfotiť kávu</Text>
-                <Text style={styles.actionSublabel}>Použiť kameru</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.actionCard}
-                onPress={pickImageFromGallery}
-                activeOpacity={0.9}
-              >
-                <View style={styles.actionIconContainer}>
-                  <Text style={styles.actionIcon}>🖼️</Text>
-                </View>
-                <Text style={styles.actionLabel}>Vybrať z galérie</Text>
-                <Text style={styles.actionSublabel}>Nahrať fotku</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-          </>
-        ) : (
-          <>
-            {console.log('scanResult exists - hiding main actions')}
-            <Text>Výsledok skenovania je dostupný.</Text>
-          </>
-        )}
-
-        {/* Scan Result */}
-        {scanResult ? (
-          <>
-          {console.log('Rendering scan result', scanResult)}
-          <View style={styles.resultContainer}>
-            <View style={styles.resultCard}>
-              <View style={styles.resultHeader}>
-                <Text style={styles.resultTitle}>Výsledok</Text>
-                {scanResult.matchPercentage ? (
-                    <>
-                    {console.log('Rendering match percentage', scanResult.matchPercentage)}
-                  <View style={[
-                    styles.matchBadge,
-                    scanResult.isRecommended ? styles.matchBadgeGood : styles.matchBadgeFair
-                  ]}>
-                    <Text style={styles.matchText}>
-                      {scanResult.matchPercentage}%
-                    </Text>
-                  </View>
-                    </>
-                ) : (
-                  <>
-                    {console.log('matchPercentage missing')}
-                    <Text>Zhoda nie je k dispozícii.</Text>
-                  </>
-                )}
-              </View>
-              <Text style={styles.resultLabel}>Rozpoznaný text</Text>
-              <TextInput
-                style={styles.resultTextInput}
-                multiline
-                value={editedText}
-                onChangeText={setEditedText}
-                placeholder="Upraviť text..."
-              />
-            </View>
-
-            {scanResult.recommendation ? (
-              <>
-              {console.log('Rendering recommendation', scanResult.recommendation)}
-
-              <View style={styles.recommendationCard}>
-                <Text style={styles.recommendationTitle}>
-                  {scanResult.isRecommended ? '✅ Odporúčame' : '⚠️ Pozor'}
-                </Text>
-                <Text style={styles.recommendationText}>
-                  {scanResult.recommendation}
-                </Text>
-              </View>
-              </>
-            ) : (
-              <>
-                {console.log('Recommendation missing')}
-                <Text>Odporúčanie nie je k dispozícii.</Text>
-              </>
-            )}
-
-            {/* Rating */}
-            <View style={styles.ratingContainer}>
-              <Text style={styles.ratingLabel}>Hodnotenie:</Text>
-              <View style={styles.ratingStars}>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <TouchableOpacity
-                    key={star}
-                    style={styles.starButton}
-                    onPress={() => handleRating(star)}
-                  >
-                    <Text style={styles.starText}>
-                      {star <= userRating ? '⭐' : '☆'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <TouchableOpacity
-                style={[styles.favoriteButton, isFavorite && styles.favoriteButtonActive]}
-                onPress={handleFavoriteToggle}
-              >
-                <Text
-                  style={[styles.favoriteButtonText, isFavorite && styles.favoriteButtonTextActive]}
-                >
-                  {isFavorite ? '❤️ Uložené' : '♡ Obľúbené'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {purchased === null && (
-              <View style={styles.purchaseContainer}>
-                <Text style={styles.purchaseLabel}>Kúpil si túto kávu?</Text>
-                <View style={styles.actionButtons}>
-                  <TouchableOpacity
-                    style={[
-                      styles.button,
-                      purchaseSelection === true && styles.buttonSelected,
-                    ]}
-                    onPress={() => handlePurchaseSelect(true)}
-                  >
-                    <Text style={styles.buttonText}>Áno</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.button,
-                      styles.buttonSecondary,
-                      purchaseSelection === false && styles.buttonSelected,
-                    ]}
-                    onPress={() => handlePurchaseSelect(false)}
-                  >
-                    <Text style={[styles.buttonText, styles.buttonTextSecondary]}>Nie</Text>
-                  </TouchableOpacity>
-                </View>
+          <View style={styles.offlineModalOverlay}>
+            <View style={styles.offlineModalContent}>
+              <Text style={styles.offlineModalText}>
+                {offlineStatus === 'modelUsed'
+                  ? 'Použitý lokálny model'
+                  : 'Ste offline, chcete použiť posledný výsledok?'}
+              </Text>
+              {offlineStatus === 'modelUsed' ? (
                 <TouchableOpacity
-                  style={[
-                    styles.button,
-                    styles.submitButton,
-                    purchaseSelection === null && styles.buttonDisabled,
-                  ]}
-                  onPress={submitPurchaseAnswer}
-                  disabled={purchaseSelection === null}
+                  style={styles.button}
+                  onPress={() => {
+                    setOfflineModalVisible(false);
+                    setOfflineStatus('prompt');
+                  }}
                 >
-                  <Text style={styles.buttonText}>Odoslať</Text>
+                  <Text style={styles.buttonText}>OK</Text>
                 </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={styles.button} onPress={handleUseLastResult}>
+                  <Text style={styles.buttonText}>Použiť naposledy uložený výsledok</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </Modal>
+
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={refreshControl}
+        >
+          <View style={styles.contentWrapper}>
+            <View style={styles.phoneContainer}>
+              <View style={styles.statusBar}>
+                <Text style={styles.statusTime}>9:41</Text>
+                <View style={styles.statusIcons}>
+                  <Text style={styles.statusIcon}>📶</Text>
+                  <Text style={styles.statusIcon}>
+                    {isConnected === false ? '⚠️' : '📶'}
+                  </Text>
+                  <Text style={styles.statusIcon}>🔋</Text>
+                </View>
               </View>
-            )}
 
-            {/* Actions */}
-            <View style={styles.actionButtons}>
-              <TouchableOpacity
-                style={styles.button}
-                onPress={exportText}
-              >
-                <Text style={styles.buttonText}>Zdieľať</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.button, styles.buttonSecondary]}
-                onPress={clearAll}
-              >
-                <Text style={[styles.buttonText, styles.buttonTextSecondary]}>
-                  Vymazať
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-          </>
-        ) : (
-          <>
-            {console.log('scanResult missing - no result section')}
-            <Text>Žiadny výsledok na zobrazenie.</Text>
-          </>
-        )}
-
-        {/* Statistics */}
-        {ocrHistory.length > 0 && (
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{ocrHistory.length}</Text>
-              <Text style={styles.statLabel}>Skenov</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>
-                {ocrHistory.filter(h => h.is_recommended).length}
-              </Text>
-              <Text style={styles.statLabel}>Odporúčané</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>
-                {Math.round(
-                  ocrHistory.reduce((acc, h) => acc + (h.rating || 0), 0) /
-                  ocrHistory.filter(h => h.rating).length || 0
-                )}
-              </Text>
-              <Text style={styles.statLabel}>Priem. ⭐</Text>
-            </View>
-          </View>
-        )}
-
-        {/* History Section */}
-        <View style={styles.historySection}>
-          <View style={styles.historyHeader}>
-            <Text style={styles.historyTitle}>História</Text>
-            {ocrHistory.length > 4 && (
-              <TouchableOpacity style={styles.historyFilter}>
-                <Text style={styles.historyFilterText}>Filter</Text>
-                <Text style={{ fontSize: 10, color: '#8B7F72' }}>▼</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {ocrHistory.length > 0 ? (
-            <View style={styles.historyGrid}>
-              {ocrHistory.slice(0, 6).map((item) => (
+              <View style={styles.appHeader}>
                 <TouchableOpacity
-                  key={item.id}
-                  style={styles.historyCard}
-                  onPress={() => loadFromHistory(item)}
-                  onLongPress={() => deleteFromHistory(item.id)}
+                  style={[styles.backButton, showBackButton ? styles.backButtonVisible : null]}
+                  onPress={handleBack}
                   activeOpacity={0.8}
+                  disabled={!showBackButton}
                 >
-                  <View style={styles.historyCardInner}>
-                    <View style={styles.historyCardTop}>
-                      <Text style={styles.historyCardName} numberOfLines={1}>
-                        {item.coffee_name || 'KRAJINA PÔVODU'}
+                  <Text style={styles.backButtonText}>←</Text>
+                </TouchableOpacity>
+                <View style={styles.headerContent}>
+                  <View style={styles.headerRow}>
+                    <Text style={styles.coffeeIcon}>☕</Text>
+                    <Text style={styles.headerTitle}>Analýza kávy</Text>
+                  </View>
+                  <Text style={styles.headerSubtitle}>
+                    Zisti, či ti káva bude chutiť pomocou AI
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.mainContent}>
+                {currentView === 'home' && (
+                  <>
+                    <LinearGradient colors={WELCOME_GRADIENT} style={styles.welcomeCard}>
+                      <Text style={styles.welcomeEmoji}>✨</Text>
+                      <Text style={styles.welcomeText}>Vitaj v analyzátore chutí!</Text>
+                      <Text style={styles.welcomeDesc}>
+                        Naskenuj etiketu kávy a získaj personalizovaný rozbor chuti.
                       </Text>
-                      {item.match_percentage && (
-                        <View style={styles.historyCardPercentage}>
-                          <Text style={styles.historyCardPercentageText}>
-                            {item.match_percentage}%
+                    </LinearGradient>
+
+                    <View style={styles.actionSection}>
+                      <View style={styles.actionGrid}>
+                        <TouchableOpacity
+                          style={[styles.actionCard, styles.actionCardPrimary]}
+                          onPress={openCamera}
+                          activeOpacity={0.9}
+                        >
+                          <LinearGradient
+                            colors={COFFEE_GRADIENT}
+                            style={[styles.actionIconContainer, styles.actionIconContainerPrimary]}
+                          >
+                            <Text style={styles.actionIcon}>📸</Text>
+                          </LinearGradient>
+                          <Text style={styles.actionLabel}>Odfotiť kávu</Text>
+                          <Text style={styles.actionSublabel}>Použiť kameru</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={styles.actionCard}
+                          onPress={pickImageFromGallery}
+                          activeOpacity={0.9}
+                        >
+                          <View style={styles.actionIconContainer}>
+                            <Text style={styles.actionIcon}>🖼️</Text>
+                          </View>
+                          <Text style={styles.actionLabel}>Vybrať z galérie</Text>
+                          <Text style={styles.actionSublabel}>Nahrať fotku</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    <View style={styles.statsContainer}>
+                      <View style={styles.statItem}>
+                        <Text style={styles.statNumber}>{ocrHistory.length}</Text>
+                        <Text style={styles.statLabel}>Skenov</Text>
+                      </View>
+                      <View style={styles.statDivider} />
+                      <View style={styles.statItem}>
+                        <Text style={styles.statNumber}>{favoritesCount}</Text>
+                        <Text style={styles.statLabel}>Obľúbené</Text>
+                      </View>
+                      <View style={styles.statDivider} />
+                      <View style={styles.statItem}>
+                        <Text style={styles.statNumber}>{averageRating}</Text>
+                        <Text style={styles.statLabel}>Priemer ⭐</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.historySection}>
+                      <View style={styles.historyHeader}>
+                        <Text style={styles.historyTitle}>📚 História skenovaní</Text>
+                        {ocrHistory.length > 0 && (
+                          <TouchableOpacity
+                            style={styles.historySeeAll}
+                            onPress={() => showToast('Pripravujeme prehľad histórie.')}
+                          >
+                            <Text style={styles.historySeeAllText}>Zobraziť všetky →</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+
+                      {ocrHistory.length > 0 ? (
+                        <View style={styles.historyGrid}>
+                          {ocrHistory.slice(0, 6).map((item) => (
+                            <TouchableOpacity
+                              key={item.id}
+                              style={styles.historyCard}
+                              onPress={() => loadFromHistory(item)}
+                              onLongPress={() => deleteFromHistory(item.id)}
+                              activeOpacity={0.85}
+                            >
+                              <View style={styles.historyCardAccent} />
+                              <View style={styles.historyCardContent}>
+                                <Text style={styles.historyCardName} numberOfLines={1}>
+                                  {item.coffee_name || 'Neznáma káva'}
+                                </Text>
+                                <Text style={styles.historyCardDate}>
+                                  {new Date(item.created_at).toLocaleDateString('sk-SK')}
+                                </Text>
+                                {item.rating ? (
+                                  <Text style={styles.historyCardRating}>
+                                    {'⭐'.repeat(item.rating)}
+                                  </Text>
+                                ) : null}
+                              </View>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      ) : (
+                        <View style={styles.emptyState}>
+                          <View style={styles.emptyStateImage}>
+                            <Text style={styles.emptyStateIcon}>☕</Text>
+                          </View>
+                          <Text style={styles.emptyStateTitle}>Žiadne skenovania</Text>
+                          <Text style={styles.emptyStateDesc}>
+                            Začni analyzovať svoje kávy a objav nové chute.
                           </Text>
                         </View>
                       )}
                     </View>
-                    <Text style={styles.historyCardDate}>
-                      {new Date(item.created_at).toLocaleDateString('sk-SK')}
-                    </Text>
-                    {item.rating && (
-                      <Text style={styles.historyCardRating}>
-                        {'⭐'.repeat(item.rating)}
-                      </Text>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          ) : (
-            <View style={styles.emptyState}>
-              <View style={styles.emptyStateImage}>
-                <Text style={styles.emptyStateIcon}>☕</Text>
-              </View>
-              <Text style={styles.emptyStateTitle}>
-                Žiadne skenovania
-              </Text>
-              <Text style={styles.emptyStateDesc}>
-                Začni skenovať kávy a vytvor si databázu obľúbených chutí
-              </Text>
-            </View>
-          )}
-        </View>
+                  </>
+                )}
 
-        {/* Loading Overlay */}
-        {isLoading && (
+                {currentView === 'scan' && scanResult && (
+                  <>
+                    <View style={styles.resultSection}>
+                      <View style={styles.resultCard}>
+                        <View style={styles.resultHeader}>
+                          <Text style={styles.resultTitle}>📝 Informácie o káve</Text>
+                          {matchLabel && (
+                            <View
+                              style={[
+                                styles.matchBadge,
+                                scanResult.isRecommended
+                                  ? styles.matchBadgeGood
+                                  : styles.matchBadgeFair,
+                              ]}
+                            >
+                              <Text style={styles.matchText}>{matchLabel}</Text>
+                            </View>
+                          )}
+                        </View>
+                        <TextInput
+                          style={styles.resultTextInput}
+                          multiline
+                          value={editedText}
+                          onChangeText={setEditedText}
+                          placeholder="Upravte rozpoznaný text..."
+                          textAlignVertical="top"
+                        />
+                      </View>
+                    </View>
+
+                    {scanResult.recommendation ? (
+                      <View style={styles.recommendationCard}>
+                        <Text style={styles.recommendationTitle}>AI odporúčanie</Text>
+                        <Text style={styles.recommendationText}>
+                          {scanResult.recommendation}
+                        </Text>
+                      </View>
+                    ) : null}
+
+                    <View style={styles.ratingCard}>
+                      <View style={styles.ratingContent}>
+                        <Text style={styles.ratingLabel}>Hodnotenie:</Text>
+                        <View style={styles.ratingStars}>
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <TouchableOpacity
+                              key={star}
+                              style={styles.starButton}
+                              onPress={() => handleRating(star)}
+                            >
+                              <Text
+                                style={[
+                                  styles.starIcon,
+                                  star <= userRating && styles.starIconFilled,
+                                ]}
+                              >
+                                ⭐
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                        <TouchableOpacity
+                          style={[styles.favoriteButton, isFavorite && styles.favoriteButtonActive]}
+                          onPress={handleFavoriteToggle}
+                        >
+                          <Text
+                            style={[styles.favoriteText, isFavorite && styles.favoriteTextActive]}
+                          >
+                            {isFavorite ? '❤️ Uložené' : '♡ Obľúbené'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    <View style={styles.purchaseSection}>
+                      <Text style={styles.sectionTitle}>🛒 Kúpil si túto kávu?</Text>
+                      <View style={styles.actionButtons}>
+                        <TouchableOpacity
+                          style={[styles.button, purchaseSelection === true && styles.buttonSelected]}
+                          onPress={() => handlePurchaseSelect(true)}
+                        >
+                          <Text style={styles.buttonText}>Áno</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[
+                            styles.button,
+                            styles.buttonSecondary,
+                            purchaseSelection === false && styles.buttonSelected,
+                          ]}
+                          onPress={() => handlePurchaseSelect(false)}
+                        >
+                          <Text style={[styles.buttonText, styles.buttonTextSecondary]}>Nie</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[
+                            styles.button,
+                            styles.submitButton,
+                            purchaseSelection === null && styles.buttonDisabled,
+                          ]}
+                          onPress={submitPurchaseAnswer}
+                          disabled={purchaseSelection === null}
+                        >
+                          <Text style={styles.buttonText}>Odoslať</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    <View style={styles.actionButtons}>
+                      <TouchableOpacity style={styles.button} onPress={exportText}>
+                        <Text style={styles.buttonText}>📤 Zdieľať</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.button, styles.buttonSecondary]}
+                        onPress={clearAll}
+                      >
+                        <Text style={[styles.buttonText, styles.buttonTextSecondary]}>
+                          Nová analýza
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+
+        <TouchableOpacity
+          style={[styles.fab, currentView === 'scan' ? styles.fabVisible : null]}
+          onPress={clearAll}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.fabIcon}>➕</Text>
+        </TouchableOpacity>
+
+        {(overlayVisible || isLoading) && (
           <View style={styles.loadingOverlay}>
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#8B6F47" />
-              <Text style={styles.loadingText}>Analyzujem...</Text>
+              <ActivityIndicator size="large" color="#6B4423" />
+              <Text style={styles.loadingText}>{overlayText}</Text>
             </View>
           </View>
         )}
-      </ScrollView>
+      </View>
     </KeyboardAvoidingView>
   );
+
 };
 
 export default CoffeeTasteScanner;

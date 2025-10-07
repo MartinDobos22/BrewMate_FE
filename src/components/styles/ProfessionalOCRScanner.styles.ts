@@ -388,6 +388,26 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       color: palette.textPrimary,
       lineHeight: 20,
     },
+    recommendationCard: {
+      backgroundColor: palette.surface,
+      borderRadius: 20,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: palette.borderLight,
+      marginBottom: 20,
+      ...baseShadow,
+    },
+    recommendationTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: palette.textPrimary,
+      marginBottom: 8,
+    },
+    recommendationText: {
+      fontSize: 14,
+      color: palette.textSecondary,
+      lineHeight: 20,
+    },
     ratingCard: {
       backgroundColor: palette.cream,
       borderRadius: 20,
@@ -477,6 +497,9 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       color: '#FFFFFF',
     },
     tasteSection: {
+      marginBottom: 24,
+    },
+    purchaseSection: {
       marginBottom: 24,
     },
     tasteInputContainer: {
@@ -592,6 +615,47 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       fontWeight: '700',
       fontSize: 14,
     },
+    actionButtons: {
+      flexDirection: 'row',
+      gap: 12,
+      marginBottom: 20,
+    },
+    button: {
+      flex: 1,
+      borderRadius: 16,
+      paddingVertical: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: palette.primary,
+      ...baseShadow,
+    },
+    buttonSecondary: {
+      backgroundColor: palette.surface,
+      borderWidth: 2,
+      borderColor: palette.border,
+      ...baseShadow,
+    },
+    buttonSelected: {
+      transform: [{ scale: 1.02 }],
+      backgroundColor: 'rgba(255,140,66,0.12)',
+      borderColor: palette.accent,
+    },
+    buttonDisabled: {
+      opacity: 0.6,
+    },
+    buttonText: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    buttonTextSecondary: {
+      color: palette.textPrimary,
+    },
+    submitButton: {
+      flex: 1,
+      backgroundColor: palette.accent,
+      borderWidth: 0,
+    },
     fab: {
       position: 'absolute',
       bottom: 32,
@@ -617,6 +681,31 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       backgroundColor: 'rgba(0,0,0,0.6)',
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    offlineModalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 24,
+    },
+    offlineModalContent: {
+      width: '100%',
+      maxWidth: 360,
+      backgroundColor: palette.surface,
+      borderRadius: 24,
+      padding: 24,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: palette.borderLight,
+      ...baseShadow,
+    },
+    offlineModalText: {
+      fontSize: 14,
+      color: palette.textPrimary,
+      textAlign: 'center',
+      marginBottom: 16,
+      lineHeight: 20,
     },
     loadingContainer: {
       backgroundColor: palette.surface,
