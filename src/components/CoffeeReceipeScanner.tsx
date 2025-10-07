@@ -647,52 +647,50 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
 
       // Main Scanner View
   return (
-    <View style={styles.screen}>
-      <LinearGradient colors={BACKGROUND_GRADIENT} style={styles.backgroundGradient} />
-      <KeyboardAvoidingView
-        style={styles.keyboardAvoider}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <SafeAreaView style={styles.safeArea}>
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            refreshControl={refreshControl}
-          >
-          <View style={styles.heroSection}>
-            <View style={styles.statusBar}>
-              <Text style={styles.statusTime}>9:41</Text>
-              <View style={styles.statusIcons}>
-                <Text style={styles.statusIcon}>📶</Text>
-                <Text style={styles.statusIcon}>📶</Text>
-                <Text style={styles.statusIcon}>🔋</Text>
-              </View>
-            </View>
-
-            <View style={styles.appHeader}>
-              <TouchableOpacity
-                style={[styles.backButton, showBackButton ? styles.backButtonVisible : null]}
-                onPress={handleBack}
-                activeOpacity={0.8}
-                disabled={!showBackButton}
-              >
-                <Text style={styles.backButtonText}>←</Text>
-              </TouchableOpacity>
-              <View style={styles.headerContent}>
-                <View style={styles.headerRow}>
-                  <Text style={styles.coffeeIcon}>☕</Text>
-                  <Text style={styles.headerTitle}>Generátor receptov</Text>
-                </View>
-                <Text style={styles.headerSubtitle}>
-                  Vytvor si personalizovaný recept na prípravu kávy
-                </Text>
-              </View>
-            </View>
-          </View>
-
+    <KeyboardAvoidingView
+      style={styles.screen}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <View style={styles.flex}>
+        <LinearGradient colors={BACKGROUND_GRADIENT} style={styles.backgroundGradient} />
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={refreshControl}
+        >
           <View style={styles.contentWrapper}>
-            <View style={styles.mainContent}>
+            <View style={styles.phoneContainer}>
+              <View style={styles.statusBar}>
+                <Text style={styles.statusTime}>9:41</Text>
+                <View style={styles.statusIcons}>
+                  <Text style={styles.statusIcon}>📶</Text>
+                  <Text style={styles.statusIcon}>📶</Text>
+                  <Text style={styles.statusIcon}>🔋</Text>
+                </View>
+              </View>
+
+              <View style={styles.appHeader}>
+                <TouchableOpacity
+                  style={[styles.backButton, showBackButton ? styles.backButtonVisible : null]}
+                  onPress={handleBack}
+                  activeOpacity={0.8}
+                  disabled={!showBackButton}
+                >
+                  <Text style={styles.backButtonText}>←</Text>
+                </TouchableOpacity>
+                <View style={styles.headerContent}>
+                  <View style={styles.headerRow}>
+                    <Text style={styles.coffeeIcon}>☕</Text>
+                    <Text style={styles.headerTitle}>Generátor receptov</Text>
+                  </View>
+                  <Text style={styles.headerSubtitle}>
+                    Vytvor si personalizovaný recept na prípravu kávy
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.mainContent}>
                 {currentView === 'home' && (
                   <>
                     <LinearGradient colors={WELCOME_GRADIENT} style={styles.welcomeCard}>
@@ -991,28 +989,46 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
                     </View>
                   </View>
                 )}
+              </View>
             </View>
           </View>
         </ScrollView>
-      </SafeAreaView>
+
+        <TouchableOpacity
+          style={[styles.fab, currentView === 'recipe' ? styles.fabVisible : null]}
+          onPress={clearAll}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.fabIcon}>➕</Text>
+        </TouchableOpacity>
+
+        {overlayVisible && (
+          <View style={styles.loadingOverlay}>
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#6B4423" />
+              <Text style={styles.loadingText}>{overlayText}</Text>
+            </View>
+          </View>
+        )}
+      </View>
     </KeyboardAvoidingView>
 
-    <TouchableOpacity
-      style={[styles.fab, currentView === 'recipe' ? styles.fabVisible : null]}
-      onPress={clearAll}
-      activeOpacity={0.85}
-    >
-      <Text style={styles.fabIcon}>➕</Text>
-    </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.fab, currentView === 'recipe' ? styles.fabVisible : null]}
+        onPress={clearAll}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.fabIcon}>➕</Text>
+      </TouchableOpacity>
 
-    {overlayVisible && (
-      <View style={styles.loadingOverlay}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#6B4423" />
-          <Text style={styles.loadingText}>{overlayText}</Text>
+      {overlayVisible && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#6B4423" />
+            <Text style={styles.loadingText}>{overlayText}</Text>
+          </View>
         </View>
-      </View>
-    )}
+      )}
     </View>
   );
 };
