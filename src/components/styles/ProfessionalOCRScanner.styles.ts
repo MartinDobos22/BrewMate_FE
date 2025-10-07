@@ -70,6 +70,7 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
+      alignSelf: 'stretch',
     },
     statusTime: {
       fontSize: 14,
