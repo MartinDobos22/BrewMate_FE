@@ -1,4 +1,5 @@
 // ProfessionalOCRScanner.styles.ts - BrewMate Material-inspired design
+import { StyleSheet, Platform } from 'react-native';
 import { StyleSheet, Dimensions, Platform } from 'react-native';
 
 const { width } = Dimensions.get('window');
@@ -48,6 +49,18 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
     },
     scrollContent: {
       paddingBottom: 160,
+      flexGrow: 1,
+    },
+    heroSection: {
+      paddingTop: Platform.OS === 'ios' ? 20 : 16,
+      paddingHorizontal: 20,
+      paddingBottom: 36,
+    },
+    statusBar: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 16,
     },
     contentWrapper: {
       paddingHorizontal: 20,
@@ -88,6 +101,7 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
     appHeader: {
       flexDirection: 'row',
       alignItems: 'center',
+      paddingBottom: 8,
       paddingHorizontal: 20,
       paddingBottom: 16,
       borderBottomWidth: 1,
@@ -138,6 +152,14 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       marginTop: 4,
     },
     mainContent: {
+      backgroundColor: palette.surface,
+      borderTopLeftRadius: 32,
+      borderTopRightRadius: 32,
+      paddingHorizontal: 20,
+      paddingTop: 32,
+      paddingBottom: 120,
+      marginTop: -28,
+      minHeight: '100%',
       paddingHorizontal: 20,
       paddingVertical: 24,
       backgroundColor: palette.background,
@@ -369,6 +391,37 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
     matchBadgeGood: {
       backgroundColor: palette.success,
     },
+    },
+    resultSection: {
+      marginBottom: 20,
+    },
+    resultCard: {
+      backgroundColor: palette.surface,
+      borderRadius: 20,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: palette.borderLight,
+      ...baseShadow,
+    },
+    resultHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    resultTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: palette.textPrimary,
+    },
+    matchBadge: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 12,
+    },
+    matchBadgeGood: {
+      backgroundColor: palette.success,
+    },
     matchBadgeFair: {
       backgroundColor: palette.warning,
     },
@@ -442,6 +495,10 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
     favoriteTextActive: {
       color: palette.accent,
     },
+    },
+    favoriteTextActive: {
+      color: palette.accent,
+    },
     brewingSection: {
       marginBottom: 20,
     },
@@ -450,6 +507,24 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       fontWeight: '700',
       color: palette.textPrimary,
       marginBottom: 12,
+    },
+    brewingGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+    },
+    brewingChip: {
+      paddingVertical: 10,
+      paddingHorizontal: 18,
+      borderRadius: 20,
+      backgroundColor: palette.surface,
+      borderWidth: 2,
+      borderColor: palette.borderLight,
+    },
+    brewingChipSelected: {
+      backgroundColor: palette.primary,
+      borderColor: 'transparent',
+    },
     },
     brewingGrid: {
       flexDirection: 'row',

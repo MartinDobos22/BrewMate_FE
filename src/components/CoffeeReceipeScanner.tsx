@@ -658,6 +658,336 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
           showsVerticalScrollIndicator={false}
           refreshControl={refreshControl}
         >
+          <View style={styles.heroSection}>
+            <View style={styles.statusBar}>
+              <Text style={styles.statusTime}>9:41</Text>
+              <View style={styles.statusIcons}>
+                <Text style={styles.statusIcon}>📶</Text>
+                <Text style={styles.statusIcon}>📶</Text>
+                <Text style={styles.statusIcon}>🔋</Text>
+              </View>
+            </View>
+
+            <View style={styles.appHeader}>
+              <TouchableOpacity
+                style={[styles.backButton, showBackButton ? styles.backButtonVisible : null]}
+                onPress={handleBack}
+                activeOpacity={0.8}
+                disabled={!showBackButton}
+              >
+                <Text style={styles.backButtonText}>←</Text>
+              </TouchableOpacity>
+              <View style={styles.headerContent}>
+                <View style={styles.headerRow}>
+                  <Text style={styles.coffeeIcon}>☕</Text>
+                  <Text style={styles.headerTitle}>Generátor receptov</Text>
+                </View>
+                <Text style={styles.headerSubtitle}>
+                  Vytvor si personalizovaný recept na prípravu kávy
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.mainContent}>
+                {currentView === 'home' && (
+                  <>
+                    <LinearGradient colors={WELCOME_GRADIENT} style={styles.welcomeCard}>
+                      <Text style={styles.welcomeEmoji}>☕</Text>
+                      <Text style={styles.welcomeText}>Vitaj v generátore receptov!</Text>
+                      <Text style={styles.welcomeDesc}>
+                        Naskenuj kávu a vytvor si perfektný recept
+                      </Text>
+                    </LinearGradient>
+
+                    <View style={styles.actionSection}>
+                      <View style={styles.actionGrid}>
+                        <TouchableOpacity
+                          style={[styles.actionCard, styles.actionCardPrimary]}
+                          onPress={() => {
+                            if (!device) {
+                              Alert.alert('Chyba', 'Kamera nie je dostupná');
+                              return;
+                            }
+                            setShowCamera(true);
+                          }}
+                          activeOpacity={0.9}
+                        >
+                          <LinearGradient
+                            colors={COFFEE_GRADIENT}
+                            style={[styles.actionIconContainer, styles.actionIconContainerPrimary]}
+                          >
+                            <Text style={styles.actionIcon}>📷</Text>
+                          </LinearGradient>
+                          <Text style={styles.actionLabel}>Odfotiť kávu</Text>
+                          <Text style={styles.actionSublabel}>Použiť kameru</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={styles.actionCard}
+                          onPress={pickImageFromGallery}
+                          activeOpacity={0.9}
+                        >
+                          <View style={styles.actionIconContainer}>
+                            <Text style={styles.actionIcon}>🖼️</Text>
+                          </View>
+                          <Text style={styles.actionLabel}>Vybrať z galérie</Text>
+                          <Text style={styles.actionSublabel}>Nahrať fotku</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    <View style={styles.statsContainer}>
+                      <View style={styles.statItem}>
+                        <Text style={styles.statNumber}>{ocrHistory.length}</Text>
+                        <Text style={styles.statLabel}>Receptov</Text>
+                      </View>
+                      <View style={styles.statDivider} />
+                      <View style={styles.statItem}>
+                        <Text style={styles.statNumber}>{favoritesCount}</Text>
+                        <Text style={styles.statLabel}>Obľúbené</Text>
+                      </View>
+                      <View style={styles.statDivider} />
+                      <View style={styles.statItem}>
+                        <Text style={styles.statNumber}>{averageRating}</Text>
+                        <Text style={styles.statLabel}>Priemer ⭐</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.historySection}>
+                      <View style={styles.historyHeader}>
+                        <Text style={styles.historyTitle}>📚 História skenovaní</Text>
+                        {ocrHistory.length > 0 && (
+                          <TouchableOpacity
+                            style={styles.historySeeAll}
+                            onPress={() => showToast('Pripravujeme prehľad histórie.')}
+                          >
+                            <Text style={styles.historySeeAllText}>Zobraziť všetky →</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                      {ocrHistory.length > 0 ? (
+                        <View style={styles.historyGrid}>
+                          {ocrHistory.slice(0, 6).map((item) => (
+                            <TouchableOpacity
+                              key={item.id}
+                              style={styles.historyCard}
+                              onPress={() => loadFromHistory(item)}
+                              onLongPress={() => deleteFromHistory(item.id)}
+                              activeOpacity={0.85}
+                            >
+                              <View style={styles.historyCardAccent} />
+                              <View style={styles.historyCardContent}>
+                                <Text style={styles.historyCardName} numberOfLines={1}>
+                                  {item.coffee_name || 'Neznáma káva'}
+                                </Text>
+                                <Text style={styles.historyCardDate}>
+                                  {new Date(item.created_at).toLocaleDateString('sk-SK')}
+                                </Text>
+                                {item.rating ? (
+                                  <Text style={styles.historyCardRating}>
+                                    {'⭐'.repeat(item.rating)}
+                                  </Text>
+                                ) : null}
+                              </View>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      ) : (
+                        <View style={styles.emptyState}>
+                          <View style={styles.emptyStateImage}>
+                            <Text style={styles.emptyStateIcon}>☕</Text>
+                          </View>
+                          <Text style={styles.emptyStateTitle}>Žiadne recepty</Text>
+                          <Text style={styles.emptyStateDesc}>
+                            Naskenuj svoju prvú kávu a vytvor si personalizovaný recept
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {recipeHistory.length > 0 && (
+                      <View style={styles.historySection}>
+                        <View style={styles.historyHeader}>
+                          <Text style={styles.historyTitle}>📖 História receptov</Text>
+                          <TouchableOpacity
+                            style={styles.historySeeAll}
+                            onPress={() => showToast('Pripravujeme prehľad receptov.')}
+                          >
+                            <Text style={styles.historySeeAllText}>Zobraziť všetky →</Text>
+                          </TouchableOpacity>
+                        </View>
+                        <View style={styles.historyGrid}>
+                          {recipeHistory.slice(0, 4).map((item) => (
+                            <View key={item.id} style={styles.historyCard}>
+                              <View style={styles.historyCardAccent} />
+                              <View style={styles.historyCardContent}>
+                                <Text style={styles.historyCardName} numberOfLines={1}>
+                                  {item.method}
+                                </Text>
+                                <Text style={styles.historyCardDate}>
+                                  {new Date(item.created_at).toLocaleDateString('sk-SK')}
+                                </Text>
+                                <Text style={styles.historyCardRating} numberOfLines={2}>
+                                  {item.recipe}
+                                </Text>
+                              </View>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    )}
+                  </>
+                )}
+
+                {currentView === 'scan' && scanResult && (
+                  <>
+                    <View style={styles.resultSection}>
+                      <View style={styles.resultCard}>
+                        <View style={styles.resultHeader}>
+                          <Text style={styles.resultTitle}>📝 Informácie o káve</Text>
+                          {matchLabel && (
+                            <View
+                              style={[
+                                styles.matchBadge,
+                                scanResult.isRecommended ? styles.matchBadgeGood : styles.matchBadgeFair,
+                              ]}
+                            >
+                              <Text style={styles.matchText}>{matchLabel}</Text>
+                            </View>
+                          )}
+                        </View>
+                        <TextInput
+                          style={styles.resultTextInput}
+                          multiline
+                          value={editedText}
+                          onChangeText={setEditedText}
+                          placeholder="Upravte rozpoznaný text..."
+                          textAlignVertical="top"
+                        />
+                      </View>
+                    </View>
+
+                    <View style={styles.ratingCard}>
+                      <View style={styles.ratingContent}>
+                        <Text style={styles.ratingLabel}>Hodnotenie:</Text>
+                        <View style={styles.ratingStars}>
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <TouchableOpacity
+                              key={star}
+                              style={styles.starButton}
+                              onPress={() => handleRating(star)}
+                            >
+                              <Text
+                                style={[
+                                  styles.starIcon,
+                                  star <= userRating && styles.starIconFilled,
+                                ]}
+                              >
+                                ⭐
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                        <TouchableOpacity
+                          style={[styles.favoriteButton, isFavorite && styles.favoriteButtonActive]}
+                          onPress={handleFavoriteToggle}
+                        >
+                          <Text
+                            style={[styles.favoriteText, isFavorite && styles.favoriteTextActive]}
+                          >
+                            {isFavorite ? '❤️ Uložené' : '♡ Obľúbené'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    <View style={styles.brewingSection}>
+                      <Text style={styles.sectionTitle}>☕ Metóda prípravy</Text>
+                      <View style={styles.brewingGrid}>
+                        {brewingMethods.map((method) => (
+                          <TouchableOpacity
+                            key={method}
+                            style={[
+                              styles.brewingChip,
+                              selectedMethod === method && styles.brewingChipSelected,
+                            ]}
+                            onPress={() => setSelectedMethod(method)}
+                          >
+                            <Text
+                              style={[
+                                styles.brewingChipText,
+                                selectedMethod === method && styles.brewingChipTextSelected,
+                              ]}
+                            >
+                              {method}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+
+                    <View style={styles.tasteSection}>
+                      <Text style={styles.sectionTitle}>✨ Chuťová preferencia</Text>
+                      <View style={styles.tasteInputContainer}>
+                        <TextInput
+                          style={styles.tasteInput}
+                          placeholder="napr. silná, jemná, kyslá, sladká..."
+                          value={tastePreference}
+                          onChangeText={setTastePreference}
+                        />
+                      </View>
+                    </View>
+
+                    <TouchableOpacity
+                      style={[styles.generateButton, (!selectedMethod || isGenerating) && styles.generateButtonDisabled]}
+                      onPress={generateRecipe}
+                      disabled={isGenerating || !selectedMethod}
+                      activeOpacity={0.9}
+                    >
+                      <LinearGradient colors={WARM_GRADIENT} style={styles.generateButtonGradient}>
+                        {isGenerating ? (
+                          <ActivityIndicator color="#FFFFFF" />
+                        ) : (
+                          <Text style={styles.generateButtonText}>✨ Vygenerovať recept</Text>
+                        )}
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </>
+                )}
+
+                {currentView === 'recipe' && generatedRecipe && (
+                  <View style={styles.recipeSection}>
+                    <View style={styles.recipeCard}>
+                      <View style={styles.recipeHeader}>
+                        <View style={styles.recipeIcon}>
+                          <Text style={styles.recipeIconText}>☕</Text>
+                        </View>
+                        <View style={styles.recipeHeaderContent}>
+                          <Text style={styles.recipeTitle}>Váš personalizovaný recept</Text>
+                          <Text style={styles.recipeMethod}>{selectedMethod?.toUpperCase()}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.recipeContentBox}>
+                        <Text style={styles.recipeContent}>{generatedRecipe}</Text>
+                      </View>
+                      <View style={styles.recipeActions}>
+                        <TouchableOpacity
+                          style={[styles.actionButton, styles.actionButtonPrimary]}
+                          onPress={exportText}
+                        >
+                          <Text style={styles.actionButtonPrimaryText}>📤 Zdieľať</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.actionButton, styles.actionButtonSecondary]}
+                          onPress={clearAll}
+                        >
+                          <Text style={styles.actionButtonSecondaryText}>🔄 Nový recept</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                )}
           <View style={styles.contentWrapper}>
             <View style={styles.phoneContainer}>
               <View style={styles.statusBar}>
