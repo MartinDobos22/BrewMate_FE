@@ -1,5 +1,7 @@
 // ProfessionalOCRScanner.styles.ts - BrewMate Material-inspired design
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet, Dimensions, Platform } from 'react-native';
+
+const { width } = Dimensions.get('window');
 
 const palette = {
   primary: '#6B4423',
@@ -35,10 +37,7 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       flex: 1,
       backgroundColor: palette.background,
     },
-    keyboardAvoider: {
-      flex: 1,
-    },
-    safeArea: {
+    flex: {
       flex: 1,
     },
     backgroundGradient: {
@@ -49,18 +48,29 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
     },
     scrollContent: {
       paddingBottom: 160,
-      flexGrow: 1,
     },
-    heroSection: {
-      paddingTop: Platform.OS === 'ios' ? 20 : 16,
+    contentWrapper: {
       paddingHorizontal: 20,
-      paddingBottom: 36,
+      paddingVertical: 32,
+    },
+    phoneContainer: {
+      backgroundColor: palette.surface,
+      borderRadius: 36,
+      borderWidth: 1,
+      borderColor: palette.borderLight,
+      overflow: 'hidden',
+      alignSelf: 'center',
+      width: Math.min(width - 24, 420),
+      ...baseShadow,
     },
     statusBar: {
+      paddingHorizontal: 24,
+      paddingTop: Platform.OS === 'ios' ? 20 : 16,
+      paddingBottom: 8,
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 16,
+      alignSelf: 'stretch',
     },
     statusTime: {
       fontSize: 14,
@@ -78,7 +88,11 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
     appHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingBottom: 8,
+      paddingHorizontal: 20,
+      paddingBottom: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: palette.borderLight,
+      backgroundColor: palette.surface,
     },
     backButton: {
       width: 40,
@@ -123,20 +137,10 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       color: palette.textTertiary,
       marginTop: 4,
     },
-    contentWrapper: {
-      flexGrow: 1,
-      paddingHorizontal: 20,
-      paddingBottom: 40,
-      marginTop: -16,
-    },
     mainContent: {
-      backgroundColor: palette.surface,
-      borderRadius: 32,
       paddingHorizontal: 20,
-      paddingTop: 32,
-      paddingBottom: 48,
-      overflow: 'hidden',
-      ...baseShadow,
+      paddingVertical: 24,
+      backgroundColor: palette.background,
     },
     welcomeCard: {
       borderRadius: 24,
