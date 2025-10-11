@@ -1,5 +1,5 @@
 // CoffeeReceipeScanner.tsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -122,6 +122,26 @@ const BACKGROUND_GRADIENT = ['#FFE8D1', '#FFA000', '#D4A574'];
 const WELCOME_GRADIENT = ['#FF9966', '#A86B8C'];
 const COFFEE_GRADIENT = ['#8B6544', '#6B4423'];
 const WARM_GRADIENT = ['#FFA000', '#FF6B6B'];
+const RATING_GRADIENT = ['#FFFFFF', '#F5E6D3'];
+const TIP_GRADIENT = ['#9C27B0', '#FF6B6B'];
+
+const brewingMethodHints: Record<string, string> = {
+  V60: '2–3 min',
+  Chemex: '4–5 min',
+  Espresso: '25–30 s',
+  AeroPress: '1–2 min',
+  'French Press': '4 min',
+  'Cold Brew': '12–24 h',
+};
+
+const brewingMethodEmojis: Record<string, string> = {
+  V60: '☕',
+  Chemex: '☕',
+  Espresso: '⚡',
+  AeroPress: '☕',
+  'French Press': '☕',
+  'Cold Brew': '❄️',
+};
 
 const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
   onBack,
@@ -138,6 +158,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
   const [userRating, setUserRating] = useState<number>(0);
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
   const [tastePreference, setTastePreference] = useState('');
+  const [selectedTasteTags, setSelectedTasteTags] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedRecipe, setGeneratedRecipe] = useState<string>('');
   const [recipeHistory, setRecipeHistory] = useState<RecipeHistory[]>([]);
@@ -542,6 +563,25 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     }
   };
 
+  const handleTastePreferenceChange = (value: string) => {
+    setTastePreference(value);
+
+    if (value.trim().length === 0 && selectedTasteTags.length > 0) {
+      setSelectedTasteTags([]);
+    }
+  };
+
+  const toggleTasteTag = (tag: string) => {
+    setSelectedTasteTags((prev) => {
+      const exists = prev.includes(tag);
+      const next = exists ? prev.filter((item) => item !== tag) : [...prev, tag];
+      setTastePreference(
+        next.length ? `Preferujem kávu, ktorá je: ${next.join(', ')}.` : ''
+      );
+      return next;
+    });
+  };
+
   const handleBack = () => {
     if (currentView === 'recipe') {
       setGeneratedRecipe('');
@@ -568,6 +608,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     setUserRating(0);
     setSelectedMethod(null);
     setTastePreference('');
+    setSelectedTasteTags([]);
     setGeneratedRecipe('');
     setIsFavorite(false);
     setCurrentView('home');
@@ -588,6 +629,55 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
   const matchLabel = scanResult?.matchPercentage
     ? `${scanResult.matchPercentage}% zhoda`
     : undefined;
+  const tasteSuggestions = useMemo(
+    () => [
+      'Silná a intenzívna',
+      'Jemná a vyvážená',
+      'Sladká s nízkou kyslosťou',
+      'Živá a ovocná',
+      'Čokoládová a krémová',
+    ],
+    []
+  );
+  const recognizedLines = useMemo(() => {
+    const sourceText =
+      editedText || scanResult?.corrected || scanResult?.original || '';
+    return sourceText
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+  }, [editedText, scanResult]);
+  const recognizedName = recognizedLines[0] ?? 'Rozpoznaná káva';
+  const recognizedDetails = recognizedLines.slice(1, 3).join(' • ');
+  const tastingNotes = useMemo(() => {
+    if (!scanResult?.recommendation) {
+      return [] as string[];
+    }
+
+    const bulletNotes = scanResult.recommendation
+      .split('\n')
+      .map((line) => line.replace(/^[•\-\d\.\s]+/, '').trim())
+      .filter((line) => line.length > 0 && line.length <= 28)
+      .slice(0, 4);
+
+    if (bulletNotes.length > 0) {
+      return bulletNotes;
+    }
+
+    const commaSegments = scanResult.recommendation
+      .split(',')
+      .map((segment) => segment.trim())
+      .filter((segment) => segment.length > 0 && segment.length <= 24)
+      .slice(0, 4);
+
+    return commaSegments;
+  }, [scanResult]);
+  const ratingDisplay = useMemo(() => {
+    if (userRating > 0) {
+      return userRating.toFixed(1);
+    }
+    return '—';
+  }, [userRating]);
   const refreshControl =
     currentView === 'home'
       ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -843,117 +933,192 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
 
                 {currentView === 'scan' && scanResult && (
                   <>
-                    <View style={styles.resultSection}>
-                      <View style={styles.resultCard}>
-                        <View style={styles.resultHeader}>
-                          <Text style={styles.resultTitle}>📝 Informácie o káve</Text>
-                          {matchLabel && (
-                            <View
-                              style={[
-                                styles.matchBadge,
-                                scanResult.isRecommended ? styles.matchBadgeGood : styles.matchBadgeFair,
-                              ]}
-                            >
-                              <Text style={styles.matchText}>{matchLabel}</Text>
+                    <View style={styles.scanReviewContainer}>
+                      <View style={styles.scanCoffeeCard}>
+                        <View style={styles.scanBadgeRow}>
+                          <View style={styles.scanBadge}>
+                            <Text style={styles.scanBadgeIcon}>✓</Text>
+                            <Text style={styles.scanBadgeText}>Rozpoznané</Text>
+                          </View>
+                          {matchLabel ? (
+                            <View style={styles.scanMatchPill}>
+                              <Text style={styles.scanMatchText}>{matchLabel}</Text>
                             </View>
-                          )}
+                          ) : null}
                         </View>
-                        <TextInput
-                          style={styles.resultTextInput}
-                          multiline
-                          value={editedText}
-                          onChangeText={setEditedText}
-                          placeholder="Upravte rozpoznaný text..."
-                          textAlignVertical="top"
-                        />
+                        <Text style={styles.scanCoffeeName}>{recognizedName}</Text>
+                        {recognizedDetails ? (
+                          <Text style={styles.scanCoffeeDetails}>{recognizedDetails}</Text>
+                        ) : null}
+                        {tastingNotes.length > 0 ? (
+                          <View style={styles.scanNotesRow}>
+                            {tastingNotes.map((note) => (
+                              <View key={note} style={styles.scanNoteChip}>
+                                <Text style={styles.scanNoteChipText}>{note}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        ) : null}
+                        <View style={styles.scanTextInputContainer}>
+                          <TextInput
+                            style={styles.scanTextInput}
+                            multiline
+                            value={editedText}
+                            onChangeText={setEditedText}
+                            placeholder="Upravte rozpoznaný text..."
+                            textAlignVertical="top"
+                          />
+                        </View>
                       </View>
-                    </View>
 
-                    <View style={styles.ratingCard}>
-                      <View style={styles.ratingContent}>
-                        <Text style={styles.ratingLabel}>Hodnotenie:</Text>
-                        <View style={styles.ratingStars}>
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <TouchableOpacity
-                              key={star}
-                              style={styles.starButton}
-                              onPress={() => handleRating(star)}
-                            >
-                              <Text
-                                style={[
-                                  styles.starIcon,
-                                  star <= userRating && styles.starIconFilled,
-                                ]}
+                      <View style={styles.scanRatingWrapper}>
+                        <LinearGradient colors={RATING_GRADIENT} style={styles.scanRatingCard}>
+                          <View style={styles.scanRatingHeader}>
+                            <Text style={styles.scanRatingTitle}>Ohodnoť kávu</Text>
+                            <Text style={styles.scanRatingValue}>{ratingDisplay}</Text>
+                          </View>
+                          <View style={styles.scanStarsRow}>
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <TouchableOpacity
+                                key={star}
+                                style={styles.scanStarButton}
+                                onPress={() => handleRating(star)}
+                                activeOpacity={0.85}
                               >
-                                ⭐
-                              </Text>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                        <TouchableOpacity
-                          style={[styles.favoriteButton, isFavorite && styles.favoriteButtonActive]}
-                          onPress={handleFavoriteToggle}
-                        >
-                          <Text
-                            style={[styles.favoriteText, isFavorite && styles.favoriteTextActive]}
-                          >
-                            {isFavorite ? '❤️ Uložené' : '♡ Obľúbené'}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-
-                    <View style={styles.brewingSection}>
-                      <Text style={styles.sectionTitle}>☕ Metóda prípravy</Text>
-                      <View style={styles.brewingGrid}>
-                        {brewingMethods.map((method) => (
+                                <Text
+                                  style={[
+                                    styles.scanStarIcon,
+                                    star <= userRating && styles.scanStarIconActive,
+                                  ]}
+                                >
+                                  ⭐
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
                           <TouchableOpacity
-                            key={method}
-                            style={[
-                              styles.brewingChip,
-                              selectedMethod === method && styles.brewingChipSelected,
-                            ]}
-                            onPress={() => setSelectedMethod(method)}
+                            style={[styles.scanFavoriteButton, isFavorite && styles.scanFavoriteButtonActive]}
+                            onPress={handleFavoriteToggle}
+                            activeOpacity={0.85}
                           >
                             <Text
-                              style={[
-                                styles.brewingChipText,
-                                selectedMethod === method && styles.brewingChipTextSelected,
-                              ]}
+                              style={[styles.scanFavoriteText, isFavorite && styles.scanFavoriteTextActive]}
                             >
-                              {method}
+                              {isFavorite ? '❤️ Uložené' : '♡ Obľúbené'}
                             </Text>
                           </TouchableOpacity>
-                        ))}
+                        </LinearGradient>
+                      </View>
+
+                      <View style={styles.scanMethodSection}>
+                        <View style={styles.scanSectionHeader}>
+                          <View style={styles.scanSectionIcon}>
+                            <Text style={styles.scanSectionIconText}>☕</Text>
+                          </View>
+                          <Text style={styles.scanSectionTitle}>Metóda prípravy</Text>
+                        </View>
+                        <View style={styles.scanMethodGrid}>
+                          {brewingMethods.map((method) => {
+                            const hint = brewingMethodHints[method] ?? 'Pripravené na mieru';
+                            const emoji = brewingMethodEmojis[method] ?? '☕';
+                            const isSelected = selectedMethod === method;
+                            return (
+                              <TouchableOpacity
+                                key={method}
+                                style={[styles.scanMethodButton, isSelected && styles.scanMethodButtonSelected]}
+                                onPress={() => setSelectedMethod(method)}
+                                activeOpacity={0.85}
+                              >
+                                <Text style={styles.scanMethodEmoji}>{emoji}</Text>
+                                <Text
+                                  style={[styles.scanMethodName, isSelected && styles.scanMethodNameSelected]}
+                                  numberOfLines={1}
+                                >
+                                  {method}
+                                </Text>
+                                <Text
+                                  style={[styles.scanMethodTime, isSelected && styles.scanMethodTimeSelected]}
+                                >
+                                  {hint}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+
+                      {scanResult.recommendation ? (
+                        <View style={styles.scanTipWrapper}>
+                          <LinearGradient colors={TIP_GRADIENT} style={styles.scanTipCard}>
+                            <View style={styles.scanTipHeader}>
+                              <View style={styles.scanTipIcon}>
+                                <Text style={styles.scanTipIconText}>💡</Text>
+                              </View>
+                              <Text style={styles.scanTipLabel}>AI TIP</Text>
+                            </View>
+                            <Text style={styles.scanTipText}>{scanResult.recommendation}</Text>
+                          </LinearGradient>
+                        </View>
+                      ) : null}
+
+                      <View style={styles.scanPreferenceSection}>
+                        <View style={styles.scanSectionHeader}>
+                          <View style={styles.scanSectionIcon}>
+                            <Text style={styles.scanSectionIconText}>✨</Text>
+                          </View>
+                          <Text style={styles.scanSectionTitle}>Tvoja ideálna káva</Text>
+                        </View>
+                        <View style={styles.scanPreferenceCard}>
+                          <Text style={styles.scanPreferencePrompt}>
+                            Opíš, akú kávu máš rád. Čo ti chutí a čo nie? Preferuješ silnú alebo jemnú? Kyslú alebo sladkú?
+                          </Text>
+                          <TextInput
+                            style={styles.scanPreferenceInput}
+                            multiline
+                            placeholder="Napríklad: Mám rád vyváženú kávu s plným telom, nie príliš kyslú. Chutia mi čokoládové tóny, ale nie som fanúšik výrazne kvetinových káv."
+                            value={tastePreference}
+                            onChangeText={handleTastePreferenceChange}
+                            textAlignVertical="top"
+                          />
+                          <View style={styles.scanSuggestionsRow}>
+                            {tasteSuggestions.map((suggestion) => {
+                              const isSelected = selectedTasteTags.includes(suggestion);
+                              return (
+                                <TouchableOpacity
+                                  key={suggestion}
+                                  style={[styles.scanSuggestionPill, isSelected && styles.scanSuggestionPillSelected]}
+                                  onPress={() => toggleTasteTag(suggestion)}
+                                  activeOpacity={0.85}
+                                >
+                                  <Text
+                                    style={[styles.scanSuggestionText, isSelected && styles.scanSuggestionTextSelected]}
+                                  >
+                                    {suggestion}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
+                        </View>
                       </View>
                     </View>
 
-                    <View style={styles.tasteSection}>
-                      <Text style={styles.sectionTitle}>✨ Chuťová preferencia</Text>
-                      <View style={styles.tasteInputContainer}>
-                        <TextInput
-                          style={styles.tasteInput}
-                          placeholder="napr. silná, jemná, kyslá, sladká..."
-                          value={tastePreference}
-                          onChangeText={setTastePreference}
-                        />
-                      </View>
+                    <View style={styles.scanGenerateBar}>
+                      <TouchableOpacity
+                        style={[styles.generateButton, (!selectedMethod || isGenerating) && styles.generateButtonDisabled]}
+                        onPress={generateRecipe}
+                        disabled={isGenerating || !selectedMethod}
+                        activeOpacity={0.9}
+                      >
+                        <LinearGradient colors={WARM_GRADIENT} style={styles.generateButtonGradient}>
+                          {isGenerating ? (
+                            <ActivityIndicator color="#FFFFFF" />
+                          ) : (
+                            <Text style={styles.generateButtonText}>✨ Vygenerovať môj recept</Text>
+                          )}
+                        </LinearGradient>
+                      </TouchableOpacity>
                     </View>
-
-                    <TouchableOpacity
-                      style={[styles.generateButton, (!selectedMethod || isGenerating) && styles.generateButtonDisabled]}
-                      onPress={generateRecipe}
-                      disabled={isGenerating || !selectedMethod}
-                      activeOpacity={0.9}
-                    >
-                      <LinearGradient colors={WARM_GRADIENT} style={styles.generateButtonGradient}>
-                        {isGenerating ? (
-                          <ActivityIndicator color="#FFFFFF" />
-                        ) : (
-                          <Text style={styles.generateButtonText}>✨ Vygenerovať recept</Text>
-                        )}
-                      </LinearGradient>
-                    </TouchableOpacity>
                   </>
                 )}
 
