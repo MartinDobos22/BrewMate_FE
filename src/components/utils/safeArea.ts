@@ -1,10 +1,50 @@
 // utils/safeArea.ts
-import { Platform, Dimensions, StatusBar } from 'react-native';
+import { Platform, StatusBar } from 'react-native';
+import type { ScaledSize } from 'react-native';
 
-const { height: screenHeight } = Dimensions.get('window');
+const fallbackDimensions: ScaledSize = {
+  width: 390,
+  height: 844,
+  scale: 1,
+  fontScale: 1,
+};
+
+let hasLoggedDimensionsWarning = false;
+
+const resolveDimensions = (): ScaledSize => {
+  try {
+    // Lazy require keeps us safe in environments where the native Dimensions
+    // module has not been wired up yet (for example immediately on app boot
+    // or during certain test runs).
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { Dimensions } = require('react-native');
+    if (Dimensions?.get) {
+      return Dimensions.get('window');
+    }
+  } catch (error) {
+    if (!hasLoggedDimensionsWarning) {
+      const inDev =
+        typeof __DEV__ !== 'undefined'
+          ? __DEV__
+          : typeof process !== 'undefined'
+            ? process.env.NODE_ENV !== 'production'
+            : false;
+      if (inDev) {
+        // eslint-disable-next-line no-console
+        console.warn('safeArea: Falling back to default dimensions', error);
+      }
+      hasLoggedDimensionsWarning = true;
+    }
+  }
+
+  return fallbackDimensions;
+};
+
+const getScreenHeight = () => resolveDimensions().height;
 
 // Pomocné funkcie pre bezpečné zóny (bez externých dependencies)
 export const getSafeAreaTop = () => {
+  const screenHeight = getScreenHeight();
   if (Platform.OS === 'ios') {
     // iPhone X a novšie
     if (screenHeight >= 812) {
@@ -18,6 +58,7 @@ export const getSafeAreaTop = () => {
 };
 
 export const getSafeAreaBottom = () => {
+  const screenHeight = getScreenHeight();
   if (Platform.OS === 'ios') {
     // iPhone X a novšie (s home indicator)
     if (screenHeight >= 812) {
@@ -31,19 +72,19 @@ export const getSafeAreaBottom = () => {
 
 // Detekcia malých zariadení
 export const isSmallDevice = () => {
-  const { width } = Dimensions.get('window');
+  const { width } = resolveDimensions();
   return width < 375;
 };
 
 // Detekcia tabletov
 export const isTablet = () => {
-  const { width } = Dimensions.get('window');
+  const { width } = resolveDimensions();
   return width >= 768;
 };
 
 // Získať responzívnu veľkosť
 export const scale = (size: number) => {
-  const { width } = Dimensions.get('window');
+  const { width } = resolveDimensions();
   const baseWidth = 375; // iPhone 11 Pro
   const scaleFactor = width / baseWidth;
 
@@ -56,7 +97,7 @@ export const scale = (size: number) => {
 };
 
 export const verticalScale = (size: number) => {
-  const { height } = Dimensions.get('window');
+  const { height } = resolveDimensions();
   const baseHeight = 812; // Reference height (iPhone 11 Pro)
   const scaleFactor = height / baseHeight;
 
