@@ -1,5 +1,5 @@
 // CoffeeTasteScanner.tsx - Light & Optimized Design
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -117,6 +117,41 @@ const BACKGROUND_GRADIENT = ['#FFE8D1', '#FFA000', '#D4A574'];
 const WELCOME_GRADIENT = ['#FF9966', '#A86B8C'];
 const COFFEE_GRADIENT = ['#8B6544', '#6B4423'];
 const WARM_GRADIENT = ['#FFA000', '#FF6B6B'];
+
+const FLAVOR_KEYWORDS = [
+  { keyword: 'kvet', label: '🌺 Kvetinová' },
+  { keyword: 'citr', label: '🍋 Citrusová' },
+  { keyword: 'brosky', label: '🍑 Broskyňa' },
+  { keyword: 'med', label: '🍯 Medová' },
+  { keyword: 'čaj', label: '🍵 Čajová' },
+  { keyword: 'čokol', label: '🍫 Čokoládová' },
+  { keyword: 'karamel', label: '🍮 Karamelová' },
+  { keyword: 'ovoc', label: '🍒 Ovocná' },
+];
+
+const POSITIVE_REASON_KEYWORDS = [
+  'vyhovuje',
+  'nízka horkosť',
+  'nízku horkosť',
+  'jemná',
+  'čistá',
+  'kvetin',
+  'citrus',
+  'čajov',
+  'sladk',
+  'doporuč',
+  'odporúč',
+  'ideál',
+];
+
+const CAUTION_REASON_KEYWORDS = ['pozor', 'ak preferuješ', 'môže', 'siln', 'hork', 'telo'];
+
+const clampTasteValue = (value: number): number => {
+  if (Number.isNaN(value)) {
+    return 5;
+  }
+  return Math.min(10, Math.max(0, value));
+};
 
 const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) => {
   const { coffeeDiary: personalizationDiary, refreshInsights } = usePersonalization();
@@ -734,6 +769,156 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
         )
       : undefined;
 
+  const recognizedText = useMemo(() => {
+    if (!scanResult) {
+      return '';
+    }
+    return (editedText || scanResult.corrected || scanResult.original || '').trim();
+  }, [editedText, scanResult]);
+
+  const coffeeName = useMemo(() => {
+    if (!scanResult) {
+      return '';
+    }
+    const extractedName = extractCoffeeName(recognizedText);
+    if (extractedName && extractedName.length > 2) {
+      return extractedName;
+    }
+    const lines = recognizedText.split('\n').map(line => line.trim()).filter(Boolean);
+    return lines[0] ?? 'Neznáma káva';
+  }, [recognizedText, scanResult]);
+
+  const coffeeSubtitle = useMemo(() => {
+    if (!scanResult) {
+      return '';
+    }
+    const lines = recognizedText.split('\n').map(line => line.trim()).filter(Boolean);
+    if (lines.length > 1) {
+      return lines.slice(1, 3).join(' • ');
+    }
+    return scanResult.corrected?.length ? 'Rozpoznaná etiketa' : 'Pripravené na úpravy';
+  }, [recognizedText, scanResult]);
+
+  const recommendationSentences = useMemo(() => {
+    if (!scanResult?.recommendation) {
+      return [];
+    }
+    return scanResult.recommendation
+      .split(/[\.\n]/)
+      .map(sentence => sentence.trim())
+      .filter(Boolean);
+  }, [scanResult]);
+
+  const insightText = recommendationSentences[0] ??
+    'Táto káva má potenciál osloviť tvoje chuťové preferencie na základe posledných hodnotení.';
+
+  const reasonSentences = recommendationSentences.slice(1);
+
+  const positiveReasons = useMemo(() => {
+    if (!reasonSentences.length && recommendationSentences.length) {
+      return recommendationSentences;
+    }
+
+    return reasonSentences.filter(sentence => {
+      const lower = sentence.toLowerCase();
+      return POSITIVE_REASON_KEYWORDS.some(keyword => lower.includes(keyword));
+    });
+  }, [reasonSentences, recommendationSentences]);
+
+  const cautionReasons = useMemo(() => {
+    if (!reasonSentences.length) {
+      return [];
+    }
+    return reasonSentences.filter(sentence => {
+      const lower = sentence.toLowerCase();
+      const isPositive = POSITIVE_REASON_KEYWORDS.some(keyword => lower.includes(keyword));
+      return !isPositive && CAUTION_REASON_KEYWORDS.some(keyword => lower.includes(keyword));
+    });
+  }, [reasonSentences]);
+
+  const combinedLowerText = useMemo(() => {
+    const combined = `${recognizedText}\n${scanResult?.recommendation ?? ''}`;
+    return combined.toLowerCase();
+  }, [recognizedText, scanResult]);
+
+  const tasteAttributes = useMemo(() => {
+    const computeScore = (
+      base: number,
+      positiveKeywords: string[],
+      negativeKeywords: string[] = []
+    ) => {
+      let score = base;
+      positiveKeywords.forEach(keyword => {
+        if (combinedLowerText.includes(keyword)) {
+          score += 1.5;
+        }
+      });
+      negativeKeywords.forEach(keyword => {
+        if (combinedLowerText.includes(keyword)) {
+          score -= 1.5;
+        }
+      });
+      return clampTasteValue(score);
+    };
+
+    return [
+      {
+        key: 'acidity',
+        label: 'Kyslosť',
+        value: computeScore(6, ['acid', 'kys', 'citr', 'jasn'], ['ploch', 'tlmen']),
+        style: styles.tasteFillAcidity,
+      },
+      {
+        key: 'sweetness',
+        label: 'Sladkosť',
+        value: computeScore(5, ['slad', 'med', 'karamel', 'cukr'], ['such', 'sviež']),
+        style: styles.tasteFillSweetness,
+      },
+      {
+        key: 'bitterness',
+        label: 'Horkosť',
+        value: computeScore(3, ['intenzívna horkosť', 'tmav', 'čokol'], ['nízka horkosť', 'jemná horkosť']),
+        style: styles.tasteFillBitterness,
+      },
+      {
+        key: 'body',
+        label: 'Telo',
+        value: computeScore(5, ['plné telo', 'krém', 'bohaté telo'], ['ľahké telo', 'jemné telo']),
+        style: styles.tasteFillBody,
+      },
+    ];
+  }, [combinedLowerText, styles.tasteFillAcidity, styles.tasteFillSweetness, styles.tasteFillBitterness, styles.tasteFillBody]);
+
+  const flavorTags = useMemo(() => {
+    const detected = FLAVOR_KEYWORDS.filter(item => combinedLowerText.includes(item.keyword)).map(
+      item => item.label
+    );
+    if (detected.length) {
+      return detected;
+    }
+    return ['🌺 Kvetinová', '🍋 Citrón', '🍯 Jemne sladká'];
+  }, [combinedLowerText]);
+
+  const verdictLabel = scanResult?.isRecommended === false ? 'Skôr NIE' : 'Skôr ÁNO';
+  const verdictExplanation =
+    scanResult?.recommendation ??
+    'Na základe tvojich posledných hodnotení to vyzerá, že táto káva zapadne do tvojho chuťového profilu.';
+
+  const ratingDisplay = userRating > 0 ? `${userRating}/5` : 'Ohodnoť';
+
+  const metrics = useMemo(
+    () => [
+      { icon: '🎯', value: matchLabel ?? '—', label: 'Zhoda' },
+      { icon: '⭐', value: ratingDisplay, label: 'Tvoje skóre' },
+      {
+        icon: '📡',
+        value: scanResult?.source === 'offline' ? 'Offline' : 'Live',
+        label: 'Zdroj',
+      },
+    ],
+    [matchLabel, ratingDisplay, scanResult?.source]
+  );
+
   // Camera View
   if (showCamera && device) {
     return (
@@ -984,57 +1169,237 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
 
                 {currentView === 'scan' && scanResult && (
                   <>
-                    <View style={styles.resultSection}>
-                      <View style={styles.resultCard}>
-                        <View style={styles.resultHeader}>
-                          <Text style={styles.resultTitle}>📝 Informácie o káve</Text>
-                          {matchLabel && (
-                            <View
+                    <View style={styles.scanResultContainer}>
+                      <LinearGradient colors={['#FFFFFF', '#F5E9E0']} style={styles.scanHeroCard}>
+                        <View style={styles.scanHeroBadge}>
+                          <Text style={styles.scanHeroBadgeIcon}>✓</Text>
+                          <Text style={styles.scanHeroBadgeText}>Výsledok skenu</Text>
+                        </View>
+                        <Text style={styles.scanHeroTitle}>{coffeeName}</Text>
+                        <Text style={styles.scanHeroSubtitle} numberOfLines={2}>
+                          {coffeeSubtitle}
+                        </Text>
+                        <View style={styles.scanMetricsRow}>
+                          {metrics.map(metric => (
+                            <View key={metric.label} style={styles.scanMetricCard}>
+                              <Text style={styles.scanMetricIcon}>{metric.icon}</Text>
+                              <Text style={styles.scanMetricValue}>{metric.value}</Text>
+                              <Text style={styles.scanMetricLabel}>{metric.label}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      </LinearGradient>
+
+                      <View style={styles.verdictCard}>
+                        <View style={styles.sectionHeaderRow}>
+                          <Text style={styles.sectionTitle}>Verdikt</Text>
+                          <View
+                            style={[
+                              styles.verdictBadge,
+                              scanResult.isRecommended === false
+                                ? styles.verdictBadgeNo
+                                : styles.verdictBadgeYes,
+                            ]}
+                          >
+                            <Text
                               style={[
-                                styles.matchBadge,
-                                scanResult.isRecommended
-                                  ? styles.matchBadgeGood
-                                  : styles.matchBadgeFair,
+                                styles.verdictBadgeText,
+                                scanResult.isRecommended === false
+                                  ? styles.verdictBadgeTextNo
+                                  : styles.verdictBadgeTextYes,
                               ]}
                             >
-                              <Text style={styles.matchText}>{matchLabel}</Text>
+                              {verdictLabel}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={styles.verdictDescription}>{verdictExplanation}</Text>
+                      </View>
+
+                      <View style={styles.ownershipCardModern}>
+                        <View style={styles.sectionHeaderRow}>
+                          <Text style={styles.sectionTitle}>Kúpil si túto kávu?</Text>
+                          {purchased ? (
+                            <View style={styles.ownershipStatePill}>
+                              <Text style={styles.ownershipStateText}>✓ Pridané do zbierky</Text>
                             </View>
-                          )}
+                          ) : null}
+                        </View>
+                        <Text style={styles.sectionSubtitle}>
+                          Po potvrdení sa pridá do tvojej zbierky BrewMate.
+                        </Text>
+                        <View style={styles.ownershipActionsRow}>
+                          <TouchableOpacity
+                            style={[
+                              styles.ownershipButton,
+                              purchaseSelection === true && styles.ownershipButtonActive,
+                            ]}
+                            onPress={() => handlePurchaseSelect(true)}
+                          >
+                            <Text
+                              style={[
+                                styles.ownershipButtonText,
+                                purchaseSelection === true && styles.ownershipButtonTextActive,
+                              ]}
+                            >
+                              Áno
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[
+                              styles.ownershipButton,
+                              styles.ownershipButtonSecondary,
+                              purchaseSelection === false && styles.ownershipButtonActive,
+                            ]}
+                            onPress={() => handlePurchaseSelect(false)}
+                          >
+                            <Text
+                              style={[
+                                styles.ownershipButtonText,
+                                styles.ownershipButtonTextSecondary,
+                                purchaseSelection === false && styles.ownershipButtonTextActive,
+                              ]}
+                            >
+                              Nie
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[
+                              styles.ownershipConfirmButton,
+                              purchaseSelection === null && styles.ownershipConfirmDisabled,
+                            ]}
+                            onPress={submitPurchaseAnswer}
+                            disabled={purchaseSelection === null}
+                          >
+                            <Text style={styles.ownershipConfirmText}>Potvrdiť</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+
+                      <View style={styles.compatibilityCardModern}>
+                        <View style={styles.compatibilityHeaderRow}>
+                          <View style={styles.compatibilityIconWrapper}>
+                            <Text style={styles.compatibilityIcon}>🤖</Text>
+                          </View>
+                          <Text style={styles.sectionTitle}>AI vysvetlenie</Text>
+                        </View>
+                        <Text style={styles.compatibilityIntro}>
+                          {insightText}
+                        </Text>
+                        {positiveReasons.length > 0 && (
+                          <View style={styles.reasonBlock}>
+                            <Text style={styles.reasonTitle}>Prečo áno</Text>
+                            {positiveReasons.map(reason => (
+                              <View key={reason} style={styles.reasonRow}>
+                                <View style={[styles.reasonBadge, styles.reasonBadgePositive]}>
+                                  <Text style={styles.reasonBadgeText}>✓</Text>
+                                </View>
+                                <Text style={styles.reasonText}>{reason}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                        {cautionReasons.length > 0 && (
+                          <View style={styles.reasonBlock}>
+                            <Text style={styles.reasonTitle}>Na čo si dať pozor</Text>
+                            {cautionReasons.map(reason => (
+                              <View key={reason} style={styles.reasonRow}>
+                                <View style={[styles.reasonBadge, styles.reasonBadgeNegative]}>
+                                  <Text style={styles.reasonBadgeText}>✗</Text>
+                                </View>
+                                <Text style={styles.reasonText}>{reason}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                      </View>
+
+                      <View style={styles.tasteProfileCard}>
+                        <View style={styles.profileHeaderRow}>
+                          <Text style={styles.sectionTitle}>Chuťový profil</Text>
+                          {matchLabel ? (
+                            <Text style={styles.profileScore}>{matchLabel}</Text>
+                          ) : null}
+                        </View>
+                        <View style={styles.tasteAttributesGrid}>
+                          {tasteAttributes.map(attribute => (
+                            <View key={attribute.key} style={styles.tasteAttributeItem}>
+                              <View style={styles.tasteAttributeHeader}>
+                                <Text style={styles.tasteAttributeName}>{attribute.label}</Text>
+                                <Text style={styles.tasteAttributeValue}>
+                                  {Math.round(attribute.value)}/10
+                                </Text>
+                              </View>
+                              <View style={styles.tasteBar}>
+                                <View
+                                  style={[
+                                    styles.tasteFill,
+                                    attribute.style,
+                                    { width: `${attribute.value * 10}%` },
+                                  ]}
+                                />
+                              </View>
+                            </View>
+                          ))}
+                        </View>
+                        <View style={styles.flavorTagsRow}>
+                          {flavorTags.map(tag => (
+                            <TouchableOpacity
+                              key={tag}
+                              style={styles.flavorTag}
+                              onPress={() => showToast(`Pripravujeme tipy pre ${tag}.`)}
+                              activeOpacity={0.85}
+                            >
+                              <Text style={styles.flavorTagText}>{tag}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+
+                      <LinearGradient colors={['#7FB069', '#00897B']} style={styles.insightCard}>
+                        <View style={styles.insightHeaderRow}>
+                          <View style={styles.insightIconWrapper}>
+                            <Text style={styles.insightIcon}>🤖</Text>
+                          </View>
+                          <Text style={styles.insightTitle}>AI Insight</Text>
+                        </View>
+                        <Text style={styles.insightText}>{insightText}</Text>
+                      </LinearGradient>
+
+                      <View style={styles.editorCard}>
+                        <View style={styles.sectionHeaderRow}>
+                          <Text style={styles.sectionTitle}>Rozpoznaný text</Text>
+                          <Text style={styles.editorHint}>Uprav, ak niečo nesedí</Text>
                         </View>
                         <TextInput
-                          style={styles.resultTextInput}
+                          style={styles.editorInput}
                           multiline
                           value={editedText}
                           onChangeText={setEditedText}
-                          placeholder="Upravte rozpoznaný text..."
+                          placeholder="Uprav rozpoznaný text..."
                           textAlignVertical="top"
                         />
                       </View>
-                    </View>
 
-                    {scanResult.recommendation ? (
-                      <View style={styles.recommendationCard}>
-                        <Text style={styles.recommendationTitle}>AI odporúčanie</Text>
-                        <Text style={styles.recommendationText}>
-                          {scanResult.recommendation}
-                        </Text>
-                      </View>
-                    ) : null}
-
-                    <View style={styles.ratingCard}>
-                      <View style={styles.ratingContent}>
-                        <Text style={styles.ratingLabel}>Hodnotenie:</Text>
-                        <View style={styles.ratingStars}>
-                          {[1, 2, 3, 4, 5].map((star) => (
+                      <View style={styles.ratingCardModern}>
+                        <View style={styles.ratingHeaderRow}>
+                          <View>
+                            <Text style={styles.sectionTitle}>Tvoje hodnotenie</Text>
+                            <Text style={styles.sectionSubtitle}>Ako veľmi ti sedí?</Text>
+                          </View>
+                          <Text style={styles.ratingDisplay}>{ratingDisplay}</Text>
+                        </View>
+                        <View style={styles.ratingStarsRow}>
+                          {[1, 2, 3, 4, 5].map(star => (
                             <TouchableOpacity
                               key={star}
-                              style={styles.starButton}
+                              style={styles.ratingStarButton}
                               onPress={() => handleRating(star)}
                             >
                               <Text
                                 style={[
-                                  styles.starIcon,
-                                  star <= userRating && styles.starIconFilled,
+                                  styles.ratingStarIcon,
+                                  star <= userRating && styles.ratingStarIconActive,
                                 ]}
                               >
                                 ⭐
@@ -1043,64 +1408,19 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
                           ))}
                         </View>
                         <TouchableOpacity
-                          style={[styles.favoriteButton, isFavorite && styles.favoriteButtonActive]}
+                          style={[styles.favoriteToggle, isFavorite && styles.favoriteToggleActive]}
                           onPress={handleFavoriteToggle}
                         >
                           <Text
-                            style={[styles.favoriteText, isFavorite && styles.favoriteTextActive]}
+                            style={[styles.favoriteToggleText, isFavorite && styles.favoriteToggleTextActive]}
                           >
-                            {isFavorite ? '❤️ Uložené' : '♡ Obľúbené'}
+                            {isFavorite ? '❤️ Uložené medzi obľúbené' : '♡ Pridať medzi obľúbené'}
                           </Text>
                         </TouchableOpacity>
                       </View>
                     </View>
 
-                    <View style={styles.purchaseSection}>
-                      <Text style={styles.sectionTitle}>🛒 Kúpil si túto kávu?</Text>
-                      <View style={styles.actionButtons}>
-                        <TouchableOpacity
-                          style={[styles.button, purchaseSelection === true && styles.buttonSelected]}
-                          onPress={() => handlePurchaseSelect(true)}
-                        >
-                          <Text style={styles.buttonText}>Áno</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[
-                            styles.button,
-                            styles.buttonSecondary,
-                            purchaseSelection === false && styles.buttonSelected,
-                          ]}
-                          onPress={() => handlePurchaseSelect(false)}
-                        >
-                          <Text style={[styles.buttonText, styles.buttonTextSecondary]}>Nie</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[
-                            styles.button,
-                            styles.submitButton,
-                            purchaseSelection === null && styles.buttonDisabled,
-                          ]}
-                          onPress={submitPurchaseAnswer}
-                          disabled={purchaseSelection === null}
-                        >
-                          <Text style={styles.buttonText}>Odoslať</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-
-                    <View style={styles.actionButtons}>
-                      <TouchableOpacity style={styles.button} onPress={exportText}>
-                        <Text style={styles.buttonText}>📤 Zdieľať</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.button, styles.buttonSecondary]}
-                        onPress={clearAll}
-                      >
-                        <Text style={[styles.buttonText, styles.buttonTextSecondary]}>
-                          Nová analýza
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
+                    <View style={styles.bottomSpacer} />
                   </>
                 )}
               </View>
@@ -1108,12 +1428,38 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
           </View>
         </ScrollView>
 
+        {currentView === 'scan' && (
+          <View style={styles.bottomActionBar}>
+            <TouchableOpacity
+              style={[styles.bottomActionButton, styles.bottomActionSecondary]}
+              onPress={exportText}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.bottomActionIcon}>📤</Text>
+              <Text style={styles.bottomActionText}>Zdieľať poznámky</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.bottomActionButton, styles.bottomActionPrimary]}
+              onPress={() => {
+                clearAll();
+                openCamera();
+              }}
+              activeOpacity={0.9}
+            >
+              <Text style={[styles.bottomActionIcon, styles.bottomActionIconPrimary]}>📷</Text>
+              <Text style={[styles.bottomActionText, styles.bottomActionTextPrimary]}>
+                Nový scan
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <TouchableOpacity
-          style={[styles.fab, currentView === 'scan' ? styles.fabVisible : null]}
-          onPress={clearAll}
+          style={[styles.fab, currentView === 'home' ? styles.fabVisible : null]}
+          onPress={openCamera}
           activeOpacity={0.85}
         >
-          <Text style={styles.fabIcon}>➕</Text>
+          <Text style={styles.fabIcon}>📷</Text>
         </TouchableOpacity>
 
         {(overlayVisible || isLoading) && (
