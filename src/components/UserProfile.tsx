@@ -1,5 +1,5 @@
 // UserProfile.tsx
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,26 +8,65 @@ import {
   TouchableOpacity,
   ScrollView,
   RefreshControl,
-  Dimensions,
   KeyboardAvoidingView,
   StyleSheet,
   Platform,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
+import Svg, { Circle, Defs, Line, LinearGradient as SvgLinearGradient, Polygon, Stop, Text as SvgText } from 'react-native-svg';
 import auth from '@react-native-firebase/auth';
 import { getSafeAreaTop, getSafeAreaBottom, scale, verticalScale } from './utils/safeArea';
 import { AIResponseDisplay } from './AIResponseDisplay';
-import { unifiedStyles } from '../theme/unifiedStyles';
 import BottomNav, { BOTTOM_NAV_HEIGHT } from './BottomNav';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePersonalization } from '../hooks/usePersonalization';
-import TasteProfileVisualization from './TasteProfileVisualization';
 import { PrivacyManager } from '../services/PrivacyManager';
 import { preferenceEngine } from '../services/personalizationGateway';
 import { privacyManager, optIn, DEFAULT_COMMUNITY_AVERAGE, PERSONALIZATION_USER_ID } from '../services/Personalization';
 import type { TrackingPreferences, TasteProfileVector } from '../types/Personalization';
 
-const { width } = Dimensions.get('window');
-const { colors, typography, spacing, componentStyles } = unifiedStyles;
+const palette = {
+  espresso: '#2C1810',
+  darkRoast: '#3E2723',
+  medium: '#6B4C3A',
+  mocha: '#8D6E63',
+  latte: '#A67C52',
+  caramel: '#C8A882',
+  cream: '#F5DDD0',
+  foam: '#FFF8F4',
+  accentGold: '#FFB300',
+  accentAmber: '#FFA000',
+  accentOrange: '#FF8C42',
+  accentCoral: '#FF6B6B',
+  accentMint: '#7FB069',
+  accentPurple: '#9C27B0',
+};
+
+const PRIMARY_GRADIENT = [palette.espresso, palette.medium];
+
+type RadarAxisKey = 'acidity' | 'sweetness' | 'body' | 'bitterness' | 'aroma' | 'fruitiness';
+
+type RadarScores = Record<RadarAxisKey, number>;
+
+const RADAR_AXES: { key: RadarAxisKey; label: string }[] = [
+  { key: 'acidity', label: 'Kyslosť' },
+  { key: 'sweetness', label: 'Sladkosť' },
+  { key: 'body', label: 'Telo' },
+  { key: 'bitterness', label: 'Horkosť' },
+  { key: 'aroma', label: 'Aroma' },
+  { key: 'fruitiness', label: 'Ovocnosť' },
+];
+
+const EXPERIENCE_LEVEL_META: Record<string, { label: string; gradient: string[] }> = {
+  beginner: { label: '🌱 Začiatočník', gradient: [palette.accentMint, '#43A047'] },
+  intermediate: { label: '☕ Milovník kávy', gradient: [palette.latte, palette.caramel] },
+  expert: { label: '🎯 Kávový nadšenec', gradient: [palette.accentPurple, palette.accentCoral] },
+  default: { label: '☕ Milovník kávy', gradient: [palette.latte, palette.caramel] },
+};
+
+const RADAR_SIZE = 240;
+const RADAR_CENTER = RADAR_SIZE / 2;
+const RADAR_RADIUS = RADAR_SIZE / 2 - 24;
 
 const clampTasteValue = (value: number | undefined, fallback: number): number => {
   if (typeof value !== 'number' || Number.isNaN(value)) {
@@ -35,6 +74,102 @@ const clampTasteValue = (value: number | undefined, fallback: number): number =>
   }
   return Math.max(0, Math.min(10, value));
 };
+
+const getExperienceLevelMeta = (level?: string | null) => {
+  if (!level) {
+    return EXPERIENCE_LEVEL_META.default;
+  }
+  return EXPERIENCE_LEVEL_META[level] ?? EXPERIENCE_LEVEL_META.default;
+};
+
+const buildRadarScores = (profile?: TasteProfileVector | null, community?: TasteProfileVector | null): RadarScores | null => {
+  if (!profile) {
+    return null;
+  }
+
+  const fallback = 5;
+  const communitySafe = community ?? DEFAULT_COMMUNITY_AVERAGE;
+
+  const aromaBase = (clampTasteValue(profile.body, fallback) + clampTasteValue(communitySafe.body, fallback)) / 2;
+  const fruitinessBase = (clampTasteValue(profile.acidity, fallback) + clampTasteValue(communitySafe.sweetness, fallback)) / 2;
+
+  return {
+    acidity: clampTasteValue(profile.acidity, fallback),
+    sweetness: clampTasteValue(profile.sweetness, fallback),
+    body: clampTasteValue(profile.body, fallback),
+    bitterness: clampTasteValue(profile.bitterness, fallback),
+    aroma: clampTasteValue(aromaBase, fallback),
+    fruitiness: clampTasteValue(fruitinessBase, fallback),
+  };
+};
+
+const radarPoint = (value: number, index: number, total: number, radius: number = RADAR_RADIUS) => {
+  const safeValue = clampTasteValue(value, 0);
+  const normalized = safeValue / 10;
+  const angle = (Math.PI * 2 * index) / total - Math.PI / 2;
+  return {
+    x: RADAR_CENTER + radius * normalized * Math.cos(angle),
+    y: RADAR_CENTER + radius * normalized * Math.sin(angle),
+  };
+};
+
+const buildPolygonPoints = (values: number[], radius: number = RADAR_RADIUS) =>
+  values
+    .map((value, index) => {
+      const { x, y } = radarPoint(value, index, values.length, radius);
+      return `${x},${y}`;
+    })
+    .join(' ');
+
+const ProfileRadarChart: React.FC<{ scores: RadarScores }> = React.memo(({ scores }) => {
+  const dataValues = useMemo(() => RADAR_AXES.map(axis => scores[axis.key]), [scores]);
+  const dataPolygon = useMemo(() => buildPolygonPoints(dataValues), [dataValues]);
+  const gridPolygons = useMemo(
+    () => [2, 4, 6, 8, 10].map(level => buildPolygonPoints(new Array(RADAR_AXES.length).fill(level))),
+    [],
+  );
+
+  return (
+    <Svg width={RADAR_SIZE} height={RADAR_SIZE}>
+      <Defs>
+        <SvgLinearGradient id="profile-radar-bg" x1="0%" y1="0%" x2="0%" y2="100%">
+          <Stop offset="0%" stopColor="rgba(255, 215, 170, 0.35)" />
+          <Stop offset="100%" stopColor="rgba(255, 175, 110, 0.1)" />
+        </SvgLinearGradient>
+        <SvgLinearGradient id="profile-radar-fill" x1="0%" y1="0%" x2="100%" y2="100%">
+          <Stop offset="0%" stopColor="rgba(234, 88, 12, 0.7)" />
+          <Stop offset="100%" stopColor="rgba(249, 115, 22, 0.45)" />
+        </SvgLinearGradient>
+      </Defs>
+
+      <Polygon points={buildPolygonPoints(new Array(RADAR_AXES.length).fill(10))} fill="url(#profile-radar-bg)" />
+
+      {gridPolygons.map((points, index) => (
+        <Polygon key={`grid-${index}`} points={points} fill="none" stroke="rgba(217, 119, 6, 0.18)" strokeWidth={1} />
+      ))}
+
+      {RADAR_AXES.map((axis, index) => {
+        const axisEnd = radarPoint(10, index, RADAR_AXES.length);
+        const labelPosition = radarPoint(11, index, RADAR_AXES.length);
+        return (
+          <React.Fragment key={axis.key}>
+            <Line x1={RADAR_CENTER} y1={RADAR_CENTER} x2={axisEnd.x} y2={axisEnd.y} stroke="rgba(217, 119, 6, 0.25)" strokeWidth={1} />
+            <SvgText x={labelPosition.x} y={labelPosition.y} fill="#8B5E34" fontSize={12} textAnchor="middle">
+              {axis.label}
+            </SvgText>
+          </React.Fragment>
+        );
+      })}
+
+      <Polygon points={dataPolygon} fill="url(#profile-radar-fill)" stroke="rgba(234, 88, 12, 0.85)" strokeWidth={2.5} />
+
+      {RADAR_AXES.map((axis, index) => {
+        const { x, y } = radarPoint(dataValues[index], index, RADAR_AXES.length);
+        return <Circle key={`dot-${axis.key}`} cx={x} cy={y} r={4.5} fill="#EA580C" stroke="#fff7ed" strokeWidth={2} />;
+      })}
+    </Svg>
+  );
+});
 
 interface ProfileData {
   email: string;
@@ -225,81 +360,39 @@ const UserProfile = ({
   }, [readPersonalization]);
 
   const generateStats = (data: ProfileData) => {
-    const stats: Stat[] = [];
+    const fallback = '–';
+    const prefs = data.coffee_preferences;
 
-    if (data.experience_level) {
-      const levelMap: any = {
-        'beginner': 'Začiatočník',
-        'intermediate': 'Milovník',
-        'expert': 'Nadšenec'
-      };
-      stats.push({
-        label: 'Úroveň',
-        value: levelMap[data.experience_level] || data.experience_level,
-        emoji: '📊'
-      });
-    }
+    const intensityMap: Record<string, string> = {
+      light: 'Jemná',
+      medium: 'Stredná',
+      strong: 'Silná',
+    };
 
-    if (data.coffee_preferences) {
-      const prefs = data.coffee_preferences;
+    const roastMap: Record<string, string> = {
+      light: 'Svetlé',
+      medium: 'Stredné',
+      dark: 'Tmavé',
+    };
 
-      if (prefs.intensity) {
-        const intensityMap: any = {
-          'light': 'Jemná',
-          'medium': 'Stredná',
-          'strong': 'Silná'
-        };
-        stats.push({
-          label: 'Intenzita',
-          value: intensityMap[prefs.intensity] || prefs.intensity,
-          emoji: '💪'
-        });
-      }
+    const temperatureMap: Record<string, string> = {
+      hot: 'Horúca',
+      iced: 'Ľadová',
+      both: 'Oboje',
+    };
 
-      if (prefs.preferred_drinks?.length > 0) {
-        stats.push({
-          label: 'Obľúbené nápoje',
-          value: prefs.preferred_drinks.length,
-          emoji: '☕'
-        });
-      }
+    const intensityValue = prefs?.intensity ? intensityMap[prefs.intensity] || prefs.intensity : fallback;
+    const roastValue = prefs?.roast ? roastMap[prefs.roast] || prefs.roast : fallback;
+    const temperatureValue = prefs?.temperature ? temperatureMap[prefs.temperature] || prefs.temperature : fallback;
 
-      if (prefs.milk !== undefined) {
-        stats.push({
-          label: 'Mlieko',
-          value: prefs.milk ? 'Áno' : 'Nie',
-          emoji: '🥛'
-        });
-      }
+    const stats: Stat[] = [
+      { label: 'Intenzita', value: intensityValue, emoji: '💪' },
+      { label: 'Praženie', value: roastValue, emoji: '🔥' },
+      { label: 'Teplota', value: temperatureValue, emoji: '🌡️' },
+    ];
 
-      if (prefs.roast) {
-        const roastMap: any = {
-          'light': 'Svetlé',
-          'medium': 'Stredné',
-          'dark': 'Tmavé'
-        };
-        stats.push({
-          label: 'Praženie',
-          value: roastMap[prefs.roast] || prefs.roast,
-          emoji: '🔥'
-        });
-      }
-
-      if (prefs.temperature) {
-        const tempMap: any = {
-          'hot': 'Horúca',
-          'iced': 'Ľadová',
-          'both': 'Oboje'
-        };
-        stats.push({
-          label: 'Teplota',
-          value: tempMap[prefs.temperature] || prefs.temperature,
-          emoji: '🌡️'
-        });
-      }
-    }
-
-    setCoffeeStats(stats);
+    const hasData = stats.some(stat => stat.value !== fallback);
+    setCoffeeStats(hasData ? stats : []);
   };
 
   const onRefresh = () => {
@@ -371,175 +464,94 @@ const UserProfile = ({
 
   // Komponenty pre rôzne stavy
   const LoadingView = () => (
-    <View style={styles.centerContainer}>
-      <View style={styles.loadingCard}>
-        <ActivityIndicator size="large" color="#6B4423" />
-        <Text style={styles.loadingText}>Načítavam profil...</Text>
+    <View style={styles.statusContainer}>
+      <View style={styles.statusCard}>
+        <ActivityIndicator size="large" color={palette.medium} />
+        <Text style={styles.statusText}>Načítavam profil...</Text>
       </View>
     </View>
   );
 
   const ErrorView = () => (
-    <View style={styles.centerContainer}>
-      <View style={styles.errorCard}>
-        <Text style={styles.errorEmoji}>😕</Text>
-        <Text style={styles.errorText}>Nepodarilo sa načítať profil</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={fetchProfile}>
-          <Text style={styles.retryButtonText}>Skúsiť znova</Text>
+    <View style={styles.statusContainer}>
+      <View style={styles.statusCard}>
+        <Text style={styles.statusEmoji}>😕</Text>
+        <Text style={styles.statusText}>Nepodarilo sa načítať profil</Text>
+        <TouchableOpacity style={styles.statusButton} onPress={fetchProfile} activeOpacity={0.85}>
+          <Text style={styles.statusButtonText}>Skúsiť znova</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 
-  const ProfileContent = () => (
-    <ScrollView
-      style={styles.scrollView}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
-      {/* Profile Header Card */}
-      <View style={styles.profileHeaderCard}>
-        <View style={[styles.avatar, getExperienceLevelStyle(profile?.experience_level)]}>
-          <Text style={styles.avatarText}>
-            {getInitials(profile?.name, profile?.email)}
-          </Text>
-        </View>
+  const ProfileContent = () => {
+    const { label: levelLabel, gradient: levelGradient } = getExperienceLevelMeta(profile?.experience_level);
+    const radarScores = useMemo(() => buildRadarScores(tasteProfile, communityAverage), [tasteProfile, communityAverage]);
 
-        <Text style={styles.profileName}>
-          {profile?.name || 'Milovník kávy'}
-        </Text>
-
-        <Text style={styles.profileEmail}>{profile?.email}</Text>
-
-        {profile?.experience_level && (
-          <View style={[styles.levelBadge, getExperienceLevelStyle(profile.experience_level)]}>
-            <Text style={styles.levelBadgeText}>
-              {profile.experience_level === 'beginner' && '🌱 Začiatočník'}
-              {profile.experience_level === 'intermediate' && '☕ Milovník kávy'}
-              {profile.experience_level === 'expert' && '🎯 Kávový nadšenec'}
-            </Text>
+    return (
+      <>
+        <View style={[styles.card, styles.profileCard]}>
+          <View style={styles.avatarRing} />
+          <View style={styles.avatarWrapper}>
+            <LinearGradient colors={[palette.accentPurple, palette.accentMint]} style={styles.avatar}>
+              <Text style={styles.avatarText}>{getInitials(profile?.name, profile?.email)}</Text>
+            </LinearGradient>
           </View>
-        )}
+          <Text style={styles.profileName}>{profile?.name || 'Milovník kávy'}</Text>
+          <Text style={styles.profileEmail}>{profile?.email}</Text>
+          <LinearGradient colors={levelGradient} style={styles.levelBadge}>
+            <Text style={styles.levelBadgeText}>{levelLabel}</Text>
+          </LinearGradient>
 
-        {tasteProfile && (
-          <View style={styles.tasteProfileWrapper}>
-            <TasteProfileVisualization profile={tasteProfile} communityAverage={communityAverage} />
-          </View>
-        )}
-      </View>
-
-      {/* Quick Actions */}
-      <View style={styles.quickActions}>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.primaryActionButton]}
-          onPress={onPreferences}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.actionIcon, styles.actionIconPrimary]}>
-            <Text style={styles.actionEmoji}>☕</Text>
-          </View>
-          <Text style={[styles.actionButtonText, styles.actionButtonTextPrimary]}>
-            Upraviť preferencie
-          </Text>
-        </TouchableOpacity>
-
-        {onForm && (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.secondaryActionButton]}
-            onPress={onForm}
-            activeOpacity={0.8}
-          >
-            <View style={styles.actionIcon}>
-              <Text style={styles.actionEmoji}>📝</Text>
+          {radarScores ? (
+            <View style={styles.tasteCard}>
+              <Text style={styles.tasteTitle}>Chuťový profil</Text>
+              <View style={styles.radarWrapper}>
+                <ProfileRadarChart scores={radarScores} />
+              </View>
             </View>
-            <Text style={styles.actionButtonText}>Formulár</Text>
-          </TouchableOpacity>
-        )}
-
-        <TouchableOpacity
-          style={[styles.actionButton, styles.secondaryActionButton]}
-          onPress={onEdit}
-          activeOpacity={0.8}
-        >
-          <View style={styles.actionIcon}>
-            <Text style={styles.actionEmoji}>✏️</Text>
-          </View>
-          <Text style={styles.actionButtonText}>Upraviť profil</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionButton, styles.secondaryActionButton]}
-          onPress={onGamification}
-          activeOpacity={0.8}
-        >
-          <View style={styles.actionIcon}>
-            <Text style={styles.actionEmoji}>🏆</Text>
-          </View>
-          <Text style={styles.actionButtonText}>Gamifikácia</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionButton, styles.secondaryActionButton]}
-          onPress={handleLogout}
-          activeOpacity={0.8}
-        >
-          <View style={styles.actionIcon}>
-            <Text style={styles.actionEmoji}>🚪</Text>
-          </View>
-          <Text style={styles.actionButtonText}>Odhlásiť sa</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.section}>
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>🔐 Ovládanie dát</Text>
-          <Text style={styles.sectionDescription}>
-            Spravuj export a vymazanie svojich personalizačných údajov.
-          </Text>
-          <TouchableOpacity
-            style={[
-              styles.dataButton,
-              (!hasDataConsent || exportingData) && styles.dataButtonDisabled,
-            ]}
-            onPress={handleExportData}
-            disabled={!hasDataConsent || exportingData}
-          >
-            <Text style={styles.dataButtonText}>
-              {exportingData ? 'Exportujem...' : 'Exportovať dáta'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.dataButton,
-              styles.deleteButton,
-              (!hasDataConsent || deletingData) && styles.dataButtonDisabled,
-            ]}
-            onPress={confirmDeleteData}
-            disabled={!hasDataConsent || deletingData}
-          >
-            <Text style={styles.dataButtonText}>
-              {deletingData ? 'Mazanie...' : 'Vymazať dáta'}
-            </Text>
-          </TouchableOpacity>
-          {!hasDataConsent && (
-            <Text style={styles.dataConsentHint}>
-              Na export alebo vymazanie je potrebný súhlas so spracovaním dát v nastaveniach súkromia.
-            </Text>
+          ) : (
+            <View style={styles.tasteCard}>
+              <Text style={styles.tasteTitle}>Chuťový profil</Text>
+              <Text style={styles.emptyTasteText}>Vyplň preferencie pre zobrazenie chuťového profilu.</Text>
+            </View>
           )}
         </View>
-      </View>
 
-      {/* Coffee Stats */}
-      {coffeeStats.length > 0 && (
-        <View style={styles.section}>
-          <View style={styles.sectionCard}>
+        <View style={styles.actionsGrid}>
+          <TouchableOpacity style={[styles.actionCard, styles.actionCardFirst]} onPress={onPreferences} activeOpacity={0.9}>
+            <LinearGradient colors={PRIMARY_GRADIENT} style={[styles.actionInner, styles.actionInnerPrimary]}>
+              <View style={[styles.actionIcon, styles.actionIconPrimary]}>
+                <Text style={styles.actionIconText}>✨</Text>
+              </View>
+              <Text style={[styles.actionText, styles.actionTextPrimary]}>Upraviť preferencie</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.actionCard} onPress={onEdit} activeOpacity={0.9}>
+            <View style={[styles.actionInner, styles.actionInnerSecondary]}>
+              <View style={[styles.actionIcon, styles.actionIconSecondary]}>
+                <Text style={styles.actionIconText}>✏️</Text>
+              </View>
+              <Text style={styles.actionText}>Upraviť profil</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        <View style={[styles.card, styles.ctaCard]}>
+          <TouchableOpacity onPress={onPreferences} activeOpacity={0.92} style={styles.ctaButton}>
+            <LinearGradient colors={PRIMARY_GRADIENT} style={styles.ctaGradient}>
+              <Text style={styles.ctaText}>Prejsť na úpravu preferencií</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+
+        {coffeeStats.length > 0 && (
+          <View style={[styles.card, styles.sectionCard]}>
             <Text style={styles.sectionTitle}>📊 Tvoj kávový profil</Text>
             <View style={styles.statsGrid}>
-              {coffeeStats.map((stat, index) => (
-                <View key={index} style={styles.statCard}>
+              {coffeeStats.map(stat => (
+                <View key={stat.label} style={styles.statCard}>
                   <Text style={styles.statEmoji}>{stat.emoji}</Text>
                   <Text style={styles.statValue}>{stat.value}</Text>
                   <Text style={styles.statLabel}>{stat.label}</Text>
@@ -547,77 +559,96 @@ const UserProfile = ({
               ))}
             </View>
           </View>
-        </View>
-      )}
+        )}
 
-      {/* AI Recommendation */}
-      {recommendation && (
-        <View style={componentStyles.section}>
-          <View style={componentStyles.card}>
-            <View style={componentStyles.sectionHeader}>
-              <Text style={componentStyles.sectionTitle}>🤖 Personalizované odporúčanie</Text>
-              <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
-                <Text style={styles.refreshText}>🔄</Text>
+        {recommendation && (
+          <View style={[styles.card, styles.aiCard]}>
+            <View style={styles.aiHeader}>
+              <Text style={styles.aiTitle}>🤖 Personalizované odporúčanie</Text>
+              <TouchableOpacity style={styles.aiRefreshButton} onPress={onRefresh} activeOpacity={0.8}>
+                <Text style={styles.aiRefreshText}>🔄</Text>
               </TouchableOpacity>
             </View>
-            <AIResponseDisplay
-              text={recommendation}
-              type="recommendation"
-              animate={true}
-            />
+            <AIResponseDisplay text={recommendation} type="recommendation" animate />
           </View>
-        </View>
-      )}
+        )}
 
-      {/* Tips Section */}
-      <View style={styles.section}>
-        <View style={styles.tipCard}>
-          <Text style={styles.sectionTitle}>💡 Tip dňa</Text>
+        <LinearGradient colors={[palette.accentPurple, palette.accentCoral]} style={[styles.card, styles.tipCard]}>
+          <Text style={styles.tipTitle}>💡 Tip dňa</Text>
           <Text style={styles.tipText}>
-            Vedel si, že ideálna teplota vody pre prípravu kávy je medzi 90-96°C?
-            Príliš horúca voda môže spáliť kávu a spôsobiť horkú chuť. ☕
+            Pre svetlé praženie používaj nižšiu teplotu vody (90–92°C) pre zachovanie delikátnych kvetinových tónov.
           </Text>
+        </LinearGradient>
+
+        <View style={[styles.card, styles.dataCard]}>
+          <Text style={styles.sectionTitle}>🔐 Ovládanie dát</Text>
+          <Text style={styles.sectionDescription}>Spravuj export a vymazanie svojich personalizačných údajov.</Text>
+          <TouchableOpacity
+            style={[styles.primaryButton, (!hasDataConsent || exportingData) && styles.primaryButtonDisabled]}
+            onPress={handleExportData}
+            disabled={!hasDataConsent || exportingData}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.primaryButtonText}>{exportingData ? 'Exportujem…' : 'Exportovať dáta'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.primaryButton, styles.dangerButton, (!hasDataConsent || deletingData) && styles.primaryButtonDisabled]}
+            onPress={confirmDeleteData}
+            disabled={!hasDataConsent || deletingData}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.primaryButtonText}>{deletingData ? 'Mazanie…' : 'Vymazať dáta'}</Text>
+          </TouchableOpacity>
+          {!hasDataConsent && (
+            <Text style={styles.dataConsentHint}>
+              Na export alebo vymazanie je potrebný súhlas so spracovaním dát v nastaveniach súkromia.
+            </Text>
+          )}
         </View>
-      </View>
 
-      {/* Footer with padding for navigation */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          Členstvo od: {new Date().toLocaleDateString('sk-SK')}
-        </Text>
-      </View>
-    </ScrollView>
-  );
+        <View style={[styles.card, styles.signOutCard]}>
+          <TouchableOpacity style={[styles.primaryButton, styles.signOutButton]} onPress={handleLogout} activeOpacity={0.88}>
+            <Text style={styles.primaryButtonText}>Odhlásiť sa</Text>
+          </TouchableOpacity>
+        </View>
 
-  const getExperienceLevelStyle = (level?: string) => {
-    switch (level) {
-      case 'beginner': return { backgroundColor: '#4CAF50' };
-      case 'intermediate': return { backgroundColor: '#FFA726' };
-      case 'expert': return { backgroundColor: '#9C27B0' };
-      default: return { backgroundColor: '#666666' };
-    }
+        <View style={styles.bottomSpacer} />
+      </>
+    );
   };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        {onBack && (
-          <TouchableOpacity style={styles.headerButton} onPress={onBack}>
-            <Text style={styles.headerButtonText}>←</Text>
-          </TouchableOpacity>
-        )}
-        <Text style={styles.headerTitle}>Profil</Text>
-        <View style={styles.headerPlaceholder} />
-      </View>
-
-      {/* Content */}
       <KeyboardAvoidingView
         style={styles.content}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {loading ? <LoadingView /> : !profile ? <ErrorView /> : <ProfileContent />}
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        >
+          <View style={styles.innerContent}>
+            <View style={styles.headerBar}>
+              {onBack ? (
+                <TouchableOpacity style={styles.iconButton} onPress={onBack} activeOpacity={0.9}>
+                  <Text style={styles.iconButtonText}>←</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={[styles.iconButton, styles.iconButtonGhost]} />
+              )}
+              <Text style={styles.headerTitle}>Profil</Text>
+              <TouchableOpacity style={styles.iconButton} onPress={onEdit} activeOpacity={0.9}>
+                <Text style={styles.iconButtonText}>⋮</Text>
+              </TouchableOpacity>
+            </View>
+
+            {loading ? <LoadingView /> : !profile ? <ErrorView /> : <ProfileContent />}
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
+
       <BottomNav
         active="profile"
         onHomePress={onHomePress}
@@ -630,311 +661,383 @@ const UserProfile = ({
   );
 };
 
-// Štýly
+
+const cardShadow = {
+  shadowColor: 'rgba(44, 24, 16, 0.18)',
+  shadowOffset: { width: 0, height: 12 },
+  shadowOpacity: 0.18,
+  shadowRadius: 24,
+  elevation: 12,
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    backgroundColor: colors.primary,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: scale(16),
-    paddingVertical: verticalScale(12),
-    paddingTop: Platform.OS === 'ios' ? verticalScale(12) : verticalScale(16) + getSafeAreaTop(),
-  },
-  headerButton: {
-    width: scale(36),
-    height: verticalScale(36),
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: scale(18),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerButtonText: {
-    color: 'white',
-    fontSize: scale(20),
-    fontWeight: '600',
-  },
-  headerTitle: {
-    color: 'white',
-    fontSize: scale(18),
-    fontWeight: '700',
-  },
-  headerPlaceholder: {
-    width: scale(36),
+    backgroundColor: palette.foam,
   },
   content: {
     flex: 1,
+  },
+  innerContent: {
+    flex: 1,
+    paddingTop: getSafeAreaTop() + verticalScale(12),
+  },
+  headerBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: verticalScale(18),
+    paddingHorizontal: scale(18),
+    paddingVertical: verticalScale(12),
+    borderRadius: scale(26),
+    backgroundColor: 'rgba(255, 248, 244, 0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(200, 168, 130, 0.25)',
+    ...cardShadow,
+  },
+  iconButton: {
+    width: scale(40),
+    height: verticalScale(40),
+    borderRadius: scale(14),
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...cardShadow,
+  },
+  iconButtonGhost: {
+    opacity: 0,
+  },
+  iconButtonText: {
+    color: palette.espresso,
+    fontSize: scale(18),
+    fontWeight: '700',
+  },
+  headerTitle: {
+    color: palette.espresso,
+    fontSize: scale(18),
+    fontWeight: '800',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: getSafeAreaBottom() + BOTTOM_NAV_HEIGHT + verticalScale(20),
+    flexGrow: 1,
+    paddingHorizontal: scale(16),
+    paddingTop: verticalScale(8),
+    paddingBottom: getSafeAreaBottom() + BOTTOM_NAV_HEIGHT + verticalScale(32),
   },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  card: {
+    borderRadius: scale(28),
     padding: scale(20),
+    backgroundColor: '#FFFFFF',
+    marginBottom: verticalScale(18),
+    ...cardShadow,
   },
-  loadingCard: {
-    backgroundColor: 'white',
-    borderRadius: scale(20),
-    padding: scale(30),
+  profileCard: {
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    paddingTop: verticalScale(28),
+    overflow: 'hidden',
   },
-  loadingText: {
-    marginTop: verticalScale(15),
-    fontSize: scale(16),
-    color: '#666666',
+  avatarRing: {
+    position: 'absolute',
+    width: scale(200),
+    height: scale(200),
+    borderRadius: scale(100),
+    backgroundColor: 'rgba(255, 179, 0, 0.08)',
+    bottom: -scale(90),
+    left: -scale(70),
   },
-  errorCard: {
-    backgroundColor: 'white',
-    borderRadius: scale(20),
-    padding: scale(30),
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  errorEmoji: {
-    fontSize: scale(50),
-    marginBottom: verticalScale(15),
-  },
-  errorText: {
-    fontSize: scale(16),
-    color: '#2C2C2C',
-    marginBottom: verticalScale(20),
-    textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: '#6B4423',
-    paddingHorizontal: scale(25),
-    paddingVertical: verticalScale(12),
-    borderRadius: scale(20),
-  },
-  retryButtonText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: scale(14),
-  },
-  profileHeaderCard: {
-    backgroundColor: 'white',
-    margin: scale(16),
-    borderRadius: scale(20),
-    padding: scale(20),
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
+  avatarWrapper: {
+    borderRadius: scale(60),
+    padding: scale(4),
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    marginBottom: verticalScale(14),
   },
   avatar: {
-    width: scale(80),
-    height: verticalScale(80),
-    borderRadius: scale(40),
-    justifyContent: 'center',
+    width: scale(108),
+    height: scale(108),
+    borderRadius: scale(54),
     alignItems: 'center',
-    marginBottom: verticalScale(12),
+    justifyContent: 'center',
   },
   avatarText: {
-    fontSize: scale(30),
-    fontWeight: '700',
-    color: 'white',
+    fontSize: scale(32),
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 1,
   },
   profileName: {
-    fontSize: scale(20),
-    fontWeight: '700',
-    color: '#2C2C2C',
-    marginBottom: verticalScale(4),
+    fontSize: scale(22),
+    fontWeight: '800',
+    color: palette.espresso,
+    textAlign: 'center',
   },
   profileEmail: {
-    fontSize: scale(14),
-    color: '#666666',
-    marginBottom: verticalScale(12),
+    fontSize: scale(13),
+    color: '#6B6B6B',
+    marginTop: verticalScale(4),
+    textAlign: 'center',
   },
   levelBadge: {
-    paddingHorizontal: scale(16),
+    marginTop: verticalScale(12),
+    borderRadius: scale(999),
+    paddingHorizontal: scale(20),
     paddingVertical: verticalScale(8),
-    borderRadius: scale(20),
   },
   levelBadgeText: {
-    color: 'white',
-    fontWeight: '600',
+    color: '#FFFFFF',
+    fontWeight: '700',
     fontSize: scale(12),
   },
-  tasteProfileWrapper: {
+  tasteCard: {
     width: '100%',
-    marginTop: verticalScale(16),
-    alignItems: 'center',
-  },
-  quickActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: scale(16),
-    marginBottom: verticalScale(16),
-    gap: scale(10),
-  },
-  actionButton: {
-    flex: 1,
-    borderRadius: scale(16),
-    padding: scale(12),
-    alignItems: 'center',
-  },
-  primaryActionButton: {
-    backgroundColor: '#6B4423',
-  },
-  secondaryActionButton: {
-    backgroundColor: 'white',
+    marginTop: verticalScale(20),
+    backgroundColor: '#FFF8F4',
+    borderRadius: scale(22),
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: 'rgba(200, 168, 130, 0.25)',
+    padding: scale(16),
+  },
+  tasteTitle: {
+    fontSize: scale(14),
+    fontWeight: '700',
+    color: palette.espresso,
+    marginBottom: verticalScale(12),
+  },
+  radarWrapper: {
+    alignItems: 'center',
+  },
+  emptyTasteText: {
+    fontSize: scale(12),
+    color: '#6B6B6B',
+    lineHeight: verticalScale(18),
+  },
+  actionsGrid: {
+    flexDirection: 'row',
+    marginBottom: verticalScale(20),
+  },
+  actionCard: {
+    flex: 1,
+  },
+  actionCardFirst: {
+    marginRight: scale(12),
+  },
+  actionInner: {
+    borderRadius: scale(20),
+    paddingVertical: verticalScale(16),
+    paddingHorizontal: scale(12),
+    alignItems: 'center',
+  },
+  actionInnerPrimary: {
+    borderRadius: scale(20),
+  },
+  actionInnerSecondary: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: scale(20),
+    borderWidth: 1,
+    borderColor: 'rgba(200, 168, 130, 0.35)',
   },
   actionIcon: {
-    width: scale(40),
-    height: verticalScale(40),
-    backgroundColor: 'rgba(107, 68, 35, 0.1)',
-    borderRadius: scale(12),
-    justifyContent: 'center',
+    width: scale(44),
+    height: verticalScale(44),
+    borderRadius: scale(14),
     alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: verticalScale(8),
   },
   actionIconPrimary: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
   },
-  actionEmoji: {
-    fontSize: scale(20),
+  actionIconSecondary: {
+    backgroundColor: 'rgba(107, 68, 35, 0.08)',
   },
-  actionButtonText: {
-    fontSize: scale(11),
-    fontWeight: '600',
-    color: '#2C2C2C',
+  actionIconText: {
+    fontSize: scale(22),
   },
-  actionButtonTextPrimary: {
-    color: 'white',
+  actionText: {
+    fontSize: scale(12),
+    fontWeight: '700',
+    color: palette.espresso,
   },
-  section: {
-    marginHorizontal: scale(16),
-    marginBottom: verticalScale(16),
+  actionTextPrimary: {
+    color: '#FFFFFF',
+  },
+  ctaCard: {
+    padding: scale(16),
+  },
+  ctaButton: {
+    borderRadius: scale(16),
+    overflow: 'hidden',
+  },
+  ctaGradient: {
+    borderRadius: scale(16),
+    paddingVertical: verticalScale(16),
+    alignItems: 'center',
+  },
+  ctaText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: scale(14),
+    letterSpacing: 0.4,
   },
   sectionCard: {
-    backgroundColor: 'white',
-    borderRadius: scale(16),
-    padding: scale(16),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    paddingBottom: verticalScale(10),
   },
   sectionTitle: {
     fontSize: scale(16),
-    fontWeight: '700',
-    color: '#2C2C2C',
+    fontWeight: '800',
+    color: palette.espresso,
     marginBottom: verticalScale(12),
   },
   sectionDescription: {
     fontSize: scale(12),
     color: '#6B6B6B',
     marginBottom: verticalScale(12),
+    lineHeight: verticalScale(18),
   },
   statsGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: scale(8),
+    justifyContent: 'space-between',
   },
   statCard: {
-    width: (width - scale(64)) / 3,
+    flex: 1,
     backgroundColor: '#FAF7F5',
-    borderRadius: scale(12),
-    padding: scale(12),
+    borderRadius: scale(16),
+    paddingVertical: verticalScale(16),
     alignItems: 'center',
+    marginHorizontal: scale(4),
+    borderWidth: 1,
+    borderColor: 'rgba(200, 168, 130, 0.25)',
   },
   statEmoji: {
-    fontSize: scale(20),
-    marginBottom: verticalScale(4),
+    fontSize: scale(22),
+    marginBottom: verticalScale(6),
   },
   statValue: {
     fontSize: scale(14),
     fontWeight: '700',
-    color: '#6B4423',
+    color: palette.medium,
     marginBottom: verticalScale(2),
   },
   statLabel: {
-    fontSize: scale(10),
-    color: '#666666',
+    fontSize: scale(11),
+    color: '#6B6B6B',
   },
-  recommendationHeader: {
+  aiCard: {
+    paddingBottom: verticalScale(18),
+  },
+  aiHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: verticalScale(12),
   },
-  refreshButton: {
-    width: scale(30),
-    height: verticalScale(30),
-    backgroundColor: colors.background,
-    borderRadius: scale(15),
+  aiTitle: {
+    fontSize: scale(15),
+    fontWeight: '700',
+    color: palette.espresso,
+  },
+  aiRefreshButton: {
+    width: scale(36),
+    height: verticalScale(36),
+    borderRadius: scale(14),
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: 'rgba(198, 168, 130, 0.2)',
   },
-  refreshText: {
-    ...typography.body,
+  aiRefreshText: {
+    fontSize: scale(16),
   },
   tipCard: {
-    backgroundColor: '#D2691E',
-    borderRadius: scale(16),
-    padding: scale(16),
+    padding: scale(20),
+    borderRadius: scale(26),
   },
-  dataButton: {
-    backgroundColor: '#6B4423',
-    borderRadius: scale(12),
-    paddingVertical: verticalScale(12),
-    alignItems: 'center',
-    marginBottom: verticalScale(10),
-  },
-  deleteButton: {
-    backgroundColor: '#C62828',
-  },
-  dataButtonDisabled: {
-    opacity: 0.5,
-  },
-  dataButtonText: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: scale(13),
-  },
-  dataConsentHint: {
-    fontSize: scale(11),
-    color: '#8A8A8A',
-    marginTop: verticalScale(8),
+  tipTitle: {
+    fontSize: scale(16),
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: verticalScale(8),
   },
   tipText: {
     fontSize: scale(13),
-    lineHeight: verticalScale(18),
-    color: 'white',
-    marginTop: verticalScale(8),
+    color: '#FFFFFF',
+    lineHeight: verticalScale(20),
   },
-  footer: {
+  dataCard: {
+    paddingBottom: verticalScale(18),
+  },
+  primaryButton: {
+    backgroundColor: palette.espresso,
+    borderRadius: scale(18),
+    paddingVertical: verticalScale(14),
     alignItems: 'center',
-    paddingVertical: verticalScale(16),
-    marginBottom: verticalScale(20),
+    marginTop: verticalScale(12),
   },
-  footerText: {
-    fontSize: scale(12),
-    color: '#666666',
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: scale(13),
+  },
+  primaryButtonDisabled: {
+    opacity: 0.5,
+  },
+  dangerButton: {
+    backgroundColor: '#C62828',
+  },
+  dataConsentHint: {
+    fontSize: scale(11),
+    color: '#7A6957',
+    marginTop: verticalScale(12),
+    lineHeight: verticalScale(16),
+  },
+  signOutCard: {
+    paddingVertical: verticalScale(18),
+  },
+  signOutButton: {
+    width: '100%',
+  },
+  bottomSpacer: {
+    height: verticalScale(40),
+  },
+  statusContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: scale(24),
+    paddingVertical: verticalScale(60),
+  },
+  statusCard: {
+    backgroundColor: 'rgba(255, 248, 244, 0.95)',
+    borderRadius: scale(26),
+    padding: scale(28),
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(200, 168, 130, 0.25)',
+    ...cardShadow,
+  },
+  statusText: {
+    fontSize: scale(14),
+    color: palette.medium,
+    textAlign: 'center',
+    marginTop: verticalScale(12),
+    lineHeight: verticalScale(20),
+  },
+  statusEmoji: {
+    fontSize: scale(48),
+  },
+  statusButton: {
+    marginTop: verticalScale(20),
+    backgroundColor: palette.espresso,
+    borderRadius: scale(18),
+    paddingHorizontal: scale(28),
+    paddingVertical: verticalScale(12),
+  },
+  statusButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: scale(13),
   },
 });
+
 
 export default UserProfile;
