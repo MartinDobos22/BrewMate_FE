@@ -7,6 +7,12 @@ const palette = {
   accent: '#FF8C42',
   accentDark: '#D06020',
   cream: '#F5E6D3',
+  foam: '#FFF8F4',
+  caramel: '#C8A882',
+  mocha: '#8D6E63',
+  latte: '#A67C52',
+  coral: '#FF6B6B',
+  teal: '#00897B',
   background: '#FAF8F5',
   surface: '#FFFFFF',
   surfaceElevated: '#FFF9F5',
@@ -338,181 +344,534 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       textAlign: 'center',
       lineHeight: 20,
     },
-    resultSection: {
-      marginBottom: 20,
+    scanResultContainer: {
+      paddingBottom: 16,
     },
-    resultCard: {
+    scanHeroCard: {
+      borderRadius: 32,
+      padding: 24,
+      marginBottom: 20,
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.6)',
       backgroundColor: palette.surface,
+      ...baseShadow,
+    },
+    scanHeroBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      alignSelf: 'flex-start',
+      backgroundColor: 'rgba(255,140,66,0.9)',
+      borderRadius: 999,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderWidth: 1,
+      borderColor: 'rgba(255,140,66,0.95)',
+      marginBottom: 14,
+    },
+    scanHeroBadgeIcon: {
+      fontSize: 14,
+      marginRight: 6,
+      color: '#FFFFFF',
+    },
+    scanHeroBadgeText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: '#FFFFFF',
+    },
+    scanHeroTitle: {
+      fontSize: 28,
+      fontWeight: '800',
+      color: palette.textPrimary,
+      marginBottom: 6,
+      letterSpacing: -0.4,
+    },
+    scanHeroSubtitle: {
+      fontSize: 14,
+      color: palette.textSecondary,
+      marginBottom: 18,
+      lineHeight: 20,
+    },
+    scanMetricsRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      columnGap: 12,
+    },
+    scanMetricCard: {
+      flex: 1,
       borderRadius: 20,
+      backgroundColor: 'rgba(255,255,255,0.9)',
+      borderWidth: 1,
+      borderColor: 'rgba(232, 222, 212, 0.6)',
+      paddingVertical: 14,
+      alignItems: 'center',
+      ...baseShadow,
+    },
+    scanMetricIcon: {
+      fontSize: 20,
+      marginBottom: 6,
+    },
+    scanMetricValue: {
+      fontSize: 20,
+      fontWeight: '800',
+      color: palette.textPrimary,
+      marginBottom: 4,
+    },
+    scanMetricLabel: {
+      fontSize: 11,
+      letterSpacing: 0.5,
+      textTransform: 'uppercase',
+      color: palette.textTertiary,
+      fontWeight: '600',
+    },
+    verdictCard: {
+      backgroundColor: palette.surface,
+      borderRadius: 24,
       padding: 20,
       borderWidth: 1,
       borderColor: palette.borderLight,
+      marginBottom: 16,
       ...baseShadow,
     },
-    resultHeader: {
+    sectionHeaderRow: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
       alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 10,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: palette.textPrimary,
+    },
+    verdictBadge: {
+      paddingHorizontal: 14,
+      paddingVertical: 6,
+      borderRadius: 999,
+      borderWidth: 1,
+    },
+    verdictBadgeYes: {
+      backgroundColor: 'rgba(127,176,105,0.16)',
+      borderColor: 'rgba(127,176,105,0.35)',
+    },
+    verdictBadgeNo: {
+      backgroundColor: 'rgba(255,107,107,0.14)',
+      borderColor: 'rgba(255,107,107,0.35)',
+    },
+    verdictBadgeText: {
+      fontSize: 12,
+      fontWeight: '800',
+      letterSpacing: 0.6,
+    },
+    verdictBadgeTextYes: {
+      color: palette.success,
+    },
+    verdictBadgeTextNo: {
+      color: palette.coral,
+    },
+    verdictDescription: {
+      fontSize: 14,
+      color: palette.textSecondary,
+      lineHeight: 20,
+    },
+    sectionSubtitle: {
+      fontSize: 12,
+      color: palette.textTertiary,
       marginBottom: 12,
     },
-    resultTitle: {
-      fontSize: 16,
+    ownershipCardModern: {
+      backgroundColor: palette.surface,
+      borderRadius: 24,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: palette.borderLight,
+      marginBottom: 16,
+      ...baseShadow,
+    },
+    ownershipStatePill: {
+      paddingHorizontal: 14,
+      paddingVertical: 6,
+      borderRadius: 999,
+      backgroundColor: 'rgba(127,176,105,0.16)',
+      borderWidth: 1,
+      borderColor: 'rgba(127,176,105,0.35)',
+    },
+    ownershipStateText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: palette.success,
+    },
+    ownershipActionsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      columnGap: 12,
+    },
+    ownershipButton: {
+      flex: 1,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: palette.border,
+      paddingVertical: 12,
+      alignItems: 'center',
+      backgroundColor: palette.surface,
+    },
+    ownershipButtonSecondary: {
+      borderColor: 'rgba(255,107,107,0.35)',
+    },
+    ownershipButtonActive: {
+      borderColor: palette.accent,
+      backgroundColor: 'rgba(255,140,66,0.12)',
+    },
+    ownershipButtonText: {
+      fontSize: 14,
       fontWeight: '700',
       color: palette.textPrimary,
     },
-    matchBadge: {
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 12,
+    ownershipButtonTextSecondary: {
+      color: palette.coral,
     },
-    matchBadgeGood: {
-      backgroundColor: palette.success,
+    ownershipButtonTextActive: {
+      color: palette.accent,
     },
-    matchBadgeFair: {
-      backgroundColor: palette.warning,
+    ownershipConfirmButton: {
+      paddingVertical: 12,
+      paddingHorizontal: 18,
+      borderRadius: 14,
+      backgroundColor: palette.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      ...baseShadow,
     },
-    matchText: {
+    ownershipConfirmDisabled: {
+      backgroundColor: 'rgba(0,0,0,0.08)',
+      borderWidth: 0,
+    },
+    ownershipConfirmText: {
       color: '#FFFFFF',
+      fontWeight: '700',
+      fontSize: 14,
+    },
+    compatibilityCardModern: {
+      backgroundColor: palette.surface,
+      borderRadius: 24,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: palette.borderLight,
+      marginBottom: 16,
+      ...baseShadow,
+    },
+    compatibilityHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+      columnGap: 12,
+    },
+    compatibilityIconWrapper: {
+      width: 40,
+      height: 40,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(255,140,66,0.16)',
+    },
+    compatibilityIcon: {
+      fontSize: 18,
+    },
+    compatibilityIntro: {
+      fontSize: 14,
+      color: palette.textSecondary,
+      lineHeight: 20,
+    },
+    reasonBlock: {
+      marginTop: 14,
+    },
+    reasonTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: palette.textPrimary,
+      marginBottom: 10,
+    },
+    reasonRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      columnGap: 10,
+      marginBottom: 10,
+    },
+    reasonBadge: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    reasonBadgePositive: {
+      backgroundColor: 'rgba(127,176,105,0.16)',
+    },
+    reasonBadgeNegative: {
+      backgroundColor: 'rgba(255,107,107,0.16)',
+    },
+    reasonBadgeText: {
       fontSize: 12,
       fontWeight: '700',
+      color: palette.textPrimary,
     },
-    resultTextInput: {
-      minHeight: 120,
-      borderRadius: 16,
-      padding: 16,
+    reasonText: {
+      flex: 1,
+      fontSize: 13,
+      color: palette.textSecondary,
+      lineHeight: 20,
+    },
+    tasteProfileCard: {
+      backgroundColor: palette.surface,
+      borderRadius: 24,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: palette.borderLight,
+      marginBottom: 16,
+      ...baseShadow,
+    },
+    profileHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 16,
+    },
+    profileScore: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: palette.primary,
+    },
+    tasteAttributesGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      columnGap: 12,
+      rowGap: 12,
+    },
+    tasteAttributeItem: {
+      width: '47%',
+    },
+    tasteAttributeHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 6,
+    },
+    tasteAttributeName: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: palette.textSecondary,
+    },
+    tasteAttributeValue: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: palette.warning,
+    },
+    tasteBar: {
+      height: 8,
+      borderRadius: 6,
+      backgroundColor: 'rgba(245,226,210,0.8)',
+      overflow: 'hidden',
+    },
+    tasteFill: {
+      height: '100%',
+      borderRadius: 6,
+    },
+    tasteFillAcidity: {
+      backgroundColor: palette.warning,
+    },
+    tasteFillSweetness: {
+      backgroundColor: palette.accent,
+    },
+    tasteFillBitterness: {
+      backgroundColor: palette.caramel,
+    },
+    tasteFillBody: {
+      backgroundColor: palette.primary,
+    },
+    flavorTagsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      marginTop: 18,
+      columnGap: 10,
+      rowGap: 10,
+    },
+    flavorTag: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 999,
+      backgroundColor: palette.foam,
+      borderWidth: 1,
+      borderColor: 'rgba(200,168,130,0.35)',
+    },
+    flavorTagText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: palette.textSecondary,
+    },
+    insightCard: {
+      borderRadius: 24,
+      padding: 22,
+      marginBottom: 16,
+      overflow: 'hidden',
+      ...baseShadow,
+    },
+    insightHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+      columnGap: 12,
+    },
+    insightIconWrapper: {
+      width: 36,
+      height: 36,
+      borderRadius: 12,
+      backgroundColor: 'rgba(255,255,255,0.18)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    insightIcon: {
+      fontSize: 18,
+      color: '#FFFFFF',
+    },
+    insightTitle: {
+      fontSize: 13,
+      fontWeight: '800',
+      color: '#FFFFFF',
+      letterSpacing: 0.8,
+      textTransform: 'uppercase',
+    },
+    insightText: {
+      fontSize: 15,
+      color: '#FFFFFF',
+      lineHeight: 22,
+    },
+    editorCard: {
+      backgroundColor: palette.surface,
+      borderRadius: 24,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: palette.borderLight,
+      marginBottom: 16,
+      ...baseShadow,
+    },
+    editorHint: {
+      fontSize: 12,
+      color: palette.textTertiary,
+    },
+    editorInput: {
+      marginTop: 12,
+      minHeight: 140,
+      borderRadius: 18,
       borderWidth: 1,
       borderColor: palette.borderLight,
       backgroundColor: palette.surfaceElevated,
+      padding: 16,
       fontSize: 14,
       color: palette.textPrimary,
       lineHeight: 20,
     },
-    recommendationCard: {
+    ratingCardModern: {
       backgroundColor: palette.surface,
-      borderRadius: 20,
+      borderRadius: 24,
       padding: 20,
       borderWidth: 1,
       borderColor: palette.borderLight,
-      marginBottom: 20,
+      marginBottom: 24,
       ...baseShadow,
     },
-    recommendationTitle: {
-      fontSize: 15,
-      fontWeight: '700',
-      color: palette.textPrimary,
-      marginBottom: 8,
-    },
-    recommendationText: {
-      fontSize: 14,
-      color: palette.textSecondary,
-      lineHeight: 20,
-    },
-    ratingCard: {
-      backgroundColor: palette.cream,
-      borderRadius: 20,
-      padding: 20,
-      marginBottom: 20,
-      borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.4)',
-      ...baseShadow,
-    },
-    ratingContent: {
+    ratingHeaderRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      gap: 12,
+      marginBottom: 16,
     },
-    ratingLabel: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: palette.textPrimary,
+    ratingDisplay: {
+      fontSize: 22,
+      fontWeight: '800',
+      color: palette.primary,
     },
-    ratingStars: {
+    ratingStarsRow: {
       flexDirection: 'row',
-      gap: 8,
+      justifyContent: 'space-between',
+      marginBottom: 16,
     },
-    starButton: {
+    ratingStarButton: {
       padding: 4,
     },
-    starIcon: {
-      fontSize: 24,
-      color: 'rgba(92,82,72,0.3)',
+    ratingStarIcon: {
+      fontSize: 28,
+      color: 'rgba(120,100,80,0.35)',
     },
-    starIconFilled: {
+    ratingStarIconActive: {
       color: palette.warning,
     },
-    favoriteButton: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
+    favoriteToggle: {
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: palette.border,
-      backgroundColor: palette.surface,
+      borderColor: palette.borderLight,
+      paddingVertical: 12,
+      alignItems: 'center',
+      backgroundColor: palette.surfaceElevated,
     },
-    favoriteButtonActive: {
-      backgroundColor: 'rgba(255,140,66,0.12)',
+    favoriteToggleActive: {
       borderColor: palette.accent,
+      backgroundColor: 'rgba(255,140,66,0.15)',
     },
-    favoriteText: {
-      fontSize: 13,
+    favoriteToggleText: {
+      fontSize: 14,
       fontWeight: '600',
       color: palette.textSecondary,
     },
-    favoriteTextActive: {
+    favoriteToggleTextActive: {
       color: palette.accent,
     },
-    brewingSection: {
-      marginBottom: 20,
+    bottomSpacer: {
+      height: 140,
     },
-    sectionTitle: {
-      fontSize: 16,
-      fontWeight: '700',
-      color: palette.textPrimary,
-      marginBottom: 12,
-    },
-    brewingGrid: {
+    bottomActionBar: {
+      position: 'absolute',
+      left: 20,
+      right: 20,
+      bottom: 24,
       flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 10,
-    },
-    brewingChip: {
-      paddingVertical: 10,
-      paddingHorizontal: 18,
+      columnGap: 12,
+      padding: 12,
       borderRadius: 20,
-      backgroundColor: palette.surface,
-      borderWidth: 2,
-      borderColor: palette.borderLight,
+      backgroundColor: 'rgba(255,255,255,0.95)',
+      borderWidth: 1,
+      borderColor: 'rgba(200,168,130,0.25)',
+      ...baseShadow,
     },
-    brewingChipSelected: {
+    bottomActionButton: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 14,
+      paddingVertical: 14,
+      columnGap: 8,
+    },
+    bottomActionSecondary: {
+      backgroundColor: palette.foam,
+      borderWidth: 1,
+      borderColor: 'rgba(200,168,130,0.4)',
+    },
+    bottomActionPrimary: {
       backgroundColor: palette.primary,
-      borderColor: 'transparent',
     },
-    brewingChipText: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: palette.textSecondary,
+    bottomActionIcon: {
+      fontSize: 16,
+      color: palette.primary,
     },
-    brewingChipTextSelected: {
+    bottomActionIconPrimary: {
       color: '#FFFFFF',
     },
-    tasteSection: {
-      marginBottom: 24,
-    },
-    purchaseSection: {
-      marginBottom: 24,
-    },
-    tasteInputContainer: {
-      backgroundColor: palette.surface,
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: palette.borderLight,
-      padding: 4,
-    },
-    tasteInput: {
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      fontSize: 14,
+    bottomActionText: {
+      fontSize: 15,
+      fontWeight: '700',
       color: palette.textPrimary,
+    },
+    bottomActionTextPrimary: {
+      color: '#FFFFFF',
     },
     generateButton: {
       borderRadius: 18,
