@@ -50,8 +50,7 @@ const sanitizeRecentScan = (scan: RecentScan | Record<string, any>): RecentScan 
  */
 export const addRecentScan = async (scan: RecentScan): Promise<void> => {
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
-    const scans: RecentScan[] = raw ? JSON.parse(raw) : [];
+    const scans = await readCachedScans();
     const sanitized = sanitizeRecentScan(scan);
     const updated = [
       sanitized,
@@ -98,13 +97,7 @@ const readCachedScans = async (): Promise<RecentScan[]> => {
  */
 export const fetchRecentScans = async (limit: number): Promise<RecentScan[]> => {
   try {
-    const cachedRaw = await AsyncStorage.getItem(STORAGE_KEY);
-    let cached: RecentScan[] = cachedRaw ? JSON.parse(cachedRaw) : [];
-    if (Array.isArray(cached)) {
-      cached = cached.map((item) => sanitizeRecentScan(item));
-    } else {
-      cached = [];
-    }
+    let cached = await readCachedScans();
 
     // Ak je zariadenie offline, vráť len cache
     const state = await NetInfo.fetch();
@@ -138,20 +131,7 @@ export const fetchRecentScans = async (limit: number): Promise<RecentScan[]> => 
     return cached.slice(0, limit);
   } catch (err) {
     console.error('Failed to fetch recent scans', err);
-    const fallback = await AsyncStorage.getItem(STORAGE_KEY);
-    if (!fallback) {
-      return [];
-    }
-
-    try {
-      const parsed = JSON.parse(fallback);
-      return Array.isArray(parsed)
-        ? parsed.map((item: any) => sanitizeRecentScan(item)).slice(0, limit)
-        : [];
-    } catch (parseError) {
-      console.error('Failed to parse cached recent scans', parseError);
-      return [];
-    }
+    return (await readCachedScans()).slice(0, limit);
   }
 };
 
