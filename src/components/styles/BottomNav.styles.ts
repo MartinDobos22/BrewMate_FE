@@ -1,9 +1,13 @@
 import { StyleSheet, Platform } from 'react-native';
 import { Colors } from '../../theme/colors';
+import { getSafeAreaBottom } from '../utils/safeArea';
+
+const SAFE_BOTTOM = Platform.OS === 'ios' ? getSafeAreaBottom() : 0;
+const BASE_NAV_HEIGHT = 60;
 
 // Estimated height of the bottom navigation bar used to offset scrollable
 // content so it isn't hidden behind the menu.
-export const BOTTOM_NAV_HEIGHT = Platform.OS === 'ios' ? 88 : 64;
+export const BOTTOM_NAV_HEIGHT = BASE_NAV_HEIGHT + SAFE_BOTTOM;
 
 export const bottomNavStyles = (colors: Colors) =>
   StyleSheet.create({
@@ -16,11 +20,8 @@ export const bottomNavStyles = (colors: Colors) =>
       backgroundColor: colors.cardBackground,
       borderTopWidth: 1,
       borderTopColor: colors.border,
-      paddingVertical: 8,
-      paddingBottom: Platform.OS === 'ios' ? 20 : 8,
-
       paddingVertical: 12,
-      paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+      paddingBottom: SAFE_BOTTOM,
       flexDirection: 'row',
       justifyContent: 'space-around',
       shadowColor: '#000',

@@ -24,8 +24,6 @@ import { PrivacyManager } from '../services/PrivacyManager';
 import { preferenceEngine } from '../services/personalizationGateway';
 import { privacyManager, optIn, DEFAULT_COMMUNITY_AVERAGE, PERSONALIZATION_USER_ID } from '../services/Personalization';
 import type { TrackingPreferences, TasteProfileVector } from '../types/Personalization';
-
-const { width } = Dimensions.get('window');
 const palette = {
   espresso: '#2C1810',
   darkRoast: '#3E2723',
@@ -43,9 +41,7 @@ const palette = {
   accentPurple: '#9C27B0',
 };
 
-const BACKGROUND_GRADIENT = [palette.accentGold, palette.accentOrange, palette.caramel];
 const PRIMARY_GRADIENT = [palette.espresso, palette.medium];
-const FAB_WIDTH = Math.min(width - scale(32), scale(360));
 
 type RadarAxisKey = 'acidity' | 'sweetness' | 'body' | 'bitterness' | 'aroma' | 'fruitiness';
 
@@ -492,12 +488,7 @@ const UserProfile = ({
     const radarScores = useMemo(() => buildRadarScores(tasteProfile, communityAverage), [tasteProfile, communityAverage]);
 
     return (
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
+      <>
         <View style={[styles.card, styles.profileCard]}>
           <View style={styles.avatarRing} />
           <View style={styles.avatarWrapper}>
@@ -532,7 +523,7 @@ const UserProfile = ({
               <View style={[styles.actionIcon, styles.actionIconPrimary]}>
                 <Text style={styles.actionIconText}>✨</Text>
               </View>
-              <Text style={[styles.actionText, styles.actionTextPrimary]}>Upraviť preferencie</Text>
+              <Text style={[styles.actionText, styles.actionTextPrimary]}>Prejsť na úpravu preferencií</Text>
             </LinearGradient>
           </TouchableOpacity>
 
@@ -611,48 +602,51 @@ const UserProfile = ({
             <Text style={styles.primaryButtonText}>Odhlásiť sa</Text>
           </TouchableOpacity>
         </View>
-
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
+      </>
     );
   };
 
+  const HeaderBar = () => (
+    <View style={styles.headerBar}>
+      {onBack ? (
+        <TouchableOpacity style={styles.iconButton} onPress={onBack} activeOpacity={0.9}>
+          <Text style={styles.iconButtonText}>←</Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={[styles.iconButton, styles.iconButtonGhost]} />
+      )}
+      <Text style={styles.headerTitle}>Profil</Text>
+      <TouchableOpacity style={styles.iconButton} onPress={onEdit} activeOpacity={0.9}>
+        <Text style={styles.iconButtonText}>⋮</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
-      <LinearGradient colors={BACKGROUND_GRADIENT} style={styles.gradientBackground} />
-
       <KeyboardAvoidingView
         style={styles.content}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.innerContent}>
-          <View style={styles.headerBar}>
-            {onBack ? (
-              <TouchableOpacity style={styles.iconButton} onPress={onBack} activeOpacity={0.9}>
-                <Text style={styles.iconButtonText}>←</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={[styles.iconButton, styles.iconButtonGhost]} />
-            )}
-            <Text style={styles.headerTitle}>Profil</Text>
-            <TouchableOpacity style={styles.iconButton} onPress={onEdit} activeOpacity={0.9}>
-              <Text style={styles.iconButtonText}>⋮</Text>
-            </TouchableOpacity>
-          </View>
-
-          {loading ? <LoadingView /> : !profile ? <ErrorView /> : <ProfileContent />}
+          {loading || !profile ? (
+            <>
+              <HeaderBar />
+              {loading ? <LoadingView /> : <ErrorView />}
+            </>
+          ) : (
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            >
+              <HeaderBar />
+              <ProfileContent />
+            </ScrollView>
+          )}
         </View>
       </KeyboardAvoidingView>
-
-      <View style={styles.fabContainer} pointerEvents="box-none">
-        <View style={styles.fabCard}>
-          <TouchableOpacity onPress={onPreferences} activeOpacity={0.92} style={styles.fabTouchable}>
-            <LinearGradient colors={PRIMARY_GRADIENT} style={styles.fabButton}>
-              <Text style={styles.fabText}>Prejsť na úpravu preferencií</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      </View>
 
       <BottomNav
         active="profile"
@@ -680,15 +674,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: palette.foam,
   },
-  gradientBackground: {
-    ...StyleSheet.absoluteFillObject,
-  },
   content: {
     flex: 1,
   },
   innerContent: {
     flex: 1,
-    paddingTop: getSafeAreaTop() + verticalScale(12),
+    paddingTop: getSafeAreaTop(),
   },
   headerBar: {
     flexDirection: 'row',
@@ -731,8 +722,8 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: scale(16),
-    paddingTop: verticalScale(8),
-    paddingBottom: getSafeAreaBottom() + BOTTOM_NAV_HEIGHT + verticalScale(160),
+    paddingTop: verticalScale(12),
+    paddingBottom: getSafeAreaBottom() + BOTTOM_NAV_HEIGHT + verticalScale(24),
   },
   card: {
     borderRadius: scale(28),
@@ -987,9 +978,6 @@ const styles = StyleSheet.create({
   signOutButton: {
     width: '100%',
   },
-  bottomSpacer: {
-    height: verticalScale(40),
-  },
   statusContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1026,37 +1014,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: scale(13),
-  },
-  fabContainer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: getSafeAreaBottom() + BOTTOM_NAV_HEIGHT + verticalScale(16),
-    alignItems: 'center',
-  },
-  fabCard: {
-    width: FAB_WIDTH,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
-    borderRadius: scale(20),
-    padding: scale(12),
-    borderWidth: 1,
-    borderColor: 'rgba(200, 168, 130, 0.25)',
-    ...cardShadow,
-  },
-  fabTouchable: {
-    borderRadius: scale(16),
-    overflow: 'hidden',
-  },
-  fabButton: {
-    borderRadius: scale(16),
-    paddingVertical: verticalScale(16),
-    alignItems: 'center',
-  },
-  fabText: {
-    color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: scale(14),
-    letterSpacing: 0.4,
   },
 });
 
