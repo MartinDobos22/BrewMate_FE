@@ -98,7 +98,8 @@ const readCachedScans = async (): Promise<RecentScan[]> => {
  */
 export const fetchRecentScans = async (limit: number): Promise<RecentScan[]> => {
   try {
-    let cached = await readCachedScans();
+    const cachedRaw = await AsyncStorage.getItem(STORAGE_KEY);
+    let cached: RecentScan[] = cachedRaw ? JSON.parse(cachedRaw) : [];
     if (Array.isArray(cached)) {
       cached = cached.map((item) => sanitizeRecentScan(item));
     } else {
@@ -137,9 +138,16 @@ export const fetchRecentScans = async (limit: number): Promise<RecentScan[]> => 
     return cached.slice(0, limit);
   } catch (err) {
     console.error('Failed to fetch recent scans', err);
+    const fallback = await AsyncStorage.getItem(STORAGE_KEY);
+    if (!fallback) {
+      return [];
+    }
+
     try {
-      const fallback = await readCachedScans();
-      return fallback.slice(0, limit);
+      const parsed = JSON.parse(fallback);
+      return Array.isArray(parsed)
+        ? parsed.map((item: any) => sanitizeRecentScan(item)).slice(0, limit)
+        : [];
     } catch (parseError) {
       console.error('Failed to parse cached recent scans', parseError);
       return [];
