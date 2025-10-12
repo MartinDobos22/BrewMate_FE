@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   ScrollView,
   RefreshControl,
-  Dimensions,
   KeyboardAvoidingView,
   StyleSheet,
   Platform,
