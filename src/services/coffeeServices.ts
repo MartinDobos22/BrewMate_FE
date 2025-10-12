@@ -63,6 +63,35 @@ export const addRecentScan = async (scan: RecentScan): Promise<void> => {
   }
 };
 
+const ROW_TOO_BIG_MESSAGE = 'Row too big to fit into CursorWindow';
+
+const readCachedScans = async (): Promise<RecentScan[]> => {
+  try {
+    const cachedRaw = await AsyncStorage.getItem(STORAGE_KEY);
+    if (!cachedRaw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(cachedRaw);
+    return Array.isArray(parsed)
+      ? parsed.map((item) => sanitizeRecentScan(item))
+      : [];
+  } catch (error: any) {
+    if (
+      typeof error?.message === 'string' &&
+      error.message.includes(ROW_TOO_BIG_MESSAGE)
+    ) {
+      console.warn(
+        'Cached recent scans exceeded storage limits, clearing corrupted entry'
+      );
+      await AsyncStorage.removeItem(STORAGE_KEY);
+      return [];
+    }
+
+    throw error;
+  }
+};
+
 /**
  * Načíta posledné skeny. Najprv sa pokúsi načítať z cache,
  * následne osvieži dáta z API. Pri offline stave vráti len cache.
