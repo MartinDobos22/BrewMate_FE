@@ -79,7 +79,7 @@ const EmailAuth: React.FC<EmailAuthProps> = ({
       />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.centerContent}
+        style={[styles.centerContent, isRegistering && styles.centerContentExpanded]}
       >
         <View style={styles.cardShadow}>
           <View style={styles.cardSurface}>
