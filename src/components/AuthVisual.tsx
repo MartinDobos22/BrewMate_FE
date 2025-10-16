@@ -155,201 +155,213 @@ const AuthScreen = () => {
     <View style={styles.screen}>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
       <LinearGradient
-        colors={isDarkMode ? COFFEE_GRADIENT_DARK : COFFEE_GRADIENT_LIGHT}
+        colors={isDarkMode ? BACKGROUND_GRADIENT_DARK : BACKGROUND_GRADIENT_LIGHT}
         style={StyleSheet.absoluteFill}
       />
-      <View style={styles.backgroundDecor}>
-        <View style={styles.decorLayerBase} />
-        <Animated.View
-          style={[
-            styles.decorLayerOne,
-            {
-              transform: [
-                {
-                  translateX: backgroundPulse.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, -28],
-                  }),
-                },
-                {
-                  translateY: backgroundPulse.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, -18],
-                  }),
-                },
-              ],
-            },
-          ]}
-        />
-        <Animated.View
-          style={[
-            styles.decorLayerTwo,
-            {
-              transform: [
-                {
-                  translateX: backgroundPulse.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, 16],
-                  }),
-                },
-                {
-                  translateY: backgroundPulse.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, -26],
-                  }),
-                },
-              ],
-            },
-          ]}
-        />
-        <Animated.View
-          style={[
-            styles.decorLayerThree,
-            {
-              transform: [
-                {
-                  translateX: backgroundPulse.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, 22],
-                  }),
-                },
-                {
-                  translateY: backgroundPulse.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, 24],
-                  }),
-                },
-              ],
-            },
-          ]}
-        />
-      </View>
+
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.backgroundPatternLarge,
+          {
+            transform: [
+              {
+                translateX: backgroundPulse.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -36],
+                }),
+              },
+              {
+                translateY: backgroundPulse.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -42],
+                }),
+              },
+            ],
+          },
+        ]}
+      />
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.backgroundPatternMedium,
+          {
+            transform: [
+              {
+                translateX: backgroundPulse.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 28],
+                }),
+              },
+              {
+                translateY: backgroundPulse.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -26],
+                }),
+              },
+            ],
+          },
+        ]}
+      />
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.backgroundPatternSmall,
+          {
+            transform: [
+              {
+                translateX: backgroundPulse.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 18],
+                }),
+              },
+              {
+                translateY: backgroundPulse.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 34],
+                }),
+              },
+            ],
+          },
+        ]}
+      />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.avoidingView}
       >
         <ScrollView
-          contentContainerStyle={styles.contentContainer}
+          contentContainerStyle={styles.centerContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.statusBarMock}>
-            <Text style={styles.statusTime}>9:41</Text>
-            <Text style={styles.statusBattery}>100%</Text>
-          </View>
-
-          <View style={styles.logoSection}>
-            <View style={styles.logoBadge}>
-              <Text style={styles.logoEmoji}>☕</Text>
-            </View>
-            <Text style={styles.appTitle}>BrewMate</Text>
-            <Text style={styles.appSubtitle}>Tvoj barista vo vrecku</Text>
-          </View>
-
-          {errorMessage ? (
-            <View style={styles.errorCard}>
-              <Text style={styles.errorText}>{errorMessage}</Text>
-            </View>
-          ) : null}
-
-          <View style={styles.formCard}>
-            <Text style={styles.cardTitle}>Prihlás sa a objavuj nové chute</Text>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Email</Text>
-              <TextInput
-                value={email}
-                onChangeText={setEmail}
-                placeholder="tvoj@email.com"
-                placeholderTextColor={placeholderColor}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                style={styles.input}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Heslo</Text>
-              <View style={styles.passwordWrapper}>
-                <TextInput
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="••••••••"
-                  placeholderTextColor={placeholderColor}
-                  secureTextEntry={!showPassword}
-                  style={[styles.input, styles.passwordInput]}
-                />
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setShowPassword(!showPassword)}
-                  style={styles.passwordToggle}
-                >
-                  <Text style={styles.passwordToggleLabel}>{showPassword ? 'Skryť' : 'Zobraziť'}</Text>
-                </Pressable>
+          <View style={styles.phoneShadow}>
+            <View style={styles.phoneFrame}>
+              <View style={styles.statusBar}>
+                <Text style={styles.statusText}>9:41</Text>
+                <Text style={styles.statusText}>100%</Text>
               </View>
-            </View>
 
-            <View style={styles.formOptions}>
-              <Pressable
-                style={styles.rememberMe}
-                onPress={() => setRememberMe((prev) => !prev)}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: rememberMe }}
-              >
-                <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
-                  {rememberMe && <View style={styles.checkboxDot} />}
+              <View style={styles.loginContent}>
+                <View style={styles.logoSection}>
+                  <View style={styles.logoBadgeWrapper}>
+                    <LinearGradient
+                      colors={isDarkMode ? LOGO_GRADIENT_DARK : LOGO_GRADIENT_LIGHT}
+                      style={styles.logoBadge}
+                    >
+                      <Text style={styles.logoEmoji}>☕</Text>
+                    </LinearGradient>
+                  </View>
+                  <Text style={styles.appTitle}>BrewMate</Text>
+                  <Text style={styles.appTagline}>Tvoj barista vo vrecku</Text>
                 </View>
-                <Text style={styles.rememberLabel}>Zapamätať si ma</Text>
-              </Pressable>
-              <TouchableOpacity onPress={handleForgotPassword}>
-                <Text style={styles.forgotLink}>Zabudnuté heslo?</Text>
-              </TouchableOpacity>
-            </View>
 
-            <TouchableOpacity
-              activeOpacity={0.88}
-              onPress={handleLogin}
-              style={styles.loginButtonShadow}
-              disabled={isLoading}
-            >
-              <LinearGradient
-                colors={isDarkMode ? CTA_GRADIENT_DARK : CTA_GRADIENT_LIGHT}
-                style={styles.loginButton}
-              >
-                {isLoading ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.loginButtonLabel}>Prihlásiť sa</Text>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
+                {errorMessage ? (
+                  <View style={styles.errorCard}>
+                    <Text style={styles.errorText}>{errorMessage}</Text>
+                  </View>
+                ) : null}
 
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>alebo pokračuj cez</Text>
-              <View style={styles.dividerLine} />
-            </View>
+                <View style={styles.formSection}>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Email</Text>
+                    <TextInput
+                      value={email}
+                      onChangeText={setEmail}
+                      placeholder="tvoj@email.com"
+                      placeholderTextColor={placeholderColor}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      style={styles.input}
+                    />
+                  </View>
 
-            <View style={styles.socialButtons}>
-              <GoogleLogin />
-              <TouchableOpacity
-                style={styles.appleButton}
-                onPress={() => setShowAppleAuth(true)}
-                activeOpacity={0.9}
-              >
-                <View style={styles.appleIconSlot}>
-                  <Text style={styles.appleIcon}></Text>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Heslo</Text>
+                    <View style={styles.passwordWrapper}>
+                      <TextInput
+                        value={password}
+                        onChangeText={setPassword}
+                        placeholder="••••••••"
+                        placeholderTextColor={placeholderColor}
+                        secureTextEntry={!showPassword}
+                        style={[styles.input, styles.passwordInput]}
+                      />
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => setShowPassword(!showPassword)}
+                        style={styles.passwordToggle}
+                      >
+                        <Text style={styles.passwordToggleLabel}>
+                          {showPassword ? '👁‍🗨' : '👁'}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </View>
+
+                  <View style={styles.formOptions}>
+                    <Pressable
+                      style={styles.rememberMe}
+                      onPress={() => setRememberMe((prev) => !prev)}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: rememberMe }}
+                    >
+                      <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                        {rememberMe && <View style={styles.checkboxInner} />}
+                      </View>
+                      <Text style={styles.rememberLabel}>Zapamätať si ma</Text>
+                    </Pressable>
+                    <TouchableOpacity onPress={handleForgotPassword}>
+                      <Text style={styles.forgotLink}>Zabudnuté heslo?</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    onPress={handleLogin}
+                    style={styles.loginButtonShadow}
+                    disabled={isLoading}
+                  >
+                    <LinearGradient
+                      colors={isDarkMode ? CTA_GRADIENT_DARK : CTA_GRADIENT_LIGHT}
+                      style={styles.loginButton}
+                    >
+                      {isLoading ? (
+                        <ActivityIndicator color="#FFFFFF" />
+                      ) : (
+                        <Text style={styles.loginButtonLabel}>Prihlásiť sa</Text>
+                      )}
+                    </LinearGradient>
+                  </TouchableOpacity>
                 </View>
-                <Text style={styles.appleText}>Pokračovať s Apple</Text>
-              </TouchableOpacity>
-            </View>
 
-            <View style={styles.signupRow}>
-              <Text style={styles.signupText}>Nemáš účet?</Text>
-              <TouchableOpacity onPress={() => setShowRegister(true)}>
-                <Text style={styles.signupLink}>Zaregistruj sa</Text>
-              </TouchableOpacity>
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>alebo pokračuj cez</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+
+                <View style={styles.socialButtons}>
+                  <GoogleLogin />
+                  <TouchableOpacity
+                    style={styles.socialButton}
+                    onPress={() => setShowAppleAuth(true)}
+                    activeOpacity={0.88}
+                  >
+                    <View style={styles.socialIconSlot}>
+                      <Text style={styles.appleIcon}></Text>
+                    </View>
+                    <Text style={styles.socialButtonText}>Pokračovať s Apple</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.signupSection}>
+                  <Text style={styles.signupText}>Nemáš účet?</Text>
+                  <TouchableOpacity onPress={() => setShowRegister(true)}>
+                    <Text style={styles.signupLink}>Zaregistruj sa</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
           </View>
         </ScrollView>
@@ -371,152 +383,136 @@ const createStyles = (colors: Colors, isDark: boolean) =>
       flex: 1,
       backgroundColor: colors.background,
     },
-    backgroundDecor: {
-      ...StyleSheet.absoluteFillObject,
-    },
-    decorLayerBase: {
-      ...StyleSheet.absoluteFillObject,
-      opacity: isDark ? 0.65 : 0.42,
-      backgroundColor: isDark ? 'rgba(20, 12, 8, 0.78)' : 'rgba(255, 255, 255, 0.45)',
-    },
-    decorLayerOne: {
+    backgroundPatternLarge: {
       position: 'absolute',
-      width: '160%',
-      height: '160%',
-      top: '-30%',
-      left: '-30%',
-      borderRadius: 420,
-      backgroundColor: isDark ? 'rgba(88, 52, 30, 0.32)' : 'rgba(245, 230, 211, 0.32)',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 30 },
-      shadowOpacity: 0.24,
-      shadowRadius: 40,
-      elevation: 24,
+      width: '220%',
+      height: '220%',
+      borderRadius: 620,
+      top: '-120%',
+      left: '-120%',
+      backgroundColor: isDark ? 'rgba(80, 52, 33, 0.35)' : 'rgba(212, 165, 116, 0.2)',
     },
-    decorLayerTwo: {
+    backgroundPatternMedium: {
       position: 'absolute',
-      width: 320,
-      height: 320,
+      width: 360,
+      height: 360,
+      borderRadius: 180,
+      top: -140,
+      right: -120,
+      backgroundColor: isDark ? 'rgba(120, 80, 52, 0.28)' : 'rgba(197, 168, 130, 0.22)',
+    },
+    backgroundPatternSmall: {
+      position: 'absolute',
+      width: 280,
+      height: 280,
       borderRadius: 160,
-      top: -100,
-      right: -60,
-      backgroundColor: isDark ? 'rgba(129, 84, 56, 0.38)' : 'rgba(212, 165, 116, 0.26)',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 26 },
-      shadowOpacity: 0.22,
-      shadowRadius: 36,
-      elevation: 22,
-    },
-    decorLayerThree: {
-      position: 'absolute',
-      width: 260,
-      height: 260,
-      borderRadius: 130,
-      bottom: -90,
-      left: -60,
-      backgroundColor: isDark ? 'rgba(64, 38, 24, 0.45)' : 'rgba(231, 197, 160, 0.28)',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 22 },
-      shadowOpacity: 0.2,
-      shadowRadius: 30,
-      elevation: 20,
+      bottom: -140,
+      left: -90,
+      backgroundColor: isDark ? 'rgba(55, 34, 22, 0.3)' : 'rgba(245, 230, 211, 0.28)',
     },
     avoidingView: {
       flex: 1,
     },
-    contentContainer: {
-      paddingHorizontal: 28,
-      paddingTop: 48,
-      paddingBottom: 40,
+    centerContent: {
+      flexGrow: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 48,
+      paddingHorizontal: 20,
     },
-    statusBarMock: {
+    phoneShadow: {
+      width: '100%',
+      maxWidth: 380,
+      borderRadius: 44,
+      padding: 0,
+      backgroundColor: 'transparent',
+      shadowColor: '#452B1B',
+      shadowOffset: { width: 0, height: 30 },
+      shadowOpacity: isDark ? 0.35 : 0.25,
+      shadowRadius: 44,
+      elevation: 24,
+      alignSelf: 'center',
+    },
+    phoneFrame: {
+      width: '100%',
+      borderRadius: 36,
+      overflow: 'hidden',
+      backgroundColor: isDark ? 'rgba(26, 18, 12, 0.92)' : '#FFFFFF',
+      minHeight: 720,
+    },
+    statusBar: {
+      height: 44,
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 32,
-      backgroundColor: isDark ? 'rgba(24, 14, 9, 0.4)' : 'rgba(255, 255, 255, 0.58)',
-      borderRadius: 24,
       paddingHorizontal: 24,
-      paddingVertical: 10,
-      shadowColor: '#29160E',
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.16,
-      shadowRadius: 18,
-      elevation: 10,
+      backgroundColor: isDark ? 'rgba(36, 24, 18, 0.7)' : 'rgba(255, 255, 255, 0.82)',
     },
-    statusTime: {
-      fontSize: 16,
+    statusText: {
+      fontSize: 13,
       fontWeight: '600',
-      color: isDark ? '#F5EDE4' : '#2C1810',
+      color: isDark ? '#F7F1EA' : '#2C1810',
     },
-    statusBattery: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: isDark ? '#F5EDE4' : '#2C1810',
+    loginContent: {
+      flexGrow: 1,
+      paddingHorizontal: 24,
+      paddingTop: 32,
+      paddingBottom: 28,
+      backgroundColor: isDark ? 'rgba(26, 18, 12, 0.92)' : '#FFFFFF',
     },
     logoSection: {
       alignItems: 'center',
-      gap: 12,
+      gap: 16,
       marginBottom: 28,
     },
-    logoBadge: {
+    logoBadgeWrapper: {
       width: 100,
       height: 100,
-      borderRadius: 30,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: isDark ? 'rgba(87, 55, 33, 0.85)' : 'rgba(212, 165, 116, 0.95)',
-      shadowColor: '#2B160D',
+      borderRadius: 28,
+      backgroundColor: 'transparent',
+      shadowColor: '#6B4423',
       shadowOffset: { width: 0, height: 18 },
-      shadowOpacity: 0.25,
+      shadowOpacity: isDark ? 0.35 : 0.28,
       shadowRadius: 24,
       elevation: 18,
+      overflow: 'hidden',
+    },
+    logoBadge: {
+      width: '100%',
+      height: '100%',
+      borderRadius: 28,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     logoEmoji: {
-      fontSize: 44,
+      fontSize: 48,
     },
     appTitle: {
-      fontSize: 30,
+      fontSize: 28,
       fontWeight: '800',
       color: isDark ? '#F7F1EA' : '#4A2F18',
       letterSpacing: -0.5,
     },
-    appSubtitle: {
-      fontSize: 15,
-      color: isDark ? 'rgba(247, 241, 234, 0.75)' : 'rgba(93, 78, 55, 0.8)',
+    appTagline: {
+      fontSize: 14,
+      color: isDark ? 'rgba(247, 241, 234, 0.75)' : '#8B7355',
       fontWeight: '500',
     },
     errorCard: {
       backgroundColor: isDark ? 'rgba(191, 71, 71, 0.18)' : '#FEE2E2',
       borderLeftWidth: 4,
       borderLeftColor: '#DC2626',
-      borderRadius: 14,
-      padding: 14,
+      borderRadius: 12,
+      padding: 12,
       marginBottom: 20,
     },
     errorText: {
-      color: isDark ? '#F8EDEA' : '#B91C1C',
+      color: isDark ? '#FDEDEA' : '#B91C1C',
       fontSize: 14,
       fontWeight: '500',
     },
-    formCard: {
-      backgroundColor: isDark ? 'rgba(28, 17, 12, 0.9)' : 'rgba(255, 253, 250, 0.96)',
-      borderRadius: 36,
-      paddingHorizontal: 24,
-      paddingVertical: 28,
-      shadowColor: '#2D160C',
-      shadowOffset: { width: 0, height: 22 },
-      shadowOpacity: 0.22,
-      shadowRadius: 28,
-      elevation: 20,
-      gap: 18,
-    },
-    cardTitle: {
-      fontSize: 20,
-      fontWeight: '600',
-      color: isDark ? '#F7F1EA' : '#2C1810',
-      textAlign: 'center',
-      marginBottom: 4,
+    formSection: {
+      gap: 20,
     },
     inputGroup: {
       gap: 8,
@@ -524,24 +520,24 @@ const createStyles = (colors: Colors, isDark: boolean) =>
     inputLabel: {
       fontSize: 13,
       fontWeight: '600',
-      color: isDark ? 'rgba(247, 241, 234, 0.82)' : 'rgba(60, 38, 27, 0.78)',
+      color: isDark ? 'rgba(247, 241, 234, 0.82)' : '#5D4E37',
     },
     input: {
-      borderRadius: 16,
+      borderRadius: 12,
       paddingHorizontal: 16,
       paddingVertical: Platform.OS === 'ios' ? 16 : 12,
-      backgroundColor: isDark ? 'rgba(46, 28, 19, 0.85)' : 'rgba(255, 248, 244, 0.96)',
-      borderWidth: 1.5,
-      borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(232, 213, 196, 0.9)',
+      backgroundColor: isDark ? 'rgba(42, 28, 20, 0.82)' : '#FFF8F4',
+      borderWidth: 2,
+      borderColor: isDark ? 'rgba(255,255,255,0.08)' : '#F5E6D3',
       color: colors.text,
-      fontSize: 16,
+      fontSize: 15,
     },
     passwordWrapper: {
       position: 'relative',
       justifyContent: 'center',
     },
     passwordInput: {
-      paddingRight: 96,
+      paddingRight: 52,
     },
     passwordToggle: {
       position: 'absolute',
@@ -549,12 +545,10 @@ const createStyles = (colors: Colors, isDark: boolean) =>
       top: 0,
       bottom: 0,
       justifyContent: 'center',
-      paddingHorizontal: 12,
     },
     passwordToggleLabel: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: isDark ? 'rgba(247, 241, 234, 0.82)' : '#8B6544',
+      fontSize: 18,
+      color: isDark ? 'rgba(247, 241, 234, 0.8)' : '#8B7355',
     },
     formOptions: {
       flexDirection: 'row',
@@ -564,22 +558,23 @@ const createStyles = (colors: Colors, isDark: boolean) =>
     rememberMe: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: 10,
     },
     checkbox: {
       width: 20,
       height: 20,
       borderRadius: 6,
       borderWidth: 2,
-      borderColor: isDark ? 'rgba(247, 241, 234, 0.6)' : '#C8A882',
+      borderColor: isDark ? 'rgba(247, 241, 234, 0.5)' : '#C8A882',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: 'transparent',
+      backgroundColor: isDark ? 'transparent' : '#FFFFFF',
     },
     checkboxChecked: {
-      backgroundColor: isDark ? 'rgba(247, 241, 234, 0.2)' : '#C8A882',
+      borderColor: isDark ? '#F7F1EA' : '#A67C52',
+      backgroundColor: isDark ? 'rgba(247, 241, 234, 0.15)' : '#A67C52',
     },
-    checkboxDot: {
+    checkboxInner: {
       width: 8,
       height: 8,
       borderRadius: 4,
@@ -587,23 +582,23 @@ const createStyles = (colors: Colors, isDark: boolean) =>
     },
     rememberLabel: {
       fontSize: 14,
-      color: isDark ? 'rgba(247, 241, 234, 0.8)' : 'rgba(60, 38, 27, 0.78)',
+      color: isDark ? 'rgba(247, 241, 234, 0.8)' : '#5D4E37',
     },
     forgotLink: {
       fontSize: 14,
       fontWeight: '600',
-      color: isDark ? '#F7F1EA' : '#8B6544',
+      color: isDark ? '#F7F1EA' : '#A67C52',
     },
     loginButtonShadow: {
-      borderRadius: 18,
-      shadowColor: '#2B140A',
+      borderRadius: 14,
+      shadowColor: '#2F1C10',
       shadowOffset: { width: 0, height: 16 },
-      shadowOpacity: 0.22,
+      shadowOpacity: 0.24,
       shadowRadius: 24,
-      elevation: 16,
+      elevation: 18,
     },
     loginButton: {
-      borderRadius: 18,
+      borderRadius: 14,
       paddingVertical: 16,
       alignItems: 'center',
       justifyContent: 'center',
@@ -617,74 +612,77 @@ const createStyles = (colors: Colors, isDark: boolean) =>
     divider: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
+      gap: 16,
+      marginTop: 24,
     },
     dividerLine: {
       flex: 1,
-      height: 1,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(226, 202, 173, 0.8)',
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.18)' : '#E8D5C4',
     },
     dividerText: {
       fontSize: 13,
-      color: isDark ? 'rgba(247, 241, 234, 0.7)' : 'rgba(93, 78, 55, 0.7)',
+      color: isDark ? 'rgba(247, 241, 234, 0.7)' : '#8B7355',
       fontWeight: '500',
     },
     socialButtons: {
       gap: 12,
+      marginTop: 8,
     },
-    appleButton: {
+    socialButton: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 12,
       paddingVertical: 14,
-      paddingHorizontal: 16,
-      borderRadius: 16,
+      borderRadius: 12,
       borderWidth: 2,
-      borderColor: isDark ? 'rgba(244, 236, 230, 0.16)' : '#E8D5C4',
-      backgroundColor: isDark ? 'rgba(26, 17, 12, 0.92)' : '#FFFFFF',
-      shadowColor: '#2A140A',
+      borderColor: isDark ? 'rgba(244, 236, 230, 0.18)' : '#E8D5C4',
+      backgroundColor: isDark ? 'rgba(26, 18, 12, 0.9)' : '#FFFFFF',
+      shadowColor: '#2A160D',
       shadowOffset: { width: 0, height: 12 },
       shadowOpacity: 0.18,
       shadowRadius: 18,
       elevation: 12,
     },
-    appleIconSlot: {
+    socialIconSlot: {
       width: 32,
       height: 32,
       borderRadius: 16,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(254, 247, 240, 0.9)',
       alignItems: 'center',
       justifyContent: 'center',
+      backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : '#FFF8F4',
     },
     appleIcon: {
       fontSize: 18,
       color: isDark ? '#F7F1EA' : '#2C1810',
     },
-    appleText: {
+    socialButtonText: {
       fontSize: 15,
       fontWeight: '600',
       color: isDark ? '#F7F1EA' : '#2C1810',
     },
-    signupRow: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      gap: 6,
-      marginTop: 4,
+    signupSection: {
+      marginTop: 'auto',
+      paddingTop: 20,
+      alignItems: 'center',
+      gap: 4,
     },
     signupText: {
       fontSize: 14,
-      color: isDark ? 'rgba(247, 241, 234, 0.75)' : 'rgba(93, 78, 55, 0.8)',
+      color: isDark ? 'rgba(247, 241, 234, 0.7)' : '#5D4E37',
     },
     signupLink: {
       fontSize: 14,
       fontWeight: '600',
-      color: isDark ? '#F7F1EA' : '#8B6544',
+      color: isDark ? '#F7F1EA' : '#A67C52',
     },
   });
 
-const COFFEE_GRADIENT_LIGHT = ['#F5E6D3', '#E8D5C4', '#D4A574'];
-const COFFEE_GRADIENT_DARK = ['#2B1A12', '#1D120C', '#150B07'];
+const BACKGROUND_GRADIENT_LIGHT = ['#F5E6D3', '#E8D5C4', '#D4A574'];
+const BACKGROUND_GRADIENT_DARK = ['#2B1A12', '#1D120C', '#150B07'];
+const LOGO_GRADIENT_LIGHT = ['#A67C52', '#D4A574'];
+const LOGO_GRADIENT_DARK = ['#4A2F18', '#8B6544'];
 const CTA_GRADIENT_LIGHT = ['#6B4423', '#8B6544', '#A67C52'];
 const CTA_GRADIENT_DARK = ['#4A2F18', '#6B4423', '#8B6544'];
 
