@@ -10,7 +10,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  SafeAreaView,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import { getColors, Colors } from '../theme/colors';
@@ -36,7 +35,6 @@ const EmailAuth: React.FC<EmailAuthProps> = ({
   const [lastName, setLastName] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [isRegistering, setIsRegistering] = useState(false);
   const isDarkMode = useColorScheme() === 'dark';
   const colors = getColors(isDarkMode);
   const styles = createStyles(colors, isDarkMode);
@@ -79,18 +77,8 @@ const EmailAuth: React.FC<EmailAuthProps> = ({
   const handleAuth = async () => {
     try {
       if (isRegistering) {
-        if (!firstName.trim() || !lastName.trim() || !email.trim()) {
-          Alert.alert('Neúplné údaje', 'Vyplň prosím všetky povinné polia.');
-          return;
-        }
-
         if (!termsAccepted) {
           Alert.alert('Chýbajúci súhlas', 'Pred pokračovaním musíš súhlasiť s podmienkami.');
-          return;
-        }
-
-        if (password.length < 8) {
-          Alert.alert('Slabé heslo', 'Heslo musí mať aspoň 8 znakov.');
           return;
         }
 
@@ -103,13 +91,41 @@ const EmailAuth: React.FC<EmailAuthProps> = ({
         await userCredential.user.sendEmailVerification();
         setShowSuccess(true);
       } else {
-        if (!email.trim() || !password) {
-          Alert.alert('Chýbajúce údaje', 'Zadaj email aj heslo.');
-          return;
-        }
+        const userCredential = await auth().signInWithEmailAndPassword(email, password);
+        const user = userCredential.user;
 
-        await auth().signInWithEmailAndPassword(email, password);
+    if (strength <= 2) {
+      return { level: Math.max(1, strength), label: 'Slabé heslo' };
+    }
+    if (strength === 3) {
+      return { level: 3, label: 'Stredné heslo' };
+    }
+    return { level: 4, label: 'Silné heslo' };
+  }, [password]);
+
+  const canSubmit =
+    Boolean(firstName.trim()) &&
+    Boolean(lastName.trim()) &&
+    Boolean(email.trim()) &&
+    password.length >= 8 &&
+    password === confirmPassword &&
+    termsAccepted;
+
+  const handleAuth = async () => {
+    try {
+      if (!termsAccepted) {
+        Alert.alert('Chýbajúci súhlas', 'Pred pokračovaním musíš súhlasiť s podmienkami.');
+        return;
       }
+
+      if (password !== confirmPassword) {
+        Alert.alert('Heslá sa nezhodujú', 'Prosím, uisti sa, že heslá sú rovnaké.');
+        return;
+      }
+
+      const userCredential = await auth().createUserWithEmailAndPassword(email, password);
+      await userCredential.user.sendEmailVerification();
+      setShowSuccess(true);
     } catch (err: any) {
       console.error('❌ EmailAuth error:', err);
       Alert.alert('Chyba', err.message || 'Neznáma chyba');
@@ -370,12 +386,15 @@ const EmailAuth: React.FC<EmailAuthProps> = ({
               </View>
             </View>
 
-            <View style={styles.formContent}>
+            <ScrollView
+              contentContainerStyle={styles.formContent}
+              showsVerticalScrollIndicator={false}
+            >
               {isRegistering ? renderRegisterForm() : renderLoginForm()}
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
+            </ScrollView>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
     </View>
   );
 };
@@ -395,34 +414,6 @@ const createStyles = (colors: Colors, isDark: boolean) =>
       paddingHorizontal: 24,
       gap: 24,
       maxHeight: 640,
-    },
-    topBar: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    segmentedControl: {
-      flexDirection: 'row',
-      padding: 4,
-      borderRadius: 16,
-      backgroundColor: isDark ? 'rgba(247, 241, 234, 0.08)' : 'rgba(60, 38, 27, 0.08)',
-    },
-    segmentButton: {
-      flex: 1,
-      paddingVertical: 8,
-      borderRadius: 12,
-      alignItems: 'center',
-    },
-    segmentButtonActive: {
-      backgroundColor: isDark ? 'rgba(247, 241, 234, 0.18)' : 'rgba(255, 255, 255, 0.9)',
-    },
-    segmentLabel: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: isDark ? 'rgba(247, 241, 234, 0.7)' : 'rgba(60, 38, 27, 0.7)',
-    },
-    segmentLabelActive: {
-      color: isDark ? '#F7F1EA' : '#3D2518',
     },
     cardHeader: {
       gap: 20,
