@@ -70,141 +70,125 @@ const AuthScreen = () => {
 
   return (
     <View style={styles.screen}>
-      <LinearGradient
-        colors={isDarkMode ? BACKGROUND_GRADIENT_DARK : BACKGROUND_GRADIENT_LIGHT}
-        style={StyleSheet.absoluteFill}
-      />
-      <View style={styles.backgroundPattern}>
-        <View style={styles.patternBubbleOne} />
-        <View style={styles.patternBubbleTwo} />
-        <View style={styles.patternBubbleThree} />
-      </View>
-
-      <View style={styles.centeringLayer}>
-        <View style={styles.phoneShell}>
-          <View style={styles.statusBar}>
-            <Text style={styles.statusText}>9:41</Text>
-            <Text style={styles.statusText}>100%</Text>
+      <ScrollView
+        style={styles.scrollArea}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.contentWrapper}>
+          <View style={styles.logoSection}>
+            <LinearGradient
+              colors={isDarkMode ? BADGE_GRADIENT_DARK : BADGE_GRADIENT_LIGHT}
+              style={styles.logoBadge}
+            >
+              <Text style={styles.logoEmoji}>☕</Text>
+            </LinearGradient>
+            <Text style={styles.appTitle}>BrewMate</Text>
+            <Text style={styles.appTagline}>Tvoj barista vo vrecku</Text>
           </View>
 
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.logoSection}>
-              <LinearGradient
-                colors={isDarkMode ? BADGE_GRADIENT_DARK : BADGE_GRADIENT_LIGHT}
-                style={styles.logoBadge}
-              >
-                <Text style={styles.logoEmoji}>☕</Text>
-              </LinearGradient>
-              <Text style={styles.appTitle}>BrewMate</Text>
-              <Text style={styles.appTagline}>Tvoj barista vo vrecku</Text>
+          {errorVisible && (
+            <View style={styles.errorMessage}>
+              <Text style={styles.errorText}>Nesprávny email alebo heslo</Text>
+            </View>
+          )}
+
+          <View style={styles.formSection}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Email</Text>
+              <TextInput
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholder="tvoj@email.com"
+                placeholderTextColor={isDarkMode ? 'rgba(248, 240, 232, 0.4)' : 'rgba(92, 67, 48, 0.5)'}
+                style={styles.inputField}
+              />
             </View>
 
-            {errorVisible && (
-              <View style={styles.errorMessage}>
-                <Text style={styles.errorText}>Nesprávny email alebo heslo</Text>
-              </View>
-            )}
-
-            <View style={styles.formSection}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Email</Text>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Heslo</Text>
+              <View style={styles.passwordWrapper}>
                 <TextInput
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  placeholder="tvoj@email.com"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  placeholder="••••••••"
                   placeholderTextColor={isDarkMode ? 'rgba(248, 240, 232, 0.4)' : 'rgba(92, 67, 48, 0.5)'}
-                  style={styles.inputField}
+                  style={[styles.inputField, styles.passwordInput]}
                 />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Heslo</Text>
-                <View style={styles.passwordWrapper}>
-                  <TextInput
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                    placeholder="••••••••"
-                    placeholderTextColor={isDarkMode ? 'rgba(248, 240, 232, 0.4)' : 'rgba(92, 67, 48, 0.5)'}
-                    style={[styles.inputField, styles.passwordInput]}
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowPassword((prev) => !prev)}
-                    style={styles.passwordToggle}
-                    accessibilityLabel={showPassword ? 'Skryť heslo' : 'Zobraziť heslo'}
-                  >
-                    <Text style={styles.passwordToggleText}>{showPassword ? '👁‍🗨' : '👁'}</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <View style={styles.formOptions}>
                 <TouchableOpacity
-                  style={styles.checkboxRow}
-                  onPress={() => setRememberMe((prev) => !prev)}
-                  activeOpacity={0.8}
+                  onPress={() => setShowPassword((prev) => !prev)}
+                  style={styles.passwordToggle}
+                  accessibilityLabel={showPassword ? 'Skryť heslo' : 'Zobraziť heslo'}
                 >
-                  <View style={[styles.checkboxBox, rememberMe && styles.checkboxBoxChecked]}>
-                    {rememberMe && <Text style={styles.checkboxCheck}>✓</Text>}
-                  </View>
-                  <Text style={styles.checkboxLabel}>Zapamätať si ma</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={handleForgotPassword} activeOpacity={0.7}>
-                  <Text style={styles.forgotLink}>Zabudnuté heslo?</Text>
+                  <Text style={styles.passwordToggleText}>{showPassword ? '👁‍🗨' : '👁'}</Text>
                 </TouchableOpacity>
               </View>
-
-              <TouchableOpacity
-                accessibilityRole="button"
-                activeOpacity={0.9}
-                onPress={handleLoginPress}
-              >
-                <LinearGradient
-                  colors={isDarkMode ? PRIMARY_GRADIENT_DARK : PRIMARY_GRADIENT_LIGHT}
-                  style={styles.primaryButton}
-                >
-                  <Text style={styles.primaryButtonText}>Prihlásiť sa</Text>
-                </LinearGradient>
-              </TouchableOpacity>
             </View>
 
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>alebo pokračuj cez</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            <View style={styles.socialButtons}>
-              <View style={styles.socialButtonWrapper}>
-                <GoogleLogin />
-              </View>
+            <View style={styles.formOptions}>
               <TouchableOpacity
-                accessibilityRole="button"
-                activeOpacity={0.88}
-                style={[styles.socialButtonSurface, styles.appleButtonSurface]}
-                onPress={() => setShowAppleAuth(true)}
+                style={styles.checkboxRow}
+                onPress={() => setRememberMe((prev) => !prev)}
+                activeOpacity={0.8}
               >
-                <View style={styles.socialIconSlot}>
-                  <Text style={styles.socialIcon}></Text>
+                <View style={[styles.checkboxBox, rememberMe && styles.checkboxBoxChecked]}>
+                  {rememberMe && <Text style={styles.checkboxCheck}>✓</Text>}
                 </View>
-                <Text style={styles.socialLabel}>Pokračovať s Apple</Text>
+                <Text style={styles.checkboxLabel}>Zapamätať si ma</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleForgotPassword} activeOpacity={0.7}>
+                <Text style={styles.forgotLink}>Zabudnuté heslo?</Text>
               </TouchableOpacity>
             </View>
 
-            <View style={styles.signupSection}>
-              <Text style={styles.signupText}>
-                Nemáš účet?
-                <Text style={styles.signupLink} onPress={handleRegister}> Zaregistruj sa</Text>
-              </Text>
+            <TouchableOpacity
+              accessibilityRole="button"
+              activeOpacity={0.9}
+              onPress={handleLoginPress}
+            >
+              <LinearGradient
+                colors={isDarkMode ? PRIMARY_GRADIENT_DARK : PRIMARY_GRADIENT_LIGHT}
+                style={styles.primaryButton}
+              >
+                <Text style={styles.primaryButtonText}>Prihlásiť sa</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>alebo pokračuj cez</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <View style={styles.socialButtons}>
+            <View style={styles.socialButtonWrapper}>
+              <GoogleLogin />
             </View>
-          </ScrollView>
+            <TouchableOpacity
+              accessibilityRole="button"
+              activeOpacity={0.88}
+              style={[styles.socialButtonSurface, styles.appleButtonSurface]}
+              onPress={() => setShowAppleAuth(true)}
+            >
+              <View style={styles.socialIconSlot}>
+                <Text style={styles.socialIcon}></Text>
+              </View>
+              <Text style={styles.socialLabel}>Pokračovať s Apple</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.signupSection}>
+            <Text style={styles.signupText}>
+              Nemáš účet?
+              <Text style={styles.signupLink} onPress={handleRegister}> Zaregistruj sa</Text>
+            </Text>
+          </View>
         </View>
-      </View>
+      </ScrollView>
 
       {showEmailAuth && (
         <Modal visible animationType="fade" transparent>
@@ -231,74 +215,18 @@ const createStyles = (colors: Colors, isDark: boolean) =>
       flex: 1,
       backgroundColor: colors.background,
     },
-    backgroundPattern: {
-      ...StyleSheet.absoluteFillObject,
-      overflow: 'hidden',
-    },
-    patternBubbleOne: {
-      position: 'absolute',
-      top: -60,
-      left: -40,
-      width: 220,
-      height: 220,
-      borderRadius: 110,
-      backgroundColor: isDark ? 'rgba(96, 60, 36, 0.32)' : 'rgba(212, 165, 116, 0.18)',
-      transform: [{ rotate: '-10deg' }],
-    },
-    patternBubbleTwo: {
-      position: 'absolute',
-      bottom: -80,
-      right: -50,
-      width: 260,
-      height: 260,
-      borderRadius: 130,
-      backgroundColor: isDark ? 'rgba(58, 36, 24, 0.45)' : 'rgba(107, 68, 35, 0.18)',
-      transform: [{ rotate: '16deg' }],
-    },
-    patternBubbleThree: {
-      position: 'absolute',
-      top: '45%',
-      right: -120,
-      width: 300,
-      height: 300,
-      borderRadius: 150,
-      backgroundColor: isDark ? 'rgba(28, 17, 12, 0.45)' : 'rgba(245, 230, 211, 0.22)',
-      transform: [{ rotate: '-32deg' }],
-    },
-    centeringLayer: {
+    scrollArea: {
       flex: 1,
-      padding: 24,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    phoneShell: {
-      width: '100%',
-      maxWidth: 380,
-      backgroundColor: isDark ? 'rgba(20, 12, 8, 0.82)' : '#FFFFFF',
-      borderRadius: 38,
-      overflow: 'hidden',
-      shadowColor: '#2F1B11',
-      shadowOffset: { width: 0, height: 30 },
-      shadowOpacity: 0.22,
-      shadowRadius: 45,
-      elevation: 30,
-    },
-    statusBar: {
-      height: 46,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: 20,
-      backgroundColor: isDark ? 'rgba(32, 20, 14, 0.88)' : 'rgba(255, 255, 255, 0.82)',
-    },
-    statusText: {
-      color: isDark ? 'rgba(247, 241, 234, 0.8)' : '#3C2618',
-      fontWeight: '600',
-      fontSize: 13,
     },
     scrollContent: {
       paddingHorizontal: 24,
-      paddingBottom: 32,
+      paddingVertical: 48,
+    },
+    contentWrapper: {
+      flexGrow: 1,
+      width: '100%',
+      maxWidth: 420,
+      alignSelf: 'center',
       gap: 24,
     },
     logoSection: {
@@ -511,8 +439,6 @@ const createStyles = (colors: Colors, isDark: boolean) =>
     },
   });
 
-const BACKGROUND_GRADIENT_LIGHT = ['#F5E6D3', '#E8D5C4', '#D4A574'];
-const BACKGROUND_GRADIENT_DARK = ['#1F120B', '#2C1A10', '#4A2F18'];
 const BADGE_GRADIENT_LIGHT = ['#A67C52', '#D4A574'];
 const BADGE_GRADIENT_DARK = ['#4A2F18', '#8B6544'];
 const PRIMARY_GRADIENT_LIGHT = ['#6B4423', '#A67C52'];
