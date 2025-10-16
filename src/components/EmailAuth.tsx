@@ -129,20 +129,20 @@ const EmailAuth: React.FC<EmailAuthProps> = ({
       />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.centerContent}
+        style={[styles.centerContent, isRegistering && styles.centerContentExpanded]}
       >
         {isRegistering ? (
-          <View style={styles.phoneContainer}>
-            <View style={styles.statusBar}>
-              <Text style={styles.statusBarText}>9:41</Text>
-              <Text style={styles.statusBarText}>100%</Text>
-            </View>
-
+          <View style={styles.registerLayout}>
             <View style={styles.registerHeader}>
               <TouchableOpacity style={styles.backButton} onPress={handleBack}>
                 <Text style={styles.backButtonText}>←</Text>
               </TouchableOpacity>
-              <Text style={styles.headerTitle}>Vytvor účet</Text>
+              <View style={styles.registerHeading}>
+                <Text style={styles.headerTitle}>Vytvor účet</Text>
+                <Text style={styles.headerSubtitle}>
+                  Personalizuj si svoj BrewMate zážitok v pár krokoch
+                </Text>
+              </View>
             </View>
 
             <ScrollView
@@ -173,126 +173,128 @@ const EmailAuth: React.FC<EmailAuthProps> = ({
                 </View>
               )}
 
-              <View style={styles.formContainer}>
-                <View style={styles.formRow}>
-                  <View style={styles.registerInputGroup}>
-                    <Text style={styles.registerInputLabel}>Meno</Text>
-                    <TextInput
-                      placeholder="Ján"
-                      value={firstName}
-                      onChangeText={setFirstName}
-                      style={styles.registerInput}
-                      placeholderTextColor={registerPlaceholderColor}
-                    />
-                  </View>
-                  <View style={styles.registerInputGroup}>
-                    <Text style={styles.registerInputLabel}>Priezvisko</Text>
-                    <TextInput
-                      placeholder="Novák"
-                      value={lastName}
-                      onChangeText={setLastName}
-                      style={styles.registerInput}
-                      placeholderTextColor={registerPlaceholderColor}
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.registerInputGroupFull}>
-                  <Text style={styles.registerInputLabel}>Email</Text>
-                  <TextInput
-                    placeholder="jan.novak@email.com"
-                    value={email}
-                    onChangeText={setEmail}
-                    style={[
-                      styles.registerInput,
-                      !emailIsValid && email.length > 0 ? styles.inputError : undefined,
-                    ]}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    placeholderTextColor={registerPlaceholderColor}
-                  />
-                </View>
-
-                <View style={styles.registerInputGroupFull}>
-                  <Text style={styles.registerInputLabel}>Heslo</Text>
-                  <TextInput
-                    placeholder="Minimálne 8 znakov"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry
-                    style={[
-                      styles.registerInput,
-                      password.length > 0 && password.length < 8 ? styles.inputError : undefined,
-                    ]}
-                    placeholderTextColor={registerPlaceholderColor}
-                  />
-                  <View style={styles.passwordStrength}>
-                    <View style={styles.strengthBars}>
-                      {[0, 1, 2, 3].map(index => (
-                        <View
-                          key={`strength-${index}`}
-                          style={[
-                            styles.strengthBar,
-                            index < passwordEvaluation.level &&
-                              (passwordEvaluation.variant === 'weak'
-                                ? styles.strengthBarWeak
-                                : passwordEvaluation.variant === 'medium'
-                                ? styles.strengthBarMedium
-                                : styles.strengthBarStrong),
-                          ]}
-                        />
-                      ))}
+              <View style={styles.registerCard}>
+                <View style={styles.formContainer}>
+                  <View style={styles.formRow}>
+                    <View style={styles.registerInputGroup}>
+                      <Text style={styles.registerInputLabel}>Meno</Text>
+                      <TextInput
+                        placeholder="Ján"
+                        value={firstName}
+                        onChangeText={setFirstName}
+                        style={styles.registerInput}
+                        placeholderTextColor={registerPlaceholderColor}
+                      />
                     </View>
-                    <Text style={styles.strengthText}>{passwordEvaluation.label}</Text>
+                    <View style={styles.registerInputGroup}>
+                      <Text style={styles.registerInputLabel}>Priezvisko</Text>
+                      <TextInput
+                        placeholder="Novák"
+                        value={lastName}
+                        onChangeText={setLastName}
+                        style={styles.registerInput}
+                        placeholderTextColor={registerPlaceholderColor}
+                      />
+                    </View>
                   </View>
-                </View>
 
-                <View style={styles.registerInputGroupFull}>
-                  <Text style={styles.registerInputLabel}>Potvrď heslo</Text>
-                  <TextInput
-                    placeholder="Zopakuj heslo"
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    secureTextEntry
-                    style={[
-                      styles.registerInput,
-                      confirmPassword.length > 0 && confirmPassword !== password
-                        ? styles.inputError
-                        : undefined,
-                    ]}
-                    placeholderTextColor={registerPlaceholderColor}
-                  />
-                </View>
+                  <View style={styles.registerInputGroupFull}>
+                    <Text style={styles.registerInputLabel}>Email</Text>
+                    <TextInput
+                      placeholder="jan.novak@email.com"
+                      value={email}
+                      onChangeText={setEmail}
+                      style={[
+                        styles.registerInput,
+                        !emailIsValid && email.length > 0 ? styles.inputError : undefined,
+                      ]}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      placeholderTextColor={registerPlaceholderColor}
+                    />
+                  </View>
 
-                <View style={styles.termsSection}>
+                  <View style={styles.registerInputGroupFull}>
+                    <Text style={styles.registerInputLabel}>Heslo</Text>
+                    <TextInput
+                      placeholder="Minimálne 8 znakov"
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry
+                      style={[
+                        styles.registerInput,
+                        password.length > 0 && password.length < 8 ? styles.inputError : undefined,
+                      ]}
+                      placeholderTextColor={registerPlaceholderColor}
+                    />
+                    <View style={styles.passwordStrength}>
+                      <View style={styles.strengthBars}>
+                        {[0, 1, 2, 3].map(index => (
+                          <View
+                            key={`strength-${index}`}
+                            style={[
+                              styles.strengthBar,
+                              index < passwordEvaluation.level &&
+                                (passwordEvaluation.variant === 'weak'
+                                  ? styles.strengthBarWeak
+                                  : passwordEvaluation.variant === 'medium'
+                                  ? styles.strengthBarMedium
+                                  : styles.strengthBarStrong),
+                            ]}
+                          />
+                        ))}
+                      </View>
+                      <Text style={styles.strengthText}>{passwordEvaluation.label}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.registerInputGroupFull}>
+                    <Text style={styles.registerInputLabel}>Potvrď heslo</Text>
+                    <TextInput
+                      placeholder="Zopakuj heslo"
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      secureTextEntry
+                      style={[
+                        styles.registerInput,
+                        confirmPassword.length > 0 && confirmPassword !== password
+                          ? styles.inputError
+                          : undefined,
+                      ]}
+                      placeholderTextColor={registerPlaceholderColor}
+                    />
+                  </View>
+
+                  <View style={styles.termsSection}>
+                    <TouchableOpacity
+                      onPress={() => setTermsAccepted(prev => !prev)}
+                      style={styles.termsWrapper}
+                      activeOpacity={0.8}
+                    >
+                      <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
+                        {termsAccepted && <View style={styles.checkboxIndicator} />}
+                      </View>
+                      <Text style={styles.termsText}>
+                        Súhlasím s <Text style={styles.termsLink}>podmienkami používania</Text> a{' '}
+                        <Text style={styles.termsLink}>zásadami ochrany súkromia</Text>
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
                   <TouchableOpacity
-                    onPress={() => setTermsAccepted(prev => !prev)}
-                    style={styles.termsWrapper}
-                    activeOpacity={0.8}
+                    onPress={handleAuth}
+                    activeOpacity={0.85}
+                    disabled={registerButtonDisabled}
+                    style={{ opacity: registerButtonDisabled ? 0.5 : 1 }}
                   >
-                    <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
-                      {termsAccepted && <View style={styles.checkboxIndicator} />}
-                    </View>
-                    <Text style={styles.termsText}>
-                      Súhlasím s <Text style={styles.termsLink}>podmienkami používania</Text> a{' '}
-                      <Text style={styles.termsLink}>zásadami ochrany súkromia</Text>
-                    </Text>
+                    <LinearGradient
+                      colors={isDarkMode ? CTA_GRADIENT_DARK : CTA_GRADIENT_LIGHT}
+                      style={styles.registerButton}
+                    >
+                      <Text style={styles.registerButtonText}>Vytvoriť účet</Text>
+                    </LinearGradient>
                   </TouchableOpacity>
                 </View>
-
-                <TouchableOpacity
-                  onPress={handleAuth}
-                  activeOpacity={0.85}
-                  disabled={registerButtonDisabled}
-                  style={{ opacity: registerButtonDisabled ? 0.5 : 1 }}
-                >
-                  <LinearGradient
-                    colors={isDarkMode ? CTA_GRADIENT_DARK : CTA_GRADIENT_LIGHT}
-                    style={styles.registerButton}
-                  >
-                    <Text style={styles.registerButtonText}>Vytvoriť účet</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
               </View>
 
               <View style={styles.divider}>
@@ -401,64 +403,57 @@ const createStyles = (colors: Colors, isDark: boolean) =>
       flex: 1,
       justifyContent: 'center',
     },
-    phoneContainer: {
-      width: '100%',
-      maxWidth: 390,
-      alignSelf: 'center',
-      backgroundColor: '#FFFFFF',
-      borderRadius: 40,
-      overflow: 'hidden',
-      shadowColor: 'rgba(139, 101, 68, 0.45)',
-      shadowOffset: { width: 0, height: 20 },
-      shadowOpacity: 0.28,
-      shadowRadius: 40,
-      elevation: 26,
+    centerContentExpanded: {
+      justifyContent: 'flex-start',
     },
-    statusBar: {
-      height: 44,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
+    registerLayout: {
+      flex: 1,
+      paddingTop: Platform.OS === 'ios' ? 32 : 12,
+      paddingBottom: 32,
       paddingHorizontal: 24,
-      backgroundColor: 'rgba(255, 255, 255, 0.82)',
-    },
-    statusBarText: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: '#2C1810',
+      gap: 16,
     },
     registerHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 24,
-      paddingVertical: 16,
       gap: 16,
+      paddingVertical: 8,
     },
     backButton: {
-      width: 40,
-      height: 40,
-      borderRadius: 12,
+      width: 44,
+      height: 44,
+      borderRadius: 14,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#FFF8F4',
+      backgroundColor: isDark ? 'rgba(247, 241, 234, 0.08)' : 'rgba(255, 248, 244, 0.9)',
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(247, 241, 234, 0.16)' : 'rgba(181, 130, 92, 0.25)',
     },
     backButtonText: {
       fontSize: 20,
-      color: '#6B4423',
+      color: isDark ? '#F7F1EA' : '#6B4423',
       fontWeight: '600',
     },
+    registerHeading: {
+      flex: 1,
+      gap: 6,
+    },
     headerTitle: {
-      fontSize: 20,
+      fontSize: 26,
       fontWeight: '700',
-      color: '#2C1810',
+      color: colors.text,
+    },
+    headerSubtitle: {
+      fontSize: 14,
+      color: isDark ? 'rgba(247, 241, 234, 0.65)' : '#8B7355',
+      lineHeight: 20,
     },
     registerScroll: {
       flex: 1,
-      paddingHorizontal: 24,
     },
     registerContent: {
-      paddingBottom: 32,
-      gap: 20,
+      paddingBottom: 48,
+      gap: 24,
     },
     stepsIndicator: {
       flexDirection: 'row',
@@ -469,29 +464,28 @@ const createStyles = (colors: Colors, isDark: boolean) =>
       flex: 1,
       height: 4,
       borderRadius: 2,
-      backgroundColor: '#F5E6D3',
+      backgroundColor: isDark ? 'rgba(247, 241, 234, 0.1)' : '#F5E6D3',
     },
     stepActive: {
-      backgroundColor: '#B97A4A',
+      backgroundColor: isDark ? 'rgba(225, 191, 150, 0.8)' : '#B97A4A',
     },
     welcomeSection: {
-      alignItems: 'center',
-      marginTop: 8,
+      alignItems: 'flex-start',
       gap: 6,
     },
     welcomeTitle: {
-      fontSize: 28,
+      fontSize: 30,
       fontWeight: '800',
-      color: '#6B4423',
-      textAlign: 'center',
+      color: isDark ? '#F7F1EA' : '#6B4423',
+      textAlign: 'left',
     },
     welcomeSubtitle: {
       fontSize: 15,
-      color: '#8B7355',
-      textAlign: 'center',
+      color: isDark ? 'rgba(247, 241, 234, 0.7)' : '#8B7355',
+      textAlign: 'left',
     },
     successMessage: {
-      backgroundColor: '#D1FAE5',
+      backgroundColor: isDark ? 'rgba(22, 101, 52, 0.18)' : '#D1FAE5',
       borderRadius: 12,
       padding: 16,
       borderLeftWidth: 4,
@@ -507,15 +501,29 @@ const createStyles = (colors: Colors, isDark: boolean) =>
       fontSize: 14,
       color: '#065F46',
     },
+    registerCard: {
+      backgroundColor: isDark ? 'rgba(28, 17, 12, 0.85)' : 'rgba(255, 252, 248, 0.96)',
+      borderRadius: 28,
+      paddingHorizontal: 24,
+      paddingVertical: 28,
+      shadowColor: isDark ? '#0f0805' : 'rgba(62, 40, 27, 0.24)',
+      shadowOffset: { width: 0, height: 24 },
+      shadowOpacity: isDark ? 0.55 : 0.22,
+      shadowRadius: 36,
+      elevation: 22,
+      gap: 20,
+    },
     formContainer: {
-      gap: 16,
+      gap: 20,
     },
     formRow: {
       flexDirection: 'row',
       gap: 12,
+      flexWrap: 'wrap',
     },
     registerInputGroup: {
       flex: 1,
+      minWidth: 140,
       gap: 6,
     },
     registerInputGroupFull: {
@@ -524,17 +532,17 @@ const createStyles = (colors: Colors, isDark: boolean) =>
     registerInputLabel: {
       fontSize: 13,
       fontWeight: '600',
-      color: '#5D4E37',
+      color: isDark ? 'rgba(247, 241, 234, 0.75)' : '#5D4E37',
     },
     registerInput: {
-      borderRadius: 12,
-      paddingHorizontal: 14,
+      borderRadius: 14,
+      paddingHorizontal: 16,
       paddingVertical: Platform.OS === 'ios' ? 14 : 12,
-      backgroundColor: '#FFF8F4',
-      borderWidth: 2,
-      borderColor: 'transparent',
+      backgroundColor: isDark ? 'rgba(40, 25, 18, 0.9)' : '#FFF8F4',
+      borderWidth: 1.5,
+      borderColor: isDark ? 'rgba(247, 241, 234, 0.12)' : 'transparent',
       fontSize: 15,
-      color: '#2C1810',
+      color: isDark ? '#F7F1EA' : '#2C1810',
     },
     passwordStrength: {
       gap: 6,
@@ -547,7 +555,7 @@ const createStyles = (colors: Colors, isDark: boolean) =>
       flex: 1,
       height: 3,
       borderRadius: 2,
-      backgroundColor: '#F5E6D3',
+      backgroundColor: isDark ? 'rgba(247, 241, 234, 0.08)' : '#F5E6D3',
     },
     strengthBarWeak: {
       backgroundColor: '#DC2626',
@@ -560,12 +568,14 @@ const createStyles = (colors: Colors, isDark: boolean) =>
     },
     strengthText: {
       fontSize: 12,
-      color: '#8B7355',
+      color: isDark ? 'rgba(247, 241, 234, 0.7)' : '#8B7355',
     },
     termsSection: {
-      backgroundColor: '#FFF8F4',
+      backgroundColor: isDark ? 'rgba(40, 25, 18, 0.9)' : '#FFF8F4',
       padding: 16,
-      borderRadius: 12,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(247, 241, 234, 0.1)' : 'rgba(212, 165, 116, 0.2)',
     },
     termsWrapper: {
       flexDirection: 'row',
@@ -577,12 +587,14 @@ const createStyles = (colors: Colors, isDark: boolean) =>
       height: 20,
       borderRadius: 6,
       borderWidth: 2,
-      borderColor: '#B97A4A',
+      borderColor: isDark ? 'rgba(225, 191, 150, 0.6)' : '#B97A4A',
       alignItems: 'center',
       justifyContent: 'center',
+      backgroundColor: isDark ? 'rgba(33, 21, 15, 0.6)' : '#FFFFFF',
     },
     checkboxChecked: {
       backgroundColor: '#B97A4A',
+      borderColor: '#B97A4A',
     },
     checkboxIndicator: {
       width: 10,
@@ -593,22 +605,22 @@ const createStyles = (colors: Colors, isDark: boolean) =>
     termsText: {
       flex: 1,
       fontSize: 13,
-      color: '#5D4E37',
+      color: isDark ? 'rgba(247, 241, 234, 0.75)' : '#5D4E37',
       lineHeight: 20,
     },
     termsLink: {
-      color: '#A67C52',
+      color: isDark ? '#EBC49F' : '#A67C52',
       fontWeight: '600',
     },
     registerButton: {
-      borderRadius: 12,
-      paddingVertical: 16,
+      borderRadius: 16,
+      paddingVertical: 18,
       alignItems: 'center',
-      shadowColor: 'rgba(107, 68, 35, 0.3)',
-      shadowOffset: { width: 0, height: 18 },
-      shadowOpacity: 0.35,
-      shadowRadius: 24,
-      elevation: 18,
+      shadowColor: 'rgba(107, 68, 35, 0.35)',
+      shadowOffset: { width: 0, height: 20 },
+      shadowOpacity: isDark ? 0.55 : 0.38,
+      shadowRadius: 28,
+      elevation: 22,
     },
     registerButtonText: {
       color: '#FFFFFF',
@@ -620,15 +632,18 @@ const createStyles = (colors: Colors, isDark: boolean) =>
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
+      marginTop: 12,
     },
     dividerLine: {
       flex: 1,
       height: 1,
-      backgroundColor: '#E8D5C4',
+      backgroundColor: isDark ? 'rgba(247, 241, 234, 0.12)' : '#E8D5C4',
     },
     dividerText: {
       fontSize: 13,
-      color: '#8B7355',
+      color: isDark ? 'rgba(247, 241, 234, 0.65)' : '#8B7355',
+      textTransform: 'uppercase',
+      letterSpacing: 1.2,
     },
     socialButtons: {
       flexDirection: 'row',
@@ -636,45 +651,45 @@ const createStyles = (colors: Colors, isDark: boolean) =>
     },
     socialButton: {
       flex: 1,
-      borderRadius: 10,
-      borderWidth: 2,
-      borderColor: '#E8D5C4',
-      backgroundColor: '#FFFFFF',
-      paddingVertical: 12,
-      paddingHorizontal: 14,
+      borderRadius: 14,
+      borderWidth: 1.5,
+      borderColor: isDark ? 'rgba(247, 241, 234, 0.18)' : '#E8D5C4',
+      backgroundColor: isDark ? 'rgba(33, 21, 15, 0.8)' : '#FFFFFF',
+      paddingVertical: 14,
+      paddingHorizontal: 16,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 8,
     },
     socialIconCircle: {
-      width: 26,
-      height: 26,
-      borderRadius: 13,
+      width: 28,
+      height: 28,
+      borderRadius: 14,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#F5E6D3',
+      backgroundColor: isDark ? 'rgba(247, 241, 234, 0.12)' : '#F5E6D3',
     },
     socialIconText: {
       fontSize: 14,
       fontWeight: '700',
-      color: '#2C1810',
+      color: isDark ? '#F7F1EA' : '#2C1810',
     },
     socialText: {
       fontSize: 14,
       fontWeight: '600',
-      color: '#2C1810',
+      color: isDark ? '#F7F1EA' : '#2C1810',
     },
     loginSection: {
       alignItems: 'center',
-      paddingBottom: 20,
+      paddingBottom: 12,
     },
     loginText: {
       fontSize: 14,
-      color: '#5D4E37',
+      color: isDark ? 'rgba(247, 241, 234, 0.75)' : '#5D4E37',
     },
     loginLink: {
-      color: '#A67C52',
+      color: isDark ? '#EBC49F' : '#A67C52',
       fontWeight: '600',
     },
     cardShadow: {
