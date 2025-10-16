@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   useColorScheme,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -31,16 +32,128 @@ const EmailAuth: React.FC<EmailAuthProps> = ({
   const [isRegistering, setIsRegistering] = useState(initialMode === 'register');
   const [email, setEmail] = useState(initialEmail ?? '');
   const [password, setPassword] = useState(initialPassword ?? '');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [passwordLevel, setPasswordLevel] = useState(0);
+  const [passwordLabel, setPasswordLabel] = useState('Zadaj heslo');
   const isDarkMode = useColorScheme() === 'dark';
   const colors = getColors(isDarkMode);
   const styles = createStyles(colors, isDarkMode);
+  const registerPlaceholderColor = isDarkMode
+    ? 'rgba(244, 236, 230, 0.5)'
+    : 'rgba(93, 78, 55, 0.5)';
+  const redirectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const resetRegisterForm = () => {
+    setFirstName('');
+    setLastName('');
+    setConfirmPassword('');
+    setTermsAccepted(false);
+    setPassword('');
+    setPasswordLevel(0);
+    setPasswordLabel('Zadaj heslo');
+  };
+
+  useEffect(() => {
+    if (!isRegistering) {
+      setRegistrationSuccess(false);
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current);
+        redirectTimeoutRef.current = null;
+      }
+    } else {
+      resetRegisterForm();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRegistering]);
+
+  useEffect(() => {
+    const pwd = password;
+    if (!pwd) {
+      setPasswordLevel(0);
+      setPasswordLabel('Zadaj heslo');
+      return;
+    }
+
+    let score = 0;
+    if (pwd.length >= 8) score += 1;
+    if (/[a-z]/.test(pwd)) score += 1;
+    if (/[A-Z]/.test(pwd)) score += 1;
+    if (/[0-9]/.test(pwd)) score += 1;
+    if (/[^a-zA-Z0-9]/.test(pwd)) score += 1;
+
+    const level = Math.min(score, 4);
+    setPasswordLevel(level);
+
+    if (score <= 2) {
+      setPasswordLabel('Slabé heslo');
+    } else if (score === 3) {
+      setPasswordLabel('Stredné heslo');
+    } else {
+      setPasswordLabel('Silné heslo');
+    }
+  }, [password]);
+
+  useEffect(() => {
+    return () => {
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const isRegisterDisabled = useMemo(() => {
+    if (!isRegistering) {
+      return false;
+    }
+
+    if (registrationSuccess) {
+      return true;
+    }
+
+    return (
+      !firstName.trim() ||
+      !lastName.trim() ||
+      !email.includes('@') ||
+      password.length < 8 ||
+      password !== confirmPassword ||
+      !termsAccepted
+    );
+  }, [
+    confirmPassword,
+    email,
+    firstName,
+    isRegistering,
+    lastName,
+    password,
+    registrationSuccess,
+    termsAccepted,
+  ]);
 
   const handleAuth = async () => {
     try {
       if (isRegistering) {
+        if (password !== confirmPassword) {
+          Alert.alert('Chyba', 'Heslá sa nezhodujú.');
+          return;
+        }
+
+        if (!termsAccepted) {
+          Alert.alert('Chýba súhlas', 'Musíš súhlasiť s podmienkami používania.');
+          return;
+        }
+
         const userCredential = await auth().createUserWithEmailAndPassword(email, password);
         await userCredential.user.sendEmailVerification();
         Alert.alert('Registrácia úspešná', 'Skontroluj svoj email pre overenie účtu.');
+        setRegistrationSuccess(true);
+        redirectTimeoutRef.current = setTimeout(() => {
+          setIsRegistering(false);
+          setRegistrationSuccess(false);
+        }, 2000);
       } else {
         const userCredential = await auth().signInWithEmailAndPassword(email, password);
         const user = userCredential.user;
@@ -81,92 +194,269 @@ const EmailAuth: React.FC<EmailAuthProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.centerContent}
       >
-        <View style={styles.cardShadow}>
-          <View style={styles.cardSurface}>
-            <View style={styles.cardHeader}>
-              {onBack && (
-                <TouchableOpacity onPress={onBack} style={styles.backPill}>
-                  <Text style={styles.backText}>← späť</Text>
+        {isRegistering ? (
+          <View style={styles.registerWrapper}>
+            <View style={styles.phoneContainer}>
+              <View style={styles.statusBar}>
+                <Text style={styles.statusBarText}>9:41</Text>
+                <Text style={styles.statusBarText}>100%</Text>
+              </View>
+
+              <View style={styles.registerHeader}>
+                <TouchableOpacity
+                  style={styles.backButton}
+                  onPress={() =>
+                    onBack ? onBack() : setIsRegistering(false)
+                  }
+                >
+                  <Text style={styles.backIcon}>←</Text>
                 </TouchableOpacity>
-              )}
-              <Text style={styles.cardTitle}>
-                {isRegistering ? 'Vytvor nový BrewMate účet' : 'Vitaj späť, kávičkár!'}
-              </Text>
-              <Text style={styles.cardSubtitle}>
-                {isRegistering
-                  ? 'Zaregistruj sa a nechaj si pripravovať personalizované tipy na mieru.'
-                  : 'Prihlás sa a pokračuj v objavovaní chuti tvojej kávy.'}
-              </Text>
-            </View>
+                <Text style={styles.registerTitle}>Vytvor účet</Text>
+              </View>
 
-            <View style={styles.segmentedControl}>
-              <TouchableOpacity
-                style={[styles.segmentButton, !isRegistering && styles.segmentButtonActive]}
-                onPress={() => setIsRegistering(false)}
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.registerContent}
               >
-                <Text
-                  style={[styles.segmentLabel, !isRegistering && styles.segmentLabelActive]}
+                <View style={styles.stepsIndicator}>
+                  <View style={[styles.stepBar, styles.stepBarActive]} />
+                  <View style={[styles.stepBar, styles.stepBarActive]} />
+                  <View style={styles.stepBar} />
+                </View>
+
+                <View style={styles.welcomeSection}>
+                  <Text style={styles.welcomeTitle}>Vitaj v BrewMate!</Text>
+                  <Text style={styles.welcomeSubtitle}>
+                    Pripoj sa ku komunite kávových nadšencov
+                  </Text>
+                </View>
+
+                {registrationSuccess && (
+                  <View style={styles.successMessage}>
+                    <Text style={styles.successTitle}>Účet vytvorený!</Text>
+                    <Text style={styles.successSubtitle}>
+                      Presmerovávame ťa na prihlásenie...
+                    </Text>
+                  </View>
+                )}
+
+                <View style={styles.formRow}>
+                  <View style={styles.inputGroupWide}>
+                    <Text style={styles.inputLabel}>Meno</Text>
+                    <TextInput
+                      placeholder="Ján"
+                      value={firstName}
+                      onChangeText={setFirstName}
+                      style={styles.registerInput}
+                      placeholderTextColor={registerPlaceholderColor}
+                    />
+                  </View>
+                  <View style={styles.inputGroupWide}>
+                    <Text style={styles.inputLabel}>Priezvisko</Text>
+                    <TextInput
+                      placeholder="Novák"
+                      value={lastName}
+                      onChangeText={setLastName}
+                      style={styles.registerInput}
+                      placeholderTextColor={registerPlaceholderColor}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.inputGroupStacked}>
+                  <Text style={styles.inputLabel}>Email</Text>
+                  <TextInput
+                    placeholder="jan.novak@email.com"
+                    value={email}
+                    onChangeText={setEmail}
+                    style={styles.registerInput}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    placeholderTextColor={registerPlaceholderColor}
+                  />
+                </View>
+
+                <View style={styles.inputGroupStacked}>
+                  <Text style={styles.inputLabel}>Heslo</Text>
+                  <TextInput
+                    placeholder="Minimálne 8 znakov"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                    style={styles.registerInput}
+                    placeholderTextColor={registerPlaceholderColor}
+                  />
+                  <View style={styles.passwordStrength}>
+                    <View style={styles.strengthBars}>
+                      {[0, 1, 2, 3].map((index) => {
+                        const isActive = passwordLevel > index;
+                        const activeStyle =
+                          passwordLevel >= 4
+                            ? styles.strengthBarStrong
+                            : passwordLevel === 3
+                            ? styles.strengthBarMedium
+                            : styles.strengthBarWeak;
+
+                        return (
+                          <View
+                            key={index}
+                            style={
+                              isActive
+                                ? [styles.strengthBar, activeStyle]
+                                : styles.strengthBar
+                            }
+                          />
+                        );
+                      })}
+                    </View>
+                    <Text style={styles.strengthLabel}>{passwordLabel}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.inputGroupStacked}>
+                  <Text style={styles.inputLabel}>Potvrď heslo</Text>
+                  <TextInput
+                    placeholder="Zopakuj heslo"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry
+                    style={styles.registerInput}
+                    placeholderTextColor={registerPlaceholderColor}
+                  />
+                </View>
+
+                <View style={styles.termsContainer}>
+                  <TouchableOpacity
+                    style={styles.termsCheckboxWrapper}
+                    onPress={() => setTermsAccepted((prev) => !prev)}
+                    activeOpacity={0.8}
+                  >
+                    <View
+                      style={[
+                        styles.checkboxBase,
+                        termsAccepted && styles.checkboxChecked,
+                      ]}
+                    >
+                      {termsAccepted && <Text style={styles.checkboxMark}>✓</Text>}
+                    </View>
+                    <Text style={styles.termsText}>
+                      Súhlasím s{' '}
+                      <Text style={styles.termsLink}>podmienkami používania</Text>
+                      {' '}a{' '}
+                      <Text style={styles.termsLink}>zásadami ochrany súkromia</Text>
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity
+                  disabled={isRegisterDisabled}
+                  onPress={handleAuth}
+                  activeOpacity={0.85}
                 >
-                  Prihlásenie
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.segmentButton, isRegistering && styles.segmentButtonActive]}
-                onPress={() => setIsRegistering(true)}
-              >
-                <Text
-                  style={[styles.segmentLabel, isRegistering && styles.segmentLabelActive]}
+                  <LinearGradient
+                    colors={isDarkMode ? CTA_GRADIENT_DARK : CTA_GRADIENT_LIGHT}
+                    style={[
+                      styles.registerButton,
+                      isRegisterDisabled && styles.registerButtonDisabled,
+                    ]}
+                  >
+                    <Text style={styles.registerButtonText}>Vytvoriť účet</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>alebo</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+
+                <View style={styles.socialButtons}>
+                  <TouchableOpacity style={styles.socialButton}>
+                    <View style={[styles.socialIconCircle, styles.googleCircle]}>
+                      <Text style={styles.socialIconText}>G</Text>
+                    </View>
+                    <Text style={styles.socialText}>Google</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.socialButton}>
+                    <View style={[styles.socialIconCircle, styles.appleCircle]}>
+                      <Text style={styles.socialIconText}></Text>
+                    </View>
+                    <Text style={styles.socialText}>Apple</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity
+                  onPress={() => setIsRegistering(false)}
+                  style={styles.loginRedirect}
+                  activeOpacity={0.8}
                 >
-                  Registrácia
-                </Text>
-              </TouchableOpacity>
+                  <Text style={styles.loginPrompt}>
+                    Už máš účet?
+                    <Text style={styles.loginLink}> Prihlás sa</Text>
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
             </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Email</Text>
-              <TextInput
-                placeholder="napr. barista@brew.coffee"
-                value={email}
-                onChangeText={setEmail}
-                style={styles.input}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                placeholderTextColor={isDarkMode ? 'rgba(244, 236, 230, 0.5)' : 'rgba(83, 54, 40, 0.42)'}
-              />
-            </View>
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Heslo</Text>
-              <TextInput
-                placeholder="min. 6 znakov"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                style={styles.input}
-                placeholderTextColor={isDarkMode ? 'rgba(244, 236, 230, 0.5)' : 'rgba(83, 54, 40, 0.42)'}
-              />
-            </View>
-
-            <TouchableOpacity onPress={handleAuth} activeOpacity={0.85}>
-              <LinearGradient
-                colors={isDarkMode ? CTA_GRADIENT_DARK : CTA_GRADIENT_LIGHT}
-                style={styles.button}
-              >
-                <Text style={styles.buttonText}>
-                  {isRegistering ? 'Vytvoriť účet' : 'Prihlásiť sa'}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setIsRegistering(!isRegistering)}
-              style={styles.secondaryLink}
-            >
-              <Text style={styles.secondaryLinkText}>
-                {isRegistering ? 'Už máš účet? Prihlás sa' : 'Nemáš účet? Zaregistruj sa'}
-              </Text>
-            </TouchableOpacity>
           </View>
-        </View>
+        ) : (
+          <View style={styles.cardShadow}>
+            <View style={styles.cardSurface}>
+              <View style={styles.cardHeader}>
+                {onBack && (
+                  <TouchableOpacity onPress={onBack} style={styles.backPill}>
+                    <Text style={styles.backText}>← späť</Text>
+                  </TouchableOpacity>
+                )}
+                <Text style={styles.cardTitle}>Vitaj späť, kávičkár!</Text>
+                <Text style={styles.cardSubtitle}>
+                  Prihlás sa a pokračuj v objavovaní chuti tvojej kávy.
+                </Text>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Email</Text>
+                <TextInput
+                  placeholder="napr. barista@brew.coffee"
+                  value={email}
+                  onChangeText={setEmail}
+                  style={styles.input}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  placeholderTextColor={isDarkMode ? 'rgba(244, 236, 230, 0.5)' : 'rgba(83, 54, 40, 0.42)'}
+                />
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Heslo</Text>
+                <TextInput
+                  placeholder="min. 6 znakov"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  style={styles.input}
+                  placeholderTextColor={isDarkMode ? 'rgba(244, 236, 230, 0.5)' : 'rgba(83, 54, 40, 0.42)'}
+                />
+              </View>
+
+              <TouchableOpacity onPress={handleAuth} activeOpacity={0.85}>
+                <LinearGradient
+                  colors={isDarkMode ? CTA_GRADIENT_DARK : CTA_GRADIENT_LIGHT}
+                  style={styles.button}
+                >
+                  <Text style={styles.buttonText}>Prihlásiť sa</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setIsRegistering(true)}
+                style={styles.secondaryLink}
+              >
+                <Text style={styles.secondaryLinkText}>
+                  Nemáš účet? Zaregistruj sa
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </KeyboardAvoidingView>
     </View>
   );
@@ -183,6 +473,288 @@ const createStyles = (colors: Colors, isDark: boolean) =>
     centerContent: {
       flex: 1,
       justifyContent: 'center',
+    },
+    registerWrapper: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+    },
+    phoneContainer: {
+      width: 360,
+      maxWidth: '100%',
+      height: 700,
+      backgroundColor: isDark ? 'rgba(24, 14, 10, 0.92)' : '#FFFFFF',
+      borderRadius: 40,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(168, 124, 82, 0.12)',
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 24 },
+      shadowOpacity: 0.2,
+      shadowRadius: 40,
+      elevation: 24,
+    },
+    statusBar: {
+      height: 44,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 24,
+      backgroundColor: isDark ? 'rgba(35, 23, 16, 0.8)' : 'rgba(255,255,255,0.88)',
+    },
+    statusBarText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: isDark ? '#F7F1EA' : '#2C1810',
+    },
+    registerHeader: {
+      paddingHorizontal: 24,
+      paddingVertical: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+    },
+    backButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#FFF8F4',
+    },
+    backIcon: {
+      fontSize: 18,
+      color: isDark ? '#F7F1EA' : '#5D4E37',
+      fontWeight: '600',
+    },
+    registerTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: isDark ? '#F7F1EA' : '#2C1810',
+    },
+    registerContent: {
+      paddingHorizontal: 24,
+      paddingBottom: 32,
+      gap: 20,
+    },
+    stepsIndicator: {
+      flexDirection: 'row',
+      gap: 8,
+      marginTop: 4,
+    },
+    stepBar: {
+      flex: 1,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : '#F5E6D3',
+    },
+    stepBarActive: {
+      backgroundColor: isDark ? '#B87B46' : '#A67C52',
+    },
+    welcomeSection: {
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 8,
+    },
+    welcomeTitle: {
+      fontSize: 26,
+      fontWeight: '800',
+      color: isDark ? '#F0DFC8' : '#6B4423',
+    },
+    welcomeSubtitle: {
+      fontSize: 15,
+      color: isDark ? 'rgba(247,241,234,0.7)' : '#8B7355',
+    },
+    successMessage: {
+      padding: 16,
+      borderRadius: 12,
+      backgroundColor: isDark ? 'rgba(22, 163, 74, 0.2)' : '#D1FAE5',
+      borderLeftWidth: 4,
+      borderLeftColor: '#16A34A',
+      gap: 6,
+    },
+    successTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: '#16A34A',
+    },
+    successSubtitle: {
+      fontSize: 14,
+      color: '#065F46',
+    },
+    formRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    inputGroupWide: {
+      flex: 1,
+      gap: 6,
+    },
+    inputGroupStacked: {
+      gap: 8,
+    },
+    registerInput: {
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: Platform.OS === 'ios' ? 14 : 12,
+      backgroundColor: isDark ? 'rgba(44, 26, 18, 0.82)' : '#FFF8F4',
+      borderWidth: 2,
+      borderColor: isDark ? 'rgba(255,255,255,0.08)' : '#E8D5C4',
+      color: colors.text,
+      fontSize: 15,
+    },
+    passwordStrength: {
+      gap: 6,
+    },
+    strengthBars: {
+      flexDirection: 'row',
+      gap: 4,
+    },
+    strengthBar: {
+      flex: 1,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#F5E6D3',
+    },
+    strengthBarWeak: {
+      backgroundColor: '#DC2626',
+    },
+    strengthBarMedium: {
+      backgroundColor: '#F59E0B',
+    },
+    strengthBarStrong: {
+      backgroundColor: '#16A34A',
+    },
+    strengthLabel: {
+      fontSize: 12,
+      color: isDark ? 'rgba(244,236,230,0.7)' : '#8B7355',
+    },
+    termsContainer: {
+      padding: 16,
+      borderRadius: 12,
+      backgroundColor: isDark ? 'rgba(45, 29, 20, 0.7)' : '#FFF8F4',
+    },
+    termsCheckboxWrapper: {
+      flexDirection: 'row',
+      gap: 12,
+      alignItems: 'flex-start',
+    },
+    checkboxBase: {
+      width: 22,
+      height: 22,
+      borderRadius: 6,
+      borderWidth: 2,
+      borderColor: isDark ? '#B87B46' : '#A67C52',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'transparent',
+    },
+    checkboxChecked: {
+      backgroundColor: isDark ? '#B87B46' : '#A67C52',
+    },
+    checkboxMark: {
+      color: '#FFFFFF',
+      fontWeight: '700',
+      fontSize: 14,
+    },
+    termsText: {
+      flex: 1,
+      fontSize: 13,
+      lineHeight: 20,
+      color: isDark ? 'rgba(247,241,234,0.78)' : '#5D4E37',
+    },
+    termsLink: {
+      color: isDark ? '#DCA371' : '#A67C52',
+      fontWeight: '600',
+    },
+    registerButton: {
+      marginTop: 4,
+      paddingVertical: 16,
+      borderRadius: 12,
+      alignItems: 'center',
+      shadowColor: '#2A1208',
+      shadowOffset: { width: 0, height: 18 },
+      shadowOpacity: 0.25,
+      shadowRadius: 24,
+      elevation: 20,
+    },
+    registerButtonDisabled: {
+      opacity: 0.5,
+    },
+    registerButtonText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '700',
+      letterSpacing: 0.3,
+    },
+    divider: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginTop: 8,
+    },
+    dividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : '#E8D5C4',
+    },
+    dividerText: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: isDark ? 'rgba(247,241,234,0.6)' : '#8B7355',
+    },
+    socialButtons: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    socialButton: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingVertical: 12,
+      borderRadius: 12,
+      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : '#FFFFFF',
+      borderWidth: 2,
+      borderColor: isDark ? 'rgba(255,255,255,0.05)' : '#E8D5C4',
+    },
+    socialIconCircle: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : '#F5E6D3',
+    },
+    googleCircle: {
+      backgroundColor: isDark ? 'rgba(14,165,233,0.2)' : '#E0F2FE',
+    },
+    appleCircle: {
+      backgroundColor: isDark ? 'rgba(244,244,245,0.15)' : '#F4F4F5',
+    },
+    socialIconText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: isDark ? '#F7F1EA' : '#2C1810',
+    },
+    socialText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: isDark ? '#F7F1EA' : '#2C1810',
+    },
+    loginRedirect: {
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    loginPrompt: {
+      fontSize: 14,
+      color: isDark ? 'rgba(247,241,234,0.78)' : '#5D4E37',
+    },
+    loginLink: {
+      color: isDark ? '#F0DFC8' : '#A67C52',
+      fontWeight: '600',
     },
     cardShadow: {
       borderRadius: 44,
@@ -225,36 +797,6 @@ const createStyles = (colors: Colors, isDark: boolean) =>
       fontSize: 14,
       lineHeight: 20,
       color: colors.textSecondary,
-    },
-    segmentedControl: {
-      flexDirection: 'row',
-      padding: 4,
-      borderRadius: 999,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(93, 63, 45, 0.08)',
-      gap: 4,
-    },
-    segmentButton: {
-      flex: 1,
-      borderRadius: 999,
-      paddingVertical: 10,
-      alignItems: 'center',
-    },
-    segmentButtonActive: {
-      backgroundColor: isDark ? 'rgba(225, 200, 170, 0.24)' : 'rgba(181, 130, 92, 0.32)',
-      shadowColor: '#2A1309',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.16,
-      shadowRadius: 12,
-      elevation: 8,
-    },
-    segmentLabel: {
-      fontSize: 14,
-      color: isDark ? 'rgba(247, 241, 234, 0.58)' : 'rgba(70, 45, 32, 0.65)',
-      fontWeight: '500',
-    },
-    segmentLabelActive: {
-      color: isDark ? '#F7F1EA' : '#2F1B11',
-      fontWeight: '600',
     },
     inputGroup: {
       gap: 6,
