@@ -12,24 +12,22 @@ import {
   ScrollView,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getColors, Colors } from '../theme/colors';
 import LinearGradient from 'react-native-linear-gradient';
 
 interface EmailAuthProps {
   onBack?: () => void;
+  onNavigateToLogin?: () => void;
   initialEmail?: string;
   initialPassword?: string;
-  initialMode?: 'login' | 'register';
 }
 
 const EmailAuth: React.FC<EmailAuthProps> = ({
   onBack,
+  onNavigateToLogin,
   initialEmail,
   initialPassword,
-  initialMode = 'login',
 }) => {
-  const [isRegistering, setIsRegistering] = useState(initialMode === 'register');
   const [email, setEmail] = useState(initialEmail ?? '');
   const [password, setPassword] = useState(initialPassword ?? '');
   const [confirmPassword, setConfirmPassword] = useState(initialPassword ?? '');
@@ -96,26 +94,38 @@ const EmailAuth: React.FC<EmailAuthProps> = ({
         const userCredential = await auth().signInWithEmailAndPassword(email, password);
         const user = userCredential.user;
 
-        if (!user.emailVerified) {
-          Alert.alert('Email nie je overený', 'Prosím, over svoju emailovú adresu.');
-          await auth().signOut();
-          await AsyncStorage.removeItem('@AuthToken');
-          return;
-        }
+    if (strength <= 2) {
+      return { level: Math.max(1, strength), label: 'Slabé heslo' };
+    }
+    if (strength === 3) {
+      return { level: 3, label: 'Stredné heslo' };
+    }
+    return { level: 4, label: 'Silné heslo' };
+  }, [password]);
 
-        const idToken = await user.getIdToken();
-        await AsyncStorage.setItem('@AuthToken', idToken);
-        await fetch('http://10.0.2.2:3001/api/auth', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${idToken}`,
-            'X-Auth-Provider': 'email',
-            'Content-Type': 'application/json',
-          },
-        });
+  const canSubmit =
+    Boolean(firstName.trim()) &&
+    Boolean(lastName.trim()) &&
+    Boolean(email.trim()) &&
+    password.length >= 8 &&
+    password === confirmPassword &&
+    termsAccepted;
 
-        Alert.alert('Úspech', 'Prihlásenie úspešné');
+  const handleAuth = async () => {
+    try {
+      if (!termsAccepted) {
+        Alert.alert('Chýbajúci súhlas', 'Pred pokračovaním musíš súhlasiť s podmienkami.');
+        return;
       }
+
+      if (password !== confirmPassword) {
+        Alert.alert('Heslá sa nezhodujú', 'Prosím, uisti sa, že heslá sú rovnaké.');
+        return;
+      }
+
+      const userCredential = await auth().createUserWithEmailAndPassword(email, password);
+      await userCredential.user.sendEmailVerification();
+      setShowSuccess(true);
     } catch (err: any) {
       console.error('❌ EmailAuth error:', err);
       Alert.alert('Chyba', err.message || 'Neznáma chyba');
@@ -331,21 +341,25 @@ const EmailAuth: React.FC<EmailAuthProps> = ({
   );
 
   return (
-    <View style={styles.overlay}>
+    <View style={styles.screen}>
       <LinearGradient
         colors={isDarkMode ? EMAIL_GRADIENT_DARK : EMAIL_GRADIENT_LIGHT}
         style={StyleSheet.absoluteFill}
       />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.centerContent}
-      >
-        <View style={styles.cardShadow}>
-          <View style={styles.cardSurface}>
-            <View style={styles.cardHeader}>
+      <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.flex}
+        >
+          <ScrollView
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.topBar}>
               {onBack && (
-                <TouchableOpacity onPress={onBack} style={styles.backPill}>
-                  <Text style={styles.backText}>← späť</Text>
+                <TouchableOpacity onPress={onBack} style={styles.backButton}>
+                  <Text style={styles.backIcon}>←</Text>
                 </TouchableOpacity>
               )}
               <View style={styles.segmentedControl}>
@@ -387,30 +401,16 @@ const EmailAuth: React.FC<EmailAuthProps> = ({
 
 const createStyles = (colors: Colors, isDark: boolean) =>
   StyleSheet.create({
-    overlay: {
+    screen: {
       flex: 1,
-      justifyContent: 'center',
-      paddingHorizontal: 24,
-      paddingVertical: 32,
     },
-    centerContent: {
+    safeArea: {
       flex: 1,
-      justifyContent: 'center',
     },
-    cardShadow: {
-      borderRadius: 44,
-      padding: 1,
-      backgroundColor: 'rgba(255, 255, 255, 0.18)',
-      shadowColor: '#1A0D07',
-      shadowOffset: { width: 0, height: 32 },
-      shadowOpacity: 0.35,
-      shadowRadius: 45,
-      elevation: 34,
+    flex: {
+      flex: 1,
     },
-    cardSurface: {
-      borderRadius: 42,
-      backgroundColor: isDark ? 'rgba(28, 17, 12, 0.92)' : 'rgba(255, 252, 248, 0.94)',
-      paddingVertical: 28,
+    content: {
       paddingHorizontal: 24,
       gap: 24,
       maxHeight: 640,
@@ -430,45 +430,54 @@ const createStyles = (colors: Colors, isDark: boolean) =>
       fontWeight: '500',
       letterSpacing: 0.2,
     },
-    cardTitle: {
-      fontSize: 24,
-      fontWeight: '700',
-      color: colors.text,
-    },
-    cardSubtitle: {
-      fontSize: 14,
-      lineHeight: 20,
-      color: colors.textSecondary,
-    },
-    segmentedControl: {
-      flexDirection: 'row',
-      padding: 4,
-      borderRadius: 999,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(93, 63, 45, 0.08)',
-      gap: 4,
-    },
-    segmentButton: {
-      flex: 1,
-      borderRadius: 999,
-      paddingVertical: 10,
+    backButton: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
       alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: isDark ? 'rgba(244, 236, 228, 0.12)' : 'rgba(60, 38, 27, 0.08)',
     },
-    segmentButtonActive: {
-      backgroundColor: isDark ? 'rgba(225, 200, 170, 0.24)' : 'rgba(181, 130, 92, 0.32)',
-      shadowColor: '#2A1309',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.16,
-      shadowRadius: 12,
-      elevation: 8,
-    },
-    segmentLabel: {
-      fontSize: 14,
-      color: isDark ? 'rgba(247, 241, 234, 0.58)' : 'rgba(70, 45, 32, 0.65)',
-      fontWeight: '500',
-    },
-    segmentLabelActive: {
-      color: isDark ? '#F7F1EA' : '#2F1B11',
+    backIcon: {
+      fontSize: 20,
+      color: isDark ? '#F7F1EA' : '#3D2518',
       fontWeight: '600',
+    },
+    progressDots: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    progressDot: {
+      width: 42,
+      height: 4,
+      borderRadius: 999,
+      backgroundColor: isDark ? 'rgba(244, 236, 228, 0.18)' : 'rgba(181, 130, 92, 0.28)',
+    },
+    progressDotActive: {
+      backgroundColor: isDark ? '#B87B46' : '#8E5B34',
+    },
+    hero: {
+      alignItems: 'flex-start',
+      gap: 8,
+      marginTop: 12,
+    },
+    heroTitle: {
+      fontSize: 32,
+      fontWeight: '800',
+      color: isDark ? '#F3E6D7' : '#4A2F18',
+    },
+    heroSubtitle: {
+      fontSize: 15,
+      lineHeight: 22,
+      color: isDark ? 'rgba(243, 230, 214, 0.7)' : 'rgba(74, 47, 24, 0.7)',
+    },
+    formRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    inputGroupHalf: {
+      flex: 1,
+      gap: 6,
     },
     formContent: {
       paddingBottom: 12,
@@ -637,12 +646,12 @@ const createStyles = (colors: Colors, isDark: boolean) =>
     },
     secondaryLink: {
       alignItems: 'center',
+      marginBottom: 16,
     },
     secondaryLinkText: {
       color: isDark ? 'rgba(247, 241, 234, 0.82)' : colors.primary,
       fontSize: 14,
       fontWeight: '500',
-      marginTop: 4,
     },
     loginWrapper: {
       gap: 20,
@@ -686,10 +695,9 @@ const createStyles = (colors: Colors, isDark: boolean) =>
     },
   });
 
-const EMAIL_GRADIENT_LIGHT = ['rgba(247, 239, 229, 0.96)', '#F0DFC8', '#DAB38A'];
+const EMAIL_GRADIENT_LIGHT = ['#F7EDE2', '#F0DFC8', '#DAB38A'];
 const EMAIL_GRADIENT_DARK = ['#24140D', '#1A0F0A', '#110805'];
 const CTA_GRADIENT_LIGHT = ['#8E5B34', '#B97A4A', '#DCA371'];
 const CTA_GRADIENT_DARK = ['#5A3B23', '#8D5A35', '#B87B46'];
 
 export default EmailAuth;
-

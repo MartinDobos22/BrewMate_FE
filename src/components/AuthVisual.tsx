@@ -23,7 +23,6 @@ const AuthScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [errorVisible, setErrorVisible] = useState(false);
-  const [emailAuthMode, setEmailAuthMode] = useState<'login' | 'register'>('login');
   const isDarkMode = useColorScheme() === 'dark';
   const colors = getColors(isDarkMode);
   const styles = createStyles(colors, isDarkMode);
@@ -54,17 +53,14 @@ const AuthScreen = () => {
     }
 
     setErrorVisible(false);
-    setEmailAuthMode('login');
     setShowEmailAuth(true);
   };
 
   const handleForgotPassword = () => {
-    setEmailAuthMode('login');
     setShowEmailAuth(true);
   };
 
   const handleRegister = () => {
-    setEmailAuthMode('register');
     setShowEmailAuth(true);
   };
 
@@ -211,8 +207,8 @@ const AuthScreen = () => {
           <EmailAuth
             initialEmail={email}
             initialPassword={password}
-            initialMode={emailAuthMode}
             onBack={() => setShowEmailAuth(false)}
+            onNavigateToLogin={() => setShowEmailAuth(false)}
           />
         </Modal>
       )}
