@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -9,252 +9,360 @@ import {
   useColorScheme,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
+  SafeAreaView,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getColors, Colors } from '../theme/colors';
 import LinearGradient from 'react-native-linear-gradient';
 
 interface EmailAuthProps {
   onBack?: () => void;
+  onNavigateToLogin?: () => void;
   initialEmail?: string;
   initialPassword?: string;
-  initialMode?: 'login' | 'register';
 }
 
 const EmailAuth: React.FC<EmailAuthProps> = ({
   onBack,
+  onNavigateToLogin,
   initialEmail,
   initialPassword,
-  initialMode = 'login',
 }) => {
-  const [isRegistering, setIsRegistering] = useState(initialMode === 'register');
   const [email, setEmail] = useState(initialEmail ?? '');
   const [password, setPassword] = useState(initialPassword ?? '');
+  const [confirmPassword, setConfirmPassword] = useState(initialPassword ?? '');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const isDarkMode = useColorScheme() === 'dark';
   const colors = getColors(isDarkMode);
   const styles = createStyles(colors, isDarkMode);
+  const strengthLevelStyles = [
+    styles.strengthLevel1,
+    styles.strengthLevel2,
+    styles.strengthLevel3,
+    styles.strengthLevel4,
+  ];
+
+  const passwordStrength = useMemo(() => {
+    if (!password) {
+      return { level: 0, label: 'Zadaj heslo' };
+    }
+
+    let strength = 0;
+
+    if (password.length >= 8) strength += 1;
+    if (/[a-z]/.test(password)) strength += 1;
+    if (/[A-Z]/.test(password)) strength += 1;
+    if (/[0-9]/.test(password)) strength += 1;
+    if (/[^a-zA-Z0-9]/.test(password)) strength += 1;
+
+    if (strength <= 2) {
+      return { level: Math.max(1, strength), label: 'Slabé heslo' };
+    }
+    if (strength === 3) {
+      return { level: 3, label: 'Stredné heslo' };
+    }
+    return { level: 4, label: 'Silné heslo' };
+  }, [password]);
+
+  const canSubmit =
+    Boolean(firstName.trim()) &&
+    Boolean(lastName.trim()) &&
+    Boolean(email.trim()) &&
+    password.length >= 8 &&
+    password === confirmPassword &&
+    termsAccepted;
 
   const handleAuth = async () => {
     try {
-      if (isRegistering) {
-        const userCredential = await auth().createUserWithEmailAndPassword(email, password);
-        await userCredential.user.sendEmailVerification();
-        Alert.alert('Registrácia úspešná', 'Skontroluj svoj email pre overenie účtu.');
-      } else {
-        const userCredential = await auth().signInWithEmailAndPassword(email, password);
-        const user = userCredential.user;
-
-        if (!user.emailVerified) {
-          Alert.alert('Email nie je overený', 'Prosím, over svoju emailovú adresu.');
-          await auth().signOut();
-          await AsyncStorage.removeItem('@AuthToken');
-          return;
-        }
-
-        const idToken = await user.getIdToken();
-        await AsyncStorage.setItem('@AuthToken', idToken);
-        await fetch('http://10.0.2.2:3001/api/auth', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${idToken}`,
-            'X-Auth-Provider': 'email',
-            'Content-Type': 'application/json',
-          },
-        });
-
-        Alert.alert('Úspech', 'Prihlásenie úspešné');
+      if (!termsAccepted) {
+        Alert.alert('Chýbajúci súhlas', 'Pred pokračovaním musíš súhlasiť s podmienkami.');
+        return;
       }
+
+      if (password !== confirmPassword) {
+        Alert.alert('Heslá sa nezhodujú', 'Prosím, uisti sa, že heslá sú rovnaké.');
+        return;
+      }
+
+      const userCredential = await auth().createUserWithEmailAndPassword(email, password);
+      await userCredential.user.sendEmailVerification();
+      setShowSuccess(true);
     } catch (err: any) {
       console.error('❌ EmailAuth error:', err);
       Alert.alert('Chyba', err.message || 'Neznáma chyba');
     }
   };
 
+  const handleLoginLink = () => {
+    if (onNavigateToLogin) {
+      onNavigateToLogin();
+    } else if (onBack) {
+      onBack();
+    }
+  };
+
   return (
-    <View style={styles.overlay}>
+    <View style={styles.screen}>
       <LinearGradient
         colors={isDarkMode ? EMAIL_GRADIENT_DARK : EMAIL_GRADIENT_LIGHT}
         style={StyleSheet.absoluteFill}
       />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.centerContent}
-      >
-        <View style={styles.cardShadow}>
-          <View style={styles.cardSurface}>
-            <View style={styles.cardHeader}>
+      <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.flex}
+        >
+          <ScrollView
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.topBar}>
               {onBack && (
-                <TouchableOpacity onPress={onBack} style={styles.backPill}>
-                  <Text style={styles.backText}>← späť</Text>
+                <TouchableOpacity onPress={onBack} style={styles.backButton}>
+                  <Text style={styles.backIcon}>←</Text>
                 </TouchableOpacity>
               )}
-              <Text style={styles.cardTitle}>
-                {isRegistering ? 'Vytvor nový BrewMate účet' : 'Vitaj späť, kávičkár!'}
-              </Text>
-              <Text style={styles.cardSubtitle}>
-                {isRegistering
-                  ? 'Zaregistruj sa a nechaj si pripravovať personalizované tipy na mieru.'
-                  : 'Prihlás sa a pokračuj v objavovaní chuti tvojej kávy.'}
+              <View style={styles.progressDots}>
+                {[0, 1, 2].map((step) => (
+                  <View
+                    key={step}
+                    style={[styles.progressDot, step < 2 ? styles.progressDotActive : undefined]}
+                  />
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.hero}>
+              <Text style={styles.heroTitle}>Vytvor účet</Text>
+              <Text style={styles.heroSubtitle}>
+                Vitaj v BrewMate! Pridaj sa ku komunite kávičkárov.
               </Text>
             </View>
 
-            <View style={styles.segmentedControl}>
-              <TouchableOpacity
-                style={[styles.segmentButton, !isRegistering && styles.segmentButtonActive]}
-                onPress={() => setIsRegistering(false)}
-              >
-                <Text
-                  style={[styles.segmentLabel, !isRegistering && styles.segmentLabelActive]}
-                >
-                  Prihlásenie
+            {showSuccess && (
+              <View style={styles.successBanner}>
+                <Text style={styles.successTitle}>Účet vytvorený!</Text>
+                <Text style={styles.successMessage}>
+                  Skontroluj svoj email a potvrď registráciu.
                 </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.segmentButton, isRegistering && styles.segmentButtonActive]}
-                onPress={() => setIsRegistering(true)}
-              >
-                <Text
-                  style={[styles.segmentLabel, isRegistering && styles.segmentLabelActive]}
-                >
-                  Registrácia
-                </Text>
-              </TouchableOpacity>
+              </View>
+            )}
+
+            <View style={styles.formRow}>
+              <View style={styles.inputGroupHalf}>
+                <Text style={styles.inputLabel}>Meno</Text>
+                <TextInput
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  placeholder="Ján"
+                  style={styles.input}
+                  placeholderTextColor={
+                    isDarkMode ? 'rgba(244, 236, 230, 0.45)' : 'rgba(83, 54, 40, 0.38)'
+                  }
+                />
+              </View>
+              <View style={styles.inputGroupHalf}>
+                <Text style={styles.inputLabel}>Priezvisko</Text>
+                <TextInput
+                  value={lastName}
+                  onChangeText={setLastName}
+                  placeholder="Novák"
+                  style={styles.input}
+                  placeholderTextColor={
+                    isDarkMode ? 'rgba(244, 236, 230, 0.45)' : 'rgba(83, 54, 40, 0.38)'
+                  }
+                />
+              </View>
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Email</Text>
               <TextInput
-                placeholder="napr. barista@brew.coffee"
                 value={email}
                 onChangeText={setEmail}
+                placeholder="jan.novak@email.com"
                 style={styles.input}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                placeholderTextColor={isDarkMode ? 'rgba(244, 236, 230, 0.5)' : 'rgba(83, 54, 40, 0.42)'}
+                placeholderTextColor={
+                  isDarkMode ? 'rgba(244, 236, 230, 0.45)' : 'rgba(83, 54, 40, 0.38)'
+                }
               />
             </View>
+
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Heslo</Text>
               <TextInput
-                placeholder="min. 6 znakov"
                 value={password}
                 onChangeText={setPassword}
+                placeholder="Minimálne 8 znakov"
                 secureTextEntry
                 style={styles.input}
-                placeholderTextColor={isDarkMode ? 'rgba(244, 236, 230, 0.5)' : 'rgba(83, 54, 40, 0.42)'}
+                placeholderTextColor={
+                  isDarkMode ? 'rgba(244, 236, 230, 0.45)' : 'rgba(83, 54, 40, 0.38)'
+                }
+              />
+
+              <View style={styles.strengthWrapper}>
+                <View style={styles.strengthBars}>
+                  {(() => {
+                    const activeStyle =
+                      passwordStrength.level > 0
+                        ? strengthLevelStyles[Math.min(passwordStrength.level, 4) - 1]
+                        : undefined;
+                    return [0, 1, 2, 3].map((index) => (
+                      <View
+                        key={index}
+                        style={[styles.strengthBar, index < passwordStrength.level && activeStyle]}
+                      />
+                    ));
+                  })()}
+                </View>
+                <Text style={styles.strengthLabel}>{passwordStrength.label}</Text>
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Potvrď heslo</Text>
+              <TextInput
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="Zopakuj heslo"
+                secureTextEntry
+                style={styles.input}
+                placeholderTextColor={
+                  isDarkMode ? 'rgba(244, 236, 230, 0.45)' : 'rgba(83, 54, 40, 0.38)'
+                }
               />
             </View>
 
-            <TouchableOpacity onPress={handleAuth} activeOpacity={0.85}>
-              <LinearGradient
-                colors={isDarkMode ? CTA_GRADIENT_DARK : CTA_GRADIENT_LIGHT}
-                style={styles.button}
-              >
-                <Text style={styles.buttonText}>
-                  {isRegistering ? 'Vytvoriť účet' : 'Prihlásiť sa'}
-                </Text>
-              </LinearGradient>
+            <TouchableOpacity
+              onPress={() => setTermsAccepted(!termsAccepted)}
+              style={styles.termsCard}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.checkbox, termsAccepted && styles.checkboxChecked]}>
+                {termsAccepted && <Text style={styles.checkboxMark}>✓</Text>}
+              </View>
+              <Text style={styles.termsText}>
+                Súhlasím s <Text style={styles.linkText}>podmienkami používania</Text> a
+                <Text style={styles.linkText}> zásadami ochrany súkromia</Text>
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => setIsRegistering(!isRegistering)}
-              style={styles.secondaryLink}
+              onPress={handleAuth}
+              activeOpacity={0.85}
+              disabled={!canSubmit}
             >
-              <Text style={styles.secondaryLinkText}>
-                {isRegistering ? 'Už máš účet? Prihlás sa' : 'Nemáš účet? Zaregistruj sa'}
-              </Text>
+              <LinearGradient
+                colors={isDarkMode ? CTA_GRADIENT_DARK : CTA_GRADIENT_LIGHT}
+                style={[styles.button, !canSubmit && styles.buttonDisabled]}
+              >
+                <Text style={styles.buttonText}>Vytvoriť účet</Text>
+              </LinearGradient>
             </TouchableOpacity>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
+
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>alebo</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <View style={styles.socialRow}>
+              <TouchableOpacity style={styles.socialButton} activeOpacity={0.85}>
+                <Text style={styles.socialText}>Google</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.socialButton} activeOpacity={0.85}>
+                <Text style={styles.socialText}>Apple</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity onPress={handleLoginLink} style={styles.secondaryLink}>
+              <Text style={styles.secondaryLinkText}>Už máš účet? Prihlás sa</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </View>
   );
 };
 
 const createStyles = (colors: Colors, isDark: boolean) =>
   StyleSheet.create({
-    overlay: {
+    screen: {
       flex: 1,
-      justifyContent: 'center',
-      paddingHorizontal: 24,
-      paddingVertical: 32,
     },
-    centerContent: {
+    safeArea: {
       flex: 1,
-      justifyContent: 'center',
     },
-    cardShadow: {
-      borderRadius: 44,
-      padding: 1,
-      backgroundColor: 'rgba(255, 255, 255, 0.18)',
-      shadowColor: '#1A0D07',
-      shadowOffset: { width: 0, height: 32 },
-      shadowOpacity: 0.35,
-      shadowRadius: 45,
-      elevation: 34,
+    flex: {
+      flex: 1,
     },
-    cardSurface: {
-      borderRadius: 42,
-      backgroundColor: isDark ? 'rgba(28, 17, 12, 0.92)' : 'rgba(255, 252, 248, 0.94)',
-      paddingVertical: 28,
+    content: {
       paddingHorizontal: 24,
+      paddingBottom: 36,
       gap: 20,
     },
-    cardHeader: {
+    topBar: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    backButton: {
+      width: 42,
+      height: 42,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: isDark ? 'rgba(244, 236, 228, 0.12)' : 'rgba(60, 38, 27, 0.08)',
+    },
+    backIcon: {
+      fontSize: 20,
+      color: isDark ? '#F7F1EA' : '#3D2518',
+      fontWeight: '600',
+    },
+    progressDots: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    progressDot: {
+      width: 42,
+      height: 4,
+      borderRadius: 999,
+      backgroundColor: isDark ? 'rgba(244, 236, 228, 0.18)' : 'rgba(181, 130, 92, 0.28)',
+    },
+    progressDotActive: {
+      backgroundColor: isDark ? '#B87B46' : '#8E5B34',
+    },
+    hero: {
+      alignItems: 'flex-start',
+      gap: 8,
+      marginTop: 12,
+    },
+    heroTitle: {
+      fontSize: 32,
+      fontWeight: '800',
+      color: isDark ? '#F3E6D7' : '#4A2F18',
+    },
+    heroSubtitle: {
+      fontSize: 15,
+      lineHeight: 22,
+      color: isDark ? 'rgba(243, 230, 214, 0.7)' : 'rgba(74, 47, 24, 0.7)',
+    },
+    formRow: {
+      flexDirection: 'row',
       gap: 12,
     },
-    backPill: {
-      alignSelf: 'flex-start',
-      paddingHorizontal: 14,
-      paddingVertical: 6,
-      borderRadius: 999,
-      backgroundColor: isDark ? 'rgba(247, 241, 234, 0.08)' : 'rgba(60, 38, 27, 0.08)',
-    },
-    backText: {
-      color: isDark ? 'rgba(247, 241, 234, 0.86)' : 'rgba(61, 37, 26, 0.78)',
-      fontWeight: '500',
-      letterSpacing: 0.2,
-    },
-    cardTitle: {
-      fontSize: 24,
-      fontWeight: '700',
-      color: colors.text,
-    },
-    cardSubtitle: {
-      fontSize: 14,
-      lineHeight: 20,
-      color: colors.textSecondary,
-    },
-    segmentedControl: {
-      flexDirection: 'row',
-      padding: 4,
-      borderRadius: 999,
-      backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(93, 63, 45, 0.08)',
-      gap: 4,
-    },
-    segmentButton: {
+    inputGroupHalf: {
       flex: 1,
-      borderRadius: 999,
-      paddingVertical: 10,
-      alignItems: 'center',
-    },
-    segmentButtonActive: {
-      backgroundColor: isDark ? 'rgba(225, 200, 170, 0.24)' : 'rgba(181, 130, 92, 0.32)',
-      shadowColor: '#2A1309',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.16,
-      shadowRadius: 12,
-      elevation: 8,
-    },
-    segmentLabel: {
-      fontSize: 14,
-      color: isDark ? 'rgba(247, 241, 234, 0.58)' : 'rgba(70, 45, 32, 0.65)',
-      fontWeight: '500',
-    },
-    segmentLabelActive: {
-      color: isDark ? '#F7F1EA' : '#2F1B11',
-      fontWeight: '600',
+      gap: 6,
     },
     inputGroup: {
       gap: 6,
@@ -274,6 +382,54 @@ const createStyles = (colors: Colors, isDark: boolean) =>
       color: colors.text,
       fontSize: 16,
     },
+    successBanner: {
+      borderRadius: 20,
+      paddingVertical: 18,
+      paddingHorizontal: 20,
+      backgroundColor: isDark ? 'rgba(22, 163, 74, 0.18)' : 'rgba(209, 250, 229, 0.92)',
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(63, 196, 120, 0.4)' : 'rgba(21, 128, 61, 0.3)',
+      gap: 6,
+    },
+    successTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: isDark ? '#34D399' : '#047857',
+    },
+    successMessage: {
+      fontSize: 14,
+      color: isDark ? 'rgba(163, 230, 188, 0.75)' : '#166534',
+    },
+    strengthWrapper: {
+      marginTop: 10,
+      gap: 6,
+    },
+    strengthBars: {
+      flexDirection: 'row',
+      gap: 6,
+    },
+    strengthBar: {
+      flex: 1,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: isDark ? 'rgba(244, 236, 228, 0.18)' : 'rgba(206, 180, 149, 0.55)',
+    },
+    strengthLevel1: {
+      backgroundColor: '#DC2626',
+    },
+    strengthLevel2: {
+      backgroundColor: '#F59E0B',
+    },
+    strengthLevel3: {
+      backgroundColor: '#F59E0B',
+    },
+    strengthLevel4: {
+      backgroundColor: '#16A34A',
+    },
+    strengthLabel: {
+      fontSize: 12,
+      color: isDark ? 'rgba(243, 230, 214, 0.6)' : 'rgba(70, 45, 32, 0.6)',
+    },
     button: {
       borderRadius: 26,
       paddingVertical: 16,
@@ -284,27 +440,104 @@ const createStyles = (colors: Colors, isDark: boolean) =>
       shadowRadius: 22,
       elevation: 14,
     },
+    buttonDisabled: {
+      opacity: 0.6,
+    },
     buttonText: {
       color: '#FFFFFF',
       fontSize: 16,
       fontWeight: '600',
       letterSpacing: 0.3,
     },
+    divider: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    dividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: isDark ? 'rgba(243, 230, 214, 0.18)' : 'rgba(206, 180, 149, 0.6)',
+    },
+    dividerText: {
+      fontSize: 13,
+      color: isDark ? 'rgba(243, 230, 214, 0.65)' : 'rgba(88, 58, 36, 0.65)',
+      fontWeight: '500',
+    },
+    socialRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    socialButton: {
+      flex: 1,
+      paddingVertical: 14,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(243, 230, 214, 0.25)' : 'rgba(188, 158, 125, 0.6)',
+      alignItems: 'center',
+      backgroundColor: isDark ? 'rgba(35, 21, 14, 0.9)' : 'rgba(255, 255, 255, 0.92)',
+      shadowColor: '#2A1309',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.12,
+      shadowRadius: 12,
+      elevation: 10,
+    },
+    socialText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    termsCard: {
+      flexDirection: 'row',
+      gap: 12,
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      paddingVertical: 16,
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(244, 236, 228, 0.8)',
+      alignItems: 'center',
+    },
+    termsText: {
+      flex: 1,
+      fontSize: 13,
+      color: isDark ? 'rgba(244, 236, 228, 0.72)' : 'rgba(70, 45, 32, 0.75)',
+      lineHeight: 18,
+    },
+    linkText: {
+      color: isDark ? '#F7C48A' : '#A3693E',
+      fontWeight: '600',
+    },
+    checkbox: {
+      width: 20,
+      height: 20,
+      borderRadius: 6,
+      borderWidth: 2,
+      borderColor: isDark ? '#C18C5D' : '#B97A4A',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'transparent',
+    },
+    checkboxChecked: {
+      backgroundColor: isDark ? '#C18C5D' : '#B97A4A',
+    },
+    checkboxMark: {
+      color: '#FFF',
+      fontSize: 12,
+      fontWeight: '700',
+    },
     secondaryLink: {
       alignItems: 'center',
+      marginBottom: 16,
     },
     secondaryLinkText: {
       color: isDark ? 'rgba(247, 241, 234, 0.82)' : colors.primary,
       fontSize: 14,
       fontWeight: '500',
-      marginTop: 4,
     },
   });
 
-const EMAIL_GRADIENT_LIGHT = ['rgba(247, 239, 229, 0.96)', '#F0DFC8', '#DAB38A'];
+const EMAIL_GRADIENT_LIGHT = ['#F7EDE2', '#F0DFC8', '#DAB38A'];
 const EMAIL_GRADIENT_DARK = ['#24140D', '#1A0F0A', '#110805'];
 const CTA_GRADIENT_LIGHT = ['#8E5B34', '#B97A4A', '#DCA371'];
 const CTA_GRADIENT_DARK = ['#5A3B23', '#8D5A35', '#B87B46'];
 
 export default EmailAuth;
-
