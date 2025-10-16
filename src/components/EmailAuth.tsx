@@ -17,12 +17,20 @@ import LinearGradient from 'react-native-linear-gradient';
 
 interface EmailAuthProps {
   onBack?: () => void;
+  initialEmail?: string;
+  initialPassword?: string;
+  initialMode?: 'login' | 'register';
 }
 
-const EmailAuth: React.FC<EmailAuthProps> = ({ onBack }) => {
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+const EmailAuth: React.FC<EmailAuthProps> = ({
+  onBack,
+  initialEmail,
+  initialPassword,
+  initialMode = 'login',
+}) => {
+  const [isRegistering, setIsRegistering] = useState(initialMode === 'register');
+  const [email, setEmail] = useState(initialEmail ?? '');
+  const [password, setPassword] = useState(initialPassword ?? '');
   const isDarkMode = useColorScheme() === 'dark';
   const colors = getColors(isDarkMode);
   const styles = createStyles(colors, isDarkMode);

@@ -3,7 +3,6 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert, useColorScheme } from 
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import auth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import LinearGradient from 'react-native-linear-gradient';
 
 // Inicializácia konfigurácie Google Sign-In (vykoná sa raz pri importe)
 import '../config/googleSignin';
@@ -43,19 +42,19 @@ const GoogleLogin = () => {
   };
 
   return (
-    <TouchableOpacity accessibilityRole="button" activeOpacity={0.88} onPress={handleLogin}>
-      <LinearGradient
-        colors={isDarkMode ? GOOGLE_GRADIENT_DARK : GOOGLE_GRADIENT_LIGHT}
-        style={styles.button}
-      >
-        <View style={styles.iconSlot}>
-          <Text style={styles.iconLetter}>G</Text>
-        </View>
-        <View style={styles.textColumn}>
-          <Text style={styles.text}>Pokračovať s Google</Text>
-          <Text style={styles.helperText}>synchronizované s tvojím účtom</Text>
-        </View>
-      </LinearGradient>
+    <TouchableOpacity
+      accessibilityRole="button"
+      activeOpacity={0.9}
+      onPress={handleLogin}
+      style={styles.button}
+    >
+      <View style={styles.iconSlot}>
+        <Text style={styles.iconLetter}>G</Text>
+      </View>
+      <View style={styles.textColumn}>
+        <Text style={styles.text}>Pokračovať s Google</Text>
+        <Text style={styles.helperText}>synchronizované s tvojím účtom</Text>
+      </View>
     </TouchableOpacity>
   );
 };
@@ -63,50 +62,49 @@ const GoogleLogin = () => {
 const createStyles = (isDark: boolean) =>
   StyleSheet.create({
     button: {
-      borderRadius: 28,
-      paddingVertical: 16,
-      paddingHorizontal: 20,
+      borderRadius: 14,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 16,
-      shadowColor: '#1C0F0B',
-      shadowOffset: { width: 0, height: 12 },
-      shadowOpacity: 0.22,
-      shadowRadius: 18,
-      elevation: 14,
-      marginBottom: 4,
+      gap: 12,
+      backgroundColor: isDark ? 'rgba(32, 20, 14, 0.88)' : '#FFFFFF',
+      borderWidth: 2,
+      borderColor: isDark ? 'rgba(247, 241, 234, 0.12)' : '#E8D5C4',
+      shadowColor: '#2F1B11',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.18,
+      shadowRadius: 16,
+      elevation: 10,
     },
     iconSlot: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.24)',
+      width: 26,
+      height: 26,
+      borderRadius: 8,
+      backgroundColor: isDark ? 'rgba(247, 241, 234, 0.08)' : '#FFF8F4',
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.45)',
+      borderColor: isDark ? 'rgba(247, 241, 234, 0.2)' : 'rgba(200, 168, 130, 0.45)',
     },
     iconLetter: {
       fontWeight: '700',
-      color: '#FFFFFF',
-      fontSize: 18,
+      color: isDark ? '#F7F1EA' : '#EA4335',
+      fontSize: 16,
     },
     textColumn: {
       flex: 1,
     },
     text: {
-      color: '#FFFFFF',
-      fontSize: 16,
+      color: isDark ? '#F7F1EA' : '#2C1810',
+      fontSize: 15,
       fontWeight: '600',
     },
     helperText: {
       marginTop: 2,
-      color: isDark ? 'rgba(239, 231, 225, 0.78)' : 'rgba(255, 255, 255, 0.86)',
+      color: isDark ? 'rgba(247, 241, 234, 0.68)' : '#8B7355',
       fontSize: 12,
     },
   });
-
-const GOOGLE_GRADIENT_LIGHT = ['#8F5B34', '#C27E41', '#E8A165'];
-const GOOGLE_GRADIENT_DARK = ['#5C3B24', '#8E5A33', '#B77744'];
 
 export default GoogleLogin;
