@@ -44,14 +44,17 @@ const GoogleLogin = () => {
   return (
     <TouchableOpacity
       accessibilityRole="button"
-      activeOpacity={0.88}
+      activeOpacity={0.85}
       onPress={handleLogin}
       style={styles.button}
     >
       <View style={styles.iconSlot}>
         <Text style={styles.iconLetter}>G</Text>
       </View>
-      <Text style={styles.text}>Pokračovať s Google</Text>
+      <View style={styles.textColumn}>
+        <Text style={styles.text}>Pokračovať s Google</Text>
+        <Text style={styles.helperText}>synchronizované s tvojím účtom</Text>
+      </View>
     </TouchableOpacity>
   );
 };
@@ -59,41 +62,48 @@ const GoogleLogin = () => {
 const createStyles = (isDark: boolean) =>
   StyleSheet.create({
     button: {
-      borderRadius: 12,
+      borderRadius: 16,
       paddingVertical: 14,
       paddingHorizontal: 18,
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
       gap: 12,
       borderWidth: 2,
-      borderColor: isDark ? 'rgba(244, 236, 230, 0.18)' : '#E8D5C4',
+      borderColor: isDark ? 'rgba(244, 236, 230, 0.16)' : '#E8D5C4',
       backgroundColor: isDark ? 'rgba(26, 16, 11, 0.92)' : '#FFFFFF',
-      shadowColor: '#2A160D',
-      shadowOffset: { width: 0, height: 12 },
-      shadowOpacity: 0.18,
+      shadowColor: '#1F120C',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.16,
       shadowRadius: 18,
-      elevation: 12,
+      elevation: 10,
     },
     iconSlot: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : '#FFF8F4',
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(254, 247, 240, 0.9)',
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(139, 101, 68, 0.15)',
+      borderColor: isDark ? 'rgba(255, 255, 255, 0.24)' : 'rgba(139, 101, 68, 0.2)',
     },
     iconLetter: {
       fontWeight: '700',
-      color: '#4285F4',
+      color: isDark ? '#FFFFFF' : '#DB4437',
       fontSize: 18,
+    },
+    textColumn: {
+      flex: 1,
     },
     text: {
       color: isDark ? '#F7F1EA' : '#2C1810',
       fontSize: 15,
       fontWeight: '600',
+    },
+    helperText: {
+      marginTop: 2,
+      color: isDark ? 'rgba(247, 241, 234, 0.7)' : 'rgba(93, 78, 55, 0.7)',
+      fontSize: 12,
     },
   });
 
