@@ -47,6 +47,14 @@ const EmailAuth: React.FC<EmailAuthProps> = ({
     : 'rgba(93, 78, 55, 0.5)';
   const redirectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const handleReturnToLogin = () => {
+    if (onBack) {
+      onBack();
+    } else {
+      setIsRegistering(false);
+    }
+  };
+
   const resetRegisterForm = () => {
     setFirstName('');
     setLastName('');
@@ -185,39 +193,34 @@ const EmailAuth: React.FC<EmailAuthProps> = ({
   };
 
   return (
-    <View style={styles.overlay}>
-      <LinearGradient
-        colors={isDarkMode ? EMAIL_GRADIENT_DARK : EMAIL_GRADIENT_LIGHT}
-        style={StyleSheet.absoluteFill}
-      />
+    <View style={[styles.overlay, isRegistering && styles.registerOverlay]}>
+      {!isRegistering && (
+        <LinearGradient
+          colors={isDarkMode ? EMAIL_GRADIENT_DARK : EMAIL_GRADIENT_LIGHT}
+          style={StyleSheet.absoluteFill}
+        />
+      )}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.centerContent}
+        style={[styles.centerContent, isRegistering && styles.registerCenter]}
       >
         {isRegistering ? (
-          <View style={styles.registerWrapper}>
-            <View style={styles.phoneContainer}>
-              <View style={styles.statusBar}>
-                <Text style={styles.statusBarText}>9:41</Text>
-                <Text style={styles.statusBarText}>100%</Text>
-              </View>
-
-              <View style={styles.registerHeader}>
-                <TouchableOpacity
-                  style={styles.backButton}
-                  onPress={() =>
-                    onBack ? onBack() : setIsRegistering(false)
-                  }
-                >
-                  <Text style={styles.backIcon}>←</Text>
-                </TouchableOpacity>
-                <Text style={styles.registerTitle}>Vytvor účet</Text>
-              </View>
-
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.registerContent}
+          <View style={styles.registerScreen}>
+            <View style={styles.registerHeader}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={handleReturnToLogin}
               >
+                <Text style={styles.backIcon}>←</Text>
+              </TouchableOpacity>
+              <Text style={styles.registerTitle}>Vytvor účet</Text>
+            </View>
+
+            <ScrollView
+              style={styles.registerScroll}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.registerContent}
+            >
                 <View style={styles.stepsIndicator}>
                   <View style={[styles.stepBar, styles.stepBarActive]} />
                   <View style={[styles.stepBar, styles.stepBarActive]} />
@@ -386,7 +389,7 @@ const EmailAuth: React.FC<EmailAuthProps> = ({
                 </View>
 
                 <TouchableOpacity
-                  onPress={() => setIsRegistering(false)}
+                  onPress={handleReturnToLogin}
                   style={styles.loginRedirect}
                   activeOpacity={0.8}
                 >
@@ -395,8 +398,7 @@ const EmailAuth: React.FC<EmailAuthProps> = ({
                     <Text style={styles.loginLink}> Prihlás sa</Text>
                   </Text>
                 </TouchableOpacity>
-              </ScrollView>
-            </View>
+            </ScrollView>
           </View>
         ) : (
           <View style={styles.cardShadow}>
@@ -469,48 +471,30 @@ const createStyles = (colors: Colors, isDark: boolean) =>
       justifyContent: 'center',
       paddingHorizontal: 24,
       paddingVertical: 32,
+      backgroundColor: colors.background,
     },
     centerContent: {
       flex: 1,
       justifyContent: 'center',
     },
-    registerWrapper: {
+    registerOverlay: {
+      paddingHorizontal: 0,
+      paddingVertical: 0,
+    },
+    registerCenter: {
+      justifyContent: 'flex-start',
+    },
+    registerScreen: {
       flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingHorizontal: 16,
+      backgroundColor: colors.background,
     },
-    phoneContainer: {
-      width: 360,
-      maxWidth: '100%',
-      height: 700,
-      backgroundColor: isDark ? 'rgba(24, 14, 10, 0.92)' : '#FFFFFF',
-      borderRadius: 40,
-      overflow: 'hidden',
-      borderWidth: 1,
-      borderColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(168, 124, 82, 0.12)',
-      shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 24 },
-      shadowOpacity: 0.2,
-      shadowRadius: 40,
-      elevation: 24,
-    },
-    statusBar: {
-      height: 44,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: 24,
-      backgroundColor: isDark ? 'rgba(35, 23, 16, 0.8)' : 'rgba(255,255,255,0.88)',
-    },
-    statusBarText: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: isDark ? '#F7F1EA' : '#2C1810',
+    registerScroll: {
+      flex: 1,
     },
     registerHeader: {
       paddingHorizontal: 24,
-      paddingVertical: 16,
+      paddingTop: Platform.OS === 'ios' ? 60 : 40,
+      paddingBottom: 16,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 16,
@@ -535,7 +519,8 @@ const createStyles = (colors: Colors, isDark: boolean) =>
     },
     registerContent: {
       paddingHorizontal: 24,
-      paddingBottom: 32,
+      paddingTop: 16,
+      paddingBottom: 48,
       gap: 20,
     },
     stepsIndicator: {
