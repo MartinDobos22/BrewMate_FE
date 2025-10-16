@@ -1,5 +1,14 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, useColorScheme, Modal } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  useColorScheme,
+  Modal,
+  TextInput,
+  ScrollView,
+} from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import GoogleLogin from './GoogleAuth.tsx';
 import EmailAuth from './EmailAuth';
@@ -9,61 +18,209 @@ import { getColors, Colors } from '../theme/colors';
 const AuthScreen = () => {
   const [showEmailAuth, setShowEmailAuth] = useState(false);
   const [showAppleAuth, setShowAppleAuth] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [errorVisible, setErrorVisible] = useState(false);
+  const [emailAuthMode, setEmailAuthMode] = useState<'login' | 'register'>('login');
   const isDarkMode = useColorScheme() === 'dark';
   const colors = getColors(isDarkMode);
   const styles = createStyles(colors, isDarkMode);
+  const errorTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (errorTimeout.current) {
+        clearTimeout(errorTimeout.current);
+      }
+    };
+  }, []);
+
+  const triggerError = () => {
+    if (errorTimeout.current) {
+      clearTimeout(errorTimeout.current);
+    }
+    setErrorVisible(true);
+    errorTimeout.current = setTimeout(() => {
+      setErrorVisible(false);
+    }, 3000);
+  };
+
+  const handleLoginPress = () => {
+    if (!email.trim() || !password.trim()) {
+      triggerError();
+      return;
+    }
+
+    setErrorVisible(false);
+    setEmailAuthMode('login');
+    setShowEmailAuth(true);
+  };
+
+  const handleForgotPassword = () => {
+    setEmailAuthMode('login');
+    setShowEmailAuth(true);
+  };
+
+  const handleRegister = () => {
+    setEmailAuthMode('register');
+    setShowEmailAuth(true);
+  };
 
   return (
     <View style={styles.screen}>
       <LinearGradient
-        colors={isDarkMode ? COFFEE_GRADIENT_DARK : COFFEE_GRADIENT_LIGHT}
+        colors={isDarkMode ? BACKGROUND_GRADIENT_DARK : BACKGROUND_GRADIENT_LIGHT}
         style={StyleSheet.absoluteFill}
       />
-      <View style={styles.texture}>
-        <View style={styles.overlayBeanLarge} />
-        <View style={styles.overlayBeanSmall} />
-        <View style={styles.contentWrapper}>
-          <View style={styles.headerSurface}>
-            <Text style={styles.headline}>BrewMate</Text>
-            <Text style={styles.subtitle}>Tvoj barista asistent na každý dúšok</Text>
+      <View style={styles.backgroundPattern}>
+        <View style={styles.patternBubbleOne} />
+        <View style={styles.patternBubbleTwo} />
+        <View style={styles.patternBubbleThree} />
+      </View>
+
+      <View style={styles.centeringLayer}>
+        <View style={styles.phoneShell}>
+          <View style={styles.statusBar}>
+            <Text style={styles.statusText}>9:41</Text>
+            <Text style={styles.statusText}>100%</Text>
           </View>
 
-          <View style={styles.authCard}>
-            <Text style={styles.cardTitle}>Prihlás sa a pokračuj v objavovaní</Text>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.logoSection}>
+              <LinearGradient
+                colors={isDarkMode ? BADGE_GRADIENT_DARK : BADGE_GRADIENT_LIGHT}
+                style={styles.logoBadge}
+              >
+                <Text style={styles.logoEmoji}>☕</Text>
+              </LinearGradient>
+              <Text style={styles.appTitle}>BrewMate</Text>
+              <Text style={styles.appTagline}>Tvoj barista vo vrecku</Text>
+            </View>
 
-            <GoogleLogin />
+            {errorVisible && (
+              <View style={styles.errorMessage}>
+                <Text style={styles.errorText}>Nesprávny email alebo heslo</Text>
+              </View>
+            )}
 
-            <TouchableOpacity
-              accessibilityRole="button"
-              style={[styles.actionButton, styles.emailButton]}
-              onPress={() => setShowEmailAuth(true)}
-            >
-              <Text style={styles.actionButtonLabel}>Prihlásiť emailom</Text>
-              <Text style={styles.actionButtonHelper}>bezpečne a jednoducho</Text>
-            </TouchableOpacity>
+            <View style={styles.formSection}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Email</Text>
+                <TextInput
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  placeholder="tvoj@email.com"
+                  placeholderTextColor={isDarkMode ? 'rgba(248, 240, 232, 0.4)' : 'rgba(92, 67, 48, 0.5)'}
+                  style={styles.inputField}
+                />
+              </View>
 
-            <TouchableOpacity
-              accessibilityRole="button"
-              style={[styles.actionButton, styles.appleButton]}
-              onPress={() => setShowAppleAuth(true)}
-            >
-              <Text style={styles.actionButtonLabel}>Pokračovať s Apple</Text>
-              <Text style={styles.actionButtonHelper}>pre používateľov iOS</Text>
-            </TouchableOpacity>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Heslo</Text>
+                <View style={styles.passwordWrapper}>
+                  <TextInput
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    placeholder="••••••••"
+                    placeholderTextColor={isDarkMode ? 'rgba(248, 240, 232, 0.4)' : 'rgba(92, 67, 48, 0.5)'}
+                    style={[styles.inputField, styles.passwordInput]}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowPassword((prev) => !prev)}
+                    style={styles.passwordToggle}
+                    accessibilityLabel={showPassword ? 'Skryť heslo' : 'Zobraziť heslo'}
+                  >
+                    <Text style={styles.passwordToggleText}>{showPassword ? '👁‍🗨' : '👁'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
 
-            <Text style={styles.footerText}>
-              Vyber si spôsob prihlásenia, ktorý ti najviac chutí.
-            </Text>
-          </View>
+              <View style={styles.formOptions}>
+                <TouchableOpacity
+                  style={styles.checkboxRow}
+                  onPress={() => setRememberMe((prev) => !prev)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.checkboxBox, rememberMe && styles.checkboxBoxChecked]}>
+                    {rememberMe && <Text style={styles.checkboxCheck}>✓</Text>}
+                  </View>
+                  <Text style={styles.checkboxLabel}>Zapamätať si ma</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleForgotPassword} activeOpacity={0.7}>
+                  <Text style={styles.forgotLink}>Zabudnuté heslo?</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                accessibilityRole="button"
+                activeOpacity={0.9}
+                onPress={handleLoginPress}
+              >
+                <LinearGradient
+                  colors={isDarkMode ? PRIMARY_GRADIENT_DARK : PRIMARY_GRADIENT_LIGHT}
+                  style={styles.primaryButton}
+                >
+                  <Text style={styles.primaryButtonText}>Prihlásiť sa</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>alebo pokračuj cez</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <View style={styles.socialButtons}>
+              <View style={styles.socialButtonWrapper}>
+                <GoogleLogin />
+              </View>
+              <TouchableOpacity
+                accessibilityRole="button"
+                activeOpacity={0.88}
+                style={[styles.socialButtonSurface, styles.appleButtonSurface]}
+                onPress={() => setShowAppleAuth(true)}
+              >
+                <View style={styles.socialIconSlot}>
+                  <Text style={styles.socialIcon}></Text>
+                </View>
+                <Text style={styles.socialLabel}>Pokračovať s Apple</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.signupSection}>
+              <Text style={styles.signupText}>
+                Nemáš účet?
+                <Text style={styles.signupLink} onPress={handleRegister}> Zaregistruj sa</Text>
+              </Text>
+            </View>
+          </ScrollView>
         </View>
       </View>
 
-      <Modal visible={showEmailAuth} animationType="fade" transparent>
-        <EmailAuth onBack={() => setShowEmailAuth(false)} />
-      </Modal>
-      <Modal visible={showAppleAuth} animationType="fade" transparent>
-        <AppleAuth onBack={() => setShowAppleAuth(false)} />
-      </Modal>
+      {showEmailAuth && (
+        <Modal visible animationType="fade" transparent>
+          <EmailAuth
+            initialEmail={email}
+            initialPassword={password}
+            initialMode={emailAuthMode}
+            onBack={() => setShowEmailAuth(false)}
+          />
+        </Modal>
+      )}
+      {showAppleAuth && (
+        <Modal visible animationType="fade" transparent>
+          <AppleAuth onBack={() => setShowAppleAuth(false)} />
+        </Modal>
+      )}
     </View>
   );
 };
@@ -74,125 +231,292 @@ const createStyles = (colors: Colors, isDark: boolean) =>
       flex: 1,
       backgroundColor: colors.background,
     },
-    texture: {
-      flex: 1,
-      paddingHorizontal: 24,
-      paddingTop: 80,
-      paddingBottom: 40,
+    backgroundPattern: {
+      ...StyleSheet.absoluteFillObject,
+      overflow: 'hidden',
     },
-    overlayBeanLarge: {
+    patternBubbleOne: {
       position: 'absolute',
-      top: -40,
-      right: -80,
-      width: 240,
-      height: 240,
-      borderRadius: 120,
-      backgroundColor: isDark ? 'rgba(80, 45, 26, 0.35)' : 'rgba(201, 158, 111, 0.32)',
-      transform: [{ rotate: '-12deg' }],
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 24 },
-      shadowOpacity: 0.18,
-      shadowRadius: 32,
-      elevation: 24,
-    },
-    overlayBeanSmall: {
-      position: 'absolute',
-      bottom: -60,
+      top: -60,
       left: -40,
-      width: 180,
-      height: 180,
-      borderRadius: 90,
-      backgroundColor: isDark ? 'rgba(51, 29, 18, 0.38)' : 'rgba(151, 94, 61, 0.28)',
-      transform: [{ rotate: '18deg' }],
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 18 },
-      shadowOpacity: 0.16,
-      shadowRadius: 28,
-      elevation: 20,
+      width: 220,
+      height: 220,
+      borderRadius: 110,
+      backgroundColor: isDark ? 'rgba(96, 60, 36, 0.32)' : 'rgba(212, 165, 116, 0.18)',
+      transform: [{ rotate: '-10deg' }],
     },
-    contentWrapper: {
+    patternBubbleTwo: {
+      position: 'absolute',
+      bottom: -80,
+      right: -50,
+      width: 260,
+      height: 260,
+      borderRadius: 130,
+      backgroundColor: isDark ? 'rgba(58, 36, 24, 0.45)' : 'rgba(107, 68, 35, 0.18)',
+      transform: [{ rotate: '16deg' }],
+    },
+    patternBubbleThree: {
+      position: 'absolute',
+      top: '45%',
+      right: -120,
+      width: 300,
+      height: 300,
+      borderRadius: 150,
+      backgroundColor: isDark ? 'rgba(28, 17, 12, 0.45)' : 'rgba(245, 230, 211, 0.22)',
+      transform: [{ rotate: '-32deg' }],
+    },
+    centeringLayer: {
       flex: 1,
-      justifyContent: 'space-between',
-    },
-    headerSurface: {
-      backgroundColor: isDark ? 'rgba(24, 13, 9, 0.48)' : 'rgba(255, 255, 255, 0.68)',
-      borderRadius: 36,
       padding: 24,
-      marginBottom: 32,
-      shadowColor: '#2A140C',
-      shadowOffset: { width: 0, height: 16 },
-      shadowOpacity: 0.18,
-      shadowRadius: 24,
-      elevation: 18,
+      justifyContent: 'center',
+      alignItems: 'center',
     },
-    headline: {
-      fontSize: 34,
-      fontWeight: '700',
-      color: colors.text,
-      textAlign: 'center',
-      marginBottom: 8,
-    },
-    subtitle: {
-      fontSize: 16,
-      textAlign: 'center',
-      color: isDark ? 'rgba(244, 236, 230, 0.86)' : 'rgba(70, 44, 34, 0.72)',
-    },
-    authCard: {
-      backgroundColor: isDark ? 'rgba(32, 19, 13, 0.72)' : 'rgba(255, 253, 250, 0.92)',
-      borderRadius: 40,
-      paddingHorizontal: 24,
-      paddingVertical: 28,
-      gap: 16,
-      shadowColor: '#311A12',
-      shadowOffset: { width: 0, height: 20 },
+    phoneShell: {
+      width: '100%',
+      maxWidth: 380,
+      backgroundColor: isDark ? 'rgba(20, 12, 8, 0.82)' : '#FFFFFF',
+      borderRadius: 38,
+      overflow: 'hidden',
+      shadowColor: '#2F1B11',
+      shadowOffset: { width: 0, height: 30 },
       shadowOpacity: 0.22,
-      shadowRadius: 30,
-      elevation: 24,
+      shadowRadius: 45,
+      elevation: 30,
     },
-    cardTitle: {
-      fontSize: 20,
-      fontWeight: '600',
-      color: colors.text,
-      textAlign: 'center',
-      marginBottom: 8,
-    },
-    actionButton: {
-      borderRadius: 28,
-      paddingVertical: 16,
+    statusBar: {
+      height: 46,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
       paddingHorizontal: 20,
-      backgroundColor: 'rgba(255, 255, 255, 0.88)',
-      shadowColor: '#2E1205',
-      shadowOffset: { width: 0, height: 12 },
-      shadowOpacity: 0.16,
-      shadowRadius: 18,
-      elevation: 12,
+      backgroundColor: isDark ? 'rgba(32, 20, 14, 0.88)' : 'rgba(255, 255, 255, 0.82)',
     },
-    emailButton: {
-      backgroundColor: isDark ? 'rgba(86, 49, 29, 0.68)' : 'rgba(227, 198, 167, 0.92)',
-    },
-    appleButton: {
-      backgroundColor: isDark ? 'rgba(18, 11, 9, 0.72)' : 'rgba(54, 37, 28, 0.9)',
-    },
-    actionButtonLabel: {
-      fontSize: 16,
+    statusText: {
+      color: isDark ? 'rgba(247, 241, 234, 0.8)' : '#3C2618',
       fontWeight: '600',
-      color: isDark ? '#F7F1EA' : '#2F1B11',
-    },
-    actionButtonHelper: {
-      fontSize: 12,
-      marginTop: 4,
-      color: isDark ? 'rgba(247, 241, 234, 0.72)' : 'rgba(47, 27, 17, 0.68)',
-    },
-    footerText: {
-      marginTop: 4,
-      textAlign: 'center',
       fontSize: 13,
-      color: isDark ? 'rgba(250, 240, 232, 0.7)' : 'rgba(72, 45, 35, 0.6)',
+    },
+    scrollContent: {
+      paddingHorizontal: 24,
+      paddingBottom: 32,
+      gap: 24,
+    },
+    logoSection: {
+      marginTop: 12,
+      alignItems: 'center',
+      gap: 14,
+    },
+    logoBadge: {
+      width: 96,
+      height: 96,
+      borderRadius: 28,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#6B4423',
+      shadowOffset: { width: 0, height: 16 },
+      shadowOpacity: 0.28,
+      shadowRadius: 24,
+      elevation: 16,
+    },
+    logoEmoji: {
+      fontSize: 46,
+    },
+    appTitle: {
+      fontSize: 28,
+      fontWeight: '800',
+      letterSpacing: -0.4,
+      color: isDark ? '#F4E8DC' : '#4A2F18',
+    },
+    appTagline: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: isDark ? 'rgba(250, 240, 232, 0.7)' : '#8B7355',
+    },
+    errorMessage: {
+      borderRadius: 12,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      backgroundColor: isDark ? 'rgba(164, 48, 48, 0.25)' : '#FEE2E2',
+      borderLeftWidth: 4,
+      borderLeftColor: '#DC2626',
+    },
+    errorText: {
+      color: isDark ? '#FEE2E2' : '#B91C1C',
+      fontSize: 14,
+      fontWeight: '500',
+    },
+    formSection: {
+      gap: 18,
+    },
+    inputGroup: {
+      gap: 8,
+    },
+    inputLabel: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: isDark ? 'rgba(247, 241, 234, 0.82)' : '#5D4E37',
+    },
+    inputField: {
+      borderRadius: 14,
+      borderWidth: 2,
+      borderColor: isDark ? 'rgba(255,255,255,0.08)' : '#F0DFCD',
+      backgroundColor: isDark ? 'rgba(32, 20, 14, 0.85)' : '#FFF8F4',
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      fontSize: 15,
+      color: isDark ? '#F7F1EA' : '#2C1810',
+    },
+    passwordWrapper: {
+      position: 'relative',
+      justifyContent: 'center',
+    },
+    passwordInput: {
+      paddingRight: 46,
+    },
+    passwordToggle: {
+      position: 'absolute',
+      right: 14,
+      top: 0,
+      bottom: 0,
+      justifyContent: 'center',
+    },
+    passwordToggleText: {
+      fontSize: 18,
+      color: isDark ? 'rgba(247, 241, 234, 0.6)' : '#8B7355',
+    },
+    formOptions: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    checkboxRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    checkboxBox: {
+      width: 20,
+      height: 20,
+      borderRadius: 6,
+      borderWidth: 1.5,
+      borderColor: isDark ? 'rgba(247, 241, 234, 0.35)' : '#C8A882',
+      backgroundColor: isDark ? 'transparent' : '#FFFFFF',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    checkboxBoxChecked: {
+      backgroundColor: isDark ? '#D4A574' : '#C8A882',
+      borderColor: isDark ? '#D4A574' : '#C8A882',
+    },
+    checkboxCheck: {
+      color: isDark ? '#1D120D' : '#FFFFFF',
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    checkboxLabel: {
+      fontSize: 14,
+      color: isDark ? 'rgba(247, 241, 234, 0.8)' : '#5D4E37',
+      fontWeight: '500',
+    },
+    forgotLink: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: isDark ? '#F5D4A8' : '#A67C52',
+    },
+    primaryButton: {
+      borderRadius: 14,
+      paddingVertical: 16,
+      alignItems: 'center',
+      shadowColor: '#6B4423',
+      shadowOffset: { width: 0, height: 14 },
+      shadowOpacity: 0.28,
+      shadowRadius: 18,
+      elevation: 16,
+    },
+    primaryButtonText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '700',
+      letterSpacing: 0.2,
+    },
+    divider: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    dividerLine: {
+      flex: 1,
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: isDark ? 'rgba(247, 241, 234, 0.18)' : '#E8D5C4',
+    },
+    dividerText: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: isDark ? 'rgba(247, 241, 234, 0.68)' : '#8B7355',
+    },
+    socialButtons: {
+      gap: 12,
+    },
+    socialButtonWrapper: {
+      borderRadius: 14,
+      overflow: 'hidden',
+    },
+    socialButtonSurface: {
+      borderRadius: 14,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      backgroundColor: isDark ? 'rgba(32, 20, 14, 0.88)' : '#FFFFFF',
+      borderWidth: 2,
+      borderColor: isDark ? 'rgba(247, 241, 234, 0.12)' : '#E8D5C4',
+      shadowColor: '#2F1B11',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.16,
+      shadowRadius: 16,
+      elevation: 10,
+    },
+    appleButtonSurface: {
+      backgroundColor: isDark ? 'rgba(32, 20, 14, 0.9)' : '#FFFFFF',
+    },
+    socialIconSlot: {
+      width: 26,
+      height: 26,
+      borderRadius: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: isDark ? 'rgba(247, 241, 234, 0.08)' : '#FFF8F4',
+    },
+    socialIcon: {
+      fontSize: 16,
+      color: isDark ? '#F7F1EA' : '#2C1810',
+    },
+    socialLabel: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: isDark ? '#F7F1EA' : '#2C1810',
+    },
+    signupSection: {
+      paddingTop: 8,
+      alignItems: 'center',
+    },
+    signupText: {
+      fontSize: 14,
+      color: isDark ? 'rgba(247, 241, 234, 0.68)' : '#5D4E37',
+    },
+    signupLink: {
+      color: isDark ? '#F5D4A8' : '#A67C52',
+      fontWeight: '600',
     },
   });
 
-const COFFEE_GRADIENT_LIGHT = ['#F7F1E8', '#F0E0D0', '#E2C5A7'];
-const COFFEE_GRADIENT_DARK = ['#2B1A12', '#1D120C', '#150B07'];
+const BACKGROUND_GRADIENT_LIGHT = ['#F5E6D3', '#E8D5C4', '#D4A574'];
+const BACKGROUND_GRADIENT_DARK = ['#1F120B', '#2C1A10', '#4A2F18'];
+const BADGE_GRADIENT_LIGHT = ['#A67C52', '#D4A574'];
+const BADGE_GRADIENT_DARK = ['#4A2F18', '#8B6544'];
+const PRIMARY_GRADIENT_LIGHT = ['#6B4423', '#A67C52'];
+const PRIMARY_GRADIENT_DARK = ['#E8B57A', '#C8935B'];
 
 export default AuthScreen;
 
