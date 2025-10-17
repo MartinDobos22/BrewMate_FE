@@ -1,6 +1,6 @@
 // HomeScreen.styles.ts
 import { StyleSheet, Platform } from 'react-native';
-import { scale, verticalScale } from '../../theme/responsive';
+import { scale, verticalScale } from '../../../theme/responsive';
 
 const palette = {
   coffeeBlack: '#1A0F08',

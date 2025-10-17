@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Defs, Line, LinearGradient, Polygon, Stop, Text as SvgText } from 'react-native-svg';
-import { homeStyles } from './styles/HomeScreen.styles';
-import { TasteRadarScores } from '../utils/tasteProfile';
+import { homeStyles } from '../styles';
+import { TasteRadarScores } from '../../../utils/tasteProfile';
 
 interface TasteProfileRadarCardProps {
   scores: TasteRadarScores | null;
