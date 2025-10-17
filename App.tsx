@@ -14,15 +14,15 @@ import AuthScreen from './src/components/AuthVisual.tsx';
 import HomeScreen from './src/screens/HomeScreen';
 import CoffeeTasteScanner from './src/screens/CoffeeTasteScanner';
 import CoffeeReceipeScanner from './src/screens/CoffeeReceipeScanner';
-import AllCoffeesScreen from './src/components/AllCoffeesScreen';
+import AllCoffeesScreen from './src/screens/AllCoffeesScreen';
 import AIChatScreen from './src/screens/AIChatScreen';
 import UserProfile from './src/screens/UserProfile';
 import GamificationScreen from './src/screens/GamificationScreen';
 import EditUserProfile from './src/components/EditUserProfile';
 import CoffeePreferenceForm from './src/components/CoffeePreferenceForm';
 import EditPreferences from './src/components/EditPreferences';
-import RecipeStepsScreen from './src/components/RecipeStepsScreen';
-import OnboardingScreen from './src/components/OnboardingScreen';
+import RecipeStepsScreen from './src/screens/RecipeStepsScreen';
+import OnboardingScreen from './src/screens/OnboardingScreen';
 import PersonalizationOnboarding, {
   PersonalizationResult,
 } from './src/components/PersonalizationOnboarding';
@@ -34,7 +34,7 @@ import BrewLogForm from './src/components/BrewLogForm';
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 import { scale } from './src/theme/responsive';
 import ResponsiveWrapper from './src/components/ResponsiveWrapper';
-import SavedRecipesScreen from './src/components/SavedRecipesScreen';
+import SavedRecipesScreen from './src/screens/SavedRecipesScreen';
 import TasteProfileQuizScreen from './src/screens/TasteProfileQuizScreen';
 import BottomNav from './src/components/BottomNav';
 import { scheduleLowStockCheck } from './src/utils/reminders';
