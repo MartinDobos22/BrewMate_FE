@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, FlatList, StyleSheet, Modal, Animated } from 'react-native';
+import { View, Text, FlatList, Modal, Animated } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { badges, Badge } from '../data/badges';
-import { getUserProgress, UserProgress } from '../services/profileServices';
+import { badges, Badge } from '../../data/badges';
+import { getUserProgress, UserProgress } from './services';
+import { styles } from './styles';
 
 const GamificationScreen: React.FC = () => {
   const [progress, setProgress] = useState<UserProgress | null>(null);
@@ -31,7 +32,7 @@ const GamificationScreen: React.FC = () => {
   const renderBadge = ({ item }: { item: Badge }) => {
     const isUnlocked = unlocked.includes(item.id);
     return (
-      <View style={[styles.badge, { opacity: isUnlocked ? 1 : 0.3 }]}> 
+      <View style={[styles.badge, { opacity: isUnlocked ? 1 : 0.3 }]}>
         <Text style={styles.badgeIcon}>{item.icon}</Text>
         <Text style={styles.badgeText}>{item.title}</Text>
       </View>
@@ -67,21 +68,5 @@ const GamificationScreen: React.FC = () => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
-  levelText: { fontSize: 18, marginBottom: 10, textAlign: 'center' },
-  progressBar: { height: 10, backgroundColor: '#eee', borderRadius: 5, overflow: 'hidden', marginBottom: 20 },
-  progressFill: { height: '100%', backgroundColor: '#6B4423' },
-  badgeGrid: { alignItems: 'center' },
-  badge: { width: '30%', margin: '1.5%', alignItems: 'center' },
-  badgeIcon: { fontSize: 32 },
-  badgeText: { fontSize: 12, textAlign: 'center', marginTop: 4 },
-  modalBackdrop: { flex:1, backgroundColor:'rgba(0,0,0,0.5)', justifyContent:'center', alignItems:'center' },
-  modalContent: { backgroundColor:'#fff', padding:30, borderRadius:10, alignItems:'center' },
-  modalEmoji: { fontSize:48, marginBottom:10 },
-  modalText: { fontSize:20, fontWeight:'bold', marginBottom:10 },
-  modalBadgeTitle: { fontSize:16 },
-});
 
 export default GamificationScreen;
