@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
 import { Text, TouchableOpacity, Alert } from 'react-native';
-import CoffeeTasteScanner from '../src/components/CoffeeTasteScanner';
+import CoffeeTasteScanner from '../src/screens/CoffeeTasteScanner';
 
 jest.mock('@react-native-community/netinfo', () => ({
   __esModule: true,
