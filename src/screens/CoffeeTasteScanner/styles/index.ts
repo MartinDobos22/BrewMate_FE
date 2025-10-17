@@ -1,1 +1,1 @@
-export * from './ProfessionalOCRScanner.styles';
+export * from './ProfessionalOCRScannerStyles';
