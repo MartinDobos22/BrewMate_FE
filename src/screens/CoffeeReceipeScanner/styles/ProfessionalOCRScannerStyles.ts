@@ -1,4 +1,4 @@
-// ProfessionalOCRScanner.styles.ts - BrewMate Material-inspired design
+// ProfessionalOCRScannerStyles.ts - BrewMate Material-inspired design
 import { StyleSheet, Platform } from 'react-native';
 
 const palette = {
