@@ -25,7 +25,7 @@ import {
 import { launchImageLibrary, ImagePickerResponse, ImageLibraryOptions } from 'react-native-image-picker';
 import RNFS from 'react-native-fs';
 import NetInfo from '@react-native-community/netinfo';
-import { scannerStyles } from './styles/ProfessionalOCRScanner.styles';
+import { scannerStyles } from './styles';
 import {
   processOCR,
   fetchOCRHistory,
@@ -33,17 +33,19 @@ import {
   markCoffeePurchased,
   extractCoffeeName,
   rateOCRResult,
-} from '../services/ocrServices.ts';
-import { incrementProgress } from '../services/profileServices';
-import { saveOCRResult, loadOCRResult } from '../services/offlineCache';
-import { addRecentScan } from '../services/coffeeServices.ts';
-import { coffeeDiary as fallbackCoffeeDiary, preferenceEngine } from '../services/personalizationGateway';
-import { BrewContext } from '../types/Personalization';
-import { usePersonalization } from '../hooks/usePersonalization';
-import { recognizeCoffee } from '../offline/VisionService';
-import { coffeeOfflineManager, offlineSync } from '../offline';
-import { toggleFavorite } from '../services/homePagesService';
-import { showToast } from '../utils/toast';
+  incrementProgress,
+  saveOCRResult,
+  loadOCRResult,
+  addRecentScan,
+  fallbackCoffeeDiary,
+  preferenceEngine,
+  toggleFavorite,
+} from './services';
+import { BrewContext } from '../../types/Personalization';
+import { usePersonalization } from '../../hooks/usePersonalization';
+import { recognizeCoffee } from '../../offline/VisionService';
+import { coffeeOfflineManager, offlineSync } from '../../offline';
+import { showToast } from '../../utils/toast';
 
 interface OCRHistory {
   id: string;
