@@ -2,7 +2,7 @@ import React, { useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Svg, { Circle, Line, Polygon, Text as SvgText } from 'react-native-svg';
 import Animated, { useAnimatedProps, useSharedValue, withTiming } from 'react-native-reanimated';
-import { TasteProfileVector, TasteDimension } from '../types/Personalization';
+import { TasteProfileVector, TasteDimension } from '../../types/Personalization';
 
 const AnimatedPolygon = Animated.createAnimatedComponent(Polygon);
 

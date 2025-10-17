@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { BrewLog } from '../types/BrewLog';
-import { BrewDevice, BREW_DEVICES } from '../types/Recipe';
-import { saveBrewLog } from '../services/brewLogService';
+import { BrewLog } from '../../types/BrewLog';
+import { BrewDevice, BREW_DEVICES } from '../../types/Recipe';
+import { saveBrewLog } from '../../services/brewLogService';
 
 interface Props {
   recipeId?: string;

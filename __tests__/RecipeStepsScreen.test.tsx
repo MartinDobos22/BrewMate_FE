@@ -2,7 +2,7 @@ import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
 import RecipeStepsScreen from '../src/screens/RecipeStepsScreen';
 import { ThemeProvider } from '../src/theme/ThemeProvider';
-import Timer from '../src/components/Timer';
+import Timer from '../src/components/recipes/Timer';
 
 test('renders recipe steps', () => {
   ReactTestRenderer.create(

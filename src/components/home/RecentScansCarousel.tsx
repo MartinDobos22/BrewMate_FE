@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Image, FlatList, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { RecentScan } from '../services/coffeeServices';
+import { RecentScan } from '../../services/coffeeServices';
 
 interface Props {
   scans: RecentScan[];

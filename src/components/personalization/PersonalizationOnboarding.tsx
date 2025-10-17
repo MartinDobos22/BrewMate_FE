@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { TasteDimension } from '../types/Personalization';
+import { TasteDimension } from '../../types/Personalization';
 
 interface OnboardingOption {
   label: string;

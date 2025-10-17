@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { BOTTOM_NAV_HEIGHT } from '../../../components/BottomNav';
+import { BOTTOM_NAV_HEIGHT } from '../../../components/navigation/BottomNav';
 import { getSafeAreaBottom, getSafeAreaTop, scale, verticalScale } from '../../../components/utils/safeArea';
 
 export const palette = {

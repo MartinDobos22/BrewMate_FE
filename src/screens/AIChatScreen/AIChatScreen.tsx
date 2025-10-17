@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import BottomNav, { BOTTOM_NAV_HEIGHT } from '../../components/BottomNav';
+import BottomNav, { BOTTOM_NAV_HEIGHT } from '../../components/navigation/BottomNav';
 import { useTheme } from '../../theme/ThemeProvider';
 import { CONFIG } from '../../config/config';
 import { BrewDevice, BREW_DEVICES } from '../../types/Recipe';

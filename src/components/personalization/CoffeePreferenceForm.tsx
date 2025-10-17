@@ -12,10 +12,10 @@ import {
   useColorScheme,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
-import { getColors } from '../theme/colors';
+import { getColors } from '../../theme/colors';
 import AIResponseDisplay from './AIResponseDisplay';
-import { CONFIG } from '../config/config';
-import { BOTTOM_NAV_HEIGHT } from './BottomNav';
+import { CONFIG } from '../../config/config';
+import { BOTTOM_NAV_HEIGHT } from '../navigation/BottomNav';
 
 const OPENAI_API_KEY = CONFIG.OPENAI_API_KEY;
 

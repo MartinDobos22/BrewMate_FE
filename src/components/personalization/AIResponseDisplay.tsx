@@ -16,7 +16,7 @@ import {
   Highlight,
   RecipeStep,
   FormattedRecommendation
-} from './utils/AITextFormatter.ts';
+} from '../utils/AITextFormatter.ts';
 
 interface AIResponseDisplayProps {
   text: string;

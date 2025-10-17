@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, ActivityIndicator } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { Recipe, BrewDevice, BREW_DEVICES } from '../types/Recipe';
-import { createRecipe } from '../services/recipeServices';
+import { Recipe, BrewDevice, BREW_DEVICES } from '../../types/Recipe';
+import { createRecipe } from '../../services/recipeServices';
 
 interface RecipeFormProps {
   onClose: () => void;

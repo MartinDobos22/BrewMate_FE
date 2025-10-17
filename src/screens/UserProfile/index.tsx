@@ -14,8 +14,8 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import Svg, { Circle, Defs, Line, LinearGradient as SvgLinearGradient, Polygon, Stop, Text as SvgText } from 'react-native-svg';
 import auth from '@react-native-firebase/auth';
-import { AIResponseDisplay } from '../../components/AIResponseDisplay';
-import BottomNav from '../../components/BottomNav';
+import { AIResponseDisplay } from '../../components/personalization/AIResponseDisplay';
+import BottomNav from '../../components/navigation/BottomNav';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePersonalization } from '../../hooks/usePersonalization';
 import {

@@ -8,7 +8,7 @@ import {
   Text,
   StyleSheet,
 } from 'react-native';
-import { getSafeAreaTop, getSafeAreaBottom } from './utils/safeArea.ts';
+import { getSafeAreaTop, getSafeAreaBottom } from '../utils/safeArea.ts';
 
 interface ResponsiveWrapperProps {
   children: React.ReactNode;

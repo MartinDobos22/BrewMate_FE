@@ -4,8 +4,8 @@
 
 import React from 'react';
 import TestRenderer, { act, ReactTestRenderer as ReactRendererInstance } from 'react-test-renderer';
-import PersonalizationOnboarding from '../src/components/PersonalizationOnboarding';
-import type { PersonalizationResult } from '../src/components/PersonalizationOnboarding';
+import PersonalizationOnboarding from '../src/components/personalization/PersonalizationOnboarding';
+import type { PersonalizationResult } from '../src/components/personalization/PersonalizationOnboarding';
 
 const mockAsyncStorage = {
   getItem: jest.fn(() => Promise.resolve(null)),

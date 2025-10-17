@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
-import { timerStyles } from './styles/Timer.styles';
+import { timerStyles } from '../styles/Timer.styles';
 
 interface TimerProps {
   seconds: number;
