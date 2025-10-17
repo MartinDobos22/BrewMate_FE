@@ -50,7 +50,7 @@ jest.mock('react-native-encrypted-storage', () => ({
   },
 }));
 
-jest.mock('../src/components/CoffeeTasteScanner.tsx', () => 'View');
+jest.mock('../src/screens/CoffeeTasteScanner', () => 'View');
 
 import App from '../App';
 

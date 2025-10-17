@@ -29,7 +29,7 @@ import {
 } from 'react-native-image-picker';
 import RNFS from 'react-native-fs';
 import NetInfo from '@react-native-community/netinfo';
-import { scannerStyles } from './styles/ProfessionalOCRScanner.styles';
+import { scannerStyles } from './styles';
 import {
   processOCR,
   fetchOCRHistory,
@@ -37,18 +37,17 @@ import {
   getBrewRecipe,
   suggestBrewingMethods,
   rateOCRResult,
-} from '../services/ocrServices.ts';
-import {
   saveRecipe,
   fetchRecipeHistory,
-  RecipeHistory,
-} from '../services/recipeServices.ts';
-import { coffeeDiary as fallbackCoffeeDiary, preferenceEngine } from '../services/personalizationGateway';
-import { BrewContext } from '../types/Personalization';
-import { usePersonalization } from '../hooks/usePersonalization';
-import { toggleFavorite } from '../services/homePagesService';
-import { showToast } from '../utils/toast';
-import { offlineSync } from '../offline';
+  preferenceEngine,
+  fallbackCoffeeDiary,
+  toggleFavorite,
+} from './services';
+import type { RecipeHistory } from './services';
+import { BrewContext } from '../../types/Personalization';
+import { usePersonalization } from '../../hooks/usePersonalization';
+import { showToast } from '../../utils/toast';
+import { offlineSync } from '../../offline';
 
 interface OCRHistory {
   id: string;
