@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { View, Text, FlatList, Dimensions, StyleSheet, Button } from 'react-native';
-import { useTheme } from '../../../../theme/ThemeProvider';
+import { useTheme } from 'theme/ThemeProvider.tsx';
 
 interface Props {
   onFinish: () => void;

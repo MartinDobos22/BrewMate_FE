@@ -1,4 +1,4 @@
-import { PredictionContext, PredictionResult } from '../../types/Personalization';
+import { PredictionContext, PredictionResult } from 'types/Personalization.ts';
 
 export interface RecommendationTelemetry {
   recordGenerated: (userId: string, context: PredictionContext, prediction: PredictionResult) => void;

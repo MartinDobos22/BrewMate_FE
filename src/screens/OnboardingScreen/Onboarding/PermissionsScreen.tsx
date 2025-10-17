@@ -6,7 +6,7 @@ import {
   RESULTS,
   openSettings,
 } from 'react-native-permissions';
-import { useTheme } from '../../../../theme/ThemeProvider';
+import { useTheme } from 'theme/ThemeProvider.tsx';
 
 interface Props {
   navigation: any;
