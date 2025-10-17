@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Button, Switch } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
-import { useTheme } from '../../../../theme/ThemeProvider';
+import { useTheme } from '../../../theme/ThemeProvider';
 
 interface Props {
   navigation: any;
