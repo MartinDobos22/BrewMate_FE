@@ -1,1 +1,1 @@
-export * from './ProfessionalOCRScannerStyles';
+export * from './ProfessionalOCRScanner.styles.ts';
