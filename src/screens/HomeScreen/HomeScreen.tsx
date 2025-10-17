@@ -18,21 +18,27 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import auth from '@react-native-firebase/auth';
-import { homeStyles } from './styles/HomeScreen.styles.ts';
-import { fetchCoffees, fetchDashboardData, fetchUserStats } from '../services/homePagesService.ts';
-import DailyTipCard from './DailyTipCard';
-import DailyRitualCard, { DailyRitualCardProps } from './DailyRitualCard';
-import { fetchDailyTip, getTipFromCache, Tip } from '../services/contentServices';
-import BottomNav from './BottomNav';
-import { fetchRecentScans, RecentScan } from '../services/coffeeServices.ts';
-import { usePersonalization } from '../hooks/usePersonalization';
-import TasteProfileRadarCard from './TasteProfileRadarCard';
+import { homeStyles } from './styles';
+import {
+  fetchCoffees,
+  fetchDashboardData,
+  fetchDailyTip,
+  fetchRecentScans,
+  fetchUserStats,
+  getTipFromCache,
+} from './services';
+import type { RecentScan, Tip } from './services';
+import DailyTipCard from './components/DailyTipCard';
+import DailyRitualCard, { DailyRitualCardProps } from './components/DailyRitualCard';
+import BottomNav from '../../components/BottomNav';
+import { usePersonalization } from '../../hooks/usePersonalization';
+import TasteProfileRadarCard from './components/TasteProfileRadarCard';
 import {
   buildTasteRadarScores,
   normalizeCoffeePreferenceSnapshot,
   CoffeePreferenceSnapshot,
   TasteRadarScores,
-} from '../utils/tasteProfile';
+} from '../../utils/tasteProfile';
 
 interface CoffeeItem {
   id: string;

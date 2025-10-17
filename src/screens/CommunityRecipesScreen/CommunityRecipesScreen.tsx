@@ -1,15 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  ActivityIndicator,
-  TouchableOpacity,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { Recipe, BrewDevice, BREW_DEVICES } from '../types/Recipe';
-import { fetchRecipes } from '../services/recipeServices';
+import { Recipe, BrewDevice, BREW_DEVICES } from '../../types/Recipe';
+import { fetchRecipes } from './services';
+import { communityRecipeStyles as styles } from './styles';
 
 const CommunityRecipesScreen: React.FC = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -83,57 +77,5 @@ const CommunityRecipesScreen: React.FC = () => {
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  stateContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    gap: 12,
-  },
-  stateText: {
-    fontSize: 14,
-    textAlign: 'center',
-    color: '#2C2C2C',
-  },
-  retryButton: {
-    backgroundColor: '#6B4423',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  retryText: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  recipeItem: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderColor: '#eee',
-  },
-  recipeTitle: {
-    fontWeight: 'bold',
-    fontSize: 16,
-    marginBottom: 4,
-  },
-  recipeDevice: {
-    color: '#666',
-  },
-  emptyContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  emptyText: {
-    color: '#666',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-});
 
 export default CommunityRecipesScreen;

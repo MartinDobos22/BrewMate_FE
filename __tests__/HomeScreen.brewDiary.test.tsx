@@ -3,7 +3,7 @@ import renderer, { act } from 'react-test-renderer';
 import type { ReactTestRenderer } from 'react-test-renderer';
 import { TouchableOpacity } from 'react-native';
 
-import HomeScreen from '../src/components/HomeScreen';
+import HomeScreen from '../src/screens/HomeScreen';
 
 jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper');
 

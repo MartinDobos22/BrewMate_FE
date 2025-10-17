@@ -2,7 +2,7 @@ import React from 'react';
 import renderer, { act } from 'react-test-renderer';
 import type { ReactTestRenderer } from 'react-test-renderer';
 
-import HomeScreen from '../src/components/HomeScreen';
+import HomeScreen from '../src/screens/HomeScreen';
 
 jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper');
 

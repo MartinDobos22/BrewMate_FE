@@ -1,14 +1,17 @@
 import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
 import { Text } from 'react-native';
-import DailyTipCard from '../src/components/DailyTipCard';
+import DailyTipCard from '../src/screens/HomeScreen/components/DailyTipCard';
 import Share from 'react-native/Libraries/Share/Share';
 
 const store: Record<string, string> = {};
 
-jest.mock('../src/services/contentServices', () => ({
+jest.mock('../src/screens/HomeScreen/services', () => ({
   fetchDailyTip: jest.fn(),
   getTipFromCache: jest.fn(),
+  clearScheduledDailyTipRefresh: jest.fn(),
+  getScheduledDailyTipRefreshHandle: jest.fn(),
+  scheduleDailyTipRefresh: jest.fn(),
 }));
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
@@ -35,7 +38,7 @@ describe('DailyTipCard', () => {
     (AsyncStorage.setItem as jest.Mock).mockClear();
     Object.keys(store).forEach((k) => delete store[k]);
     (Share.share as jest.Mock).mockClear();
-    const services = require('../src/services/contentServices');
+    const services = require('../src/screens/HomeScreen/services');
     services.fetchDailyTip.mockReset();
     services.getTipFromCache.mockReset();
     services.fetchDailyTip.mockResolvedValue(tip);
@@ -69,7 +72,7 @@ describe('DailyTipCard', () => {
   });
 
   it('uses stored tip when offline', async () => {
-    const services = require('../src/services/contentServices');
+    const services = require('../src/screens/HomeScreen/services');
     services.getTipFromCache.mockResolvedValue(tip);
     let instance: any;
     await ReactTestRenderer.act(async () => {

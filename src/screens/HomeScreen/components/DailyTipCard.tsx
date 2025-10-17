@@ -8,8 +8,8 @@ import {
   getScheduledDailyTipRefreshHandle,
   getTipFromCache,
   scheduleDailyTipRefresh,
-  Tip,
-} from '../services/contentServices';
+} from '../services';
+import type { Tip } from '../services';
 
 interface Props {
   tip?: Tip;

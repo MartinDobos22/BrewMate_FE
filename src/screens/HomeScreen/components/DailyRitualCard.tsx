@@ -3,8 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
-import { PredictionResult } from '../types/Personalization';
-import { usePersonalization } from '../hooks/usePersonalization';
+import { PredictionResult } from '../../../types/Personalization';
+import { usePersonalization } from '../../../hooks/usePersonalization';
 
 export interface DailyRitualCardProps {
   recommendation: PredictionResult & {
