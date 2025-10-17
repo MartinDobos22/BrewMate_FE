@@ -1,10 +1,15 @@
-import React, {useEffect, useState} from 'react';
-import {View, Text, Button, TextInput, FlatList} from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import PushNotification from 'react-native-push-notification';
-import AddCalendarEvent from 'react-native-add-calendar-event';
-import { InventoryItem } from '../types/InventoryItem';
-import { cancelLocalNotification, scheduleReminder } from '../utils/reminders';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, Button, TextInput, FlatList } from 'react-native';
+import { InventoryItem } from '../../types/InventoryItem';
+import {
+  loadInventoryItems,
+  persistInventoryItems,
+  fetchScheduledReminders,
+  presentCalendarDialog,
+  scheduleReminder,
+  cancelLocalNotification,
+} from './services';
+import { styles } from './styles';
 
 const InventoryScreen = (): React.JSX.Element => {
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -16,23 +21,24 @@ const InventoryScreen = (): React.JSX.Element => {
     reminderDate: '',
   });
 
-  const loadItems = async () => {
-    const data = await AsyncStorage.getItem('inventory');
-    if (data) setItems(JSON.parse(data));
-  };
+  const loadItems = useCallback(async () => {
+    const data = await loadInventoryItems();
+    setItems(data);
+  }, []);
 
-  const loadReminders = () => {
-    PushNotification.getScheduledLocalNotifications((n) => setReminders(n));
-  };
+  const loadReminders = useCallback(async () => {
+    const scheduled = await fetchScheduledReminders();
+    setReminders(scheduled);
+  }, []);
 
   useEffect(() => {
     loadItems();
     loadReminders();
-  }, []);
+  }, [loadItems, loadReminders]);
 
   const saveItems = async (newItems: InventoryItem[]) => {
     setItems(newItems);
-    await AsyncStorage.setItem('inventory', JSON.stringify(newItems));
+    await persistInventoryItems(newItems);
   };
 
   const addItem = async () => {
@@ -47,9 +53,9 @@ const InventoryScreen = (): React.JSX.Element => {
     await saveItems(updated);
     if (form.reminderDate) {
       scheduleReminder(new Date(form.reminderDate), `${form.coffeeName} reminder`);
-      loadReminders();
+      await loadReminders();
     }
-    setForm({coffeeName: '', gramsLeft: '', dailyUsage: '', reminderDate: ''});
+    setForm({ coffeeName: '', gramsLeft: '', dailyUsage: '', reminderDate: '' });
   };
 
   const cancelReminder = (id: string) => {
@@ -58,20 +64,17 @@ const InventoryScreen = (): React.JSX.Element => {
   };
 
   const addToCalendar = (item: InventoryItem) => {
-    AddCalendarEvent.presentEventCreatingDialog({
-      title: item.coffeeName,
-      startDate: item.reminderDate || new Date().toISOString(),
-    });
+    presentCalendarDialog(item);
   };
 
   return (
-    <View>
+    <View style={styles.container}>
       <FlatList
         data={items}
         keyExtractor={(i) => i.id}
-        renderItem={({item}) => (
-          <View>
-            <Text>
+        renderItem={({ item }) => (
+          <View style={styles.item}>
+            <Text style={styles.itemTitle}>
               {item.coffeeName} - {item.gramsLeft}g
             </Text>
             <Button
@@ -80,35 +83,40 @@ const InventoryScreen = (): React.JSX.Element => {
             />
           </View>
         )}
+        contentContainerStyle={styles.listContent}
       />
-      <Text>Pridať položku</Text>
+      <Text style={styles.sectionTitle}>Pridať položku</Text>
       <TextInput
         placeholder="coffeeName"
         value={form.coffeeName}
-        onChangeText={(t) => setForm({...form, coffeeName: t})}
+        onChangeText={(t) => setForm({ ...form, coffeeName: t })}
+        style={styles.input}
       />
       <TextInput
         placeholder="gramsLeft"
         keyboardType="numeric"
         value={form.gramsLeft}
-        onChangeText={(t) => setForm({...form, gramsLeft: t})}
+        onChangeText={(t) => setForm({ ...form, gramsLeft: t })}
+        style={styles.input}
       />
       <TextInput
         placeholder="dailyUsage"
         keyboardType="numeric"
         value={form.dailyUsage}
-        onChangeText={(t) => setForm({...form, dailyUsage: t})}
+        onChangeText={(t) => setForm({ ...form, dailyUsage: t })}
+        style={styles.input}
       />
       <TextInput
         placeholder="reminderDate"
         value={form.reminderDate}
-        onChangeText={(t) => setForm({...form, reminderDate: t})}
+        onChangeText={(t) => setForm({ ...form, reminderDate: t })}
+        style={styles.input}
       />
       <Button title="Uložiť" onPress={addItem} />
-      <Text>Aktívne pripomienky</Text>
+      <Text style={styles.sectionTitle}>Aktívne pripomienky</Text>
       {reminders.map((r) => (
-        <View key={r.id}>
-          <Text>{r.message}</Text>
+        <View key={r.id} style={styles.reminderCard}>
+          <Text style={styles.reminderTitle}>{r.message}</Text>
           <Button title="Zrušiť" onPress={() => cancelReminder(r.id)} />
         </View>
       ))}
