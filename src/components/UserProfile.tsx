@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   StyleSheet,
   Platform,
+    Dimensions
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Svg, { Circle, Defs, Line, LinearGradient as SvgLinearGradient, Polygon, Stop, Text as SvgText } from 'react-native-svg';
@@ -485,7 +486,7 @@ const UserProfile = ({
 
   const ProfileContent = () => {
     const { label: levelLabel, gradient: levelGradient } = getExperienceLevelMeta(profile?.experience_level);
-    const radarScores = useMemo(() => buildRadarScores(tasteProfile, communityAverage), [tasteProfile, communityAverage]);
+    const radarScores = useMemo(() => buildRadarScores(tasteProfile, communityAverage), []);
 
     return (
       <>

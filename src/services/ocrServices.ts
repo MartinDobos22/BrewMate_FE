@@ -63,7 +63,7 @@ export const retryableFetch = async (
  */
 const loggedFetch = async (url: string, options: RequestInit) => {
   await ensureOnline();
-  console.log('📤 [FE->BE]', url, options);
+   console.log('📤 [FE->BE]');
   const res = await retryableFetch(() => fetch(url, options));
   console.log('📥 [BE->FE]', url, res.status);
   return res;
