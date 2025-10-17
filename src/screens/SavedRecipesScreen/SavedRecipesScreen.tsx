@@ -12,8 +12,8 @@ import { Picker } from '@react-native-picker/picker';
 import { homeStyles } from '../HomeScreen/styles';
 import { fetchUserRecipes } from '../../services/recipeServices';
 import { BrewDevice, BREW_DEVICES, Recipe } from '../../types/Recipe';
-import BottomNav, { BOTTOM_NAV_HEIGHT } from '../../components/BottomNav';
-import RecipeForm from '../../components/RecipeForm';
+import BottomNav, { BOTTOM_NAV_HEIGHT } from '../../components/navigation/BottomNav';
+import RecipeForm from '../../components/recipes/RecipeForm';
 
 type SavedRecipe = Recipe & {
   method?: string;

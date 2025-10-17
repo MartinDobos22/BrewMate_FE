@@ -3,7 +3,7 @@ import renderer, { act } from 'react-test-renderer';
 import type { ReactTestRenderer } from 'react-test-renderer';
 import { Button, TextInput } from 'react-native';
 
-import BrewLogForm from '../src/components/BrewLogForm';
+import BrewLogForm from '../src/components/brew/BrewLogForm';
 import { saveBrewLog } from '../src/services/brewLogService';
 
 jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper');

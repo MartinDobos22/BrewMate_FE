@@ -30,7 +30,7 @@ import {
 import type { RecentScan, Tip } from './services';
 import DailyTipCard from './components/DailyTipCard';
 import DailyRitualCard, { DailyRitualCardProps } from './components/DailyRitualCard';
-import BottomNav from '../../components/BottomNav';
+import BottomNav from '../../components/navigation/BottomNav';
 import { usePersonalization } from '../../hooks/usePersonalization';
 import TasteProfileRadarCard from './components/TasteProfileRadarCard';
 import {

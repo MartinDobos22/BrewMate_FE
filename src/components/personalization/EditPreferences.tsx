@@ -13,10 +13,10 @@ import {
   Platform,
 } from 'react-native';
 import auth from '@react-native-firebase/auth';
-import { getColors, Colors } from '../theme/colors';
-import { getSafeAreaTop, getSafeAreaBottom, scale, verticalScale } from './utils/safeArea';
+import { getColors, Colors } from '../../theme/colors';
+import { getSafeAreaTop, getSafeAreaBottom, scale, verticalScale } from '../utils/safeArea';
 import { AIResponseDisplay } from './AIResponseDisplay';
-import { CONFIG } from '../config/config';
+import { CONFIG } from '../../config/config';
 
 const OPENAI_API_KEY = CONFIG.OPENAI_API_KEY;
 

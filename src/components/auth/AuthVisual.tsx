@@ -10,11 +10,11 @@ import {
   ScrollView,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import GoogleLogin from './GoogleAuth.tsx';
+import GoogleLogin from './GoogleAuth';
 import AppleAuth from './AppleAuth';
-import EmailLogin from './auth/EmailLogin';
-import EmailRegister from './auth/EmailRegister';
-import { getColors, Colors } from '../theme/colors';
+import EmailLogin from './EmailLogin';
+import EmailRegister from './EmailRegister';
+import { getColors, Colors } from '../../theme/colors';
 
 const AuthScreen = () => {
   const [showEmailLogin, setShowEmailLogin] = useState(false);

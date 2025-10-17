@@ -5,7 +5,7 @@ import auth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Inicializácia konfigurácie Google Sign-In (vykoná sa raz pri importe)
-import '../config/googleSignin';
+import '../../config/googleSignin';
 
 const GoogleLogin = () => {
   const isDarkMode = useColorScheme() === 'dark';

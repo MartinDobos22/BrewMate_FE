@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { homeStyles } from '../HomeScreen/styles';
 import { fetchCoffees } from '../../services/homePagesService';
-import BottomNav, { BOTTOM_NAV_HEIGHT } from '../../components/BottomNav';
+import BottomNav, { BOTTOM_NAV_HEIGHT } from '../../components/navigation/BottomNav';
 
 interface CoffeeItem {
   id: string;
