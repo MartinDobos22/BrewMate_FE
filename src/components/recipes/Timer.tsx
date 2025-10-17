@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { useTheme } from '../theme/ThemeProvider';
+import { useTheme } from 'src/theme/ThemeProvider';
 import { timerStyles } from '../styles/Timer.styles';
 
 interface TimerProps {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, Text } from 'react-native';
-import { useTheme } from '../theme/ThemeProvider';
+import { useTheme } from 'src/theme/ThemeProvider';
 import { bottomNavStyles, BOTTOM_NAV_HEIGHT } from '../styles/BottomNav.styles';
 
 export type NavItem = 'home' | 'discover' | 'recipes' | 'favorites' | 'profile';
