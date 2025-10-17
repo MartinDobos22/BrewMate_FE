@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
 import { Text, TouchableOpacity, Alert } from 'react-native';
-import CoffeeTasteScanner from '../src/screens/CoffeeTasteScanner';
+import CoffeeTasteScanner from '../src/components/CoffeeTasteScanner';
 
 jest.mock('@react-native-community/netinfo', () => ({
   __esModule: true,
@@ -28,45 +28,46 @@ jest.mock('react-native-fs', () => ({
   readFile: jest.fn(() => Promise.resolve('')),
 }));
 
-const addRecentScan = jest.fn(() => Promise.resolve());
-const rateOCRResult = jest.fn(() => Promise.resolve(true));
-const toggleFavorite = jest.fn(() => Promise.resolve(true));
-const incrementProgress = jest.fn(() => Promise.resolve());
-const fallbackDiary = {
-  addManualEntry: jest.fn(() => Promise.resolve()),
-};
-
-jest.mock('../src/screens/CoffeeTasteScanner/services', () => ({
-  processOCR: jest.fn(() =>
-    Promise.resolve({
-      corrected: 'text',
-      original: 'text',
-      scanId: '1',
-      isRecommended: false,
-      matchPercentage: 0,
-    }),
-  ),
+jest.mock('../src/services/ocrServices.ts', () => ({
+  processOCR: jest.fn(() => Promise.resolve({
+    corrected: 'text',
+    original: 'text',
+    scanId: '1',
+    isRecommended: false,
+    matchPercentage: 0,
+  })),
   fetchOCRHistory: jest.fn(() => Promise.resolve([])),
   deleteOCRRecord: jest.fn(),
   markCoffeePurchased: jest.fn(),
   extractCoffeeName: jest.fn(() => 'Test Coffee'),
-  rateOCRResult: (...args: any[]) => rateOCRResult(...args),
-  incrementProgress: (...args: any[]) => incrementProgress(...args),
+}));
+
+const saveCoffeeRating = jest.fn(() => Promise.resolve(true));
+const toggleFavorite = jest.fn(() => Promise.resolve(true));
+
+jest.mock('../src/services/homePagesService.ts', () => ({
+  saveCoffeeRating: (...args: any[]) => saveCoffeeRating(...args),
+  toggleFavorite: (...args: any[]) => toggleFavorite(...args),
+}));
+
+jest.mock('../src/services/offlineCache', () => ({
   saveOCRResult: jest.fn(() => Promise.resolve()),
   loadOCRResult: jest.fn(() => Promise.resolve(null)),
-  addRecentScan: (...args: any[]) => addRecentScan(...args),
-  fallbackCoffeeDiary: fallbackDiary,
-  preferenceEngine: {
-    recordBrew: jest.fn(() => Promise.resolve({})),
-    saveEvents: jest.fn(() => Promise.resolve()),
-  },
-  toggleFavorite: (...args: any[]) => toggleFavorite(...args),
+}));
+
+jest.mock('../src/services/profileServices', () => ({
+  incrementProgress: jest.fn(() => Promise.resolve()),
+}));
+
+const addRecentScan = jest.fn(() => Promise.resolve());
+jest.mock('../src/services/coffeeServices.ts', () => ({
+  addRecentScan: (scan: any) => addRecentScan(scan),
 }));
 
 describe('CoffeeTasteScanner', () => {
   beforeEach(() => {
     addRecentScan.mockClear();
-    rateOCRResult.mockClear();
+    saveCoffeeRating.mockClear();
     toggleFavorite.mockClear();
     jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   });
@@ -87,7 +88,7 @@ describe('CoffeeTasteScanner', () => {
     expect(addRecentScan).toHaveBeenCalled();
   });
 
-  it('calls rateOCRResult when rating star is pressed', async () => {
+  it('calls saveCoffeeRating when rating star is pressed', async () => {
     let instance: any;
     await ReactTestRenderer.act(async () => {
       instance = ReactTestRenderer.create(<CoffeeTasteScanner />);
@@ -113,7 +114,7 @@ describe('CoffeeTasteScanner', () => {
       await starButton!.props.onPress();
     });
 
-    expect(rateOCRResult).toHaveBeenCalledWith(expect.any(String), 1);
+    expect(saveCoffeeRating).toHaveBeenCalledWith(expect.any(String), 1, undefined);
   });
 
   it('calls toggleFavorite when favorite button is pressed', async () => {
