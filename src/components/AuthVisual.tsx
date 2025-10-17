@@ -11,19 +11,22 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import GoogleLogin from './GoogleAuth.tsx';
-import EmailAuth from './EmailAuth';
 import AppleAuth from './AppleAuth';
+import EmailLogin from './auth/EmailLogin';
+import EmailRegister from './auth/EmailRegister';
 import { getColors, Colors } from '../theme/colors';
 
 const AuthScreen = () => {
-  const [showEmailAuth, setShowEmailAuth] = useState(false);
+  const [showEmailLogin, setShowEmailLogin] = useState(false);
+  const [showEmailRegister, setShowEmailRegister] = useState(false);
   const [showAppleAuth, setShowAppleAuth] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [modalEmail, setModalEmail] = useState('');
+  const [modalPassword, setModalPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [errorVisible, setErrorVisible] = useState(false);
-  const [emailAuthMode, setEmailAuthMode] = useState<'login' | 'register'>('login');
   const isDarkMode = useColorScheme() === 'dark';
   const colors = getColors(isDarkMode);
   const styles = createStyles(colors, isDarkMode);
@@ -54,18 +57,37 @@ const AuthScreen = () => {
     }
 
     setErrorVisible(false);
-    setEmailAuthMode('login');
-    setShowEmailAuth(true);
+    setModalEmail(email);
+    setModalPassword(password);
+    setShowEmailLogin(true);
   };
 
   const handleForgotPassword = () => {
-    setEmailAuthMode('login');
-    setShowEmailAuth(true);
+    setModalEmail(email);
+    setModalPassword('');
+    setShowEmailLogin(true);
   };
 
   const handleRegister = () => {
-    setEmailAuthMode('register');
-    setShowEmailAuth(true);
+    setModalEmail(email);
+    setShowEmailRegister(true);
+  };
+
+  const openRegisterFromLogin = (prefillEmail?: string) => {
+    setShowEmailLogin(false);
+    if (prefillEmail) {
+      setModalEmail(prefillEmail);
+    }
+    setShowEmailRegister(true);
+  };
+
+  const openLoginFromRegister = (prefillEmail?: string) => {
+    setShowEmailRegister(false);
+    if (prefillEmail) {
+      setModalEmail(prefillEmail);
+    }
+    setModalPassword('');
+    setShowEmailLogin(true);
   };
 
   return (
@@ -190,13 +212,22 @@ const AuthScreen = () => {
         </View>
       </ScrollView>
 
-      {showEmailAuth && (
+      {showEmailLogin && (
         <Modal visible animationType="fade" transparent>
-          <EmailAuth
-            initialEmail={email}
-            initialPassword={password}
-            initialMode={emailAuthMode}
-            onBack={() => setShowEmailAuth(false)}
+          <EmailLogin
+            initialEmail={modalEmail}
+            initialPassword={modalPassword}
+            onBack={() => setShowEmailLogin(false)}
+            onSwitchToRegister={openRegisterFromLogin}
+          />
+        </Modal>
+      )}
+      {showEmailRegister && (
+        <Modal visible animationType="fade" transparent>
+          <EmailRegister
+            initialEmail={modalEmail}
+            onBack={() => setShowEmailRegister(false)}
+            onSwitchToLogin={openLoginFromRegister}
           />
         </Modal>
       )}
