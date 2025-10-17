@@ -7,13 +7,13 @@ import {
   Animated,
   StyleSheet
 } from 'react-native';
-import { useTheme } from '../theme/ThemeProvider';
-import { formatRecipeSteps } from './utils/AITextFormatter';
-import { BrewDevice } from '../types/Recipe';
-import Timer from './Timer';
-import { colors, spacing, unifiedStyles } from '../theme/unifiedStyles';
-import { incrementProgress } from '../services/profileServices';
-interface RecipeStepsScreenProps {
+import { useTheme } from '../../theme/ThemeProvider';
+import { formatRecipeSteps } from '../../components/utils/AITextFormatter';
+import { BrewDevice } from '../../types/Recipe';
+import Timer from '../../components/Timer';
+import { unifiedStyles } from '../../theme/unifiedStyles';
+import { incrementProgress } from '../../services/profileServices';
+export interface RecipeStepsScreenProps {
   recipe: string;
   brewDevice?: BrewDevice;
   onBack: () => void;

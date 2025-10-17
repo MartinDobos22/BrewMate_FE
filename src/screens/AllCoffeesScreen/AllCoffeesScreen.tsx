@@ -6,9 +6,9 @@ import {
   TouchableOpacity,
   RefreshControl,
 } from 'react-native';
-import { homeStyles } from './styles/HomeScreen.styles.ts';
-import { fetchCoffees } from '../services/homePagesService.ts';
-import BottomNav, { BOTTOM_NAV_HEIGHT } from './BottomNav';
+import { homeStyles } from '../HomeScreen/styles';
+import { fetchCoffees } from '../../services/homePagesService';
+import BottomNav, { BOTTOM_NAV_HEIGHT } from '../../components/BottomNav';
 
 interface CoffeeItem {
   id: string;
@@ -24,7 +24,7 @@ interface CoffeeItem {
   match?: number;
 }
 
-interface AllCoffeesScreenProps {
+export interface AllCoffeesScreenProps {
   onBack: () => void;
   onHomePress: () => void;
   onDiscoverPress: () => void;

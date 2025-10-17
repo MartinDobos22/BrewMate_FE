@@ -6,7 +6,7 @@ import LanguageThemeScreen from './Onboarding/LanguageThemeScreen';
 import PermissionsScreen from './Onboarding/PermissionsScreen';
 import FeaturesScreen from './Onboarding/FeaturesScreen';
 
-interface Props {
+export interface Props {
   onFinish: () => void;
 }
 
