@@ -23,9 +23,7 @@ import CoffeePreferenceForm from './src/components/personalization/CoffeePrefere
 import EditPreferences from './src/components/personalization/EditPreferences';
 import RecipeStepsScreen from './src/screens/RecipeStepsScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
-import PersonalizationOnboarding, {
-  PersonalizationResult,
-} from './src/components/personalization/PersonalizationOnboarding';
+import type { PersonalizationResult } from './src/components/personalization/PersonalizationOnboarding';
 import PersonalizationDashboard from './src/components/personalization/PersonalizationDashboard';
 import FlavorJourneyMap from './src/components/personalization/FlavorJourneyMap';
 import AICoachChat from './src/components/personalization/AICoachChat';
@@ -73,8 +71,14 @@ import {
   UserTasteProfile,
 } from './src/types/Personalization';
 import type { FlavorJourneyMilestone, MoodSignal, TasteQuizResult } from './src/types/PersonalizationAI';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { LearningEventProvider } from './src/services/PrivacyManager';
+import { supabaseClient } from './src/services/supabaseClient';
+import { OnboardingResponseService } from './src/services/OnboardingResponseService';
+import {
+  analyzeOnboardingAnswers,
+  type OnboardingAnalysis,
+} from './src/services/personalization/onboardingAnalysis';
 
 type ScreenName =
   | 'home'
@@ -104,12 +108,11 @@ const WEEKDAY_PLAN_STORAGE_KEY = 'brewmate:ritual:weekday_plan';
 const TASTE_QUIZ_STORAGE_KEY = 'brewmate:taste_quiz:complete';
 const PERSONALIZATION_ONBOARDING_STATUS_KEY = 'brewmate:personalization:onboarding_status_v1';
 const PERSONALIZATION_ONBOARDING_RESULT_KEY = 'brewmate:personalization:onboarding_result_v1';
+const LEGACY_ONBOARDING_COMPLETE_KEY = '@OnboardingComplete';
 
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-
-const supabaseClient: SupabaseClient | null =
-  SUPABASE_URL && SUPABASE_ANON_KEY ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+const getOnboardingCompleteKey = (userId: string) => `${LEGACY_ONBOARDING_COMPLETE_KEY}:${userId}`;
+const getPersonalizationStatusKey = (userId: string) => `${PERSONALIZATION_ONBOARDING_STATUS_KEY}:${userId}`;
+const getPersonalizationResultKey = (userId: string) => `${PERSONALIZATION_ONBOARDING_RESULT_KEY}:${userId}`;
 
 interface ConfidenceDatum {
   label: string;
@@ -405,6 +408,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     useState<PersonalizationResult | null>(null);
   const [hasAppliedPersonalizationOnboarding, setHasAppliedPersonalizationOnboarding] =
     useState(false);
+  const [onboardingAnalysis, setOnboardingAnalysis] = useState<OnboardingAnalysis | null>(null);
   const [queueLength, setQueueLength] = useState(0);
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncVisible, setSyncVisible] = useState(false);
@@ -422,6 +426,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     () => new FlavorEmbeddingService(flavorJourneyRepository),
     [flavorJourneyRepository],
   );
+  const onboardingResponseService = useMemo(() => new OnboardingResponseService(), []);
   const indicatorVisible = syncVisible || queueLength > 0;
 
   const timelineData = useMemo(() => {
@@ -454,7 +459,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   );
 
   const handlePersonalizationOnboardingComplete = useCallback(
-    async (result: PersonalizationResult) => {
+    async (result: PersonalizationResult, analysis?: OnboardingAnalysis) => {
       setPersonalizationOnboardingResult(result);
       setIsPersonalizationOnboardingComplete(true);
       setHasAppliedPersonalizationOnboarding(false);
@@ -462,20 +467,27 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         ...prev,
         onboardingResult: result,
       }));
+      setOnboardingAnalysis(analysis ?? analyzeOnboardingAnswers(result.answers));
 
-      try {
-        await AsyncStorage.setItem(PERSONALIZATION_ONBOARDING_STATUS_KEY, 'completed');
-        await AsyncStorage.setItem(PERSONALIZATION_ONBOARDING_RESULT_KEY, JSON.stringify(result));
-      } catch (error) {
-        console.warn('App: failed to persist personalization onboarding result', error);
+      if (userId) {
+        try {
+          await AsyncStorage.setItem(getPersonalizationStatusKey(userId), 'completed');
+          await AsyncStorage.setItem(
+            getPersonalizationResultKey(userId),
+            JSON.stringify(result),
+          );
+        } catch (error) {
+          console.warn('App: failed to persist personalization onboarding result', error);
+        }
       }
     },
-    [setPersonalization],
+    [setPersonalization, userId],
   );
 
   const handlePersonalizationOnboardingSkip = useCallback(async () => {
     setIsPersonalizationOnboardingComplete(true);
     setPersonalizationOnboardingResult(null);
+    setOnboardingAnalysis(null);
     setPersonalization((prev) => {
       if (prev.onboardingResult === null) {
         return prev;
@@ -483,13 +495,67 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
       return { ...prev, onboardingResult: null };
     });
 
-    try {
-      await AsyncStorage.setItem(PERSONALIZATION_ONBOARDING_STATUS_KEY, 'skipped');
-      await AsyncStorage.removeItem(PERSONALIZATION_ONBOARDING_RESULT_KEY);
-    } catch (error) {
-      console.warn('App: failed to persist personalization onboarding skip', error);
+    if (userId) {
+      try {
+        await AsyncStorage.setItem(getPersonalizationStatusKey(userId), 'skipped');
+        await AsyncStorage.removeItem(getPersonalizationResultKey(userId));
+      } catch (error) {
+        console.warn('App: failed to persist personalization onboarding skip', error);
+      }
     }
-  }, [setPersonalization]);
+  }, [setPersonalization, userId]);
+
+  const handleOnboardingComplete = useCallback(
+    async (result: PersonalizationResult) => {
+      const analysis = analyzeOnboardingAnswers(result.answers);
+      await handlePersonalizationOnboardingComplete(result, analysis);
+      setIsOnboardingComplete(true);
+
+      if (userId) {
+        try {
+          await AsyncStorage.multiSet([
+            [getOnboardingCompleteKey(userId), 'true'],
+            [getPersonalizationStatusKey(userId), 'completed'],
+            [getPersonalizationResultKey(userId), JSON.stringify(result)],
+          ]);
+          await AsyncStorage.removeItem(LEGACY_ONBOARDING_COMPLETE_KEY);
+          await AsyncStorage.removeItem(PERSONALIZATION_ONBOARDING_STATUS_KEY);
+          await AsyncStorage.removeItem(PERSONALIZATION_ONBOARDING_RESULT_KEY);
+        } catch (error) {
+          console.warn('App: failed to persist onboarding completion', error);
+        }
+
+        try {
+          await onboardingResponseService.saveResponse(userId, result.answers, analysis);
+        } catch (error) {
+          console.warn('App: failed to persist onboarding responses', error);
+        }
+      }
+    },
+    [
+      handlePersonalizationOnboardingComplete,
+      onboardingResponseService,
+      userId,
+    ],
+  );
+
+  const handleOnboardingSkip = useCallback(async () => {
+    await handlePersonalizationOnboardingSkip();
+    setIsOnboardingComplete(true);
+    if (userId) {
+      try {
+        await AsyncStorage.multiSet([
+          [getOnboardingCompleteKey(userId), 'true'],
+          [getPersonalizationStatusKey(userId), 'skipped'],
+        ]);
+        await AsyncStorage.removeItem(LEGACY_ONBOARDING_COMPLETE_KEY);
+        await AsyncStorage.removeItem(PERSONALIZATION_ONBOARDING_STATUS_KEY);
+        await AsyncStorage.removeItem(PERSONALIZATION_ONBOARDING_RESULT_KEY);
+      } catch (error) {
+        console.warn('App: failed to persist onboarding skip', error);
+      }
+    }
+  }, [handlePersonalizationOnboardingSkip, userId]);
 
   const handleCoachSend = useCallback(
     async (message: string) => {
@@ -554,13 +620,84 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   }, [setPersonalization]);
 
   useEffect(() => {
+    let cancelled = false;
+
     const checkOnboarding = async () => {
-      const value = await AsyncStorage.getItem('@OnboardingComplete');
-      setIsOnboardingComplete(value === 'true');
-      setCheckingOnboarding(false);
+      try {
+        if (!userId) {
+          await AsyncStorage.removeItem(LEGACY_ONBOARDING_COMPLETE_KEY);
+          await AsyncStorage.removeItem(PERSONALIZATION_ONBOARDING_STATUS_KEY);
+          await AsyncStorage.removeItem(PERSONALIZATION_ONBOARDING_RESULT_KEY);
+          setIsOnboardingComplete(false);
+          setCheckingOnboarding(false);
+          return;
+        }
+
+        const storedCompletion = await AsyncStorage.getItem(
+          getOnboardingCompleteKey(userId),
+        );
+        if (cancelled) {
+          return;
+        }
+
+        if (storedCompletion === 'true') {
+          setIsOnboardingComplete(true);
+          setCheckingOnboarding(false);
+          return;
+        }
+
+        const record = await onboardingResponseService.loadLatest(userId);
+        if (cancelled) {
+          return;
+        }
+
+        if (record) {
+          const result: PersonalizationResult = { answers: record.answers };
+          const computedAnalysis = analyzeOnboardingAnswers(record.answers);
+          setIsOnboardingComplete(true);
+          setIsPersonalizationOnboardingComplete(true);
+          setHasAppliedPersonalizationOnboarding(false);
+          setPersonalizationOnboardingResult(result);
+          setPersonalization((prev) => ({
+            ...prev,
+            onboardingResult: result,
+          }));
+          setOnboardingAnalysis({
+            profile: record.analyzed_profile ?? computedAnalysis.profile,
+            embeddings: computedAnalysis.embeddings,
+          });
+
+          await AsyncStorage.multiSet([
+            [getOnboardingCompleteKey(userId), 'true'],
+            [getPersonalizationStatusKey(userId), 'completed'],
+            [getPersonalizationResultKey(userId), JSON.stringify(result)],
+          ]);
+          await AsyncStorage.removeItem(LEGACY_ONBOARDING_COMPLETE_KEY);
+          await AsyncStorage.removeItem(PERSONALIZATION_ONBOARDING_STATUS_KEY);
+          await AsyncStorage.removeItem(PERSONALIZATION_ONBOARDING_RESULT_KEY);
+        } else {
+          setIsOnboardingComplete(false);
+        }
+      } catch (error) {
+        console.warn('App: failed to check onboarding status', error);
+        setIsOnboardingComplete(false);
+      } finally {
+        if (!cancelled) {
+          setCheckingOnboarding(false);
+        }
+      }
     };
+
     checkOnboarding();
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    onboardingResponseService,
+    setPersonalization,
+    userId,
+  ]);
 
   useEffect(() => {
     const checkTasteQuiz = async () => {
@@ -581,14 +718,26 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
 
     const checkPersonalizationOnboarding = async () => {
       try {
-        const status = await AsyncStorage.getItem(PERSONALIZATION_ONBOARDING_STATUS_KEY);
+        if (!userId) {
+          setIsPersonalizationOnboardingComplete(false);
+          setPersonalizationOnboardingResult(null);
+          setPersonalization((prev) => {
+            if (prev.onboardingResult === null) {
+              return prev;
+            }
+            return { ...prev, onboardingResult: null };
+          });
+          return;
+        }
+
+        const status = await AsyncStorage.getItem(getPersonalizationStatusKey(userId));
         if (cancelled) {
           return;
         }
 
         if (status === 'completed') {
           try {
-            const storedResult = await AsyncStorage.getItem(PERSONALIZATION_ONBOARDING_RESULT_KEY);
+            const storedResult = await AsyncStorage.getItem(getPersonalizationResultKey(userId));
             if (!cancelled && storedResult) {
               try {
                 const parsed = JSON.parse(storedResult) as PersonalizationResult;
@@ -631,7 +780,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     return () => {
       cancelled = true;
     };
-  }, [setPersonalization]);
+  }, [setPersonalization, userId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -680,49 +829,28 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           milkPreferences: { ...profile.milkPreferences },
         };
 
-        const answers = personalizationOnboardingResult.answers;
-        const updateDimension = (dimension: TasteDimension, value: string) => {
-          const numeric = Number(value);
-          if (Number.isFinite(numeric)) {
-            updatedProfile.preferences[dimension] = Math.min(10, Math.max(0, numeric));
-          }
-        };
+        const analysis =
+          onboardingAnalysis ?? analyzeOnboardingAnswers(personalizationOnboardingResult.answers);
 
-        if (typeof answers['dimension:sweetness'] === 'string') {
-          updateDimension('sweetness', answers['dimension:sweetness']);
-        }
-        if (typeof answers['dimension:acidity'] === 'string') {
-          updateDimension('acidity', answers['dimension:acidity']);
-        }
-        if (typeof answers['dimension:bitterness'] === 'string') {
-          updateDimension('bitterness', answers['dimension:bitterness']);
-        }
-        if (typeof answers['dimension:body'] === 'string') {
-          updateDimension('body', answers['dimension:body']);
+        if (analysis.profile.preferences) {
+          (Object.entries(analysis.profile.preferences) as Array<[
+            TasteDimension,
+            number,
+          ]>).forEach(([dimension, value]) => {
+            updatedProfile.preferences[dimension] = Math.min(10, Math.max(0, value));
+          });
         }
 
-        const milkPreference = answers.milk;
-        if (typeof milkPreference === 'string' && milkPreference.length > 0) {
-          updatedProfile.milkPreferences = {
-            types: [milkPreference],
-            texture: milkPreference === 'black' ? 'bez mlieka' : milkPreference,
-          };
+        if (analysis.profile.milkPreferences) {
+          updatedProfile.milkPreferences = analysis.profile.milkPreferences;
         }
 
-        const preferredStrength = answers.strength;
-        if (
-          preferredStrength === 'light' ||
-          preferredStrength === 'balanced' ||
-          preferredStrength === 'strong'
-        ) {
-          updatedProfile.preferredStrength = preferredStrength;
+        if (analysis.profile.preferredStrength) {
+          updatedProfile.preferredStrength = analysis.profile.preferredStrength;
         }
 
-        const wakeUpStyle = answers['wake-up'];
-        if (wakeUpStyle === 'fast') {
-          updatedProfile.caffeineSensitivity = 'high';
-        } else if (wakeUpStyle === 'slow') {
-          updatedProfile.caffeineSensitivity = 'low';
+        if (analysis.profile.caffeineSensitivity) {
+          updatedProfile.caffeineSensitivity = analysis.profile.caffeineSensitivity;
         }
 
         updatedProfile.preferenceConfidence = Math.max(
@@ -731,6 +859,14 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         );
 
         await learningEngine.updateProfile(updatedProfile);
+
+        if (userId && analysis.embeddings.length > 0) {
+          try {
+            await flavorEmbeddingService.recordQuizEmbeddings(userId, analysis.embeddings);
+          } catch (error) {
+            console.warn('App: failed to record onboarding embeddings', error);
+          }
+        }
 
         if (!cancelled) {
           setHasAppliedPersonalizationOnboarding(true);
@@ -753,8 +889,11 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   }, [
     hasAppliedPersonalizationOnboarding,
     learningEngine,
+    onboardingAnalysis,
+    flavorEmbeddingService,
     personalizationOnboardingResult,
     setPersonalization,
+    userId,
   ]);
 
   useEffect(() => {
@@ -1363,6 +1502,23 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     return null;
   }
 
+  if (!isAuthenticated) {
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.background}
+      >
+        <ConnectionStatusBar />
+        <View style={styles.header}>
+          <QueueStatusBadge />
+        </View>
+        <AuthScreen />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
+      </ResponsiveWrapper>
+    );
+  }
+
   if (!isOnboardingComplete) {
     return (
       <ResponsiveWrapper
@@ -1374,27 +1530,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         <View style={styles.header}>
           <QueueStatusBadge />
         </View>
-        <OnboardingScreen onFinish={() => setIsOnboardingComplete(true)} />
-        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
-      </ResponsiveWrapper>
-    );
-  }
-
-  if (!isPersonalizationOnboardingComplete) {
-    return (
-      <ResponsiveWrapper
-        backgroundColor={colors.background}
-        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
-        statusBarBackground={colors.background}
-      >
-        <ConnectionStatusBar />
-        <View style={styles.header}>
-          <QueueStatusBadge />
-        </View>
-        <PersonalizationOnboarding
-          onComplete={handlePersonalizationOnboardingComplete}
-          onSkip={handlePersonalizationOnboardingSkip}
-        />
+        <OnboardingScreen onFinish={handleOnboardingComplete} onSkip={handleOnboardingSkip} />
         <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
       </ResponsiveWrapper>
     );
@@ -1425,23 +1561,6 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
             setIsTasteQuizComplete(true);
           }}
         />
-        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
-      </ResponsiveWrapper>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <ResponsiveWrapper
-        backgroundColor={colors.background}
-        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
-        statusBarBackground={colors.background}
-      >
-        <ConnectionStatusBar />
-        <View style={styles.header}>
-          <QueueStatusBadge />
-        </View>
-        <AuthScreen />
         <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
       </ResponsiveWrapper>
     );

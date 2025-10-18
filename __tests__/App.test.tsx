@@ -4,14 +4,23 @@
 
 import React from 'react';
 import TestRenderer, { act, ReactTestRenderer as ReactRendererInstance } from 'react-test-renderer';
-import PersonalizationOnboarding from '../src/components/personalization/PersonalizationOnboarding';
+import OnboardingScreen from '../src/screens/OnboardingScreen';
 import type { PersonalizationResult } from '../src/components/personalization/PersonalizationOnboarding';
 
 const mockAsyncStorage = {
   getItem: jest.fn(() => Promise.resolve(null)),
   setItem: jest.fn(() => Promise.resolve()),
   removeItem: jest.fn(() => Promise.resolve()),
+  multiSet: jest.fn(() => Promise.resolve()),
 };
+
+const mockFirebaseUser = {
+  uid: 'user-123',
+  getIdToken: jest.fn(() => Promise.resolve('token')),
+  reload: jest.fn(() => Promise.resolve()),
+};
+
+const onAuthStateChangedMock = jest.fn();
 
 jest.mock(
   '@react-native-firebase/auth',
@@ -19,7 +28,7 @@ jest.mock(
     __esModule: true,
     default: () => ({
       currentUser: null,
-      onAuthStateChanged: jest.fn(),
+      onAuthStateChanged: onAuthStateChangedMock,
     }),
   }),
   { virtual: true },
@@ -57,6 +66,7 @@ import App from '../App';
 beforeEach(() => {
   jest.clearAllMocks();
   mockAsyncStorage.getItem.mockImplementation(() => Promise.resolve(null));
+  onAuthStateChangedMock.mockImplementation(() => jest.fn());
 });
 
 test('renders without crashing', async () => {
@@ -65,15 +75,10 @@ test('renders without crashing', async () => {
   });
 });
 
-test('shows personalization onboarding when not completed', async () => {
-  mockAsyncStorage.getItem.mockImplementation(async (key: string) => {
-    if (key === '@OnboardingComplete') {
-      return 'true';
-    }
-    if (key === 'brewmate:personalization:onboarding_status_v1') {
-      return null;
-    }
-    return null;
+test('shows onboarding questions after first login when not completed', async () => {
+  onAuthStateChangedMock.mockImplementation((callback: (user: typeof mockFirebaseUser) => void) => {
+    callback(mockFirebaseUser);
+    return jest.fn();
   });
 
   let renderer: ReactRendererInstance;
@@ -86,10 +91,10 @@ test('shows personalization onboarding when not completed', async () => {
     await Promise.resolve();
   });
 
-  expect(renderer!.root.findByType(PersonalizationOnboarding)).toBeTruthy();
+  expect(renderer!.root.findByType(OnboardingScreen)).toBeTruthy();
 });
 
-test('completing personalization onboarding persists result and hides the flow', async () => {
+test('completing onboarding stores answers and hides the flow', async () => {
   const sampleResult: PersonalizationResult = {
     answers: {
       sweetness: '6',
@@ -98,14 +103,9 @@ test('completing personalization onboarding persists result and hides the flow',
     },
   };
 
-  mockAsyncStorage.getItem.mockImplementation(async (key: string) => {
-    if (key === '@OnboardingComplete') {
-      return 'true';
-    }
-    if (key === 'brewmate:personalization:onboarding_status_v1') {
-      return null;
-    }
-    return null;
+  onAuthStateChangedMock.mockImplementation((callback: (user: typeof mockFirebaseUser) => void) => {
+    callback(mockFirebaseUser);
+    return jest.fn();
   });
 
   let renderer: ReactRendererInstance;
@@ -119,34 +119,41 @@ test('completing personalization onboarding persists result and hides the flow',
   });
 
   await act(async () => {
-    renderer!.root.findByType(PersonalizationOnboarding).props.onComplete(sampleResult);
+    renderer!.root.findByType(OnboardingScreen).props.onFinish(sampleResult);
   });
 
+  expect(mockAsyncStorage.multiSet).toHaveBeenCalledWith([
+    ['@OnboardingComplete:user-123', 'true'],
+    ['brewmate:personalization:onboarding_status_v1:user-123', 'completed'],
+    ['brewmate:personalization:onboarding_result_v1:user-123', JSON.stringify(sampleResult)],
+  ]);
   expect(mockAsyncStorage.setItem).toHaveBeenCalledWith(
-    'brewmate:personalization:onboarding_status_v1',
+    'brewmate:personalization:onboarding_status_v1:user-123',
     'completed',
   );
   expect(mockAsyncStorage.setItem).toHaveBeenCalledWith(
-    'brewmate:personalization:onboarding_result_v1',
+    'brewmate:personalization:onboarding_result_v1:user-123',
     JSON.stringify(sampleResult),
+  );
+  expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith('@OnboardingComplete');
+  expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith(
+    'brewmate:personalization:onboarding_status_v1',
+  );
+  expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith(
+    'brewmate:personalization:onboarding_result_v1',
   );
 
   await act(async () => {
     await Promise.resolve();
   });
 
-  expect(renderer!.root.findAllByType(PersonalizationOnboarding)).toHaveLength(0);
+  expect(renderer!.root.findAllByType(OnboardingScreen)).toHaveLength(0);
 });
 
-test('skipping personalization onboarding stores skipped state without a result', async () => {
-  mockAsyncStorage.getItem.mockImplementation(async (key: string) => {
-    if (key === '@OnboardingComplete') {
-      return 'true';
-    }
-    if (key === 'brewmate:personalization:onboarding_status_v1') {
-      return null;
-    }
-    return null;
+test('skipping onboarding marks it as completed without answers', async () => {
+  onAuthStateChangedMock.mockImplementation((callback: (user: typeof mockFirebaseUser) => void) => {
+    callback(mockFirebaseUser);
+    return jest.fn();
   });
 
   let renderer: ReactRendererInstance;
@@ -160,12 +167,23 @@ test('skipping personalization onboarding stores skipped state without a result'
   });
 
   await act(async () => {
-    renderer!.root.findByType(PersonalizationOnboarding).props.onSkip();
+    renderer!.root.findByType(OnboardingScreen).props.onSkip();
   });
 
+  expect(mockAsyncStorage.multiSet).toHaveBeenCalledWith([
+    ['@OnboardingComplete:user-123', 'true'],
+    ['brewmate:personalization:onboarding_status_v1:user-123', 'skipped'],
+  ]);
   expect(mockAsyncStorage.setItem).toHaveBeenCalledWith(
-    'brewmate:personalization:onboarding_status_v1',
+    'brewmate:personalization:onboarding_status_v1:user-123',
     'skipped',
+  );
+  expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith(
+    'brewmate:personalization:onboarding_result_v1:user-123',
+  );
+  expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith('@OnboardingComplete');
+  expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith(
+    'brewmate:personalization:onboarding_status_v1',
   );
   expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith(
     'brewmate:personalization:onboarding_result_v1',
