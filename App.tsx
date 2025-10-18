@@ -108,6 +108,11 @@ const WEEKDAY_PLAN_STORAGE_KEY = 'brewmate:ritual:weekday_plan';
 const TASTE_QUIZ_STORAGE_KEY = 'brewmate:taste_quiz:complete';
 const PERSONALIZATION_ONBOARDING_STATUS_KEY = 'brewmate:personalization:onboarding_status_v1';
 const PERSONALIZATION_ONBOARDING_RESULT_KEY = 'brewmate:personalization:onboarding_result_v1';
+const LEGACY_ONBOARDING_COMPLETE_KEY = '@OnboardingComplete';
+
+const getOnboardingCompleteKey = (userId: string) => `${LEGACY_ONBOARDING_COMPLETE_KEY}:${userId}`;
+const getPersonalizationStatusKey = (userId: string) => `${PERSONALIZATION_ONBOARDING_STATUS_KEY}:${userId}`;
+const getPersonalizationResultKey = (userId: string) => `${PERSONALIZATION_ONBOARDING_RESULT_KEY}:${userId}`;
 
 interface ConfidenceDatum {
   label: string;
@@ -464,14 +469,19 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
       }));
       setOnboardingAnalysis(analysis ?? analyzeOnboardingAnswers(result.answers));
 
-      try {
-        await AsyncStorage.setItem(PERSONALIZATION_ONBOARDING_STATUS_KEY, 'completed');
-        await AsyncStorage.setItem(PERSONALIZATION_ONBOARDING_RESULT_KEY, JSON.stringify(result));
-      } catch (error) {
-        console.warn('App: failed to persist personalization onboarding result', error);
+      if (userId) {
+        try {
+          await AsyncStorage.setItem(getPersonalizationStatusKey(userId), 'completed');
+          await AsyncStorage.setItem(
+            getPersonalizationResultKey(userId),
+            JSON.stringify(result),
+          );
+        } catch (error) {
+          console.warn('App: failed to persist personalization onboarding result', error);
+        }
       }
     },
-    [setPersonalization],
+    [setPersonalization, userId],
   );
 
   const handlePersonalizationOnboardingSkip = useCallback(async () => {
@@ -485,13 +495,15 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
       return { ...prev, onboardingResult: null };
     });
 
-    try {
-      await AsyncStorage.setItem(PERSONALIZATION_ONBOARDING_STATUS_KEY, 'skipped');
-      await AsyncStorage.removeItem(PERSONALIZATION_ONBOARDING_RESULT_KEY);
-    } catch (error) {
-      console.warn('App: failed to persist personalization onboarding skip', error);
+    if (userId) {
+      try {
+        await AsyncStorage.setItem(getPersonalizationStatusKey(userId), 'skipped');
+        await AsyncStorage.removeItem(getPersonalizationResultKey(userId));
+      } catch (error) {
+        console.warn('App: failed to persist personalization onboarding skip', error);
+      }
     }
-  }, [setPersonalization]);
+  }, [setPersonalization, userId]);
 
   const handleOnboardingComplete = useCallback(
     async (result: PersonalizationResult) => {
@@ -499,17 +511,20 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
       await handlePersonalizationOnboardingComplete(result, analysis);
       setIsOnboardingComplete(true);
 
-      try {
-        await AsyncStorage.multiSet([
-          ['@OnboardingComplete', 'true'],
-          [PERSONALIZATION_ONBOARDING_STATUS_KEY, 'completed'],
-          [PERSONALIZATION_ONBOARDING_RESULT_KEY, JSON.stringify(result)],
-        ]);
-      } catch (error) {
-        console.warn('App: failed to persist onboarding completion', error);
-      }
-
       if (userId) {
+        try {
+          await AsyncStorage.multiSet([
+            [getOnboardingCompleteKey(userId), 'true'],
+            [getPersonalizationStatusKey(userId), 'completed'],
+            [getPersonalizationResultKey(userId), JSON.stringify(result)],
+          ]);
+          await AsyncStorage.removeItem(LEGACY_ONBOARDING_COMPLETE_KEY);
+          await AsyncStorage.removeItem(PERSONALIZATION_ONBOARDING_STATUS_KEY);
+          await AsyncStorage.removeItem(PERSONALIZATION_ONBOARDING_RESULT_KEY);
+        } catch (error) {
+          console.warn('App: failed to persist onboarding completion', error);
+        }
+
         try {
           await onboardingResponseService.saveResponse(userId, result.answers, analysis);
         } catch (error) {
@@ -527,16 +542,20 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   const handleOnboardingSkip = useCallback(async () => {
     await handlePersonalizationOnboardingSkip();
     setIsOnboardingComplete(true);
-    try {
-      await AsyncStorage.multiSet([
-        ['@OnboardingComplete', 'true'],
-        [PERSONALIZATION_ONBOARDING_STATUS_KEY, 'skipped'],
-      ]);
-      await AsyncStorage.removeItem(PERSONALIZATION_ONBOARDING_RESULT_KEY);
-    } catch (error) {
-      console.warn('App: failed to persist onboarding skip', error);
+    if (userId) {
+      try {
+        await AsyncStorage.multiSet([
+          [getOnboardingCompleteKey(userId), 'true'],
+          [getPersonalizationStatusKey(userId), 'skipped'],
+        ]);
+        await AsyncStorage.removeItem(LEGACY_ONBOARDING_COMPLETE_KEY);
+        await AsyncStorage.removeItem(PERSONALIZATION_ONBOARDING_STATUS_KEY);
+        await AsyncStorage.removeItem(PERSONALIZATION_ONBOARDING_RESULT_KEY);
+      } catch (error) {
+        console.warn('App: failed to persist onboarding skip', error);
+      }
     }
-  }, [handlePersonalizationOnboardingSkip]);
+  }, [handlePersonalizationOnboardingSkip, userId]);
 
   const handleCoachSend = useCallback(
     async (message: string) => {
@@ -605,19 +624,24 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
 
     const checkOnboarding = async () => {
       try {
-        const value = await AsyncStorage.getItem('@OnboardingComplete');
-        if (cancelled) {
-          return;
-        }
-
-        if (value === 'true') {
-          setIsOnboardingComplete(true);
+        if (!userId) {
+          await AsyncStorage.removeItem(LEGACY_ONBOARDING_COMPLETE_KEY);
+          await AsyncStorage.removeItem(PERSONALIZATION_ONBOARDING_STATUS_KEY);
+          await AsyncStorage.removeItem(PERSONALIZATION_ONBOARDING_RESULT_KEY);
+          setIsOnboardingComplete(false);
           setCheckingOnboarding(false);
           return;
         }
 
-        if (!userId) {
-          setIsOnboardingComplete(false);
+        const storedCompletion = await AsyncStorage.getItem(
+          getOnboardingCompleteKey(userId),
+        );
+        if (cancelled) {
+          return;
+        }
+
+        if (storedCompletion === 'true') {
+          setIsOnboardingComplete(true);
           setCheckingOnboarding(false);
           return;
         }
@@ -644,10 +668,13 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           });
 
           await AsyncStorage.multiSet([
-            ['@OnboardingComplete', 'true'],
-            [PERSONALIZATION_ONBOARDING_STATUS_KEY, 'completed'],
-            [PERSONALIZATION_ONBOARDING_RESULT_KEY, JSON.stringify(result)],
+            [getOnboardingCompleteKey(userId), 'true'],
+            [getPersonalizationStatusKey(userId), 'completed'],
+            [getPersonalizationResultKey(userId), JSON.stringify(result)],
           ]);
+          await AsyncStorage.removeItem(LEGACY_ONBOARDING_COMPLETE_KEY);
+          await AsyncStorage.removeItem(PERSONALIZATION_ONBOARDING_STATUS_KEY);
+          await AsyncStorage.removeItem(PERSONALIZATION_ONBOARDING_RESULT_KEY);
         } else {
           setIsOnboardingComplete(false);
         }
@@ -691,14 +718,26 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
 
     const checkPersonalizationOnboarding = async () => {
       try {
-        const status = await AsyncStorage.getItem(PERSONALIZATION_ONBOARDING_STATUS_KEY);
+        if (!userId) {
+          setIsPersonalizationOnboardingComplete(false);
+          setPersonalizationOnboardingResult(null);
+          setPersonalization((prev) => {
+            if (prev.onboardingResult === null) {
+              return prev;
+            }
+            return { ...prev, onboardingResult: null };
+          });
+          return;
+        }
+
+        const status = await AsyncStorage.getItem(getPersonalizationStatusKey(userId));
         if (cancelled) {
           return;
         }
 
         if (status === 'completed') {
           try {
-            const storedResult = await AsyncStorage.getItem(PERSONALIZATION_ONBOARDING_RESULT_KEY);
+            const storedResult = await AsyncStorage.getItem(getPersonalizationResultKey(userId));
             if (!cancelled && storedResult) {
               try {
                 const parsed = JSON.parse(storedResult) as PersonalizationResult;
@@ -741,7 +780,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     return () => {
       cancelled = true;
     };
-  }, [setPersonalization]);
+  }, [setPersonalization, userId]);
 
   useEffect(() => {
     let isMounted = true;

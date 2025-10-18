@@ -123,17 +123,24 @@ test('completing onboarding stores answers and hides the flow', async () => {
   });
 
   expect(mockAsyncStorage.multiSet).toHaveBeenCalledWith([
-    ['@OnboardingComplete', 'true'],
-    ['brewmate:personalization:onboarding_status_v1', 'completed'],
-    ['brewmate:personalization:onboarding_result_v1', JSON.stringify(sampleResult)],
+    ['@OnboardingComplete:user-123', 'true'],
+    ['brewmate:personalization:onboarding_status_v1:user-123', 'completed'],
+    ['brewmate:personalization:onboarding_result_v1:user-123', JSON.stringify(sampleResult)],
   ]);
   expect(mockAsyncStorage.setItem).toHaveBeenCalledWith(
-    'brewmate:personalization:onboarding_status_v1',
+    'brewmate:personalization:onboarding_status_v1:user-123',
     'completed',
   );
   expect(mockAsyncStorage.setItem).toHaveBeenCalledWith(
-    'brewmate:personalization:onboarding_result_v1',
+    'brewmate:personalization:onboarding_result_v1:user-123',
     JSON.stringify(sampleResult),
+  );
+  expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith('@OnboardingComplete');
+  expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith(
+    'brewmate:personalization:onboarding_status_v1',
+  );
+  expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith(
+    'brewmate:personalization:onboarding_result_v1',
   );
 
   await act(async () => {
@@ -164,12 +171,19 @@ test('skipping onboarding marks it as completed without answers', async () => {
   });
 
   expect(mockAsyncStorage.multiSet).toHaveBeenCalledWith([
-    ['@OnboardingComplete', 'true'],
-    ['brewmate:personalization:onboarding_status_v1', 'skipped'],
+    ['@OnboardingComplete:user-123', 'true'],
+    ['brewmate:personalization:onboarding_status_v1:user-123', 'skipped'],
   ]);
   expect(mockAsyncStorage.setItem).toHaveBeenCalledWith(
-    'brewmate:personalization:onboarding_status_v1',
+    'brewmate:personalization:onboarding_status_v1:user-123',
     'skipped',
+  );
+  expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith(
+    'brewmate:personalization:onboarding_result_v1:user-123',
+  );
+  expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith('@OnboardingComplete');
+  expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith(
+    'brewmate:personalization:onboarding_status_v1',
   );
   expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith(
     'brewmate:personalization:onboarding_result_v1',
