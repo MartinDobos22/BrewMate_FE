@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import auth from '@react-native-firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getColors, Colors } from '../../theme/colors';
 import {
   CTA_GRADIENT_DARK,
@@ -124,9 +125,33 @@ const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onS
       }
 
       const userCredential = await auth().createUserWithEmailAndPassword(email, password);
-      await userCredential.user.sendEmailVerification();
+      const firebaseUser = userCredential.user;
+
+      const idToken = await firebaseUser.getIdToken();
+
+      try {
+        await fetch('http://10.0.2.2:3001/api/auth', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+            'X-Auth-Provider': 'email',
+            'Content-Type': 'application/json',
+          },
+        });
+      } catch (authErr) {
+        console.warn('⚠️ EmailRegister: failed to initialize profile', authErr);
+      }
+
+      await firebaseUser.sendEmailVerification();
       Alert.alert('Registrácia úspešná', 'Skontroluj svoj email pre overenie účtu.');
       setRegistrationSuccess(true);
+
+      try {
+        await auth().signOut();
+        await AsyncStorage.removeItem('@AuthToken');
+      } catch (signOutErr) {
+        console.warn('⚠️ EmailRegister: sign out after registration failed', signOutErr);
+      }
 
       redirectTimeoutRef.current = setTimeout(() => {
         setRegistrationSuccess(false);
