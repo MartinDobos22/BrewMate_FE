@@ -516,6 +516,25 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
 
     const unsubscribe = auth().onAuthStateChanged(async (user) => {
       if (user) {
+        try {
+          await user.reload();
+        } catch (reloadError) {
+          console.warn('App: failed to reload user state', reloadError);
+        }
+
+        if (!user.emailVerified) {
+          await AsyncStorage.removeItem('@AuthToken');
+          setIsAuthenticated(false);
+          setPersonalization(() => ({ ...emptyPersonalizationState }));
+
+          try {
+            await auth().signOut();
+          } catch (signOutError) {
+            console.warn('App: automatic sign out for unverified user failed', signOutError);
+          }
+          return;
+        }
+
         const token = await user.getIdToken();
         await AsyncStorage.setItem('@AuthToken', token);
         setIsAuthenticated(true);
