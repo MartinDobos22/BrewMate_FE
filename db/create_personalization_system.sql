@@ -99,3 +99,17 @@ $$ language plpgsql;
 create trigger trg_touch_brew_history
     before update on public.brew_history
     for each row execute function public.touch_brew_history();
+
+create table if not exists public.user_onboarding_responses (
+    id bigserial primary key,
+    user_id uuid not null references auth.users(id) on delete cascade,
+    answers jsonb not null,
+    analyzed_profile jsonb,
+    created_at timestamptz not null default now()
+);
+
+comment on table public.user_onboarding_responses is 'Surové odpovede používateľa z onboarding otázok vrátane AI analýzy chuťového profilu.';
+comment on column public.user_onboarding_responses.answers is 'Zaznamenané odpovede na otázky vo forme JSON mapy.';
+comment on column public.user_onboarding_responses.analyzed_profile is 'Výsledok AI analýzy chuťového profilu z onboarding odpovedí.';
+
+create index if not exists user_onboarding_responses_user_idx on public.user_onboarding_responses(user_id, created_at desc);

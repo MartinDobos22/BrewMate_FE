@@ -30,33 +30,65 @@ export interface PersonalizationOnboardingProps {
 const steps: OnboardingStep[] = [
   {
     key: 'wake-up',
-    title: 'Ako vstávaš?',
-    description: 'Vyber obrázok, ktorý najviac vystihuje tvoje ranné tempo.',
+    title: 'Ako rýchlo chceš kofeín?',
+    description: 'Vyber obrázok, ktorý najviac vystihuje tvoje ranné tempo a potrebu energie.',
     options: [
-      { label: 'Slow brew', value: 'slow', image: 'https://images.unsplash.com/photo-1470337458703-46ad1756a187', hint: 'Rád si dopraješ pokojné ráno.' },
-      { label: 'Ready to go', value: 'fast', image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93', hint: 'Preferuješ rýchle espresso.' },
+      {
+        label: 'Slow brew',
+        value: 'slow',
+        image: 'https://images.unsplash.com/photo-1470337458703-46ad1756a187',
+        hint: 'Rád si dopraješ pokojné ráno a jemnejšie nápoje.',
+      },
+      {
+        label: 'Ready to go',
+        value: 'fast',
+        image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93',
+        hint: 'Potrebujem rýchlu dávku energie a výraznú chuť.',
+      },
     ],
   },
   {
     key: 'sweetness',
     title: 'Sladkosť',
-    description: 'Aká intenzívna sladkosť ti vyhovuje?',
+    description: 'Aká intenzívna sladkosť ti vyhovuje v káve?',
     dimension: 'sweetness',
     options: [
-      { label: 'Jemná', value: '4', image: 'https://images.unsplash.com/photo-1461988320302-91bde64fc8e4' },
-      { label: 'Vyvážená', value: '6', image: 'https://images.unsplash.com/photo-1466978913421-dad2ebd01d17' },
-      { label: 'Intenzívna', value: '8', image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93' },
+      { label: 'Jemná', value: '3', image: 'https://images.unsplash.com/photo-1461988320302-91bde64fc8e4' },
+      { label: 'Vyvážená', value: '5', image: 'https://images.unsplash.com/photo-1466978913421-dad2ebd01d17' },
+      { label: 'Dezertná', value: '8', image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93' },
     ],
   },
   {
     key: 'acidity',
     title: 'Kyslosť',
-    description: 'Vyber kyslosť, ktorá ti sedí.',
+    description: 'Vyber kyslosť, ktorá ti sedí pri filtrovaných aj espresso nápojoch.',
     dimension: 'acidity',
     options: [
-      { label: 'Nízka', value: '3', image: 'https://images.unsplash.com/photo-1432107294469-414527cb5c65' },
-      { label: 'Stredná', value: '5', image: 'https://images.unsplash.com/photo-1485808191679-5f86510681a2' },
+      { label: 'Jemná', value: '2', image: 'https://images.unsplash.com/photo-1432107294469-414527cb5c65' },
+      { label: 'Iskrivá', value: '5', image: 'https://images.unsplash.com/photo-1485808191679-5f86510681a2' },
       { label: 'Živá', value: '7', image: 'https://images.unsplash.com/photo-1481398123172-6f0ae0c7b3e9' },
+    ],
+  },
+  {
+    key: 'bitterness',
+    title: 'Horkosť',
+    description: 'Ako veľmi môže byť káva horká, aby ti stále chutila?',
+    dimension: 'bitterness',
+    options: [
+      { label: 'Takmer žiadna', value: '2', image: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93' },
+      { label: 'Vyvážená', value: '5', image: 'https://images.unsplash.com/photo-1432107294469-414527cb5c65' },
+      { label: 'Intenzívna', value: '8', image: 'https://images.unsplash.com/photo-1470337458703-46ad1756a187' },
+    ],
+  },
+  {
+    key: 'body',
+    title: 'Plnosť tela',
+    description: 'Preferuješ ľahké telo alebo hustú, sirupovú konzistenciu?',
+    dimension: 'body',
+    options: [
+      { label: 'Čisté a ľahké', value: '3', image: 'https://images.unsplash.com/photo-1447933601403-0c6688de566e' },
+      { label: 'Krémové', value: '6', image: 'https://images.unsplash.com/photo-1504753793650-d4a2b783c15e' },
+      { label: 'Husté a sirupové', value: '8', image: 'https://images.unsplash.com/photo-1466978913421-dad2ebd01d17' },
     ],
   },
   {
