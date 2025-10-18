@@ -2,6 +2,7 @@ import React, { useMemo, useRef } from 'react';
 import {
   Animated,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -147,75 +148,84 @@ const FeaturesScreen: React.FC<Props> = ({ onFinish }) => {
           contentContainerStyle={{ paddingHorizontal: spacer }}
           renderItem={({ item, index: itemIndex }) => (
             <View style={{ width: cardWidth }}>
-              <View
-                style={[
-                  styles.card,
-                  {
-                    backgroundColor: palette.primarySurface,
-                    borderColor: palette.surfaceBorder,
-                  },
-                  getElevationStyle(palette, 'high'),
-                  isLarge && styles.cardLarge,
-                ]}
+              <ScrollView
+                style={styles.cardScroll}
+                contentContainerStyle={styles.cardScrollContent}
+                showsVerticalScrollIndicator={false}
+                bounces={false}
               >
                 <View
                   style={[
-                    styles.badge,
+                    styles.card,
+                    styles.cardInner,
                     {
-                      backgroundColor: palette.secondarySurface,
+                      backgroundColor: palette.primarySurface,
                       borderColor: palette.surfaceBorder,
                     },
-                    getElevationStyle(palette, 'low'),
+                    getElevationStyle(palette, 'high'),
+                    isLarge && styles.cardLarge,
                   ]}
                 >
-                  <Text style={[styles.badgeText, { color: palette.secondaryText }]}>{item.eyebrow}</Text>
+                  <View
+                    style={[
+                      styles.badge,
+                      {
+                        backgroundColor: palette.secondarySurface,
+                        borderColor: palette.surfaceBorder,
+                      },
+                      getElevationStyle(palette, 'low'),
+                    ]}
+                  >
+                    <Text style={[styles.badgeText, { color: palette.secondaryText }]}>{item.eyebrow}</Text>
+                  </View>
+                  <Text style={[styles.title, { color: palette.primaryText }]}>{item.title}</Text>
+                  <Text style={[styles.subtitle, { color: palette.secondaryAccent }]}>{item.subtitle}</Text>
+                  <Text style={[styles.description, { color: palette.secondaryText }]}>{item.description}</Text>
+                  <View style={styles.pointList}>
+                    {item.points.map((point) => (
+                      <View key={point} style={styles.pointRow}>
+                        <View
+                          style={[styles.pointBullet, { backgroundColor: palette.primaryAccent }]}
+                        />
+                        <Text style={[styles.pointText, { color: palette.secondaryText }]}>{point}</Text>
+                      </View>
+                    ))}
+                  </View>
+                  <View
+                    style={[
+                      styles.helperCard,
+                      {
+                        backgroundColor: palette.secondarySurface,
+                        borderColor: palette.surfaceBorder,
+                      },
+                      getElevationStyle(palette, 'low'),
+                    ]}
+                  >
+                    <Text style={[styles.helperTitle, { color: palette.primaryText }]}>{item.tip}</Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.responsiveCard,
+                      {
+                        backgroundColor: palette.tertiarySurface,
+                      },
+                      getElevationStyle(palette, 'low'),
+                    ]}
+                  >
+                    <Text style={[styles.responsiveTitle, { color: palette.primaryText }]}>Adaptácia na breakpoints</Text>
+                    <Text style={[styles.responsiveBody, { color: palette.mutedText }]}>{item.responsive}</Text>
+                  </View>
+                  {itemIndex === slides.length - 1 ? <View style={styles.ctaSpacer} /> : null}
+                  {itemIndex === slides.length - 1 ? (
+                    <OnboardingButton
+                      label="Začať tasting profil"
+                      onPress={onFinish}
+                      palette={palette}
+                      style={styles.cta}
+                    />
+                  ) : null}
                 </View>
-                <Text style={[styles.title, { color: palette.primaryText }]}>{item.title}</Text>
-                <Text style={[styles.subtitle, { color: palette.secondaryAccent }]}>{item.subtitle}</Text>
-                <Text style={[styles.description, { color: palette.secondaryText }]}>{item.description}</Text>
-                <View style={styles.pointList}>
-                  {item.points.map((point) => (
-                    <View key={point} style={styles.pointRow}>
-                      <View
-                        style={[styles.pointBullet, { backgroundColor: palette.primaryAccent }]}
-                      />
-                      <Text style={[styles.pointText, { color: palette.secondaryText }]}>{point}</Text>
-                    </View>
-                  ))}
-                </View>
-                <View
-                  style={[
-                    styles.helperCard,
-                    {
-                      backgroundColor: palette.secondarySurface,
-                      borderColor: palette.surfaceBorder,
-                    },
-                    getElevationStyle(palette, 'low'),
-                  ]}
-                >
-                  <Text style={[styles.helperTitle, { color: palette.primaryText }]}>{item.tip}</Text>
-                </View>
-                <View
-                  style={[
-                    styles.responsiveCard,
-                    {
-                      backgroundColor: palette.tertiarySurface,
-                    },
-                    getElevationStyle(palette, 'low'),
-                  ]}
-                >
-                  <Text style={[styles.responsiveTitle, { color: palette.primaryText }]}>Adaptácia na breakpoints</Text>
-                  <Text style={[styles.responsiveBody, { color: palette.mutedText }]}>{item.responsive}</Text>
-                </View>
-                {itemIndex === slides.length - 1 ? (
-                  <OnboardingButton
-                    label="Začať tasting profil"
-                    onPress={onFinish}
-                    palette={palette}
-                    style={styles.cta}
-                  />
-                ) : null}
-              </View>
+              </ScrollView>
             </View>
           )}
           onViewableItemsChanged={onViewableItemsChanged}
@@ -283,6 +293,15 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginTop: spacing.xl,
     marginBottom: spacing.xl,
+  },
+  cardInner: {
+    flexGrow: 1,
+  },
+  cardScroll: {
+    flexGrow: 1,
+  },
+  cardScrollContent: {
+    flexGrow: 1,
   },
   cardLarge: {
     padding: spacing.xl,
@@ -353,6 +372,9 @@ const styles = StyleSheet.create({
   responsiveBody: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  ctaSpacer: {
+    flexGrow: 1,
   },
   cta: {
     marginTop: spacing.md,
