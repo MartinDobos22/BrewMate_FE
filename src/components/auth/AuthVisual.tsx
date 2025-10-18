@@ -8,25 +8,26 @@ import {
   Modal,
   TextInput,
   ScrollView,
+  Alert,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import GoogleLogin from './GoogleAuth';
 import AppleAuth from './AppleAuth';
-import EmailLogin from './EmailLogin';
 import EmailRegister from './EmailRegister';
 import { getColors, Colors } from '../../theme/colors';
+import auth from '@react-native-firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AuthScreen = () => {
-  const [showEmailLogin, setShowEmailLogin] = useState(false);
   const [showEmailRegister, setShowEmailRegister] = useState(false);
   const [showAppleAuth, setShowAppleAuth] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [modalEmail, setModalEmail] = useState('');
-  const [modalPassword, setModalPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [errorVisible, setErrorVisible] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('Nesprávny email alebo heslo');
   const isDarkMode = useColorScheme() === 'dark';
   const colors = getColors(isDarkMode);
   const styles = createStyles(colors, isDarkMode);
@@ -40,32 +41,77 @@ const AuthScreen = () => {
     };
   }, []);
 
-  const triggerError = () => {
+  const triggerError = (message: string) => {
     if (errorTimeout.current) {
       clearTimeout(errorTimeout.current);
     }
+    setErrorMessage(message);
     setErrorVisible(true);
     errorTimeout.current = setTimeout(() => {
       setErrorVisible(false);
     }, 3000);
   };
 
-  const handleLoginPress = () => {
-    if (!email.trim() || !password.trim()) {
-      triggerError();
+  const handleLoginPress = async () => {
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedEmail || !trimmedPassword) {
+      triggerError('Prosím, vyplň email aj heslo.');
       return;
     }
 
     setErrorVisible(false);
-    setModalEmail(email);
-    setModalPassword(password);
-    setShowEmailLogin(true);
+
+    try {
+      const userCredential = await auth().signInWithEmailAndPassword(
+        trimmedEmail,
+        trimmedPassword,
+      );
+      const user = userCredential.user;
+
+      if (!user.emailVerified) {
+        triggerError('Prosím, over si svoju emailovú adresu.');
+        await auth().signOut();
+        await AsyncStorage.removeItem('@AuthToken');
+        return;
+      }
+
+      const idToken = await user.getIdToken();
+      await AsyncStorage.setItem('@AuthToken', idToken);
+      await fetch('http://10.0.2.2:3001/api/auth', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+          'X-Auth-Provider': 'email',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      Alert.alert('Úspech', 'Prihlásenie úspešné');
+    } catch (error: any) {
+      console.error('❌ AuthScreen login error:', error);
+      const message = error?.message ?? 'Prihlásenie zlyhalo. Skús to prosím znova.';
+      triggerError(message);
+    }
   };
 
-  const handleForgotPassword = () => {
-    setModalEmail(email);
-    setModalPassword('');
-    setShowEmailLogin(true);
+  const handleForgotPassword = async () => {
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail) {
+      triggerError('Zadaj email, na ktorý ti pošleme odkaz na obnovenie hesla.');
+      return;
+    }
+
+    try {
+      await auth().sendPasswordResetEmail(trimmedEmail);
+      Alert.alert('Obnovenie hesla', 'Poslali sme ti email s pokynmi na obnovu hesla.');
+    } catch (error: any) {
+      console.error('❌ AuthScreen forgot password error:', error);
+      const message = error?.message ?? 'Obnovenie hesla sa nepodarilo. Skús to znova.';
+      triggerError(message);
+    }
   };
 
   const handleRegister = () => {
@@ -73,21 +119,11 @@ const AuthScreen = () => {
     setShowEmailRegister(true);
   };
 
-  const openRegisterFromLogin = (prefillEmail?: string) => {
-    setShowEmailLogin(false);
-    if (prefillEmail) {
-      setModalEmail(prefillEmail);
-    }
-    setShowEmailRegister(true);
-  };
-
   const openLoginFromRegister = (prefillEmail?: string) => {
     setShowEmailRegister(false);
     if (prefillEmail) {
-      setModalEmail(prefillEmail);
+      setEmail(prefillEmail);
     }
-    setModalPassword('');
-    setShowEmailLogin(true);
   };
 
   return (
@@ -111,7 +147,7 @@ const AuthScreen = () => {
 
           {errorVisible && (
             <View style={styles.errorMessage}>
-              <Text style={styles.errorText}>Nesprávny email alebo heslo</Text>
+              <Text style={styles.errorText}>{errorMessage}</Text>
             </View>
           )}
 
@@ -212,16 +248,6 @@ const AuthScreen = () => {
         </View>
       </ScrollView>
 
-      {showEmailLogin && (
-        <Modal visible animationType="fade" transparent>
-          <EmailLogin
-            initialEmail={modalEmail}
-            initialPassword={modalPassword}
-            onBack={() => setShowEmailLogin(false)}
-            onSwitchToRegister={openRegisterFromLogin}
-          />
-        </Modal>
-      )}
       {showEmailRegister && (
         <Modal visible animationType="fade" transparent>
           <EmailRegister
