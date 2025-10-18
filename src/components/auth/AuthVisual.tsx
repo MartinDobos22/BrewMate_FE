@@ -70,12 +70,13 @@ const AuthScreen = () => {
       );
       const user = userCredential.user;
 
-      if (!user.emailVerified) {
-        triggerError('Prosím, over si svoju emailovú adresu.');
-        await auth().signOut();
-        await AsyncStorage.removeItem('@AuthToken');
-        return;
-      }
+      // dočasne vypnutá kontrola overenia emailu
+      // if (!user.emailVerified) {
+      //   triggerError('Prosím, over si svoju emailovú adresu.');
+      //   await auth().signOut();
+      //   await AsyncStorage.removeItem('@AuthToken');
+      //   return;
+      // }
 
       const idToken = await user.getIdToken();
       await AsyncStorage.setItem('@AuthToken', idToken);

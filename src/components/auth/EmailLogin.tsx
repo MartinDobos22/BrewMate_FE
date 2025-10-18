@@ -45,12 +45,13 @@ const EmailLogin: React.FC<EmailLoginProps> = ({
       const userCredential = await auth().signInWithEmailAndPassword(email, password);
       const user = userCredential.user;
 
-      if (!user.emailVerified) {
-        Alert.alert('Email nie je overený', 'Prosím, over svoju emailovú adresu.');
-        await auth().signOut();
-        await AsyncStorage.removeItem('@AuthToken');
-        return;
-      }
+      // dočasne vypnutá kontrola overenia emailu
+      // if (!user.emailVerified) {
+      //   Alert.alert('Email nie je overený', 'Prosím, over svoju emailovú adresu.');
+      //   await auth().signOut();
+      //   await AsyncStorage.removeItem('@AuthToken');
+      //   return;
+      // }
 
       const idToken = await user.getIdToken();
       await AsyncStorage.setItem('@AuthToken', idToken);
