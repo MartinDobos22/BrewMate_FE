@@ -18,7 +18,20 @@ import { getColors, Colors } from '../../theme/colors';
 import auth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const AuthScreen = () => {
+const EMAIL_VERIFICATION_NOTICE =
+  'Pred prihlásením potvrď verifikačný email.';
+
+type AuthNotice = {
+  message: string;
+  id: number;
+  tone: 'info' | 'error';
+};
+
+interface AuthScreenProps {
+  notice?: AuthNotice | null;
+}
+
+const AuthScreen: React.FC<AuthScreenProps> = ({ notice }) => {
   const [showEmailRegister, setShowEmailRegister] = useState(false);
   const [showAppleAuth, setShowAppleAuth] = useState(false);
   const [email, setEmail] = useState('');
@@ -51,6 +64,7 @@ const AuthScreen = () => {
     if (errorTimeout.current) {
       clearTimeout(errorTimeout.current);
     }
+    setInfoVisible(false);
     setErrorMessage(message);
     setErrorVisible(true);
     errorTimeout.current = setTimeout(() => {
@@ -62,12 +76,26 @@ const AuthScreen = () => {
     if (infoTimeout.current) {
       clearTimeout(infoTimeout.current);
     }
+    setErrorVisible(false);
     setInfoMessage(message);
     setInfoVisible(true);
     infoTimeout.current = setTimeout(() => {
       setInfoVisible(false);
     }, 6000);
   };
+
+  useEffect(() => {
+    if (!notice?.message) {
+      return;
+    }
+
+    if (notice.tone === 'error') {
+      triggerError(notice.message);
+      return;
+    }
+
+    triggerInfo(notice.message);
+  }, [notice]);
 
   const handleLoginPress = async () => {
     const trimmedEmail = email.trim();
@@ -87,13 +115,12 @@ const AuthScreen = () => {
       );
       const user = userCredential.user;
 
-      // dočasne vypnutá kontrola overenia emailu
-      // if (!user.emailVerified) {
-      //   triggerError('Prosím, over si svoju emailovú adresu.');
-      //   await auth().signOut();
-      //   await AsyncStorage.removeItem('@AuthToken');
-      //   return;
-      // }
+      if (!user.emailVerified) {
+        triggerError(EMAIL_VERIFICATION_NOTICE);
+        await auth().signOut();
+        await AsyncStorage.removeItem('@AuthToken');
+        return;
+      }
 
       const idToken = await user.getIdToken();
       await AsyncStorage.setItem('@AuthToken', idToken);
@@ -137,13 +164,20 @@ const AuthScreen = () => {
     setShowEmailRegister(true);
   };
 
-  const openLoginFromRegister = (prefillEmail?: string, options?: { notice?: string }) => {
+  const openLoginFromRegister = (
+    prefillEmail?: string,
+    options?: { notice?: string; tone?: 'info' | 'error' },
+  ) => {
     setShowEmailRegister(false);
     if (prefillEmail) {
       setEmail(prefillEmail);
     }
     if (options?.notice) {
-      triggerInfo(options.notice);
+      if (options.tone === 'error') {
+        triggerError(options.notice);
+      } else {
+        triggerInfo(options.notice);
+      }
     }
   };
 

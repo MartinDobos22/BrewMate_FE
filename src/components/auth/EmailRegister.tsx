@@ -24,7 +24,10 @@ import {
 interface EmailRegisterProps {
   onBack?: () => void;
   initialEmail?: string;
-  onSwitchToLogin?: (email?: string, options?: { notice?: string }) => void;
+  onSwitchToLogin?: (
+    email?: string,
+    options?: { notice?: string; tone?: 'info' | 'error' },
+  ) => void;
 }
 
 const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onSwitchToLogin }) => {
@@ -89,9 +92,9 @@ const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onS
     }
   };
 
-  const handleSwitchToLogin = (notice?: string) => {
+  const handleSwitchToLogin = (notice?: string, tone: 'info' | 'error' = 'info') => {
     if (onSwitchToLogin) {
-      onSwitchToLogin(email, notice ? { notice } : undefined);
+      onSwitchToLogin(email, notice ? { notice, tone } : undefined);
     } else if (onBack) {
       onBack();
     }
@@ -135,7 +138,8 @@ const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onS
       }
 
       handleSwitchToLogin(
-        'Účet bol vytvorený. Prihlás sa po potvrdení verifikačného emailu.',
+        'Účet bol vytvorený. Skontroluj email a potvrď registráciu.',
+        'info',
       );
     } catch (err: any) {
       console.error('❌ EmailRegister error:', err);
