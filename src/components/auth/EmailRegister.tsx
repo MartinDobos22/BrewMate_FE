@@ -128,7 +128,7 @@ const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onS
         }
       })();
 
-      handleSwitchToLogin('Účet bol vytvorený. Prihlás sa svojimi údajmi.');
+      handleSwitchToLogin('Účet bol vytvorený. Vitaj v BrewMate!');
     } catch (err: any) {
       console.error('❌ EmailRegister error:', err);
       Alert.alert('Chyba', err?.message ?? 'Neznáma chyba');

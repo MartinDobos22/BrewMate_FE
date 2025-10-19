@@ -18,9 +18,6 @@ import { getColors, Colors } from '../../theme/colors';
 import auth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const EMAIL_VERIFICATION_NOTICE =
-  'Účet bol vytvorený. Prihlás sa po potvrdení verifikačného emailu.';
-
 interface AuthScreenProps {
   notice?: { message: string; id: number } | null;
 }
@@ -112,13 +109,6 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ notice }) => {
       );
       const user = userCredential.user;
 
-      if (!user.emailVerified) {
-        triggerInfo(EMAIL_VERIFICATION_NOTICE);
-        await auth().signOut();
-        await AsyncStorage.removeItem('@AuthToken');
-        return;
-      }
-
       const idToken = await user.getIdToken();
       await AsyncStorage.setItem('@AuthToken', idToken);
       await fetch('http://10.0.2.2:3001/api/auth', {
@@ -133,7 +123,38 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ notice }) => {
       Alert.alert('Úspech', 'Prihlásenie úspešné');
     } catch (error: any) {
       console.error('❌ AuthScreen login error:', error);
-      const message = error?.message ?? 'Prihlásenie zlyhalo. Skús to prosím znova.';
+      const code: string | undefined = error?.code;
+      let message: string;
+
+      switch (code) {
+        case 'auth/invalid-email':
+          message = 'Emailová adresa má nesprávny formát.';
+          break;
+        case 'auth/missing-password':
+        case 'auth/invalid-password':
+        case 'auth/wrong-password':
+        case 'auth/invalid-login-credentials':
+          message = 'Nesprávny email alebo heslo.';
+          break;
+        case 'auth/user-not-found':
+          message = 'Účet s týmto emailom neexistuje.';
+          break;
+        case 'auth/user-disabled':
+          message = 'Tento účet bol deaktivovaný. Kontaktuj podporu.';
+          break;
+        case 'auth/too-many-requests':
+          message = 'Príliš veľa pokusov o prihlásenie. Skús to o chvíľu znova.';
+          break;
+        default: {
+          const rawMessage: string | undefined = error?.message;
+          if (rawMessage && /overen/i.test(rawMessage)) {
+            message = 'Prihlásenie zlyhalo. Skús to prosím znova.';
+          } else {
+            message = rawMessage ?? 'Prihlásenie zlyhalo. Skús to prosím znova.';
+          }
+        }
+      }
+
       triggerError(message);
     }
   };
