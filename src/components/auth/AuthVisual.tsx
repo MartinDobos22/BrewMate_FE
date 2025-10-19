@@ -18,20 +18,7 @@ import { getColors, Colors } from '../../theme/colors';
 import auth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const EMAIL_VERIFICATION_NOTICE =
-  'Pred prihlásením potvrď verifikačný email.';
-
-type AuthNotice = {
-  message: string;
-  id: number;
-  tone: 'info' | 'error';
-};
-
-interface AuthScreenProps {
-  notice?: AuthNotice | null;
-}
-
-const AuthScreen: React.FC<AuthScreenProps> = ({ notice }) => {
+const AuthScreen: React.FC = () => {
   const [showEmailRegister, setShowEmailRegister] = useState(false);
   const [showAppleAuth, setShowAppleAuth] = useState(false);
   const [email, setEmail] = useState('');
@@ -84,19 +71,6 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ notice }) => {
     }, 6000);
   };
 
-  useEffect(() => {
-    if (!notice?.message) {
-      return;
-    }
-
-    if (notice.tone === 'error') {
-      triggerError(notice.message);
-      return;
-    }
-
-    triggerInfo(notice.message);
-  }, [notice]);
-
   const handleLoginPress = async () => {
     const trimmedEmail = email.trim();
     const trimmedPassword = password.trim();
@@ -114,13 +88,6 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ notice }) => {
         trimmedPassword,
       );
       const user = userCredential.user;
-
-      if (!user.emailVerified) {
-        triggerError(EMAIL_VERIFICATION_NOTICE);
-        await auth().signOut();
-        await AsyncStorage.removeItem('@AuthToken');
-        return;
-      }
 
       const idToken = await user.getIdToken();
       await AsyncStorage.setItem('@AuthToken', idToken);
@@ -164,20 +131,13 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ notice }) => {
     setShowEmailRegister(true);
   };
 
-  const openLoginFromRegister = (
-    prefillEmail?: string,
-    options?: { notice?: string; tone?: 'info' | 'error' },
-  ) => {
+  const openLoginFromRegister = (prefillEmail?: string, notice?: string) => {
     setShowEmailRegister(false);
     if (prefillEmail) {
       setEmail(prefillEmail);
     }
-    if (options?.notice) {
-      if (options.tone === 'error') {
-        triggerError(options.notice);
-      } else {
-        triggerInfo(options.notice);
-      }
+    if (notice) {
+      triggerInfo(notice);
     }
   };
 
