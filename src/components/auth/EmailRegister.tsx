@@ -113,30 +113,43 @@ const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onS
       const userCredential = await auth().createUserWithEmailAndPassword(email, password);
       const firebaseUser = userCredential.user;
 
-      const idToken = await firebaseUser.getIdToken();
+      void (async () => {
+        try {
+          const idToken = await firebaseUser.getIdToken();
+          await fetch('http://10.0.2.2:3001/api/auth', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${idToken}`,
+              'X-Auth-Provider': 'email',
+              'Content-Type': 'application/json',
+            },
+          });
+        } catch (authErr) {
+          console.warn('⚠️ EmailRegister: failed to initialize profile', authErr);
+        }
+      })();
 
       try {
-        await fetch('http://10.0.2.2:3001/api/auth', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${idToken}`,
-            'X-Auth-Provider': 'email',
-            'Content-Type': 'application/json',
-          },
-        });
-      } catch (authErr) {
-        console.warn('⚠️ EmailRegister: failed to initialize profile', authErr);
+        await firebaseUser.sendEmailVerification();
+      } catch (verificationErr) {
+        console.warn('⚠️ EmailRegister: verification email failed', verificationErr);
       }
 
-      await firebaseUser.sendEmailVerification();
       try {
         await auth().signOut();
-        await AsyncStorage.removeItem('@AuthToken');
       } catch (signOutErr) {
         console.warn('⚠️ EmailRegister: sign out after registration failed', signOutErr);
       }
 
-      handleSwitchToLogin('Registrácia bola úspešná. Skontroluj svoj email pre overenie účtu.');
+      void (async () => {
+        try {
+          await AsyncStorage.removeItem('@AuthToken');
+        } catch (storageErr) {
+          console.warn('⚠️ EmailRegister: clearing auth token failed', storageErr);
+        }
+      })();
+
+      handleSwitchToLogin();
     } catch (err: any) {
       console.error('❌ EmailRegister error:', err);
       Alert.alert('Chyba', err?.message ?? 'Neznáma chyba');
