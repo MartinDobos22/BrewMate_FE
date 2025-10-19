@@ -28,15 +28,21 @@ const AuthScreen = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [errorVisible, setErrorVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState('Nesprávny email alebo heslo');
+  const [infoVisible, setInfoVisible] = useState(false);
+  const [infoMessage, setInfoMessage] = useState('');
   const isDarkMode = useColorScheme() === 'dark';
   const colors = getColors(isDarkMode);
   const styles = createStyles(colors, isDarkMode);
   const errorTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const infoTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     return () => {
       if (errorTimeout.current) {
         clearTimeout(errorTimeout.current);
+      }
+      if (infoTimeout.current) {
+        clearTimeout(infoTimeout.current);
       }
     };
   }, []);
@@ -50,6 +56,17 @@ const AuthScreen = () => {
     errorTimeout.current = setTimeout(() => {
       setErrorVisible(false);
     }, 3000);
+  };
+
+  const triggerInfo = (message: string) => {
+    if (infoTimeout.current) {
+      clearTimeout(infoTimeout.current);
+    }
+    setInfoMessage(message);
+    setInfoVisible(true);
+    infoTimeout.current = setTimeout(() => {
+      setInfoVisible(false);
+    }, 6000);
   };
 
   const handleLoginPress = async () => {
@@ -120,10 +137,13 @@ const AuthScreen = () => {
     setShowEmailRegister(true);
   };
 
-  const openLoginFromRegister = (prefillEmail?: string) => {
+  const openLoginFromRegister = (prefillEmail?: string, options?: { notice?: string }) => {
     setShowEmailRegister(false);
     if (prefillEmail) {
       setEmail(prefillEmail);
+    }
+    if (options?.notice) {
+      triggerInfo(options.notice);
     }
   };
 
@@ -146,9 +166,14 @@ const AuthScreen = () => {
             <Text style={styles.appTagline}>Tvoj barista vo vrecku</Text>
           </View>
 
+          {infoVisible && (
+            <View style={[styles.feedbackMessage, styles.infoMessage]}>
+              <Text style={[styles.feedbackText, styles.infoText]}>{infoMessage}</Text>
+            </View>
+          )}
           {errorVisible && (
-            <View style={styles.errorMessage}>
-              <Text style={styles.errorText}>{errorMessage}</Text>
+            <View style={[styles.feedbackMessage, styles.errorMessage]}>
+              <Text style={[styles.feedbackText, styles.errorText]}>{errorMessage}</Text>
             </View>
           )}
 
@@ -318,18 +343,30 @@ const createStyles = (colors: Colors, isDark: boolean) =>
       fontWeight: '500',
       color: isDark ? 'rgba(250, 240, 232, 0.7)' : '#8B7355',
     },
-    errorMessage: {
+    feedbackMessage: {
       borderRadius: 12,
       paddingVertical: 12,
       paddingHorizontal: 14,
-      backgroundColor: isDark ? 'rgba(164, 48, 48, 0.25)' : '#FEE2E2',
       borderLeftWidth: 4,
+      gap: 4,
+    },
+    feedbackText: {
+      fontSize: 14,
+      fontWeight: '500',
+    },
+    infoMessage: {
+      backgroundColor: isDark ? 'rgba(22, 101, 52, 0.25)' : '#DCFCE7',
+      borderLeftColor: isDark ? '#34D399' : '#16A34A',
+    },
+    infoText: {
+      color: isDark ? '#D1FAE5' : '#14532D',
+    },
+    errorMessage: {
+      backgroundColor: isDark ? 'rgba(164, 48, 48, 0.25)' : '#FEE2E2',
       borderLeftColor: '#DC2626',
     },
     errorText: {
       color: isDark ? '#FEE2E2' : '#B91C1C',
-      fontSize: 14,
-      fontWeight: '500',
     },
     formSection: {
       gap: 18,
