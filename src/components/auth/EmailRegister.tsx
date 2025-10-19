@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -25,7 +25,7 @@ import {
 interface EmailRegisterProps {
   onBack?: () => void;
   initialEmail?: string;
-  onSwitchToLogin?: (email?: string) => void;
+  onSwitchToLogin?: (email?: string, options?: { notice?: string }) => void;
 }
 
 const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onSwitchToLogin }) => {
@@ -35,10 +35,8 @@ const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onS
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
-  const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [passwordLevel, setPasswordLevel] = useState(0);
   const [passwordLabel, setPasswordLabel] = useState('Zadaj heslo');
-  const redirectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isDarkMode = useColorScheme() === 'dark';
   const colors = getColors(isDarkMode);
   const styles = createStyles(colors, isDarkMode);
@@ -73,19 +71,7 @@ const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onS
     }
   }, [password]);
 
-  useEffect(() => {
-    return () => {
-      if (redirectTimeoutRef.current) {
-        clearTimeout(redirectTimeoutRef.current);
-      }
-    };
-  }, []);
-
   const isRegisterDisabled = useMemo(() => {
-    if (registrationSuccess) {
-      return true;
-    }
-
     return (
       !firstName.trim() ||
       !lastName.trim() ||
@@ -94,7 +80,7 @@ const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onS
       password !== confirmPassword ||
       !termsAccepted
     );
-  }, [confirmPassword, email, firstName, lastName, password, registrationSuccess, termsAccepted]);
+  }, [confirmPassword, email, firstName, lastName, password, termsAccepted]);
 
   const handleBack = () => {
     if (onBack) {
@@ -104,9 +90,9 @@ const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onS
     }
   };
 
-  const handleSwitchToLogin = () => {
+  const handleSwitchToLogin = (notice?: string) => {
     if (onSwitchToLogin) {
-      onSwitchToLogin(email);
+      onSwitchToLogin(email, notice ? { notice } : undefined);
     } else if (onBack) {
       onBack();
     }
@@ -143,9 +129,6 @@ const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onS
       }
 
       await firebaseUser.sendEmailVerification();
-      Alert.alert('Registrácia úspešná', 'Skontroluj svoj email pre overenie účtu.');
-      setRegistrationSuccess(true);
-
       try {
         await auth().signOut();
         await AsyncStorage.removeItem('@AuthToken');
@@ -153,10 +136,7 @@ const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onS
         console.warn('⚠️ EmailRegister: sign out after registration failed', signOutErr);
       }
 
-      redirectTimeoutRef.current = setTimeout(() => {
-        setRegistrationSuccess(false);
-        handleSwitchToLogin();
-      }, 2000);
+      handleSwitchToLogin('Registrácia bola úspešná. Skontroluj svoj email pre overenie účtu.');
     } catch (err: any) {
       console.error('❌ EmailRegister error:', err);
       Alert.alert('Chyba', err?.message ?? 'Neznáma chyba');
@@ -198,13 +178,6 @@ const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onS
                 Pripoj sa ku komunite kávových nadšencov
               </Text>
             </View>
-
-            {registrationSuccess && (
-              <View style={styles.successMessage}>
-                <Text style={styles.successTitle}>Účet vytvorený!</Text>
-                <Text style={styles.successSubtitle}>Presmerovávame ťa na prihlásenie...</Text>
-              </View>
-            )}
 
             <View style={styles.formRow}>
               <View style={styles.inputGroupWide}>
@@ -426,24 +399,6 @@ const createStyles = (colors: Colors, isDark: boolean) =>
     welcomeSubtitle: {
       fontSize: 15,
       color: isDark ? 'rgba(247, 241, 234, 0.75)' : '#6B4F3A',
-    },
-    successMessage: {
-      borderRadius: 16,
-      paddingVertical: 14,
-      paddingHorizontal: 16,
-      backgroundColor: isDark ? 'rgba(34,197,94,0.18)' : '#DCFCE7',
-      borderLeftWidth: 4,
-      borderLeftColor: isDark ? '#4ADE80' : '#16A34A',
-      gap: 4,
-    },
-    successTitle: {
-      fontSize: 15,
-      fontWeight: '700',
-      color: isDark ? '#4ADE80' : '#166534',
-    },
-    successSubtitle: {
-      fontSize: 14,
-      color: isDark ? '#DCFCE7' : '#14532D',
     },
     formRow: {
       flexDirection: 'row',
