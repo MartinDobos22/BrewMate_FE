@@ -58,6 +58,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ notice }) => {
     if (errorTimeout.current) {
       clearTimeout(errorTimeout.current);
     }
+    setInfoVisible(false);
     setErrorMessage(message);
     setErrorVisible(true);
     errorTimeout.current = setTimeout(() => {
@@ -69,6 +70,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ notice }) => {
     if (infoTimeout.current) {
       clearTimeout(infoTimeout.current);
     }
+    setErrorVisible(false);
     setInfoMessage(message);
     setInfoVisible(true);
     infoTimeout.current = setTimeout(() => {
@@ -159,13 +161,13 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ notice }) => {
     setShowEmailRegister(true);
   };
 
-  const openLoginFromRegister = (prefillEmail?: string, options?: { notice?: string }) => {
+  const openLoginFromRegister = (prefillEmail?: string, notice?: string) => {
     setShowEmailRegister(false);
     if (prefillEmail) {
       setEmail(prefillEmail);
     }
-    if (options?.notice) {
-      triggerInfo(options.notice);
+    if (notice) {
+      triggerInfo(notice);
     }
   };
 

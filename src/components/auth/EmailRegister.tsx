@@ -24,7 +24,7 @@ import {
 interface EmailRegisterProps {
   onBack?: () => void;
   initialEmail?: string;
-  onSwitchToLogin?: (email?: string, options?: { notice?: string }) => void;
+  onSwitchToLogin?: (email?: string, notice?: string) => void;
 }
 
 const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onSwitchToLogin }) => {
@@ -91,7 +91,7 @@ const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onS
 
   const handleSwitchToLogin = (notice?: string) => {
     if (onSwitchToLogin) {
-      onSwitchToLogin(email, notice ? { notice } : undefined);
+      onSwitchToLogin(email, notice);
     } else if (onBack) {
       onBack();
     }
@@ -128,15 +128,7 @@ const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onS
         }
       })();
 
-      try {
-        await firebaseUser.sendEmailVerification();
-      } catch (verificationErr) {
-        console.warn('⚠️ EmailRegister: verification email failed', verificationErr);
-      }
-
-      handleSwitchToLogin(
-        'Účet bol vytvorený. Prihlás sa po potvrdení verifikačného emailu.',
-      );
+      handleSwitchToLogin('Účet bol vytvorený. Prihlás sa svojimi údajmi.');
     } catch (err: any) {
       console.error('❌ EmailRegister error:', err);
       Alert.alert('Chyba', err?.message ?? 'Neznáma chyba');
