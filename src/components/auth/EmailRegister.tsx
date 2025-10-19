@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import auth from '@react-native-firebase/auth';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getColors, Colors } from '../../theme/colors';
 import {
   CTA_GRADIENT_DARK,
@@ -135,21 +134,9 @@ const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onS
         console.warn('⚠️ EmailRegister: verification email failed', verificationErr);
       }
 
-      try {
-        await auth().signOut();
-      } catch (signOutErr) {
-        console.warn('⚠️ EmailRegister: sign out after registration failed', signOutErr);
-      }
-
-      void (async () => {
-        try {
-          await AsyncStorage.removeItem('@AuthToken');
-        } catch (storageErr) {
-          console.warn('⚠️ EmailRegister: clearing auth token failed', storageErr);
-        }
-      })();
-
-      handleSwitchToLogin();
+      handleSwitchToLogin(
+        'Účet bol vytvorený. Prihlás sa po potvrdení verifikačného emailu.',
+      );
     } catch (err: any) {
       console.error('❌ EmailRegister error:', err);
       Alert.alert('Chyba', err?.message ?? 'Neznáma chyba');
