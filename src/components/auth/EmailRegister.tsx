@@ -134,12 +134,6 @@ const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onS
         console.warn('⚠️ EmailRegister: verification email failed', verificationErr);
       }
 
-      try {
-        await auth().signOut();
-      } catch (signOutErr) {
-        console.warn('⚠️ EmailRegister: sign out after registration failed', signOutErr);
-      }
-
       handleSwitchToLogin(
         'Účet bol vytvorený. Prihlás sa po potvrdení verifikačného emailu.',
       );
