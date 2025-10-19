@@ -18,9 +18,6 @@ import { getColors, Colors } from '../../theme/colors';
 import auth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const EMAIL_VERIFICATION_NOTICE =
-  'Účet bol vytvorený. Prihlás sa po potvrdení verifikačného emailu.';
-
 interface AuthScreenProps {
   notice?: { message: string; id: number } | null;
 }
@@ -111,13 +108,6 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ notice }) => {
         trimmedPassword,
       );
       const user = userCredential.user;
-
-      if (!user.emailVerified) {
-        triggerInfo(EMAIL_VERIFICATION_NOTICE);
-        await auth().signOut();
-        await AsyncStorage.removeItem('@AuthToken');
-        return;
-      }
 
       const idToken = await user.getIdToken();
       await AsyncStorage.setItem('@AuthToken', idToken);
