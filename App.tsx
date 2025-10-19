@@ -101,6 +101,13 @@ type ScreenName =
   | 'community-recipes'
   | 'saved-tips';
 
+type AuthNotice = {
+  message: string;
+  id: number;
+};
+
+const EMAIL_VERIFICATION_NOTICE =
+  'Účet bol vytvorený. Prihlás sa po potvrdení verifikačného emailu.';
 
 const MORNING_RITUAL_CHANNEL_ID = 'brewmate-morning-ritual';
 const WEATHER_CACHE_KEY = 'brewmate:ritual:last_weather';
@@ -413,6 +420,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   const [queueLength, setQueueLength] = useState(0);
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncVisible, setSyncVisible] = useState(false);
+  const [authNotice, setAuthNotice] = useState<AuthNotice | null>(null);
   const { isDark, colors } = useTheme();
   const {
     ready: personalizationReady,
@@ -589,8 +597,25 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           console.warn('App: failed to reload user state', reloadError);
         }
 
+        if (!user.emailVerified) {
+          await AsyncStorage.removeItem('@AuthToken');
+          setIsAuthenticated(false);
+          setPersonalization(() => ({ ...emptyPersonalizationState }));
+          setAuthNotice({ message: EMAIL_VERIFICATION_NOTICE, id: Date.now() });
+
+          try {
+            await auth().signOut();
+          } catch (signOutError) {
+            console.warn('App: automatic sign out for unverified user failed', signOutError);
+          }
+          return;
+        }
+
         const token = await user.getIdToken();
         await AsyncStorage.setItem('@AuthToken', token);
+        if (authNotice !== null) {
+          setAuthNotice(null);
+        }
         setIsAuthenticated(true);
         setCurrentScreen('home');
         setPersonalization((prev) => ({
@@ -604,7 +629,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
       }
     });
     return unsubscribe;
-  }, [setPersonalization]);
+  }, [authNotice, setPersonalization]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1500,7 +1525,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         <View style={styles.header}>
           <QueueStatusBadge />
         </View>
-        <AuthScreen />
+        <AuthScreen notice={authNotice ?? undefined} />
         <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
       </ResponsiveWrapper>
     );

@@ -18,7 +18,14 @@ import { getColors, Colors } from '../../theme/colors';
 import auth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const AuthScreen: React.FC = () => {
+const EMAIL_VERIFICATION_NOTICE =
+  'Účet bol vytvorený. Prihlás sa po potvrdení verifikačného emailu.';
+
+interface AuthScreenProps {
+  notice?: { message: string; id: number } | null;
+}
+
+const AuthScreen: React.FC<AuthScreenProps> = ({ notice }) => {
   const [showEmailRegister, setShowEmailRegister] = useState(false);
   const [showAppleAuth, setShowAppleAuth] = useState(false);
   const [email, setEmail] = useState('');
@@ -71,6 +78,22 @@ const AuthScreen: React.FC = () => {
     }, 6000);
   };
 
+  useEffect(() => {
+    if (!notice?.message) {
+      return;
+    }
+
+    if (infoTimeout.current) {
+      clearTimeout(infoTimeout.current);
+    }
+
+    setInfoMessage(notice.message);
+    setInfoVisible(true);
+    infoTimeout.current = setTimeout(() => {
+      setInfoVisible(false);
+    }, 6000);
+  }, [notice]);
+
   const handleLoginPress = async () => {
     const trimmedEmail = email.trim();
     const trimmedPassword = password.trim();
@@ -88,6 +111,13 @@ const AuthScreen: React.FC = () => {
         trimmedPassword,
       );
       const user = userCredential.user;
+
+      if (!user.emailVerified) {
+        triggerInfo(EMAIL_VERIFICATION_NOTICE);
+        await auth().signOut();
+        await AsyncStorage.removeItem('@AuthToken');
+        return;
+      }
 
       const idToken = await user.getIdToken();
       await AsyncStorage.setItem('@AuthToken', idToken);
