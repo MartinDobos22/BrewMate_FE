@@ -63,6 +63,34 @@ if (!fs.existsSync(LOG_DIR)) {
   fs.mkdirSync(LOG_DIR, { recursive: true });
 }
 
+const normalizeBooleanPreference = (value) => {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    return value !== 0;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+
+    if (['true', '1', 'yes', 'y', 'áno', 'ano', 'with', 'little', 'medium', 'sweet', 'some'].includes(normalized)) {
+      return true;
+    }
+
+    if (['false', '0', 'no', 'n', 'nie', 'bez', 'without', 'none', 'žiadna', 'ziadna'].includes(normalized)) {
+      return false;
+    }
+  }
+
+  return null;
+};
+
 // ========== OPTIMALIZOVANÝ PROFILE ENDPOINT ==========
 
 /**
@@ -180,6 +208,9 @@ app.put('/api/profile', async (req, res) => {
     if (coffee_preferences || experience_level) {
       const prefs = coffee_preferences || {};
 
+      const normalizedMilk = normalizeBooleanPreference(prefs.milk);
+      const normalizedSugar = normalizeBooleanPreference(prefs.sugar);
+
       await client.query(
         `INSERT INTO user_coffee_preferences (
           user_id, experience_level, intensity, roast, temperature,
@@ -191,8 +222,8 @@ app.put('/api/profile', async (req, res) => {
           prefs.intensity,
           prefs.roast,
           prefs.temperature,
-          prefs.milk,
-          prefs.sugar,
+          normalizedMilk,
+          normalizedSugar,
           prefs.preferred_drinks,
           prefs.flavor_notes
         ]
