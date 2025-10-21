@@ -19,6 +19,49 @@ import { BOTTOM_NAV_HEIGHT } from '../navigation/BottomNav';
 
 const OPENAI_API_KEY = CONFIG.OPENAI_API_KEY;
 
+const SWEETNESS_OPTIONS = ['none', 'little', 'medium', 'sweet'] as const;
+type SweetnessOption = typeof SWEETNESS_OPTIONS[number];
+
+const normalizeSweetness = (value: unknown): SweetnessOption => {
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', 'false', '1', '0', 'yes', 'no', 'áno', 'ano', 'nie'].includes(normalized)) {
+      return ['true', '1', 'yes', 'áno', 'ano'].includes(normalized) ? 'little' : 'none';
+    }
+    if (SWEETNESS_OPTIONS.includes(normalized as SweetnessOption)) {
+      return normalized as SweetnessOption;
+    }
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? 'little' : 'none';
+  }
+
+  return 'little';
+};
+
+const parseBoolean = (value: unknown): boolean => {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'áno', 'ano'].includes(normalized)) {
+      return true;
+    }
+    if (['false', '0', 'no', 'nie'].includes(normalized)) {
+      return false;
+    }
+  }
+
+  if (typeof value === 'number') {
+    return value !== 0;
+  }
+
+  return Boolean(value);
+};
+
 /**
  * Wrapper pre fetch s logovaním komunikácie FE ↔ BE.
  */
@@ -52,7 +95,7 @@ const CoffeePreferenceForm = ({ onBack }: { onBack: () => void }) => {
   // Odpovede používateľa
   const [experienceLevel, setExperienceLevel] = useState<'beginner' | 'intermediate' | 'expert'>('beginner');
   const [intensity, setIntensity] = useState<'light' | 'medium' | 'strong'>('medium');
-  const [sweetness, setSweetness] = useState<'none' | 'little' | 'medium' | 'sweet'>('little');
+  const [sweetness, setSweetness] = useState<SweetnessOption>('little');
   const [milk, setMilk] = useState(false);
   const [temperature, setTemperature] = useState<'hot' | 'iced' | 'both'>('hot');
   const [roast, setRoast] = useState<'light' | 'medium' | 'dark'>('medium');
@@ -318,8 +361,8 @@ const CoffeePreferenceForm = ({ onBack }: { onBack: () => void }) => {
         if (data.coffee_preferences) {
           const prefs = data.coffee_preferences;
           setIntensity(prefs.intensity || 'medium');
-          setSweetness(prefs.sweetness || 'little');
-          setMilk(prefs.milk || false);
+          setSweetness(normalizeSweetness(prefs.sweetness ?? prefs.sugar));
+          setMilk(parseBoolean(prefs.milk));
           setTemperature(prefs.temperature || 'hot');
           setRoast(prefs.roast || 'medium');
           setPreferredDrinks(prefs.preferred_drinks || []);
@@ -479,8 +522,8 @@ Píš jednoducho, zrozumiteľne a priateľsky v slovenčine.
     const preferences: any = {
       intensity,
       sweetness,
-      sugar: sweetness,
-      milk,
+      sugar: sweetness !== 'none',
+      milk: parseBoolean(milk),
       temperature,
     };
 
