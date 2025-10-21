@@ -138,6 +138,10 @@ function mapSweetness(input: CoffeePreferenceSnapshot['sugar']): number | null {
     return clamp(input);
   }
 
+  if (typeof input !== 'string') {
+    return null;
+  }
+
   const normalized = input.trim().toLowerCase();
   switch (normalized) {
     case 'none':
