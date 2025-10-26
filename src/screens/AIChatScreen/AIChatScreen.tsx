@@ -122,19 +122,30 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({
         <Text style={styles.headerTitle}>AI odporúčania</Text>
         <View style={{ width: 32 }} />
       </View>
-      <Picker
-        selectedValue={brewDevice}
-        onValueChange={(v) => setBrewDevice(v as BrewDevice)}
-        style={styles.devicePicker}
-      >
-        {BREW_DEVICES.map((d) => (
-          <Picker.Item key={d} label={d} value={d} />
-        ))}
-      </Picker>
+      <View style={styles.devicePickerContainer}>
+        <Text style={styles.devicePickerLabel}>⚙️ Zariadenie:</Text>
+        <Picker
+          selectedValue={brewDevice}
+          onValueChange={(v) => setBrewDevice(v as BrewDevice)}
+          style={styles.devicePicker}
+        >
+          {BREW_DEVICES.map((d) => (
+            <Picker.Item key={d} label={d} value={d} />
+          ))}
+        </Picker>
+      </View>
       <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: BOTTOM_NAV_HEIGHT }}
-        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ padding: 16, paddingBottom: BOTTOM_NAV_HEIGHT + 20 }}
+        showsVerticalScrollIndicator={true}
+        style={styles.messagesContainer}
       >
+        {messages.length === 0 && (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateIcon}>☕</Text>
+            <Text style={styles.emptyStateText}>Opýtaj sa ma čokoľvek o káve!</Text>
+            <Text style={styles.emptyStateSubtext}>Poradím ti s receptami, technikami a výberom zariadení</Text>
+          </View>
+        )}
         {messages.map((msg, idx) => (
           <View
             key={idx}
@@ -153,11 +164,16 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({
             </Text>
             {msg.role === 'assistant' && msg.offline && (
               <View style={styles.offlineBadge}>
-                <Text style={styles.offlineBadgeText}>Offline odpoveď</Text>
+                <Text style={styles.offlineBadgeText}>📶 Offline odpoveď</Text>
               </View>
             )}
           </View>
         ))}
+        {loading && (
+          <View style={[styles.message, styles.aiMessage]}>
+            <Text style={styles.messageText}>💭 Premýšľam...</Text>
+          </View>
+        )}
       </ScrollView>
       <View style={styles.inputRow}>
         <TextInput
