@@ -138,13 +138,16 @@ export const formatRecipeSteps = (recipe: string): RecipeStep[] => {
 
       const timeMatch = content.match(/(\d+)\s*(min|sek|s)/i);
 
+      const stepType = getStepType(content, stepNumber - 1, lines.length);
       steps.push({
         number: stepNumber++,
         text: content,
         time: timeMatch
           ? parseInt(timeMatch[1]) * (timeMatch[2].toLowerCase().startsWith('m') ? 60 : 1)
           : undefined,
-        icon: getStepIcon(content)
+        icon: getStepIcon(content),
+        type: stepType,
+        tip: getBaristaTip(stepType),
       });
     }
   });
@@ -159,13 +162,16 @@ export const formatRecipeSteps = (recipe: string): RecipeStep[] => {
       }
 
       const timeMatch = cleaned.match(/(\d+)\s*(min|sek|s)/i);
+      const stepType = getStepType(cleaned, index, sentences.length);
       steps.push({
         number: index + 1,
         text: cleaned.replace(/^[-•*]\s*/, ''),
         time: timeMatch
           ? parseInt(timeMatch[1]) * (timeMatch[2].toLowerCase().startsWith('m') ? 60 : 1)
           : undefined,
-        icon: getStepIcon(cleaned)
+        icon: getStepIcon(cleaned),
+        type: stepType,
+        tip: getBaristaTip(stepType),
       });
     });
   }
@@ -189,13 +195,16 @@ export const formatRecipeSteps = (recipe: string): RecipeStep[] => {
       }
 
       const timeMatch = normalized.match(/(\d+)\s*(min|sek|s)/i);
+      const stepType = getStepType(normalized, index, lines.length);
       steps.push({
         number: index + 1,
         text: normalized,
         time: timeMatch
           ? parseInt(timeMatch[1]) * (timeMatch[2].toLowerCase().startsWith('m') ? 60 : 1)
           : undefined,
-        icon: getStepIcon(normalized)
+        icon: getStepIcon(normalized),
+        type: stepType,
+        tip: getBaristaTip(stepType),
       });
     });
   }
@@ -218,8 +227,52 @@ const getStepIcon = (text: string): string => {
   if (lowerText.includes('káva') || lowerText.includes('zrnk')) return '☕';
   if (lowerText.includes('váž') || lowerText.includes('gram')) return '⚖️';
   if (lowerText.includes('teplota') || lowerText.includes('°c')) return '🌡️';
+  if (lowerText.includes('bloom') || lowerText.includes('kvit')) return '🌸';
+  if (lowerText.includes('ingredien') || lowerText.includes('potrebuj')) return '🛒';
+  if (lowerText.includes('náčin') || lowerText.includes('pripr')) return '🔧';
 
   return '☕';
+};
+
+/**
+ * Vráti typ kroku na základe obsahu textu
+ */
+const getStepType = (text: string, index: number, totalSteps: number): RecipeStep['type'] => {
+  const lowerText = text.toLowerCase();
+
+  if (index === 0) return 'hero';
+  if (index === totalSteps - 1) return 'summary';
+  if (lowerText.includes('ingredien') || lowerText.includes('potrebuj')) return 'ingredients';
+  if (lowerText.includes('náčin') || lowerText.includes('pripr')) return 'equipment';
+  if (lowerText.includes('zomeľ') || lowerText.includes('mlieť')) return 'grind';
+  if (lowerText.includes('voda') || lowerText.includes('zohrej')) return 'heat';
+  if (lowerText.includes('bloom') || lowerText.includes('kvit')) return 'bloom';
+  if (lowerText.includes('dokončen') || lowerText.includes('finish')) return 'finish';
+  if (lowerText.includes('nalej') || lowerText.includes('prelej')) {
+    return index % 2 === 0 ? 'pour1' : 'pour2';
+  }
+
+  return 'pour1';
+};
+
+/**
+ * Vráti tip od baristu na základe typu kroku
+ */
+const getBaristaTip = (type: RecipeStep['type']): string => {
+  const tips = {
+    hero: 'Priprav sa na dokonalý šálku kávy',
+    ingredients: 'Pomer 1:16 (káva:voda) je skvelý štartovací bod',
+    equipment: 'Príprava náčinia vopred ušetrí čas a zlepší výsledok',
+    grind: 'Stredné mletie = konzistencia morskej soli',
+    heat: 'Ideálna teplota pre svetlé praženie: 92-94°C',
+    bloom: 'Nalej 40ml vody v kruhu, nechaj 30s vypúšťať CO2',
+    pour1: 'Lej pomaly v špirále od stredu k okrajom',
+    pour2: 'Drž stabilnú rýchlosť - cca 10ml/s',
+    finish: 'Celkový čas by mal byť 2:30 - 3:00 min',
+    summary: 'Skús zmeniť pomer káva:voda a porovnaj chuť!',
+  };
+
+  return tips[type || 'pour1'] || 'Sleduj farbu a rytmus extrakcie';
 };
 
 /**
@@ -278,6 +331,8 @@ export interface RecipeStep {
   text: string;
   time?: number; // v sekundách
   icon: string;
+  type?: 'hero' | 'ingredients' | 'equipment' | 'grind' | 'heat' | 'bloom' | 'pour1' | 'pour2' | 'finish' | 'summary';
+  tip?: string; // Tip od baristu pre tento krok
 }
 
 export interface FormattedRecommendation {
