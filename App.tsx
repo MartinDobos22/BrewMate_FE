@@ -21,7 +21,7 @@ import GamificationScreen from './src/screens/GamificationScreen';
 import EditUserProfile from './src/components/profile/EditUserProfile';
 import CoffeePreferenceForm from './src/components/personalization/CoffeePreferenceForm';
 import EditPreferences from './src/components/personalization/EditPreferences';
-import RecipeStepsScreen from './src/screens/RecipeStepsScreen';
+import RecipeStepsScreen from './src/screens/RecipeStepsScreen/RecipeStepsScreenMD3';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import type { PersonalizationResult } from './src/components/personalization/PersonalizationOnboarding';
 import PersonalizationDashboard from './src/components/personalization/PersonalizationDashboard';
