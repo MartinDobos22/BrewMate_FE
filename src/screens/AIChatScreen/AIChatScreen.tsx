@@ -7,6 +7,7 @@ import { CONFIG } from '../../config/config';
 import { BrewDevice, BREW_DEVICES } from '../../types/Recipe';
 import { AIFallback } from '../../offline/AIFallback';
 import { createStyles } from './styles';
+import LinearGradient from 'react-native-linear-gradient';
 
 interface AIChatScreenProps {
   onBack: () => void;
@@ -22,6 +23,69 @@ interface Message {
   content: string;
   offline?: boolean;
 }
+
+interface RecipeSection {
+  type: 'intro' | 'ingredients' | 'steps' | 'tips';
+  content: string[];
+}
+
+// Helper function to parse recipe from AI response
+const parseRecipe = (text: string): RecipeSection[] | null => {
+  const sections: RecipeSection[] = [];
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+  let currentSection: RecipeSection | null = null;
+  let hasRecipeStructure = false;
+
+  for (const line of lines) {
+    const lowerLine = line.toLowerCase();
+
+    // Detect section headers
+    if (lowerLine.includes('ingredien') || lowerLine.includes('potrebuješ') || lowerLine.includes('potrebuj')) {
+      if (currentSection) sections.push(currentSection);
+      currentSection = { type: 'ingredients', content: [] };
+      hasRecipeStructure = true;
+      continue;
+    }
+
+    if (lowerLine.includes('postup') || lowerLine.includes('kroky') || lowerLine.match(/^\d+\./)) {
+      if (currentSection && currentSection.type !== 'steps') {
+        sections.push(currentSection);
+        currentSection = { type: 'steps', content: [] };
+      } else if (!currentSection) {
+        currentSection = { type: 'steps', content: [] };
+      }
+      hasRecipeStructure = true;
+    }
+
+    if (lowerLine.includes('tip') || lowerLine.includes('poznámk') || lowerLine.includes('rady')) {
+      if (currentSection) sections.push(currentSection);
+      currentSection = { type: 'tips', content: [] };
+      hasRecipeStructure = true;
+      continue;
+    }
+
+    // Add content to current section
+    if (currentSection) {
+      if (line.match(/^[\d\-\*•]/)) {
+        currentSection.content.push(line);
+      } else if (line.length > 3 && !line.endsWith(':')) {
+        currentSection.content.push(line);
+      }
+    } else if (!currentSection && lines.indexOf(line) < 3) {
+      // First few lines might be intro
+      if (!sections.find(s => s.type === 'intro')) {
+        sections.push({ type: 'intro', content: [line] });
+      } else {
+        sections.find(s => s.type === 'intro')?.content.push(line);
+      }
+    }
+  }
+
+  if (currentSection) sections.push(currentSection);
+
+  return hasRecipeStructure && sections.length > 0 ? sections : null;
+};
 
 const AIChatScreen: React.FC<AIChatScreenProps> = ({
   onBack,
@@ -146,29 +210,126 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({
             <Text style={styles.emptyStateSubtext}>Poradím ti s receptami, technikami a výberom zariadení</Text>
           </View>
         )}
-        {messages.map((msg, idx) => (
-          <View
-            key={idx}
-            style={[
-              styles.message,
-              msg.role === 'user' ? styles.userMessage : styles.aiMessage,
-            ]}
-          >
-            <Text
-              style={[
-                styles.messageText,
-                msg.role === 'user' ? styles.userText : styles.aiText,
-              ]}
-            >
-              {msg.content}
-            </Text>
-            {msg.role === 'assistant' && msg.offline && (
-              <View style={styles.offlineBadge}>
-                <Text style={styles.offlineBadgeText}>📶 Offline odpoveď</Text>
-              </View>
-            )}
-          </View>
-        ))}
+        {messages.map((msg, idx) => {
+          const recipeSections = msg.role === 'assistant' ? parseRecipe(msg.content) : null;
+          const isRecipe = recipeSections !== null;
+
+          return (
+            <View key={idx}>
+              {msg.role === 'user' ? (
+                <View style={[styles.message, styles.userMessage]}>
+                  <Text style={[styles.messageText, styles.userText]}>
+                    {msg.content}
+                  </Text>
+                </View>
+              ) : isRecipe ? (
+                <View style={styles.recipeContainer}>
+                  <LinearGradient
+                    colors={['#FFF9F5', '#FFEFE5']}
+                    style={styles.recipeCard}
+                  >
+                    <View style={styles.recipeHeader}>
+                      <Text style={styles.recipeHeaderIcon}>☕</Text>
+                      <Text style={styles.recipeHeaderText}>Tvoj recept</Text>
+                    </View>
+
+                    {recipeSections.map((section, sIdx) => (
+                      <View key={sIdx} style={styles.recipeSection}>
+                        {section.type === 'intro' && (
+                          <View style={styles.introSection}>
+                            {section.content.map((line, lIdx) => (
+                              <Text key={lIdx} style={styles.introText}>
+                                {line}
+                              </Text>
+                            ))}
+                          </View>
+                        )}
+
+                        {section.type === 'ingredients' && (
+                          <View>
+                            <View style={styles.sectionHeader}>
+                              <Text style={styles.sectionIcon}>🧺</Text>
+                              <Text style={styles.sectionTitle}>Ingrediencie</Text>
+                            </View>
+                            <View style={styles.ingredientsGrid}>
+                              {section.content.map((item, lIdx) => (
+                                <View key={lIdx} style={styles.ingredientChip}>
+                                  <Text style={styles.ingredientBullet}>•</Text>
+                                  <Text style={styles.ingredientText}>
+                                    {item.replace(/^[\d\-\*•]\s*/, '')}
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
+                          </View>
+                        )}
+
+                        {section.type === 'steps' && (
+                          <View>
+                            <View style={styles.sectionHeader}>
+                              <Text style={styles.sectionIcon}>📋</Text>
+                              <Text style={styles.sectionTitle}>Postup prípravy</Text>
+                            </View>
+                            <View style={styles.stepsContainer}>
+                              {section.content.map((step, lIdx) => {
+                                const stepNumber = step.match(/^(\d+)\./) ? step.match(/^(\d+)\./)?.[1] : `${lIdx + 1}`;
+                                const stepText = step.replace(/^\d+\.\s*/, '').replace(/^[\-\*•]\s*/, '');
+
+                                return (
+                                  <View key={lIdx} style={styles.stepCard}>
+                                    <View style={styles.stepNumber}>
+                                      <Text style={styles.stepNumberText}>{stepNumber}</Text>
+                                    </View>
+                                    <Text style={styles.stepText}>{stepText}</Text>
+                                  </View>
+                                );
+                              })}
+                            </View>
+                          </View>
+                        )}
+
+                        {section.type === 'tips' && (
+                          <View>
+                            <View style={styles.sectionHeader}>
+                              <Text style={styles.sectionIcon}>💡</Text>
+                              <Text style={styles.sectionTitle}>Tipy & Poznámky</Text>
+                            </View>
+                            <View style={styles.tipsContainer}>
+                              {section.content.map((tip, lIdx) => (
+                                <View key={lIdx} style={styles.tipItem}>
+                                  <Text style={styles.tipText}>
+                                    {tip.replace(/^[\d\-\*•]\s*/, '')}
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
+                          </View>
+                        )}
+                      </View>
+                    ))}
+
+                    {msg.offline && (
+                      <View style={styles.offlineBadge}>
+                        <Text style={styles.offlineBadgeText}>📶 Offline odpoveď</Text>
+                      </View>
+                    )}
+                  </LinearGradient>
+                </View>
+              ) : (
+                <View style={[styles.message, styles.aiMessage]}>
+                  <Text style={[styles.messageText, styles.aiText]}>
+                    {msg.content}
+                  </Text>
+                  {msg.offline && (
+                    <View style={styles.offlineBadge}>
+                      <Text style={styles.offlineBadgeText}>📶 Offline odpoveď</Text>
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
+          );
+        })}
         {loading && (
           <View style={[styles.message, styles.aiMessage]}>
             <Text style={styles.messageText}>💭 Premýšľam...</Text>
