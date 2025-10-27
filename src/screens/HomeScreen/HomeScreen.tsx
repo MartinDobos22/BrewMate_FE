@@ -76,7 +76,7 @@ interface UserStatsSummary {
   favoritesCount: number;
 }
 
-const BACKGROUND_GRADIENT = ['#FFE8D1', '#FFA000', '#D4A574'];
+const BACKGROUND_GRADIENT = ['#FFE8D1', '#FFA000', '#FAF8F5'];
 const WELCOME_CARD_GRADIENT = ['#FF9966', '#A86B8C'];
 const ACTION_GRADIENTS = {
   scan: ['#8B6544', '#6B4423'],
