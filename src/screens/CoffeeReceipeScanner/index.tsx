@@ -117,6 +117,7 @@ const isOfflineError = (error: unknown): boolean => {
   return error.message === 'Offline' || error.message.includes('Network request failed');
 };
 
+const BACKGROUND_GRADIENT = ['#FFE8D1', '#FFA000', '#FAF8F5'];
 const WELCOME_GRADIENT = ['#FF9966', '#A86B8C'];
 const COFFEE_GRADIENT = ['#8B6544', '#6B4423'];
 const WARM_GRADIENT = ['#FFA000', '#FF6B6B'];
@@ -748,10 +749,8 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     >
       <View style={styles.flex}>
         <LinearGradient
-          colors={backgroundGradient.colors}
-          locations={backgroundGradient.locations}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
+          colors={BACKGROUND_GRADIENT_COLORS}
+          locations={BACKGROUND_GRADIENT_LOCATIONS}
           style={styles.backgroundGradient}
         />
         <ScrollView
