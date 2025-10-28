@@ -741,7 +741,11 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.flex}>
-        <LinearGradient colors={BACKGROUND_GRADIENT} style={styles.backgroundGradient} />
+        <LinearGradient
+          colors={BACKGROUND_GRADIENT_COLORS}
+          locations={BACKGROUND_GRADIENT_LOCATIONS}
+          style={styles.backgroundGradient}
+        />
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}

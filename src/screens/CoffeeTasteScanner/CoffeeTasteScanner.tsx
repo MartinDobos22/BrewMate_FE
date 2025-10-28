@@ -980,7 +980,11 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.flex}>
-        <LinearGradient colors={BACKGROUND_GRADIENT} style={styles.backgroundGradient} />
+        <LinearGradient
+          colors={BACKGROUND_GRADIENT_COLORS}
+          locations={BACKGROUND_GRADIENT_LOCATIONS}
+          style={styles.backgroundGradient}
+        />
         <Modal
           visible={offlineModalVisible}
           transparent
