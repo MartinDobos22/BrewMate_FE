@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { BOTTOM_NAV_HEIGHT } from '../../../components/navigation/BottomNav';
+import { BOTTOM_NAV_CONTENT_OFFSET } from '../../../components/navigation/BottomNav';
 import { getSafeAreaBottom, getSafeAreaTop, scale, verticalScale } from '../../../components/utils/safeArea';
 
 export const palette = {
@@ -81,7 +81,8 @@ export const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: scale(16),
     paddingTop: verticalScale(12),
-    paddingBottom: getSafeAreaBottom() + BOTTOM_NAV_HEIGHT + verticalScale(24),
+    paddingBottom:
+      getSafeAreaBottom() + BOTTOM_NAV_CONTENT_OFFSET + verticalScale(12),
   },
   card: {
     borderRadius: scale(28),
