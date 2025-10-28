@@ -45,7 +45,11 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       flex: 1,
     },
     backgroundGradient: {
-      ...StyleSheet.absoluteFillObject,
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 520,
     },
     scrollView: {
       flex: 1,

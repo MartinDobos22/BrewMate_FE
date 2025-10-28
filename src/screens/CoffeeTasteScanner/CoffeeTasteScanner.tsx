@@ -115,7 +115,8 @@ const isOfflineError = (error: unknown): boolean => {
   return error.message === 'Offline' || error.message.includes('Network request failed');
 };
 
-const BACKGROUND_GRADIENT = ['#FFE8D1', '#FFA000', '#D4A574'];
+const BACKGROUND_GRADIENT_COLORS = ['#FFE8D1', '#FFE8D1', '#FAF8F5'];
+const BACKGROUND_GRADIENT_LOCATIONS = [0, 0.4, 1];
 const WELCOME_GRADIENT = ['#FF9966', '#A86B8C'];
 const COFFEE_GRADIENT = ['#8B6544', '#6B4423'];
 const WARM_GRADIENT = ['#FFA000', '#FF6B6B'];
@@ -980,7 +981,11 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.flex}>
-        <LinearGradient colors={BACKGROUND_GRADIENT} style={styles.backgroundGradient} />
+        <LinearGradient
+          colors={BACKGROUND_GRADIENT_COLORS}
+          locations={BACKGROUND_GRADIENT_LOCATIONS}
+          style={styles.backgroundGradient}
+        />
         <Modal
           visible={offlineModalVisible}
           transparent
