@@ -1,13 +1,6 @@
 // components/ResponsiveWrapper.tsx
 import React from 'react';
-import {
-  SafeAreaView,
-  StatusBar,
-  Platform,
-  View,
-  Text,
-  StyleSheet,
-} from 'react-native';
+import { SafeAreaView, StatusBar, View, Text, StyleSheet, Platform } from 'react-native';
 import { getSafeAreaTop, getSafeAreaBottom } from '../utils/safeArea';
 
 interface ResponsiveWrapperProps {
@@ -50,10 +43,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingBottom: Platform.select({
-      ios: 0,
-      android: getSafeAreaBottom(),
-    }),
+    paddingBottom: Platform.OS === 'ios' ? getSafeAreaBottom() : 0,
   },
 });
 

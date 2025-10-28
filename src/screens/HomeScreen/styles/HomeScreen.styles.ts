@@ -33,7 +33,6 @@ export const homeStyles = () =>
     },
     gradientBackground: {
       flex: 1,
-      paddingBottom: verticalScale(12),
     },
 
     // App Header
