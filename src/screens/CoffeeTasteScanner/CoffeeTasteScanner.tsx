@@ -181,6 +181,13 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
   const isDarkMode = useColorScheme() === 'dark';
 
   const styles = scannerStyles(isDarkMode);
+  const backgroundGradient = useMemo(
+    () => ({
+      colors: ['#FFE8D1', '#FFF3E4', '#FAF8F5'],
+      locations: [0, 0.28, 0.7],
+    }),
+    [],
+  );
 
   useEffect(() => {
     if (!hasPermission) {

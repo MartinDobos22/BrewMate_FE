@@ -43,6 +43,7 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
     },
     flex: {
       flex: 1,
+      backgroundColor: palette.background,
     },
     backgroundGradient: {
       position: 'absolute',
@@ -53,15 +54,18 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
     },
     scrollView: {
       flex: 1,
+      backgroundColor: palette.background,
     },
     scrollContent: {
       flexGrow: 1,
       paddingBottom: 160,
+      backgroundColor: palette.background,
     },
     contentWrapper: {
       flex: 1,
       paddingHorizontal: 0,
       paddingVertical: 0,
+      backgroundColor: palette.background,
     },
     phoneContainer: {
       flex: 1,
