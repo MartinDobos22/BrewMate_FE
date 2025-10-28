@@ -46,7 +46,11 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       backgroundColor: palette.background,
     },
     backgroundGradient: {
-      ...StyleSheet.absoluteFillObject,
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 520,
     },
     scrollView: {
       flex: 1,
@@ -54,7 +58,7 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
     },
     scrollContent: {
       flexGrow: 1,
-      paddingBottom: 32,
+      paddingBottom: 160,
       backgroundColor: palette.background,
     },
     contentWrapper: {
