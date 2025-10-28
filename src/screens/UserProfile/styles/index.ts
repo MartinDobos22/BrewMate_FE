@@ -82,7 +82,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: scale(16),
     paddingTop: verticalScale(12),
     paddingBottom:
-      getSafeAreaBottom() + BOTTOM_NAV_CONTENT_OFFSET + verticalScale(12),
+      getSafeAreaBottom() + BOTTOM_NAV_CONTENT_OFFSET + verticalScale(24),
   },
   card: {
     borderRadius: scale(28),
