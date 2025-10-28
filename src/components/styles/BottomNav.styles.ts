@@ -4,10 +4,18 @@ import { getSafeAreaBottom } from '../utils/safeArea';
 
 const SAFE_BOTTOM = Platform.OS === 'ios' ? getSafeAreaBottom() : 0;
 const BASE_NAV_HEIGHT = 60;
+const CONTENT_GAP = 12;
 
 // Estimated height of the bottom navigation bar used to offset scrollable
 // content so it isn't hidden behind the menu.
 export const BOTTOM_NAV_HEIGHT = BASE_NAV_HEIGHT + SAFE_BOTTOM;
+
+// Recommended padding value for scrollable screens so content sits just above
+// the bottom navigation while keeping a small visual gap.
+export const BOTTOM_NAV_CONTENT_OFFSET = Math.max(
+  BOTTOM_NAV_HEIGHT - CONTENT_GAP,
+  0,
+);
 
 export const bottomNavStyles = (colors: Colors) =>
   StyleSheet.create({

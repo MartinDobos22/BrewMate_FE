@@ -8,7 +8,9 @@ import {
 } from 'react-native';
 import { homeStyles } from '../HomeScreen/styles';
 import { fetchCoffees } from '../../services/homePagesService';
-import BottomNav, { BOTTOM_NAV_HEIGHT } from '../../components/navigation/BottomNav';
+import BottomNav, {
+  BOTTOM_NAV_CONTENT_OFFSET,
+} from '../../components/navigation/BottomNav';
 
 interface CoffeeItem {
   id: string;
@@ -75,7 +77,10 @@ const AllCoffeesScreen: React.FC<AllCoffeesScreenProps> = ({
       </View>
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        contentContainerStyle={{ padding: 16, paddingBottom: BOTTOM_NAV_HEIGHT }}
+        contentContainerStyle={{
+          padding: 16,
+          paddingBottom: BOTTOM_NAV_CONTENT_OFFSET,
+        }}
         showsVerticalScrollIndicator={false}
       >
 
