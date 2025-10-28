@@ -117,7 +117,6 @@ const isOfflineError = (error: unknown): boolean => {
   return error.message === 'Offline' || error.message.includes('Network request failed');
 };
 
-const BACKGROUND_GRADIENT = ['#FFE8D1', '#FFA000', '#D4A574'];
 const WELCOME_GRADIENT = ['#FF9966', '#A86B8C'];
 const COFFEE_GRADIENT = ['#8B6544', '#6B4423'];
 const WARM_GRADIENT = ['#FFA000', '#FF6B6B'];
@@ -173,6 +172,13 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
   const isDarkMode = useColorScheme() === 'dark';
 
   const styles = scannerStyles(isDarkMode);
+  const backgroundGradient = useMemo(
+    () => ({
+      colors: ['#FFE8D1', '#FFF3E4', '#FAF8F5'],
+      locations: [0, 0.28, 0.7],
+    }),
+    [],
+  );
 
   useEffect(() => {
     if (!hasPermission) {
@@ -741,7 +747,13 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.flex}>
-        <LinearGradient colors={BACKGROUND_GRADIENT} style={styles.backgroundGradient} />
+        <LinearGradient
+          colors={backgroundGradient.colors}
+          locations={backgroundGradient.locations}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.backgroundGradient}
+        />
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
