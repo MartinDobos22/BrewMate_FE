@@ -14,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
+  Modal,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import {
@@ -42,6 +43,7 @@ import {
   fallbackCoffeeDiary,
   preferenceEngine,
   toggleFavorite,
+  isCoffeeRelatedText,
 } from './services';
 import type { RecipeHistory } from './services';
 import { BrewContext } from '../../types/Personalization';
@@ -70,6 +72,10 @@ interface ScanResult {
   scanId?: string;
   brewingMethods?: string[];
   isFavorite?: boolean;
+  isCoffee?: boolean;
+  nonCoffeeReason?: string;
+  detectionLabels?: string[];
+  detectionConfidence?: number;
 }
 
 interface BrewScannerProps {
@@ -165,6 +171,12 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
   const [currentView, setCurrentView] = useState<'home' | 'scan' | 'recipe'>('home');
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [overlayText, setOverlayText] = useState('Analyzujem...');
+  const [nonCoffeeModalVisible, setNonCoffeeModalVisible] = useState(false);
+  const [nonCoffeeDetails, setNonCoffeeDetails] = useState<{
+    reason?: string;
+    labels?: string[];
+    confidence?: number;
+  }>({});
 
   const camera = useRef<Camera>(null);
   const device = useCameraDevice('back');
@@ -179,6 +191,16 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     }),
     [],
   );
+
+  const nonCoffeeConfidence = useMemo(() => {
+    if (typeof nonCoffeeDetails.confidence !== 'number') {
+      return null;
+    }
+    const raw = nonCoffeeDetails.confidence;
+    const percent = raw <= 1 ? raw * 100 : raw;
+    const bounded = Math.round(Math.max(0, Math.min(100, percent)));
+    return Number.isNaN(bounded) ? null : bounded;
+  }, [nonCoffeeDetails.confidence]);
 
   useEffect(() => {
     if (!hasPermission) {
@@ -201,6 +223,40 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
       unsubscribe();
     };
   }, []);
+
+  const closeNonCoffeeModal = () => {
+    setNonCoffeeModalVisible(false);
+    setNonCoffeeDetails({});
+  };
+
+  const handleNonCoffeeDetected = (details?: {
+    reason?: string;
+    labels?: string[];
+    confidence?: number;
+  }) => {
+    setScanResult(null);
+    setEditedText('');
+    setSelectedMethod(null);
+    setGeneratedRecipe('');
+    setIsFavorite(false);
+    setShowCamera(false);
+    setOverlayVisible(false);
+    setOverlayText('Analyzujem...');
+    setIsLoading(false);
+    setCurrentView('home');
+    const derivedReason =
+      details?.reason ||
+      (details?.labels && details.labels.length > 0
+        ? `Rozpoznané: ${details.labels.slice(0, 3).join(', ')}`
+        : undefined);
+    setNonCoffeeDetails({
+      reason: derivedReason,
+      labels: details?.labels,
+      confidence: details?.confidence,
+    });
+    setNonCoffeeModalVisible(true);
+    showToast('Skús prosím naskenovať etiketu kávy.');
+  };
 
   /**
    * Načíta posledné OCR skenovania zo servera.
@@ -242,6 +298,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     }
 
     try {
+      closeNonCoffeeModal();
       setIsLoading(true);
       const photo: PhotoFile = await camera.current.takePhoto({
         flash: 'auto',
@@ -271,6 +328,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
       if (response.didCancel || response.errorMessage) return;
 
       if (response.assets && response.assets[0]?.base64) {
+        closeNonCoffeeModal();
         processImage(response.assets[0].base64);
       } else {
         Alert.alert('Chyba', 'Nepodarilo sa načítať obrázok');
@@ -291,6 +349,32 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
       const result = await processOCR(base64image);
 
       if (result) {
+        if (result.source === 'offline' && result.isCoffee === false) {
+          handleNonCoffeeDetected({
+            reason: result.nonCoffeeReason,
+            labels: result.detectionLabels,
+            confidence: result.detectionConfidence,
+          });
+          return;
+        }
+
+        const detectionLabels = result.detectionLabels?.filter(Boolean) ?? [];
+        const computedIsCoffee =
+          typeof result.isCoffee === 'boolean'
+            ? result.isCoffee
+            : detectionLabels.some(label => isCoffeeRelatedText(label)) ||
+              isCoffeeRelatedText(result.corrected) ||
+              isCoffeeRelatedText(result.original);
+
+        if (!computedIsCoffee) {
+          handleNonCoffeeDetected({
+            reason: result.nonCoffeeReason,
+            labels: detectionLabels.length ? detectionLabels : undefined,
+            confidence: result.detectionConfidence,
+          });
+          return;
+        }
+
         let methods = result.brewingMethods;
         if (!methods || methods.length === 0) {
           try {
@@ -752,6 +836,51 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
           locations={backgroundGradient.locations}
           style={styles.backgroundGradient}
         />
+        <Modal
+          visible={nonCoffeeModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={closeNonCoffeeModal}
+        >
+          <View style={styles.validationModalOverlay}>
+            <LinearGradient colors={['#FFF8F4', '#FFE0D9']} style={styles.validationModalContent}>
+              <View style={styles.validationModalIconCircle}>
+                <Text style={styles.validationModalIcon}>🚫</Text>
+              </View>
+              <Text style={styles.validationModalTitle}>Zdá sa, že toto nie je káva</Text>
+              <Text style={styles.validationModalMessage}>
+                AI nerozpoznala kávu na vybranom obrázku. Uisti sa, že fotíš etiketu alebo balenie kávy v dobrom svetle.
+              </Text>
+              {nonCoffeeConfidence !== null ? (
+                <Text style={styles.validationModalConfidence}>
+                  Istota modelu: {nonCoffeeConfidence}%
+                </Text>
+              ) : null}
+              {nonCoffeeDetails.reason ? (
+                <Text style={styles.validationModalReason}>{nonCoffeeDetails.reason}</Text>
+              ) : null}
+              {nonCoffeeDetails.labels?.length ? (
+                <View style={styles.validationModalChips}>
+                  {nonCoffeeDetails.labels.slice(0, 4).map(label => (
+                    <View key={label} style={styles.validationModalChip}>
+                      <Text style={styles.validationModalChipText}>{label}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+              <Text style={styles.validationModalHint}>
+                Tip: Priblíž sa k etikete, aby boli texty ostré a čitateľné.
+              </Text>
+              <TouchableOpacity
+                style={styles.validationModalButton}
+                onPress={closeNonCoffeeModal}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.validationModalButtonText}>Skúsiť znova</Text>
+              </TouchableOpacity>
+            </LinearGradient>
+          </View>
+        </Modal>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
