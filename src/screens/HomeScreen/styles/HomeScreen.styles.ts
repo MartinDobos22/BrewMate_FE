@@ -1,5 +1,6 @@
 // HomeScreen.styles.ts
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { BOTTOM_NAV_CONTENT_OFFSET } from '../../../components/navigation/BottomNav';
 import { scale, verticalScale } from '../../../theme/responsive';
 
 const palette = {
@@ -134,7 +135,7 @@ export const homeStyles = () =>
       flex: 1,
     },
     scrollContent: {
-      paddingBottom: verticalScale(140),
+      paddingBottom: BOTTOM_NAV_CONTENT_OFFSET + verticalScale(16),
       paddingHorizontal: scale(20),
     },
     ritualWrapper: {
