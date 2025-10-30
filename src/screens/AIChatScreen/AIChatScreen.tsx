@@ -203,7 +203,7 @@ const AIChatScreen: React.FC<AIChatScreenProps> = ({
       <ScrollView
         contentContainerStyle={{
           padding: 16,
-          paddingBottom: BOTTOM_NAV_CONTENT_OFFSET + 8,
+          paddingBottom: BOTTOM_NAV_CONTENT_OFFSET + 20,
         }}
         showsVerticalScrollIndicator={true}
         style={styles.messagesContainer}
