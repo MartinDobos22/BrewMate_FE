@@ -40,6 +40,7 @@ import {
   fallbackCoffeeDiary,
   preferenceEngine,
   toggleFavorite,
+  isCoffeeRelatedText,
 } from './services';
 import { BrewContext } from '../../types/Personalization';
 import { usePersonalization } from '../../hooks/usePersonalization';
@@ -69,6 +70,10 @@ interface ScanResult {
   scanId?: string;
   source?: 'offline' | 'online';
   isFavorite?: boolean;
+  isCoffee?: boolean;
+  nonCoffeeReason?: string;
+  detectionLabels?: string[];
+  detectionConfidence?: number;
 }
 
 interface ProfessionalOCRScannerProps {
@@ -173,6 +178,12 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
   const [currentView, setCurrentView] = useState<'home' | 'scan'>('home');
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [overlayText, setOverlayText] = useState('Analyzujem...');
+  const [nonCoffeeModalVisible, setNonCoffeeModalVisible] = useState(false);
+  const [nonCoffeeDetails, setNonCoffeeDetails] = useState<{
+    reason?: string;
+    labels?: string[];
+    confidence?: number;
+  }>({});
 
   const camera = useRef<Camera>(null);
   const device = useCameraDevice('back');
@@ -187,6 +198,16 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
     }),
     [],
   );
+
+  const nonCoffeeConfidence = useMemo(() => {
+    if (typeof nonCoffeeDetails.confidence !== 'number') {
+      return null;
+    }
+    const raw = nonCoffeeDetails.confidence;
+    const percent = raw <= 1 ? raw * 100 : raw;
+    const bounded = Math.round(Math.max(0, Math.min(100, percent)));
+    return Number.isNaN(bounded) ? null : bounded;
+  }, [nonCoffeeDetails.confidence]);
 
   useEffect(() => {
     if (!hasPermission) {
@@ -211,6 +232,41 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
       setIsConnected(null);
     };
   }, []);
+
+  const closeNonCoffeeModal = () => {
+    setNonCoffeeModalVisible(false);
+    setNonCoffeeDetails({});
+  };
+
+  const handleNonCoffeeDetected = (details?: {
+    reason?: string;
+    labels?: string[];
+    confidence?: number;
+  }) => {
+    setScanResult(null);
+    setEditedText('');
+    setPurchaseSelection(null);
+    setPurchased(null);
+    setUserRating(0);
+    setIsFavorite(false);
+    setShowCamera(false);
+    setOverlayVisible(false);
+    setOverlayText('Analyzujem...');
+    setIsLoading(false);
+    setCurrentView('home');
+    const derivedReason =
+      details?.reason ||
+      (details?.labels && details.labels.length > 0
+        ? `Rozpoznané: ${details.labels.slice(0, 3).join(', ')}`
+        : undefined);
+    setNonCoffeeDetails({
+      reason: derivedReason,
+      labels: details?.labels,
+      confidence: details?.confidence,
+    });
+    setNonCoffeeModalVisible(true);
+    showToast('Skús prosím naskenovať etiketu kávy.');
+  };
 
   /**
    * Načíta nedávne OCR skeny pre používateľa.
@@ -243,6 +299,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
     }
 
     try {
+      closeNonCoffeeModal();
       setIsLoading(true);
       const photo: PhotoFile = await camera.current.takePhoto({
         flash: 'auto',
@@ -281,6 +338,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
       if (response.assets && response.assets[0]?.base64) {
         const base64 = response.assets[0].base64;
         try {
+          closeNonCoffeeModal();
           const cacheDir =
             RNFS.CachesDirectoryPath || RNFS.TemporaryDirectoryPath || RNFS.DocumentDirectoryPath;
           if (!cacheDir) {
@@ -328,6 +386,23 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
       if (result) {
         if (result.source === 'offline') {
           await handleOfflineScan(extra?.imagePath || '', extra?.base64 ?? base64image, result);
+          return;
+        }
+
+        const detectionLabels = result.detectionLabels?.filter(Boolean) ?? [];
+        const computedIsCoffee =
+          typeof result.isCoffee === 'boolean'
+            ? result.isCoffee
+            : detectionLabels.some(label => isCoffeeRelatedText(label)) ||
+              isCoffeeRelatedText(result.corrected) ||
+              isCoffeeRelatedText(result.original);
+
+        if (!computedIsCoffee) {
+          handleNonCoffeeDetected({
+            reason: result.nonCoffeeReason,
+            labels: detectionLabels.length ? detectionLabels : undefined,
+            confidence: result.detectionConfidence,
+          });
           return;
         }
 
@@ -398,25 +473,45 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
     try {
       setOverlayText('Analyzujem offline...');
       setOverlayVisible(true);
+      if (existingResult?.isCoffee === false) {
+        handleNonCoffeeDetected({
+          reason: existingResult.nonCoffeeReason,
+          labels: existingResult.detectionLabels,
+          confidence: existingResult.detectionConfidence,
+        });
+        return;
+      }
+
       const label = existingResult?.corrected || (await recognizeCoffee(imagePath));
       if (!label) {
-        Alert.alert('Chyba', 'Nepodarilo sa rozpoznať kávu offline');
-        setOverlayVisible(false);
-        setOverlayText('Analyzujem...');
+        handleNonCoffeeDetected({ reason: 'Nepodarilo sa rozpoznať kávu. Skús to znova.' });
+        return;
+      }
+
+      const labelIsCoffee = isCoffeeRelatedText(label);
+      if (!labelIsCoffee) {
+        handleNonCoffeeDetected({
+          reason: existingResult?.nonCoffeeReason ?? `Rozpoznané: ${label}`,
+          labels: existingResult?.detectionLabels ?? [label],
+          confidence: existingResult?.detectionConfidence,
+        });
         return;
       }
 
       const timestamp = Date.now();
       const scanId = existingResult?.scanId || `offline-${timestamp}`;
+      const detectionLabels = existingResult?.detectionLabels ?? [label];
       const offlineResult: ScanResult = existingResult
-        ? { ...existingResult, source: 'offline' }
+        ? { ...existingResult, source: 'offline', isCoffee: true, detectionLabels }
         : {
-          original: '',
-          corrected: label,
-          recommendation: 'Výsledok z lokálneho modelu.',
-          scanId,
-          source: 'offline',
-        };
+            original: '',
+            corrected: label,
+            recommendation: 'Výsledok z lokálneho modelu.',
+            scanId,
+            source: 'offline',
+            isCoffee: true,
+            detectionLabels,
+          };
 
       setScanResult(offlineResult);
       setIsFavorite(offlineResult.isFavorite ?? false);
@@ -991,22 +1086,22 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
           locations={backgroundGradient.locations}
           style={styles.backgroundGradient}
         />
-        <Modal
-          visible={offlineModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => {
-            setOfflineModalVisible(false);
-            setOfflineStatus('prompt');
-          }}
-        >
-          <View style={styles.offlineModalOverlay}>
-            <View style={styles.offlineModalContent}>
-              <Text style={styles.offlineModalText}>
-                {offlineStatus === 'modelUsed'
-                  ? 'Použitý lokálny model'
-                  : 'Ste offline, chcete použiť posledný výsledok?'}
-              </Text>
+      <Modal
+        visible={offlineModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setOfflineModalVisible(false);
+          setOfflineStatus('prompt');
+        }}
+      >
+        <View style={styles.offlineModalOverlay}>
+          <View style={styles.offlineModalContent}>
+            <Text style={styles.offlineModalText}>
+              {offlineStatus === 'modelUsed'
+                ? 'Použitý lokálny model'
+                : 'Ste offline, chcete použiť posledný výsledok?'}
+            </Text>
               {offlineStatus === 'modelUsed' ? (
                 <TouchableOpacity
                   style={styles.button}
@@ -1023,13 +1118,59 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
                 </TouchableOpacity>
               )}
             </View>
-          </View>
-        </Modal>
+        </View>
+      </Modal>
 
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
+      <Modal
+        visible={nonCoffeeModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeNonCoffeeModal}
+      >
+        <View style={styles.validationModalOverlay}>
+          <LinearGradient colors={['#FFF8F4', '#FFE0D9']} style={styles.validationModalContent}>
+            <View style={styles.validationModalIconCircle}>
+              <Text style={styles.validationModalIcon}>🚫</Text>
+            </View>
+            <Text style={styles.validationModalTitle}>Ups, toto nevyzerá ako káva</Text>
+            <Text style={styles.validationModalMessage}>
+              AI nerozpoznala na fotke kávu. Naskenuj prosím etiketu alebo balenie kávy v lepšom svetle.
+            </Text>
+            {nonCoffeeConfidence !== null ? (
+              <Text style={styles.validationModalConfidence}>
+                Istota modelu: {nonCoffeeConfidence}%
+              </Text>
+            ) : null}
+            {nonCoffeeDetails.reason ? (
+              <Text style={styles.validationModalReason}>{nonCoffeeDetails.reason}</Text>
+            ) : null}
+            {nonCoffeeDetails.labels?.length ? (
+              <View style={styles.validationModalChips}>
+                {nonCoffeeDetails.labels.slice(0, 4).map(label => (
+                  <View key={label} style={styles.validationModalChip}>
+                    <Text style={styles.validationModalChipText}>{label}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+            <Text style={styles.validationModalHint}>
+              Tip: Uisti sa, že etiketa kávy je ostrá a zaberá väčšinu fotografie.
+            </Text>
+            <TouchableOpacity
+              style={styles.validationModalButton}
+              onPress={closeNonCoffeeModal}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.validationModalButtonText}>Skúsiť znova</Text>
+            </TouchableOpacity>
+          </LinearGradient>
+        </View>
+      </Modal>
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
           refreshControl={refreshControl}
         >
           <View style={styles.contentWrapper}>
