@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { BOTTOM_NAV_CONTENT_OFFSET } from '../../../components/navigation/BottomNav';
-import { getSafeAreaTop, scale, verticalScale } from '../../../components/utils/safeArea';
+import { getSafeAreaBottom, getSafeAreaTop, scale, verticalScale } from '../../../components/utils/safeArea';
 
 export const palette = {
   espresso: '#2C1810',
@@ -81,7 +81,8 @@ export const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: scale(16),
     paddingTop: verticalScale(12),
-    paddingBottom: BOTTOM_NAV_CONTENT_OFFSET + verticalScale(12),
+    paddingBottom:
+      getSafeAreaBottom() + BOTTOM_NAV_CONTENT_OFFSET + verticalScale(24),
   },
   card: {
     borderRadius: scale(28),
