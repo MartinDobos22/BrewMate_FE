@@ -1,5 +1,6 @@
 // ProfessionalOCRScannerStyles.ts - BrewMate Material-inspired design
 import { StyleSheet, Platform } from 'react-native';
+import { BOTTOM_NAV_CONTENT_OFFSET } from '../../../components/navigation/BottomNav';
 
 const palette = {
   primary: '#6B4423',
@@ -58,7 +59,7 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
     },
     scrollContent: {
       flexGrow: 1,
-      paddingBottom: 160,
+      paddingBottom: BOTTOM_NAV_CONTENT_OFFSET + 16,
       backgroundColor: palette.background,
     },
     contentWrapper: {

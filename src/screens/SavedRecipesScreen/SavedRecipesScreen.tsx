@@ -12,7 +12,9 @@ import { Picker } from '@react-native-picker/picker';
 import { homeStyles } from '../HomeScreen/styles';
 import { fetchUserRecipes } from '../../services/recipeServices';
 import { BrewDevice, BREW_DEVICES, Recipe } from '../../types/Recipe';
-import BottomNav, { BOTTOM_NAV_HEIGHT } from '../../components/navigation/BottomNav';
+import BottomNav, {
+  BOTTOM_NAV_CONTENT_OFFSET,
+} from '../../components/navigation/BottomNav';
 import RecipeForm from '../../components/recipes/RecipeForm';
 
 type SavedRecipe = Recipe & {
@@ -109,7 +111,10 @@ const SavedRecipesScreen: React.FC<SavedRecipesScreenProps> = ({
       </View>
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        contentContainerStyle={{ padding: 16, paddingBottom: BOTTOM_NAV_HEIGHT }}
+        contentContainerStyle={{
+          padding: 16,
+          paddingBottom: BOTTOM_NAV_CONTENT_OFFSET,
+        }}
         showsVerticalScrollIndicator={false}
       >
         <TouchableOpacity
