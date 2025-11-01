@@ -928,7 +928,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
 
                     <View style={styles.statsContainer}>
                       <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>{ocrHistory.length}</Text>
+                        <Text style={styles.statNumber}>{recipeHistory.length}</Text>
                         <Text style={styles.statLabel}>Receptov</Text>
                       </View>
                       <View style={styles.statDivider} />
