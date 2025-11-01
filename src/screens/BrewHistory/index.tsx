@@ -8,9 +8,10 @@ import { styles } from './styles';
 
 interface BrewHistoryScreenProps {
   onAddLog?: () => void;
+  onLogPress?: (log: BrewLog) => void;
 }
 
-const BrewHistoryScreen: React.FC<BrewHistoryScreenProps> = ({ onAddLog }) => {
+const BrewHistoryScreen: React.FC<BrewHistoryScreenProps> = ({ onAddLog, onLogPress }) => {
   const [logs, setLogs] = useState<BrewLog[]>([]);
   const [deviceFilter, setDeviceFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState('');
@@ -32,7 +33,9 @@ const BrewHistoryScreen: React.FC<BrewHistoryScreenProps> = ({ onAddLog }) => {
   const renderItem = ({ item }: { item: BrewLog }) => (
     <TouchableOpacity
       style={styles.item}
-      onPress={() => Alert.alert('Detail záznamu', JSON.stringify(item, null, 2))}
+      onPress={() =>
+        onLogPress ? onLogPress(item) : Alert.alert('Detail záznamu', JSON.stringify(item, null, 2))
+      }
     >
       <Text style={styles.itemTitle}>
         {new Date(item.date).toLocaleDateString()} - {item.brewDevice}
