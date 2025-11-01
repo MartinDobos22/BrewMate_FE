@@ -323,36 +323,6 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       fontSize: 12,
       color: palette.warning,
     },
-    emptyState: {
-      alignItems: 'center',
-      paddingVertical: 48,
-      paddingHorizontal: 16,
-    },
-    emptyStateImage: {
-      width: 100,
-      height: 100,
-      borderRadius: 50,
-      backgroundColor: palette.cream,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: 16,
-      ...baseShadow,
-    },
-    emptyStateIcon: {
-      fontSize: 42,
-    },
-    emptyStateTitle: {
-      fontSize: 18,
-      fontWeight: '700',
-      color: palette.textPrimary,
-      marginBottom: 8,
-    },
-    emptyStateDesc: {
-      fontSize: 14,
-      color: palette.textTertiary,
-      textAlign: 'center',
-      lineHeight: 20,
-    },
     scanResultContainer: {
       paddingBottom: 16,
     },

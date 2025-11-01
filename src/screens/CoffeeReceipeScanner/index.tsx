@@ -34,7 +34,6 @@ import { scannerStyles } from './styles';
 import {
   processOCR,
   fetchOCRHistory,
-  deleteOCRRecord,
   getBrewRecipe,
   suggestBrewingMethods,
   rateOCRResult,
@@ -479,47 +478,6 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
       setOverlayVisible(false);
       setOverlayText('Analyzujem...');
     }
-  };
-
-  const loadFromHistory = async (item: OCRHistory) => {
-    const methods = await suggestBrewingMethods(item.corrected_text);
-    setScanResult({
-      original: item.original_text,
-      corrected: item.corrected_text,
-      recommendation: '',
-      matchPercentage: item.match_percentage,
-      isRecommended: item.is_recommended,
-      brewingMethods: methods,
-      isFavorite: item.is_favorite,
-    });
-    setEditedText(item.corrected_text);
-    setUserRating(item.rating || 0);
-    setSelectedMethod(methods[0] ?? null);
-    setIsFavorite(item.is_favorite ?? false);
-    setGeneratedRecipe('');
-    setCurrentView('scan');
-  };
-
-  const deleteFromHistory = async (id: string) => {
-    Alert.alert(
-      'Vymazať záznam',
-      'Naozaj chcete vymazať tento záznam?',
-      [
-        { text: 'Zrušiť', style: 'cancel' },
-        {
-          text: 'Vymazať',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteOCRRecord(id);
-              await loadHistory();
-            } catch (error) {
-              Alert.alert('Chyba', 'Nepodarilo sa vymazať záznam');
-            }
-          },
-        },
-      ]
-    );
   };
 
   const handleRating = async (rating: number) => {
@@ -983,58 +941,6 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
                         <Text style={styles.statNumber}>{averageRating}</Text>
                         <Text style={styles.statLabel}>Priemer ⭐</Text>
                       </View>
-                    </View>
-
-                    <View style={styles.historySection}>
-                      <View style={styles.historyHeader}>
-                        <Text style={styles.historyTitle}>📚 História skenovaní</Text>
-                        {ocrHistory.length > 0 && (
-                          <TouchableOpacity
-                            style={styles.historySeeAll}
-                            onPress={() => showToast('Pripravujeme prehľad histórie.')}
-                          >
-                            <Text style={styles.historySeeAllText}>Zobraziť všetky →</Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                      {ocrHistory.length > 0 ? (
-                        <View style={styles.historyGrid}>
-                          {ocrHistory.slice(0, 6).map((item) => (
-                            <TouchableOpacity
-                              key={item.id}
-                              style={styles.historyCard}
-                              onPress={() => loadFromHistory(item)}
-                              onLongPress={() => deleteFromHistory(item.id)}
-                              activeOpacity={0.85}
-                            >
-                              <View style={styles.historyCardAccent} />
-                              <View style={styles.historyCardContent}>
-                                <Text style={styles.historyCardName} numberOfLines={1}>
-                                  {item.coffee_name || 'Neznáma káva'}
-                                </Text>
-                                <Text style={styles.historyCardDate}>
-                                  {new Date(item.created_at).toLocaleDateString('sk-SK')}
-                                </Text>
-                                {item.rating ? (
-                                  <Text style={styles.historyCardRating}>
-                                    {'⭐'.repeat(item.rating)}
-                                  </Text>
-                                ) : null}
-                              </View>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      ) : (
-                        <View style={styles.emptyState}>
-                          <View style={styles.emptyStateImage}>
-                            <Text style={styles.emptyStateIcon}>☕</Text>
-                          </View>
-                          <Text style={styles.emptyStateTitle}>Žiadne recepty</Text>
-                          <Text style={styles.emptyStateDesc}>
-                            Naskenuj svoju prvú kávu a vytvor si personalizovaný recept
-                          </Text>
-                        </View>
-                      )}
                     </View>
 
                     {recipeHistory.length > 0 && (
