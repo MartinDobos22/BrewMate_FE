@@ -14,6 +14,7 @@ import AuthScreen from './src/components/auth/AuthVisual';
 import HomeScreen from './src/screens/HomeScreen';
 import CoffeeTasteScanner from './src/screens/CoffeeTasteScanner';
 import CoffeeReceipeScanner from './src/screens/CoffeeReceipeScanner';
+import RecipeHistoryDetailScreen from './src/screens/CoffeeReceipeScanner/RecipeHistoryDetailScreen';
 import AllCoffeesScreen from './src/screens/AllCoffeesScreen';
 import AIChatScreen from './src/screens/AIChatScreen';
 import UserProfile from './src/screens/UserProfile';
@@ -28,6 +29,7 @@ import PersonalizationDashboard from './src/components/personalization/Personali
 import FlavorJourneyMap from './src/components/personalization/FlavorJourneyMap';
 import AICoachChat from './src/components/personalization/AICoachChat';
 import BrewHistoryScreen from './src/screens/BrewHistory';
+import BrewHistoryDetailScreen from './src/screens/BrewHistory/DetailScreen';
 import BrewLogForm from './src/components/brew/BrewLogForm';
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 import { scale } from './src/theme/responsive';
@@ -46,6 +48,7 @@ import {
   SyncProgressIndicator,
 } from 'src/components/offline';
 import { fetchRecipes, fetchRecipeHistory } from './src/services/recipeServices';
+import type { RecipeHistory } from './src/services/recipeServices';
 import { fetchCoffees, fetchScanHistory } from './src/services/homePagesService';
 import { fetchRecentScans } from './src/services/coffeeServices';
 import EncryptedStorage from 'react-native-encrypted-storage';
@@ -79,6 +82,7 @@ import {
   analyzeOnboardingAnswers,
   type OnboardingAnalysis,
 } from './src/services/personalization/onboardingAnalysis';
+import type { BrewLog } from './src/types/BrewLog';
 
 type ScreenName =
   | 'home'
@@ -91,12 +95,14 @@ type ScreenName =
   | 'discover'
   | 'recipes'
   | 'recipe-steps'
+  | 'recipe-history-detail'
   | 'favorites'
   | 'inventory'
   | 'gamification'
   | 'taste-quiz'
   | 'personalization'
   | 'brew-history'
+  | 'brew-history-detail'
   | 'brew-log'
   | 'community-recipes'
   | 'saved-tips';
@@ -417,6 +423,8 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   const [queueLength, setQueueLength] = useState(0);
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncVisible, setSyncVisible] = useState(false);
+  const [selectedBrewLog, setSelectedBrewLog] = useState<BrewLog | null>(null);
+  const [selectedRecipeHistory, setSelectedRecipeHistory] = useState<RecipeHistory | null>(null);
   const [authNotice] = useState<AuthNotice | null>(null);
   const { isDark, colors } = useTheme();
   const {
@@ -1471,11 +1479,32 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   };
 
   const handleBrewHistoryPress = () => {
+    setSelectedBrewLog(null);
     setCurrentScreen('brew-history');
   };
 
   const handleBrewLogPress = () => {
     setCurrentScreen('brew-log');
+  };
+
+  const handleBrewHistoryLogPress = (log: BrewLog) => {
+    setSelectedBrewLog(log);
+    setCurrentScreen('brew-history-detail');
+  };
+
+  const handleBrewHistoryDetailBack = () => {
+    setSelectedBrewLog(null);
+    setCurrentScreen('brew-history');
+  };
+
+  const handleRecipeHistoryEntryPress = (entry: RecipeHistory) => {
+    setSelectedRecipeHistory(entry);
+    setCurrentScreen('recipe-history-detail');
+  };
+
+  const handleRecipeHistoryDetailBack = () => {
+    setSelectedRecipeHistory(null);
+    setCurrentScreen('brew');
   };
 
   const handleCommunityRecipesPress = () => {
@@ -1487,6 +1516,8 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   };
 
   const handleBackPress = () => {
+    setSelectedBrewLog(null);
+    setSelectedRecipeHistory(null);
     setCurrentScreen('home');
   };
 
@@ -1609,6 +1640,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
             setGeneratedRecipe(recipe);
             setCurrentScreen('recipe-steps');
           }}
+          onRecipeHistoryPress={handleRecipeHistoryEntryPress}
         />
         <BottomNav
           active="home"
@@ -1638,6 +1670,40 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           recipe={generatedRecipe}
           onBack={() => setCurrentScreen('brew')}
         />
+        <BottomNav
+          active="home"
+          onHomePress={handleBackPress}
+          onDiscoverPress={handleDiscoverPress}
+          onRecipesPress={handleRecipesPress}
+          onFavoritesPress={handleFavoritesPress}
+          onProfilePress={handleProfilePress}
+        />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
+      </ResponsiveWrapper>
+    );
+  }
+
+  if (currentScreen === 'recipe-history-detail') {
+    if (!selectedRecipeHistory) {
+      return null;
+    }
+
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.background}
+      >
+        <ConnectionStatusBar />
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={[styles.backButton, { backgroundColor: colors.primary }]}
+            onPress={handleRecipeHistoryDetailBack}>
+            <Text style={styles.backButtonText}>← Späť</Text>
+          </TouchableOpacity>
+          <QueueStatusBadge />
+        </View>
+        <RecipeHistoryDetailScreen entry={selectedRecipeHistory} />
         <BottomNav
           active="home"
           onHomePress={handleBackPress}
@@ -1945,7 +2011,41 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
             <QueueStatusBadge />
           </View>
         </View>
-        <BrewHistoryScreen onAddLog={handleBrewLogPress} />
+        <BrewHistoryScreen onAddLog={handleBrewLogPress} onLogPress={handleBrewHistoryLogPress} />
+        <BottomNav
+          active="home"
+          onHomePress={handleBackPress}
+          onDiscoverPress={handleDiscoverPress}
+          onRecipesPress={handleRecipesPress}
+          onFavoritesPress={handleFavoritesPress}
+          onProfilePress={handleProfilePress}
+        />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
+      </ResponsiveWrapper>
+    );
+  }
+
+  if (currentScreen === 'brew-history-detail') {
+    if (!selectedBrewLog) {
+      return null;
+    }
+
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.background}
+      >
+        <ConnectionStatusBar />
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={[styles.backButton, { backgroundColor: colors.primary }]}
+            onPress={handleBrewHistoryDetailBack}>
+            <Text style={styles.backButtonText}>← Späť</Text>
+          </TouchableOpacity>
+          <QueueStatusBadge />
+        </View>
+        <BrewHistoryDetailScreen log={selectedBrewLog} />
         <BottomNav
           active="home"
           onHomePress={handleBackPress}

@@ -5,6 +5,7 @@ export {
   getBrewRecipe,
   suggestBrewingMethods,
   rateOCRResult,
+  isCoffeeRelatedText,
 } from '../../../services/ocrServices';
 export { saveRecipe, fetchRecipeHistory } from '../../../services/recipeServices';
 export type { RecipeHistory } from '../../../services/recipeServices';

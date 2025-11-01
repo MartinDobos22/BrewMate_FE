@@ -30,11 +30,12 @@ jest.mock('react-native-fs', () => ({
 
 jest.mock('../src/services/ocrServices.ts', () => ({
   processOCR: jest.fn(() => Promise.resolve({
-    corrected: 'text',
-    original: 'text',
+    corrected: 'káva test',
+    original: 'káva test',
     scanId: '1',
     isRecommended: false,
     matchPercentage: 0,
+    isCoffee: true,
   })),
   fetchOCRHistory: jest.fn(() => Promise.resolve([])),
   deleteOCRRecord: jest.fn(),

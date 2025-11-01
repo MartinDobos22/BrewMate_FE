@@ -78,6 +78,10 @@ interface OCRResult {
   scanId?: string;
   brewingMethods?: string[];
   source?: 'offline' | 'online';
+  isCoffee?: boolean;
+  nonCoffeeReason?: string;
+  detectionLabels?: string[];
+  detectionConfidence?: number;
 }
 
 interface OCRHistory {
@@ -324,6 +328,33 @@ export const getBrewRecipe = async (
   }
 };
 
+const COFFEE_KEYWORDS = [
+  'coffee',
+  'káva',
+  'cafe',
+  'kávy',
+  'espresso',
+  'cappuccino',
+  'latte',
+  'arabica',
+  'robusta',
+  'ristretto',
+  'macchiato',
+  'filter',
+  'brew',
+  'bean',
+  'zrn',
+];
+
+export const isCoffeeRelatedText = (input?: string | null): boolean => {
+  if (!input) return false;
+  const normalized = input
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  return COFFEE_KEYWORDS.some(keyword => normalized.includes(keyword));
+};
+
 /**
  * Spracuje OCR z obrázka
  */
@@ -355,12 +386,19 @@ const offlineFallback = async (
       return null;
     }
 
+    const labelIsCoffee = isCoffeeRelatedText(label);
+    const detectionLabels = label ? [label] : undefined;
     return {
       original: '',
       corrected: label,
-      recommendation: 'Výsledok z lokálneho modelu.',
+      recommendation: labelIsCoffee
+        ? 'Výsledok z lokálneho modelu.'
+        : 'Nepodarilo sa rozpoznať kávu. Skús znova naskenovať etiketu.',
       scanId: `offline-${Date.now()}`,
       source: 'offline',
+      isCoffee: labelIsCoffee,
+      detectionLabels,
+      nonCoffeeReason: labelIsCoffee ? undefined : `Rozpoznané: ${label}`,
     };
   } catch (fallbackError) {
     console.error('Offline OCR fallback failed:', fallbackError);
@@ -389,6 +427,25 @@ export const processOCR = async (
     }
 
     const originalText = ocrData.text;
+    const detectionLabels: string[] | undefined = Array.isArray(ocrData.labels)
+      ? ocrData.labels.filter((label: unknown): label is string => typeof label === 'string')
+      : undefined;
+    const detectionConfidence =
+      typeof ocrData.coffeeConfidence === 'number' ? ocrData.coffeeConfidence : undefined;
+
+    let isCoffee: boolean | undefined;
+    if (typeof ocrData.isCoffee === 'boolean') {
+      isCoffee = ocrData.isCoffee;
+    } else if (detectionLabels && detectionLabels.length > 0) {
+      isCoffee = detectionLabels.some(label => isCoffeeRelatedText(label));
+    }
+
+    const nonCoffeeReasonRaw =
+      typeof ocrData.nonCoffeeReason === 'string' ? ocrData.nonCoffeeReason : undefined;
+    let nonCoffeeReason = nonCoffeeReasonRaw;
+    if (!nonCoffeeReason && isCoffee === false && detectionLabels && detectionLabels.length > 0) {
+      nonCoffeeReason = `Rozpoznané: ${detectionLabels.slice(0, 3).join(', ')}`;
+    }
 
     // 2. Oprav text pomocou AI
     const correctedText = await fixTextWithAI(originalText);
@@ -457,6 +514,10 @@ export const processOCR = async (
       scanId,
       brewingMethods,
       source: 'online',
+      isCoffee,
+      detectionLabels,
+      detectionConfidence,
+      nonCoffeeReason,
     };
   } catch (error) {
     console.error('OCR processing error:', error);
