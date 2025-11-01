@@ -81,6 +81,7 @@ interface ScanResult {
 interface BrewScannerProps {
   onBack?: () => void;
   onRecipeGenerated?: (recipe: string) => void;
+  onRecipeHistoryPress?: (entry: RecipeHistory) => void;
 }
 
 const resolveTimeOfDay = (date: Date): BrewContext['timeOfDay'] => {
@@ -150,6 +151,7 @@ const brewingMethodEmojis: Record<string, string> = {
 const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
   onBack,
   onRecipeGenerated,
+  onRecipeHistoryPress,
 }) => {
   const { coffeeDiary: personalizationDiary, refreshInsights } = usePersonalization();
   const diary = personalizationDiary ?? fallbackCoffeeDiary;
@@ -1048,7 +1050,12 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
                         </View>
                         <View style={styles.historyGrid}>
                           {recipeHistory.slice(0, 4).map((item) => (
-                            <View key={item.id} style={styles.historyCard}>
+                            <TouchableOpacity
+                              key={item.id}
+                              style={styles.historyCard}
+                              activeOpacity={0.85}
+                              onPress={() => onRecipeHistoryPress?.(item)}
+                            >
                               <View style={styles.historyCardAccent} />
                               <View style={styles.historyCardContent}>
                                 <Text style={styles.historyCardName} numberOfLines={1}>
@@ -1061,7 +1068,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
                                   {item.recipe}
                                 </Text>
                               </View>
-                            </View>
+                            </TouchableOpacity>
                           ))}
                         </View>
                       </View>
