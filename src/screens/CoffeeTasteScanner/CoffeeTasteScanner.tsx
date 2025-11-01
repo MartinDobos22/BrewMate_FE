@@ -175,6 +175,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
   const [offlineModalVisible, setOfflineModalVisible] = useState(false);
   const [offlineStatus, setOfflineStatus] = useState<'prompt' | 'modelUsed'>('prompt');
   const [isFavorite, setIsFavorite] = useState(false);
+  const [isHistoryReadOnly, setIsHistoryReadOnly] = useState(false);
   const [currentView, setCurrentView] = useState<'home' | 'scan'>('home');
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [overlayText, setOverlayText] = useState('Analyzujem...');
@@ -249,6 +250,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
     setPurchased(null);
     setUserRating(0);
     setIsFavorite(false);
+    setIsHistoryReadOnly(false);
     setShowCamera(false);
     setOverlayVisible(false);
     setOverlayText('Analyzujem...');
@@ -411,6 +413,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
         setEditedText(result.corrected);
         setPurchaseSelection(null);
         setPurchased(null);
+        setIsHistoryReadOnly(false);
         await saveOCRResult(result.scanId || 'last', result);
 
         setCurrentView('scan');
@@ -518,6 +521,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
       setEditedText(offlineResult.corrected);
       setPurchaseSelection(null);
       setPurchased(null);
+      setIsHistoryReadOnly(false);
       setCurrentView('scan');
       setOverlayVisible(false);
       setOverlayText('Analyzujem...');
@@ -611,10 +615,11 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
     });
     setEditedText(item.corrected_text);
     setUserRating(item.rating || 0);
-    setPurchaseSelection(null);
+    setPurchaseSelection(item.is_purchased ?? null);
     setPurchased(item.is_purchased ?? null);
     setIsFavorite(item.is_favorite ?? false);
     setCurrentView('scan');
+    setIsHistoryReadOnly(true);
 
     // Scroll to top to show loaded result
     // scrollViewRef.current?.scrollTo({ y: 0, animated: true });
@@ -660,7 +665,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
     setShowCamera(true);
   };
   const handleRating = async (rating: number) => {
-    if (!scanResult) {
+    if (!scanResult || isHistoryReadOnly) {
       return;
     }
 
@@ -757,7 +762,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
   };
 
   const handleFavoriteToggle = async () => {
-    if (!scanResult) {
+    if (!scanResult || isHistoryReadOnly) {
       return;
     }
 
@@ -785,11 +790,14 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
   };
 
   const handlePurchaseSelect = (answer: boolean) => {
+    if (isHistoryReadOnly) {
+      return;
+    }
     setPurchaseSelection(answer);
   };
 
   const submitPurchaseAnswer = async () => {
-    if (purchaseSelection === null) return;
+    if (purchaseSelection === null || isHistoryReadOnly) return;
     setPurchased(purchaseSelection);
     if (purchaseSelection && scanResult?.scanId) {
       try {
@@ -809,6 +817,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
       setScanResult(cached);
       setEditedText(cached.corrected);
       setIsFavorite(cached.isFavorite ?? false);
+      setIsHistoryReadOnly(false);
     } else {
       Alert.alert('Chyba', 'Žiadny uložený výsledok');
     }
@@ -838,6 +847,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
     setCurrentView('home');
     setOverlayVisible(false);
     setOverlayText('Analyzujem...');
+    setIsHistoryReadOnly(false);
   };
 
   const handleBack = () => {
@@ -1007,7 +1017,15 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
     scanResult?.recommendation ??
     'Na základe tvojich posledných hodnotení to vyzerá, že táto káva zapadne do tvojho chuťového profilu.';
 
-  const ratingDisplay = userRating > 0 ? `${userRating}/5` : 'Ohodnoť';
+  const ratingDisplay =
+    userRating > 0
+      ? `${userRating}/5`
+      : isHistoryReadOnly
+        ? 'Bez hodnotenia'
+        : 'Ohodnoť';
+  const editorHint = isHistoryReadOnly
+    ? 'História je len na čítanie'
+    : 'Uprav, ak niečo nesedí';
 
   const metrics = useMemo(
     () => [
@@ -1386,8 +1404,10 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
                             style={[
                               styles.ownershipButton,
                               purchaseSelection === true && styles.ownershipButtonActive,
+                              isHistoryReadOnly && { opacity: 0.5 },
                             ]}
                             onPress={() => handlePurchaseSelect(true)}
+                            disabled={isHistoryReadOnly}
                           >
                             <Text
                               style={[
@@ -1403,8 +1423,10 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
                               styles.ownershipButton,
                               styles.ownershipButtonSecondary,
                               purchaseSelection === false && styles.ownershipButtonActive,
+                              isHistoryReadOnly && { opacity: 0.5 },
                             ]}
                             onPress={() => handlePurchaseSelect(false)}
+                            disabled={isHistoryReadOnly}
                           >
                             <Text
                               style={[
@@ -1420,9 +1442,10 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
                             style={[
                               styles.ownershipConfirmButton,
                               purchaseSelection === null && styles.ownershipConfirmDisabled,
+                              isHistoryReadOnly && { opacity: 0.5 },
                             ]}
                             onPress={submitPurchaseAnswer}
-                            disabled={purchaseSelection === null}
+                            disabled={purchaseSelection === null || isHistoryReadOnly}
                           >
                             <Text style={styles.ownershipConfirmText}>Potvrdiť</Text>
                           </TouchableOpacity>
@@ -1522,7 +1545,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
                       <View style={styles.editorCard}>
                         <View style={styles.sectionHeaderRow}>
                           <Text style={styles.sectionTitle}>Rozpoznaný text</Text>
-                          <Text style={styles.editorHint}>Uprav, ak niečo nesedí</Text>
+                          <Text style={styles.editorHint}>{editorHint}</Text>
                         </View>
                         <TextInput
                           style={styles.editorInput}
@@ -1531,6 +1554,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
                           onChangeText={setEditedText}
                           placeholder="Uprav rozpoznaný text..."
                           textAlignVertical="top"
+                          editable={!isHistoryReadOnly}
                         />
                       </View>
 
@@ -1546,8 +1570,12 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
                           {[1, 2, 3, 4, 5].map(star => (
                             <TouchableOpacity
                               key={star}
-                              style={styles.ratingStarButton}
+                              style={[
+                                styles.ratingStarButton,
+                                isHistoryReadOnly && { opacity: 0.5 },
+                              ]}
                               onPress={() => handleRating(star)}
+                              disabled={isHistoryReadOnly}
                             >
                               <Text
                                 style={[
@@ -1561,8 +1589,13 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
                           ))}
                         </View>
                         <TouchableOpacity
-                          style={[styles.favoriteToggle, isFavorite && styles.favoriteToggleActive]}
+                          style={[
+                            styles.favoriteToggle,
+                            isFavorite && styles.favoriteToggleActive,
+                            isHistoryReadOnly && { opacity: 0.5 },
+                          ]}
                           onPress={handleFavoriteToggle}
+                          disabled={isHistoryReadOnly}
                         >
                           <Text
                             style={[styles.favoriteToggleText, isFavorite && styles.favoriteToggleTextActive]}
