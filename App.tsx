@@ -28,6 +28,7 @@ import PersonalizationDashboard from './src/components/personalization/Personali
 import FlavorJourneyMap from './src/components/personalization/FlavorJourneyMap';
 import AICoachChat from './src/components/personalization/AICoachChat';
 import BrewHistoryScreen from './src/screens/BrewHistory';
+import BrewHistoryDetailScreen from './src/screens/BrewHistory/DetailScreen';
 import BrewLogForm from './src/components/brew/BrewLogForm';
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 import { scale } from './src/theme/responsive';
@@ -79,6 +80,7 @@ import {
   analyzeOnboardingAnswers,
   type OnboardingAnalysis,
 } from './src/services/personalization/onboardingAnalysis';
+import type { BrewLog } from './src/types/BrewLog';
 
 type ScreenName =
   | 'home'
@@ -97,6 +99,7 @@ type ScreenName =
   | 'taste-quiz'
   | 'personalization'
   | 'brew-history'
+  | 'brew-history-detail'
   | 'brew-log'
   | 'community-recipes'
   | 'saved-tips';
@@ -417,6 +420,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   const [queueLength, setQueueLength] = useState(0);
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncVisible, setSyncVisible] = useState(false);
+  const [selectedBrewLog, setSelectedBrewLog] = useState<BrewLog | null>(null);
   const [authNotice] = useState<AuthNotice | null>(null);
   const { isDark, colors } = useTheme();
   const {
@@ -1471,11 +1475,22 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   };
 
   const handleBrewHistoryPress = () => {
+    setSelectedBrewLog(null);
     setCurrentScreen('brew-history');
   };
 
   const handleBrewLogPress = () => {
     setCurrentScreen('brew-log');
+  };
+
+  const handleBrewHistoryLogPress = (log: BrewLog) => {
+    setSelectedBrewLog(log);
+    setCurrentScreen('brew-history-detail');
+  };
+
+  const handleBrewHistoryDetailBack = () => {
+    setSelectedBrewLog(null);
+    setCurrentScreen('brew-history');
   };
 
   const handleCommunityRecipesPress = () => {
@@ -1945,7 +1960,41 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
             <QueueStatusBadge />
           </View>
         </View>
-        <BrewHistoryScreen onAddLog={handleBrewLogPress} />
+        <BrewHistoryScreen onAddLog={handleBrewLogPress} onLogPress={handleBrewHistoryLogPress} />
+        <BottomNav
+          active="home"
+          onHomePress={handleBackPress}
+          onDiscoverPress={handleDiscoverPress}
+          onRecipesPress={handleRecipesPress}
+          onFavoritesPress={handleFavoritesPress}
+          onProfilePress={handleProfilePress}
+        />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
+      </ResponsiveWrapper>
+    );
+  }
+
+  if (currentScreen === 'brew-history-detail') {
+    if (!selectedBrewLog) {
+      return null;
+    }
+
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.background}
+      >
+        <ConnectionStatusBar />
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={[styles.backButton, { backgroundColor: colors.primary }]}
+            onPress={handleBrewHistoryDetailBack}>
+            <Text style={styles.backButtonText}>← Späť</Text>
+          </TouchableOpacity>
+          <QueueStatusBadge />
+        </View>
+        <BrewHistoryDetailScreen log={selectedBrewLog} />
         <BottomNav
           active="home"
           onHomePress={handleBackPress}
