@@ -373,8 +373,10 @@ export const getBrewRecipe = async (
 const COFFEE_KEYWORDS = [
   'coffee',
   'káva',
-  'cafe',
+  'kava',
   'kávy',
+  'kavy',
+  'cafe',
   'espresso',
   'cappuccino',
   'latte',
@@ -385,7 +387,35 @@ const COFFEE_KEYWORDS = [
   'filter',
   'brew',
   'bean',
+  'beans',
   'zrn',
+  'zrnk',
+  'mleta kava',
+  'mleta káva',
+  'zrnková káva',
+  'zrnkovu kavu',
+  'prazená káva',
+  'prazenu kavu',
+  'instant coffee',
+  'ground coffee',
+  'coffee beans',
+  'coffee bag',
+  'coffee package',
+  'coffee pack',
+  'balik kavy',
+  'balik kava',
+  'balenie kavy',
+  'balenie kávy',
+];
+
+const COFFEE_KEYWORD_COMBINATIONS: string[][] = [
+  ['balik', 'kav'],
+  ['balenie', 'kav'],
+  ['bag', 'coffee'],
+  ['package', 'coffee'],
+  ['pack', 'coffee'],
+  ['zrn', 'kav'],
+  ['prazen', 'kav'],
 ];
 
 export const isCoffeeRelatedText = (input?: string | null): boolean => {
@@ -394,7 +424,19 @@ export const isCoffeeRelatedText = (input?: string | null): boolean => {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
-  return COFFEE_KEYWORDS.some(keyword => normalized.includes(keyword));
+
+  if (COFFEE_KEYWORDS.some(keyword => normalized.includes(keyword))) {
+    return true;
+  }
+
+  const tokens = normalized.split(/[^a-z0-9]+/).filter(Boolean);
+  if (tokens.length === 0) {
+    return false;
+  }
+
+  return COFFEE_KEYWORD_COMBINATIONS.some(combination =>
+    combination.every(part => tokens.some(token => token.includes(part))),
+  );
 };
 
 /**
