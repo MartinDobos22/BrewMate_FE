@@ -315,12 +315,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     return 'Pitie kávy po 16:00 môže negatívne ovplyvniť spánok.';
   };
 
-  const getWeatherBasedCoffee = () => {
-    const temp = 22;
-    if (temp > 20) return { name: 'Cold Brew', icon: '❄️' };
-    return { name: 'Cappuccino', icon: '☕' };
-  };
-
   const onRefresh = async () => {
     setRefreshing(true);
     await loadStats();
@@ -359,8 +353,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
       ],
     );
   };
-
-  const suggestedCoffee = getWeatherBasedCoffee();
 
   const quickActions = useMemo(
     () => [
@@ -457,30 +449,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                     </Text>
                   </View>
                 </View>
-                <View style={styles.weatherDisplay}>
-                  <Text style={styles.weatherIconLarge}>☀️</Text>
-                  <Text style={styles.weatherTemp}>22°C</Text>
-                </View>
               </View>
             </LinearGradient>
-
-            <View style={styles.weatherWidget}>
-              <View>
-                <View style={styles.weatherLocationRow}>
-                  <Text style={styles.weatherLocationIcon}>📍</Text>
-                  <Text style={styles.weatherLocation}>Košice</Text>
-                </View>
-                <Text style={styles.weatherDetails}>
-                  Slnečno, ideálne na kávu vonku
-                </Text>
-              </View>
-              <View style={styles.idealCoffee}>
-                <Text style={styles.idealLabel}>Odporúčanie:</Text>
-                <Text style={styles.idealType}>
-                  {suggestedCoffee.name} {suggestedCoffee.icon}
-                </Text>
-              </View>
-            </View>
 
             <View style={styles.tipSection}>
               {tipLoading ? (

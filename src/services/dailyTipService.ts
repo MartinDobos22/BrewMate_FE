@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CONFIG } from '../config/config';
 import { coffeeOfflineManager } from '../offline';
 const tipsData = require('../../content/dailyTips.json');
 
@@ -15,6 +16,8 @@ export const TIP_CACHE_TTL_HOURS = 24;
 let scheduledRefreshHandle: ReturnType<typeof setTimeout> | null = null;
 
 const tipList: Tip[] = tipsData as Tip[];
+const OPENAI_API_KEY = CONFIG.OPENAI_API_KEY;
+const isTestEnvironment = process.env.NODE_ENV === 'test';
 
 const buildOfflineCacheKey = (date: string) => `${TIP_OFFLINE_CACHE_KEY_PREFIX}:${date}`;
 
@@ -82,6 +85,74 @@ export const pickTipForDate = (date: string): Tip => {
   return { ...fallback, date };
 };
 
+const sanitizeTipText = (raw: string): string =>
+  raw
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/^['"„“”]+|['"„“”]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const buildTipPrompt = (date: string): string => {
+  const formattedDate = new Date(date).toLocaleDateString('sk-SK', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+  return `Dnes je ${formattedDate}. Priprav prosím jeden jedinečný baristický tip na kávu, ` +
+    'maximálne v dvoch vetách. Tip musí byť praktický, konkrétny a napísaný po slovensky.';
+};
+
+const generateTipWithAI = async (date: string): Promise<Tip | null> => {
+  if (!OPENAI_API_KEY || isTestEnvironment || typeof fetch !== 'function') {
+    return null;
+  }
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        temperature: 0.5,
+        max_tokens: 120,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'Si barista špecialista na domácu prípravu kávy. Ponúkni stručné, praktické tipy v slovenskom jazyku.',
+          },
+          { role: 'user', content: buildTipPrompt(date) },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      console.warn('DailyTipService: AI request failed with status', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    const tipText = sanitizeTipText(data?.choices?.[0]?.message?.content ?? '');
+    if (!tipText) {
+      return null;
+    }
+
+    return {
+      id: Date.now(),
+      text: tipText,
+      date,
+    };
+  } catch (error) {
+    console.error('DailyTipService: failed to generate AI tip', error);
+    return null;
+  }
+};
+
 export const fetchDailyTip = async (now: Date = new Date()): Promise<Tip> => {
   const today = now.toISOString().slice(0, 10);
   const cached = await getTipFromCache(today);
@@ -89,7 +160,7 @@ export const fetchDailyTip = async (now: Date = new Date()): Promise<Tip> => {
     return cached;
   }
 
-  const tip = pickTipForDate(today);
+  const tip = (await generateTipWithAI(today)) ?? pickTipForDate(today);
   await persistTip(tip);
   return tip;
 };
