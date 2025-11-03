@@ -1,5 +1,5 @@
 // CoffeeTasteScanner.tsx - Light & Optimized Design
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -31,6 +31,7 @@ import {
   fetchOCRHistory,
   deleteOCRRecord,
   markCoffeePurchased,
+  confirmStructuredScan,
   extractCoffeeName,
   rateOCRResult,
   incrementProgress,
@@ -42,6 +43,7 @@ import {
   toggleFavorite,
   isCoffeeRelatedText,
 } from './services';
+import type { StructuredCoffeeMetadata, ConfirmStructuredPayload } from './services';
 import { BrewContext } from '../../types/Personalization';
 import { usePersonalization } from '../../hooks/usePersonalization';
 import { recognizeCoffee } from '../../offline/VisionService';
@@ -74,7 +76,17 @@ interface ScanResult {
   nonCoffeeReason?: string;
   detectionLabels?: string[];
   detectionConfidence?: number;
+  structuredMetadata?: StructuredCoffeeMetadata | null;
+  structuredConfidence?: Record<string, unknown> | null;
+  structuredRaw?: unknown;
 }
+
+type ScanResultLike = ScanResult & { rawStructuredResponse?: unknown };
+
+type StructuredConfirmPayload = ConfirmStructuredPayload & {
+  correctedText?: string | null;
+  purchased?: boolean | null;
+};
 
 interface ProfessionalOCRScannerProps {
   onBack?: () => void;
@@ -152,6 +164,286 @@ const POSITIVE_REASON_KEYWORDS = [
 
 const CAUTION_REASON_KEYWORDS = ['pozor', 'ak preferuješ', 'môže', 'siln', 'hork', 'telo'];
 
+type StructuredFieldKey = keyof Pick<
+  StructuredCoffeeMetadata,
+  'roaster' | 'origin' | 'roastLevel' | 'processing' | 'flavorNotes' | 'roastDate' | 'varietals'
+>;
+type StructuredTextFieldKey = Exclude<StructuredFieldKey, 'flavorNotes' | 'varietals'>;
+type StructuredListFieldKey = Extract<StructuredFieldKey, 'flavorNotes' | 'varietals'>;
+
+type StructuredFieldState<T> = {
+  value: T;
+  isAutoFilled: boolean;
+  confidence: number | null;
+  warning: string | null;
+};
+
+type StructuredTextFieldState = StructuredFieldState<string | null>;
+type StructuredListFieldState = StructuredFieldState<string[] | null>;
+
+interface StructuredFieldsState {
+  roaster: StructuredTextFieldState;
+  origin: StructuredTextFieldState;
+  roastLevel: StructuredTextFieldState;
+  processing: StructuredTextFieldState;
+  flavorNotes: StructuredListFieldState;
+  roastDate: StructuredTextFieldState;
+  varietals: StructuredListFieldState;
+}
+
+const STRUCTURED_CONFIDENCE_KEYS: Record<StructuredFieldKey, string[]> = {
+  roaster: ['roaster', 'roaster_name', 'brand'],
+  origin: ['origin'],
+  roastLevel: ['roastLevel', 'roast_level'],
+  processing: ['processing', 'process'],
+  flavorNotes: ['flavorNotes', 'flavor_notes', 'notes'],
+  roastDate: ['roastDate', 'roast_date'],
+  varietals: ['varietals', 'variety', 'varieties'],
+};
+
+const STRUCTURED_FIELD_LABELS: Record<StructuredFieldKey, string> = {
+  roaster: 'Pražiareň',
+  origin: 'Pôvod',
+  roastLevel: 'Stupeň praženia',
+  processing: 'Spracovanie',
+  flavorNotes: 'Chuťové tóny',
+  roastDate: 'Dátum praženia',
+  varietals: 'Odrody',
+};
+
+const STRUCTURED_FIELD_ORDER: Array<{
+  key: StructuredFieldKey;
+  type: 'text' | 'list';
+  placeholder: string;
+}> = [
+  { key: 'roaster', type: 'text', placeholder: 'Napr. pražiareň alebo brand' },
+  { key: 'origin', type: 'text', placeholder: 'Napr. krajina alebo región pôvodu' },
+  { key: 'roastLevel', type: 'text', placeholder: 'Napr. light, medium, dark' },
+  { key: 'processing', type: 'text', placeholder: 'Napr. washed, natural, honey' },
+  { key: 'flavorNotes', type: 'list', placeholder: 'Oddeluj čiarkou: čokoláda, čerešňa' },
+  { key: 'roastDate', type: 'text', placeholder: 'Napr. 12.02.2024' },
+  { key: 'varietals', type: 'list', placeholder: 'Oddeluj čiarkou: Bourbon, Typica' },
+];
+
+const normalizeStructuredStringValue = (value: string | null | undefined): string | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const normalizeStructuredStringArrayValue = (
+  value: string[] | string | null | undefined,
+): string[] | null => {
+  if (Array.isArray(value)) {
+    const cleaned = value
+      .map(item => (typeof item === 'string' ? item.trim() : ''))
+      .filter(Boolean);
+    return cleaned.length ? cleaned : null;
+  }
+
+  if (typeof value === 'string') {
+    const parts = value
+      .split(/[,;\n]/)
+      .map(part => part.trim())
+      .filter(Boolean);
+    return parts.length ? parts : null;
+  }
+
+  return null;
+};
+
+const isStructuredValueFilled = <T,>(value: T): boolean => {
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+  if (typeof value === 'string') {
+    return value.trim().length > 0;
+  }
+  return value != null;
+};
+
+const resolveConfidenceEntry = (
+  source: Record<string, unknown> | null | undefined,
+  key: StructuredFieldKey,
+  fallbackFlag?: boolean | null,
+): { confidence: number | null; warning: string | null } => {
+  const aliases = STRUCTURED_CONFIDENCE_KEYS[key] ?? [key];
+  let confidence: number | null = null;
+  let warning: string | null = null;
+
+  const assignFromValue = (entry: unknown) => {
+    if (typeof entry === 'number') {
+      confidence = entry;
+      return;
+    }
+    if (typeof entry === 'boolean') {
+      confidence = entry ? 1 : 0;
+      return;
+    }
+    if (typeof entry === 'string') {
+      const trimmed = entry.trim();
+      if (!trimmed) {
+        return;
+      }
+      const normalized = Number.parseFloat(trimmed.replace(',', '.'));
+      if (!Number.isNaN(normalized)) {
+        confidence = normalized;
+        return;
+      }
+      warning = trimmed;
+      return;
+    }
+    if (entry && typeof entry === 'object') {
+      const container = entry as Record<string, unknown>;
+      if (container.confidence != null) {
+        assignFromValue(container.confidence);
+      } else if (container.score != null) {
+        assignFromValue(container.score);
+      } else if (container.value != null) {
+        assignFromValue(container.value);
+      }
+      if (warning == null && typeof container.warning === 'string') {
+        warning = container.warning;
+      }
+    }
+  };
+
+  if (source) {
+    for (const alias of aliases) {
+      if (Object.prototype.hasOwnProperty.call(source, alias)) {
+        assignFromValue(source[alias]);
+        break;
+      }
+    }
+  }
+
+  if (confidence == null && typeof fallbackFlag === 'boolean') {
+    confidence = fallbackFlag ? 1 : 0;
+  }
+
+  return { confidence, warning };
+};
+
+const createStructuredFieldsFromMetadata = (
+  metadata: StructuredCoffeeMetadata | null | undefined,
+  confidence: Record<string, unknown> | null | undefined,
+): StructuredFieldsState => {
+  const buildTextField = (
+    key: StructuredTextFieldKey,
+    value: string | null | undefined,
+  ): StructuredTextFieldState => {
+    const normalized = normalizeStructuredStringValue(value);
+    const flag = metadata?.confidenceFlags?.[key] ?? null;
+    const { confidence: parsedConfidence, warning } = resolveConfidenceEntry(confidence, key, flag);
+    return {
+      value: normalized,
+      isAutoFilled: isStructuredValueFilled(normalized),
+      confidence: parsedConfidence,
+      warning,
+    };
+  };
+
+  const buildListField = (
+    key: StructuredListFieldKey,
+    value: string[] | null | undefined,
+  ): StructuredListFieldState => {
+    const normalized = normalizeStructuredStringArrayValue(value);
+    const flag = metadata?.confidenceFlags?.[key] ?? null;
+    const { confidence: parsedConfidence, warning } = resolveConfidenceEntry(confidence, key, flag);
+    return {
+      value: normalized,
+      isAutoFilled: isStructuredValueFilled(normalized),
+      confidence: parsedConfidence,
+      warning,
+    };
+  };
+
+  return {
+    roaster: buildTextField('roaster', metadata?.roaster),
+    origin: buildTextField('origin', metadata?.origin),
+    roastLevel: buildTextField('roastLevel', metadata?.roastLevel),
+    processing: buildTextField('processing', metadata?.processing),
+    flavorNotes: buildListField('flavorNotes', metadata?.flavorNotes ?? null),
+    roastDate: buildTextField('roastDate', metadata?.roastDate),
+    varietals: buildListField('varietals', metadata?.varietals ?? null),
+  };
+};
+
+const structuredFieldsToMetadata = (
+  fields: StructuredFieldsState,
+): StructuredCoffeeMetadata | null => {
+  const metadata: StructuredCoffeeMetadata = {
+    roaster: normalizeStructuredStringValue(fields.roaster.value),
+    origin: normalizeStructuredStringValue(fields.origin.value),
+    roastLevel: normalizeStructuredStringValue(fields.roastLevel.value),
+    processing: normalizeStructuredStringValue(fields.processing.value),
+    flavorNotes: normalizeStructuredStringArrayValue(fields.flavorNotes.value) ?? null,
+    roastDate: normalizeStructuredStringValue(fields.roastDate.value),
+    varietals: normalizeStructuredStringArrayValue(fields.varietals.value) ?? null,
+    confidenceFlags: null,
+  };
+
+  const hasValues = [
+    metadata.roaster,
+    metadata.origin,
+    metadata.roastLevel,
+    metadata.processing,
+    metadata.roastDate,
+  ].some(Boolean) ||
+    (metadata.flavorNotes?.length ?? 0) > 0 ||
+    (metadata.varietals?.length ?? 0) > 0;
+
+  if (!hasValues) {
+    return null;
+  }
+
+  const confidenceFlags: StructuredCoffeeMetadata['confidenceFlags'] = {};
+
+  (['roaster', 'origin', 'roastLevel', 'processing', 'flavorNotes', 'roastDate', 'varietals'] as StructuredFieldKey[])
+    .forEach(key => {
+      const field = fields[key];
+      const hasValue = isStructuredValueFilled(field.value);
+      if (!hasValue) {
+        return;
+      }
+      confidenceFlags[key] = field.isAutoFilled ? true : false;
+    });
+
+  metadata.confidenceFlags = Object.keys(confidenceFlags).length > 0 ? confidenceFlags : null;
+
+  return metadata;
+};
+
+const structuredFieldsToConfidence = (
+  fields: StructuredFieldsState,
+): Record<string, unknown> | null => {
+  const result: Record<string, unknown> = {};
+
+  (['roaster', 'origin', 'roastLevel', 'processing', 'flavorNotes', 'roastDate', 'varietals'] as StructuredFieldKey[])
+    .forEach(key => {
+      const field = fields[key];
+      const payload: Record<string, unknown> = {};
+
+      if (field.confidence != null) {
+        payload.confidence = field.confidence;
+      }
+      if (!field.isAutoFilled) {
+        payload.isManual = true;
+      }
+      if (field.warning) {
+        payload.warning = field.warning;
+      }
+
+      if (Object.keys(payload).length > 0) {
+        result[key] = payload;
+      }
+    });
+
+  return Object.keys(result).length > 0 ? result : null;
+};
+
 const clampTasteValue = (value: number): number => {
   if (Number.isNaN(value)) {
     return 5;
@@ -185,6 +477,12 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
     labels?: string[];
     confidence?: number;
   }>({});
+  const [structuredFields, setStructuredFields] = useState<StructuredFieldsState>(() =>
+    createStructuredFieldsFromMetadata(null, null)
+  );
+  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+  const [confirmPayload, setConfirmPayload] = useState<StructuredConfirmPayload | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   const camera = useRef<Camera>(null);
   const device = useCameraDevice('back');
@@ -209,6 +507,154 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
     const bounded = Math.round(Math.max(0, Math.min(100, percent)));
     return Number.isNaN(bounded) ? null : bounded;
   }, [nonCoffeeDetails.confidence]);
+
+  const structuredMetadata = useMemo(
+    () => structuredFieldsToMetadata(structuredFields),
+    [structuredFields],
+  );
+  const structuredConfidencePayload = useMemo(
+    () => structuredFieldsToConfidence(structuredFields),
+    [structuredFields],
+  );
+  const hasStructuredMetadata = useMemo(
+    () => structuredMetadata !== null,
+    [structuredMetadata],
+  );
+  const flavorNotesInputValue = useMemo(() => {
+    const value = structuredFields.flavorNotes.value;
+    return value && value.length ? value.join(', ') : '';
+  }, [structuredFields.flavorNotes.value]);
+  const varietalsInputValue = useMemo(() => {
+    const value = structuredFields.varietals.value;
+    return value && value.length ? value.join(', ') : '';
+  }, [structuredFields.varietals.value]);
+  const structuredRoasterName = useMemo(
+    () => normalizeStructuredStringValue(structuredFields.roaster.value),
+    [structuredFields.roaster.value],
+  );
+  const combinedStructuredConfidence = useMemo(() => {
+    const base = scanResult?.structuredConfidence ?? null;
+    if (!base && !structuredConfidencePayload) {
+      return null;
+    }
+    if (!base) {
+      return structuredConfidencePayload;
+    }
+    if (!structuredConfidencePayload) {
+      return base;
+    }
+    return {
+      ...base,
+      ...structuredConfidencePayload,
+    };
+  }, [scanResult, structuredConfidencePayload]);
+  const confirmMetadataEntries = useMemo(() => {
+    if (!confirmPayload?.metadata) {
+      return [] as Array<{ key: StructuredFieldKey; value: string }>;
+    }
+    const metadata = confirmPayload.metadata;
+    const entries: Array<{ key: StructuredFieldKey; value: string }> = [];
+
+    STRUCTURED_FIELD_ORDER.forEach(field => {
+      const metadataValue = metadata[field.key];
+      if (Array.isArray(metadataValue) && metadataValue.length) {
+        entries.push({ key: field.key, value: metadataValue.join(', ') });
+      } else if (typeof metadataValue === 'string' && metadataValue.trim().length > 0) {
+        entries.push({ key: field.key, value: metadataValue });
+      }
+    });
+
+    return entries;
+  }, [confirmPayload]);
+  const structuredBadgeLabel = useMemo(() => {
+    if (!hasStructuredMetadata) {
+      return 'Pripravené na doplnenie';
+    }
+    const anyAutoFilled = STRUCTURED_FIELD_ORDER.some(field => {
+      const fieldState = structuredFields[field.key];
+      return fieldState.isAutoFilled && isStructuredValueFilled(fieldState.value);
+    });
+    if (anyAutoFilled) {
+      return 'AI vyplnila';
+    }
+    return 'Upravené';
+  }, [hasStructuredMetadata, structuredFields]);
+
+  const formatConfidenceLabel = (value: number | null): string | null => {
+    if (typeof value !== 'number' || Number.isNaN(value)) {
+      return null;
+    }
+    const normalized = value > 1 ? Math.min(value, 100) : value * 100;
+    const rounded = Math.round(normalized);
+    if (!Number.isFinite(rounded)) {
+      return null;
+    }
+    return `${rounded}% istota`;
+  };
+
+  const updateStructuredField = <K extends keyof StructuredFieldsState>(
+    key: K,
+    updater: (field: StructuredFieldsState[K]) => StructuredFieldsState[K],
+  ) => {
+    setStructuredFields(prev => {
+      const nextField = updater(prev[key]);
+      if (nextField === prev[key]) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [key]: nextField,
+      };
+    });
+  };
+
+  const handleStructuredTextChange = (key: StructuredTextFieldKey, value: string) => {
+    const nextValue = value.length > 0 ? value : null;
+    updateStructuredField(key, field => ({
+      ...field,
+      value: nextValue,
+      isAutoFilled: false,
+    }));
+  };
+
+  const handleStructuredListChange = (key: StructuredListFieldKey, value: string) => {
+    updateStructuredField(key, field => ({
+      ...field,
+      value: normalizeStructuredStringArrayValue(value),
+      isAutoFilled: false,
+    }));
+  };
+
+  const applyScanResult = useCallback(
+    (result: ScanResultLike | null) => {
+      if (!result) {
+        setScanResult(null);
+        setStructuredFields(createStructuredFieldsFromMetadata(null, null));
+        return;
+      }
+
+      const structuredRaw =
+        result.structuredRaw !== undefined
+          ? result.structuredRaw
+          : result.rawStructuredResponse ?? result.structuredMetadata ?? null;
+
+      const normalizedResult: ScanResult = {
+        ...result,
+        structuredMetadata: result.structuredMetadata ?? null,
+        structuredConfidence: result.structuredConfidence ?? null,
+        structuredRaw,
+      };
+
+      setScanResult(normalizedResult);
+      setStructuredFields(
+        createStructuredFieldsFromMetadata(
+          normalizedResult.structuredMetadata,
+          normalizedResult.structuredConfidence,
+        ),
+      );
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!hasPermission) {
@@ -244,7 +690,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
     labels?: string[];
     confidence?: number;
   }) => {
-    setScanResult(null);
+    applyScanResult(null);
     setEditedText('');
     setPurchaseSelection(null);
     setPurchased(null);
@@ -254,6 +700,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
     setShowCamera(false);
     setOverlayVisible(false);
     setOverlayText('Analyzujem...');
+    setConfirmModalVisible(false);
+    setConfirmPayload(null);
+    setIsConfirming(false);
     setIsLoading(false);
     setCurrentView('home');
     const derivedReason =
@@ -408,13 +857,25 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
           return;
         }
 
-        setScanResult(result);
-        setIsFavorite(result.isFavorite ?? false);
-        setEditedText(result.corrected);
+        const normalizedResult: ScanResultLike = {
+          ...result,
+          structuredRaw:
+            (result as ScanResultLike).structuredRaw ??
+            (result as ScanResultLike).rawStructuredResponse ??
+            result.structuredMetadata ??
+            null,
+        };
+
+        applyScanResult(normalizedResult);
+        setIsFavorite(normalizedResult.isFavorite ?? false);
+        setEditedText(normalizedResult.corrected);
         setPurchaseSelection(null);
         setPurchased(null);
         setIsHistoryReadOnly(false);
-        await saveOCRResult(result.scanId || 'last', result);
+        setConfirmModalVisible(false);
+        setConfirmPayload(null);
+
+        await saveOCRResult(normalizedResult.scanId || 'last', normalizedResult);
 
         setCurrentView('scan');
         setOverlayVisible(false);
@@ -428,8 +889,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
         }
 
         // Ulož do zoznamu posledných skenov
-        const name = extractCoffeeName(result.corrected || result.original);
-        const scanIdentifier = result.scanId || Date.now().toString();
+        const name = extractCoffeeName(normalizedResult.corrected || normalizedResult.original);
+        const scanIdentifier = normalizedResult.scanId || Date.now().toString();
         await addRecentScan({
           id: scanIdentifier,
           name,
@@ -442,9 +903,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
         // Zobraz výsledok
         Alert.alert(
           '✅ Skenovanie dokončené',
-          result.isRecommended
-            ? `Táto káva má ${result.matchPercentage}% zhodu s tvojimi preferenciami!`
-            : `Zhoda s preferenciami: ${result.matchPercentage}%`,
+          normalizedResult.isRecommended
+            ? `Táto káva má ${normalizedResult.matchPercentage}% zhodu s tvojimi preferenciami!`
+            : `Zhoda s preferenciami: ${normalizedResult.matchPercentage}%`,
           [
             { text: 'OK', style: 'default' }
           ]
@@ -504,8 +965,18 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
       const timestamp = Date.now();
       const scanId = existingResult?.scanId || `offline-${timestamp}`;
       const detectionLabels = existingResult?.detectionLabels ?? [label];
-      const offlineResult: ScanResult = existingResult
-        ? { ...existingResult, source: 'offline', isCoffee: true, detectionLabels }
+      const offlineResult: ScanResultLike = existingResult
+        ? {
+            ...existingResult,
+            source: 'offline',
+            isCoffee: true,
+            detectionLabels,
+            structuredRaw:
+              existingResult.structuredRaw ??
+              (existingResult as ScanResultLike).rawStructuredResponse ??
+              existingResult.structuredMetadata ??
+              null,
+          }
         : {
             original: '',
             corrected: label,
@@ -514,14 +985,19 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
             source: 'offline',
             isCoffee: true,
             detectionLabels,
+            structuredMetadata: null,
+            structuredConfidence: null,
+            structuredRaw: null,
           };
 
-      setScanResult(offlineResult);
+      applyScanResult(offlineResult);
       setIsFavorite(offlineResult.isFavorite ?? false);
       setEditedText(offlineResult.corrected);
       setPurchaseSelection(null);
       setPurchased(null);
       setIsHistoryReadOnly(false);
+      setConfirmModalVisible(false);
+      setConfirmPayload(null);
       setCurrentView('scan');
       setOverlayVisible(false);
       setOverlayText('Analyzujem...');
@@ -605,14 +1081,19 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
    * Načíta záznam z histórie do editora.
    */
   const loadFromHistory = (item: OCRHistory) => {
-    setScanResult({
+    const historyResult: ScanResultLike = {
       original: item.original_text,
       corrected: item.corrected_text,
       recommendation: '',
       matchPercentage: item.match_percentage,
       isRecommended: item.is_recommended,
       isFavorite: item.is_favorite,
-    });
+      structuredMetadata: null,
+      structuredConfidence: null,
+      structuredRaw: null,
+    };
+
+    applyScanResult(historyResult);
     setEditedText(item.corrected_text);
     setUserRating(item.rating || 0);
     setPurchaseSelection(item.is_purchased ?? null);
@@ -620,6 +1101,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
     setIsFavorite(item.is_favorite ?? false);
     setCurrentView('scan');
     setIsHistoryReadOnly(true);
+    setConfirmModalVisible(false);
+    setConfirmPayload(null);
 
     // Scroll to top to show loaded result
     // scrollViewRef.current?.scrollTo({ y: 0, animated: true });
@@ -796,16 +1279,101 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
     setPurchaseSelection(answer);
   };
 
-  const submitPurchaseAnswer = async () => {
+  const submitPurchaseAnswer = () => {
     if (purchaseSelection === null || isHistoryReadOnly) return;
-    setPurchased(purchaseSelection);
-    if (purchaseSelection && scanResult?.scanId) {
-      try {
-        const name = extractCoffeeName(editedText || scanResult.corrected);
-        await markCoffeePurchased(scanResult.scanId, name);
-      } catch (err) {
-        console.error('Error marking purchase:', err);
+
+    if (!scanResult?.scanId) {
+      setPurchased(purchaseSelection);
+      return;
+    }
+
+    const payload: StructuredConfirmPayload = {
+      metadata: structuredMetadata ?? scanResult.structuredMetadata ?? null,
+      confidence: combinedStructuredConfidence,
+      raw: scanResult.structuredRaw ?? scanResult.structuredMetadata ?? null,
+      correctedText: recognizedText || null,
+      purchased: purchaseSelection,
+    };
+
+    setConfirmPayload(payload);
+    setConfirmModalVisible(true);
+  };
+
+  const handleConfirmModalClose = () => {
+    if (isConfirming) {
+      return;
+    }
+    setConfirmModalVisible(false);
+    setConfirmPayload(null);
+  };
+
+  const handleConfirmModalConfirm = async () => {
+    if (!scanResult?.scanId || !confirmPayload) {
+      setConfirmModalVisible(false);
+      return;
+    }
+
+    const payloadToSend: StructuredConfirmPayload = {
+      ...confirmPayload,
+      metadata: confirmPayload.metadata ?? structuredMetadata ?? scanResult.structuredMetadata ?? null,
+      confidence: confirmPayload.confidence ?? combinedStructuredConfidence ?? null,
+      raw: confirmPayload.raw ?? scanResult.structuredRaw ?? scanResult.structuredMetadata ?? null,
+    };
+
+    setIsConfirming(true);
+    try {
+      const success = await confirmStructuredScan(scanResult.scanId, payloadToSend);
+      if (!success) {
+        showToast('Nepodarilo sa potvrdiť údaje skenu.');
+        return;
       }
+
+      const currentSelection = purchaseSelection;
+      const metadataForPurchase = payloadToSend.metadata ?? null;
+
+      setConfirmModalVisible(false);
+      setConfirmPayload(null);
+      setPurchased(currentSelection);
+
+      if (scanResult) {
+        applyScanResult({
+          ...scanResult,
+          structuredMetadata: payloadToSend.metadata ?? null,
+          structuredConfidence: payloadToSend.confidence ?? null,
+          structuredRaw: payloadToSend.raw ?? scanResult.structuredRaw ?? null,
+        });
+      }
+
+      if (currentSelection) {
+        const baseName = extractCoffeeName(recognizedText || scanResult.corrected);
+        const preferredName = structuredRoasterName
+          ? baseName.toLowerCase().includes(structuredRoasterName.toLowerCase())
+            ? baseName
+            : `${structuredRoasterName} ${baseName}`.trim()
+          : baseName;
+
+        try {
+          await markCoffeePurchased(
+            scanResult.scanId,
+            preferredName,
+            structuredRoasterName ?? undefined,
+            metadataForPurchase,
+          );
+        } catch (error) {
+          console.error('Error marking purchase:', error);
+        }
+      }
+
+      showToast('Údaje skenu potvrdené.');
+    } catch (error) {
+      console.error('Error confirming structured scan:', error);
+      if (error instanceof Error && isOfflineError(error)) {
+        showToast('Nie si pripojený k internetu. Skús to znova neskôr.');
+      } else {
+        Alert.alert('Chyba', 'Nepodarilo sa potvrdiť údaje skenu');
+      }
+    } finally {
+      setIsConfirming(false);
     }
   };
 
@@ -814,10 +1382,21 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
     setOfflineStatus('prompt');
     const cached = await loadOCRResult();
     if (cached) {
-      setScanResult(cached);
-      setEditedText(cached.corrected);
-      setIsFavorite(cached.isFavorite ?? false);
+      const normalizedCached: ScanResultLike = {
+        ...cached,
+        structuredRaw:
+          cached.structuredRaw ??
+          (cached as ScanResultLike).rawStructuredResponse ??
+          cached.structuredMetadata ??
+          null,
+      };
+
+      applyScanResult(normalizedCached);
+      setEditedText(normalizedCached.corrected);
+      setIsFavorite(normalizedCached.isFavorite ?? false);
       setIsHistoryReadOnly(false);
+      setConfirmModalVisible(false);
+      setConfirmPayload(null);
     } else {
       Alert.alert('Chyba', 'Žiadny uložený výsledok');
     }
@@ -838,7 +1417,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
    * Vymaže aktuálny výsledok skenovania.
    */
   const clearAll = () => {
-    setScanResult(null);
+    applyScanResult(null);
     setEditedText('');
     setUserRating(0);
     setPurchaseSelection(null);
@@ -848,6 +1427,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
     setOverlayVisible(false);
     setOverlayText('Analyzujem...');
     setIsHistoryReadOnly(false);
+    setConfirmModalVisible(false);
+    setConfirmPayload(null);
+    setIsConfirming(false);
   };
 
   const handleBack = () => {
@@ -1182,6 +1764,71 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
               <Text style={styles.validationModalButtonText}>Skúsiť znova</Text>
             </TouchableOpacity>
           </LinearGradient>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={confirmModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleConfirmModalClose}
+      >
+        <View style={styles.confirmModalOverlay}>
+          <View style={styles.confirmModalContent}>
+            <Text style={styles.confirmModalTitle}>Potvrdiť údaje</Text>
+            <Text style={styles.confirmModalSubtitle}>
+              Odošleme upravený text, štruktúrované polia a informáciu o kúpe.
+            </Text>
+            <View style={styles.confirmModalSection}>
+              <Text style={styles.confirmModalSectionTitle}>Nákup</Text>
+              <Text style={styles.confirmModalSectionValue}>
+                {confirmPayload?.purchased ? 'Áno, kávu som kúpil' : 'Nie, zatiaľ som nekúpil'}
+              </Text>
+            </View>
+            {confirmPayload?.correctedText ? (
+              <View style={styles.confirmModalSection}>
+                <Text style={styles.confirmModalSectionTitle}>Upravený text</Text>
+                <Text style={styles.confirmModalSectionText} numberOfLines={4}>
+                  {confirmPayload.correctedText}
+                </Text>
+              </View>
+            ) : null}
+            <View style={styles.confirmModalSection}>
+              <Text style={styles.confirmModalSectionTitle}>Detaily o káve</Text>
+              {confirmMetadataEntries.length > 0 ? (
+                confirmMetadataEntries.map(entry => (
+                  <View key={entry.key} style={styles.confirmModalFieldRow}>
+                    <Text style={styles.confirmModalFieldLabel}>
+                      {STRUCTURED_FIELD_LABELS[entry.key]}
+                    </Text>
+                    <Text style={styles.confirmModalFieldValue}>{entry.value}</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.confirmModalSectionHint}>Žiadne doplnené štruktúrované údaje.</Text>
+              )}
+            </View>
+            <View style={styles.confirmModalActions}>
+              <TouchableOpacity
+                style={[styles.confirmModalButton, styles.confirmModalButtonSecondary]}
+                onPress={handleConfirmModalClose}
+                disabled={isConfirming}
+              >
+                <Text style={[styles.confirmModalButtonText, styles.confirmModalButtonTextSecondary]}>Zrušiť</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.confirmModalButton}
+                onPress={handleConfirmModalConfirm}
+                disabled={isConfirming}
+              >
+                {isConfirming ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.confirmModalButtonText}>Potvrdiť</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
 
@@ -1541,6 +2188,89 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
                         </View>
                         <Text style={styles.insightText}>{insightText}</Text>
                       </LinearGradient>
+
+                      <View style={styles.structuredCard}>
+                        <View style={styles.sectionHeaderRow}>
+                          <Text style={styles.sectionTitle}>Detaily etikety</Text>
+                          {hasStructuredMetadata ? (
+                            <View style={styles.structuredBadge}>
+                              <Text style={styles.structuredBadgeText}>{structuredBadgeLabel}</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        <Text style={styles.sectionSubtitle}>
+                          Skontroluj a doplň štruktúrované údaje o káve. Pomôže nám to lepšie pochopiť tvoje chute.
+                        </Text>
+                        {STRUCTURED_FIELD_ORDER.map(field => {
+                          const fieldState = structuredFields[field.key];
+                          const confidenceLabel = formatConfidenceLabel(fieldState.confidence);
+                          const value =
+                            field.type === 'list'
+                              ? field.key === 'flavorNotes'
+                                ? flavorNotesInputValue
+                                : varietalsInputValue
+                              : (fieldState.value as string | null) ?? '';
+                          const hasValue = isStructuredValueFilled(fieldState.value);
+                          const chipLabel = fieldState.isAutoFilled && hasValue
+                            ? 'AI údaj'
+                            : hasValue
+                            ? 'Upravené'
+                            : 'Prázdne';
+
+                          const onChange = (text: string) => {
+                            if (field.type === 'list') {
+                              handleStructuredListChange(field.key as StructuredListFieldKey, text);
+                            } else {
+                              handleStructuredTextChange(field.key as StructuredTextFieldKey, text);
+                            }
+                          };
+
+                          return (
+                            <View key={field.key} style={styles.structuredFieldRow}>
+                              <Text style={styles.structuredFieldLabel}>
+                                {STRUCTURED_FIELD_LABELS[field.key]}
+                              </Text>
+                              <TextInput
+                                style={[
+                                  styles.structuredFieldInput,
+                                  field.type === 'list' && styles.structuredFieldInputMultiline,
+                                  isHistoryReadOnly && { opacity: 0.6 },
+                                ]}
+                                value={value}
+                                onChangeText={onChange}
+                                placeholder={field.placeholder}
+                                editable={!isHistoryReadOnly}
+                                multiline={field.type === 'list'}
+                              />
+                              <View style={styles.structuredFieldMetaRow}>
+                                <View
+                                  style={[
+                                    styles.structuredFieldChip,
+                                    !fieldState.isAutoFilled && hasValue && styles.structuredFieldChipManual,
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.structuredFieldChipText,
+                                      !fieldState.isAutoFilled && hasValue && styles.structuredFieldChipTextManual,
+                                    ]}
+                                  >
+                                    {chipLabel}
+                                  </Text>
+                                </View>
+                                {confidenceLabel ? (
+                                  <View style={styles.structuredFieldConfidenceChip}>
+                                    <Text style={styles.structuredFieldConfidenceText}>{confidenceLabel}</Text>
+                                  </View>
+                                ) : null}
+                              </View>
+                              {fieldState.warning ? (
+                                <Text style={styles.structuredFieldWarning}>{fieldState.warning}</Text>
+                              ) : null}
+                            </View>
+                          );
+                        })}
+                      </View>
 
                       <View style={styles.editorCard}>
                         <View style={styles.sectionHeaderRow}>
