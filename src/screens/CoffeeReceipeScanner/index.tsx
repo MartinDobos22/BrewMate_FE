@@ -459,24 +459,32 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
         onRecipeGenerated(recipe);
       }
       setCurrentView('recipe');
+      setOverlayVisible(false);
+      setOverlayText('Analyzujem...');
+      setIsGenerating(false);
 
-      const saved = await saveRecipe(
+      void saveRecipe(
         selectedMethod,
         tastePreference || 'vyvážená',
         recipe
-      );
-      if (saved) {
-        setRecipeHistory((prev) => [saved, ...prev]);
-      } else {
-        console.warn('Failed to save recipe');
-      }
+      )
+        .then((saved) => {
+          if (saved) {
+            setRecipeHistory((prev) => [saved, ...prev]);
+          } else {
+            console.warn('Failed to save recipe');
+          }
+        })
+        .catch((saveError) => {
+          console.error('Error saving recipe:', saveError);
+          showToast('Nepodarilo sa uložiť recept');
+        });
     } catch (error) {
       console.error('Error generating recipe:', error);
-      Alert.alert('Chyba', 'Nepodarilo sa vygenerovať recept');
-    } finally {
-      setIsGenerating(false);
       setOverlayVisible(false);
       setOverlayText('Analyzujem...');
+      setIsGenerating(false);
+      Alert.alert('Chyba', 'Nepodarilo sa vygenerovať recept');
     }
   };
 
