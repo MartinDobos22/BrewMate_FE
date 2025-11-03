@@ -677,30 +677,57 @@ export const processOCR = async (
       }
     }
 
-    // 4. Získaj AI hodnotenie
-    let recommendation = '';
-    try {
-        const evalResponse = await loggedFetch(`${API_URL}/ocr/evaluate`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ corrected_text: correctedText }),
-      });
+    // 4. Získaj AI hodnotenie a návrhy metód súčasne
+    const evaluatePromise = (async () => {
+      try {
+        const response = await loggedFetch(`${API_URL}/ocr/evaluate`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ corrected_text: correctedText }),
+        });
 
-      if (evalResponse.ok) {
+        return { response } as const;
+      } catch (error) {
+        return { error } as const;
+      }
+    })();
+
+    const methodsPromise = (async () => {
+      try {
+        return await suggestBrewingMethods(correctedText);
+      } catch (error) {
+        console.warn('Brewing suggestion promise failed:', error);
+        return [] as string[];
+      }
+    })();
+
+    const [evaluationResult, brewingMethods] = await Promise.all([
+      evaluatePromise,
+      methodsPromise,
+    ]);
+
+    let recommendation = '';
+    if ('error' in evaluationResult) {
+      console.warn('Evaluation failed:', evaluationResult.error);
+      recommendation =
+        'Nepodarilo sa vyhodnotiť kávu. Skontroluj svoje preferencie v profile.';
+    } else {
+      try {
+        const evalResponse = evaluationResult.response;
+        if (evalResponse.ok) {
           const evalData = await evalResponse.json();
           console.log('📥 [BE] Evaluate response:', evalData);
-        recommendation = evalData.recommendation || '';
+          recommendation = evalData.recommendation || '';
+        }
+      } catch (evalError) {
+        console.warn('Evaluation failed:', evalError);
+        recommendation =
+          'Nepodarilo sa vyhodnotiť kávu. Skontroluj svoje preferencie v profile.';
       }
-    } catch (evalError) {
-      console.warn('Evaluation failed:', evalError);
-      recommendation = 'Nepodarilo sa vyhodnotiť kávu. Skontroluj svoje preferencie v profile.';
     }
-
-    // 5. Navrhni spôsoby prípravy
-    const brewingMethods = await suggestBrewingMethods(correctedText);
 
     return {
       original: originalText,
