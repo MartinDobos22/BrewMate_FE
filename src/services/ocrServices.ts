@@ -69,6 +69,44 @@ const loggedFetch = async (url: string, options: RequestInit) => {
   return res;
 };
 
+const safeParseJSON = <T>(value: unknown): T | null => {
+  if (value == null) return null;
+  if (typeof value === 'object') return value as T;
+  if (typeof value !== 'string') return null;
+  try {
+    return JSON.parse(value) as T;
+  } catch (error) {
+    console.warn('Failed to parse JSON payload', error);
+    return null;
+  }
+};
+
+export interface StructuredCoffeeMetadata {
+  roaster: string | null;
+  origin: string | null;
+  roastLevel: string | null;
+  processing: string | null;
+  flavorNotes: string[] | null;
+  roastDate: string | null;
+  varietals: string[] | null;
+  confidenceFlags?: {
+    roaster?: boolean | null;
+    origin?: boolean | null;
+    roastLevel?: boolean | null;
+    processing?: boolean | null;
+    flavorNotes?: boolean | null;
+    roastDate?: boolean | null;
+    varietals?: boolean | null;
+  } | null;
+}
+
+export interface ConfirmStructuredPayload {
+  metadata: StructuredCoffeeMetadata | null;
+  confidence?: Record<string, unknown> | null;
+  uncertainty?: Record<string, unknown> | null;
+  raw?: unknown;
+}
+
 interface OCRResult {
   original: string;
   corrected: string;
@@ -82,6 +120,10 @@ interface OCRResult {
   nonCoffeeReason?: string;
   detectionLabels?: string[];
   detectionConfidence?: number;
+  structuredMetadata?: StructuredCoffeeMetadata | null;
+  structuredConfidence?: Record<string, unknown> | null;
+  structuredUncertainty?: Record<string, unknown> | null;
+  rawStructuredResponse?: unknown;
 }
 
 interface OCRHistory {
@@ -399,6 +441,10 @@ const offlineFallback = async (
       isCoffee: labelIsCoffee,
       detectionLabels,
       nonCoffeeReason: labelIsCoffee ? undefined : `Rozpoznané: ${label}`,
+      structuredMetadata: null,
+      structuredConfidence: null,
+      structuredUncertainty: null,
+      rawStructuredResponse: null,
     };
   } catch (fallbackError) {
     console.error('Offline OCR fallback failed:', fallbackError);
@@ -471,6 +517,10 @@ export const processOCR = async (
     let matchPercentage = 0;
     let isRecommended = false;
     let scanId = '';
+    let structuredMetadata: StructuredCoffeeMetadata | null = null;
+    let structuredConfidence: Record<string, unknown> | null = null;
+    let structuredUncertainty: Record<string, unknown> | null = null;
+    let rawStructuredResponse: unknown = null;
 
     if (saveResponse.ok) {
       const saveData = await saveResponse.json();
@@ -478,6 +528,111 @@ export const processOCR = async (
       matchPercentage = saveData.match_percentage || 0;
       isRecommended = saveData.is_recommended || false;
       scanId = saveData.id || '';
+
+      const metadataRaw = saveData.structured_metadata;
+      const metadataParsed = safeParseJSON<Record<string, any>>(metadataRaw);
+      if (metadataParsed && typeof metadataParsed === 'object') {
+        const normalizeString = (value: unknown): string | null => {
+          if (typeof value !== 'string') return null;
+          const trimmed = value.trim();
+          return trimmed.length > 0 ? trimmed : null;
+        };
+
+        const normalizeStringArray = (value: unknown): string[] | null => {
+          if (Array.isArray(value)) {
+            const cleaned = value
+              .map(item => (typeof item === 'string' ? item.trim() : ''))
+              .filter(Boolean);
+            return cleaned.length ? cleaned : null;
+          }
+          if (typeof value === 'string') {
+            const parts = value
+              .split(/[,;\n]/)
+              .map(part => part.trim())
+              .filter(Boolean);
+            return parts.length ? parts : null;
+          }
+          return null;
+        };
+
+        const confidenceSource =
+          metadataParsed.confidenceFlags ??
+          metadataParsed.confidence_flags ??
+          metadataParsed.flags ??
+          null;
+
+        let confidenceFlags: StructuredCoffeeMetadata['confidenceFlags'] = null;
+        if (confidenceSource && typeof confidenceSource === 'object') {
+          confidenceFlags = {
+            roaster:
+              typeof confidenceSource.roaster === 'boolean'
+                ? confidenceSource.roaster
+                : null,
+            origin:
+              typeof confidenceSource.origin === 'boolean'
+                ? confidenceSource.origin
+                : null,
+            roastLevel:
+              typeof confidenceSource.roastLevel === 'boolean'
+                ? confidenceSource.roastLevel
+                : typeof confidenceSource.roast_level === 'boolean'
+                ? confidenceSource.roast_level
+                : null,
+            processing:
+              typeof confidenceSource.processing === 'boolean'
+                ? confidenceSource.processing
+                : null,
+            flavorNotes:
+              typeof confidenceSource.flavorNotes === 'boolean'
+                ? confidenceSource.flavorNotes
+                : typeof confidenceSource.flavor_notes === 'boolean'
+                ? confidenceSource.flavor_notes
+                : null,
+            roastDate:
+              typeof confidenceSource.roastDate === 'boolean'
+                ? confidenceSource.roastDate
+                : typeof confidenceSource.roast_date === 'boolean'
+                ? confidenceSource.roast_date
+                : null,
+            varietals:
+              typeof confidenceSource.varietals === 'boolean'
+                ? confidenceSource.varietals
+                : null,
+          };
+        }
+
+        structuredMetadata = {
+          roaster:
+            normalizeString(metadataParsed.roaster ?? metadataParsed.roaster_name) ??
+            null,
+          origin: normalizeString(metadataParsed.origin),
+          roastLevel:
+            normalizeString(metadataParsed.roastLevel ?? metadataParsed.roast_level) ??
+            null,
+          processing: normalizeString(metadataParsed.processing),
+          flavorNotes:
+            normalizeStringArray(
+              metadataParsed.flavorNotes ?? metadataParsed.flavor_notes
+            ),
+          roastDate:
+            normalizeString(metadataParsed.roastDate ?? metadataParsed.roast_date) ??
+            null,
+          varietals: normalizeStringArray(metadataParsed.varietals),
+          confidenceFlags,
+        };
+
+        rawStructuredResponse = metadataParsed;
+      }
+
+      structuredConfidence = safeParseJSON<Record<string, unknown>>(
+        saveData.structured_confidence
+      );
+      structuredUncertainty = safeParseJSON<Record<string, unknown>>(
+        saveData.structured_uncertainty
+      );
+      if (rawStructuredResponse == null) {
+        rawStructuredResponse = metadataRaw ?? null;
+      }
     }
 
     // 4. Získaj AI hodnotenie
@@ -518,6 +673,10 @@ export const processOCR = async (
       detectionLabels,
       detectionConfidence,
       nonCoffeeReason,
+      structuredMetadata,
+      structuredConfidence,
+      structuredUncertainty,
+      rawStructuredResponse,
     };
   } catch (error) {
     console.error('OCR processing error:', error);
@@ -576,11 +735,23 @@ export const fetchOCRHistory = async (limit: number = 10): Promise<OCRHistory[]>
 export const markCoffeePurchased = async (
   ocrLogId: string,
   coffeeName: string,
-  brand?: string
+  brand?: string,
+  metadata?: Partial<StructuredCoffeeMetadata> | null,
 ): Promise<void> => {
   await ensureOnline();
   const token = await getAuthToken();
   if (!token) throw new Error('Nie si prihlásený');
+
+  const body: Record<string, unknown> = {
+    ocr_log_id: ocrLogId,
+    coffee_name: coffeeName,
+  };
+  if (brand) {
+    body.brand = brand;
+  }
+  if (metadata) {
+    body.metadata = metadata;
+  }
 
   await loggedFetch(`${API_URL}/ocr/purchase`, {
     method: 'POST',
@@ -588,8 +759,34 @@ export const markCoffeePurchased = async (
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ ocr_log_id: ocrLogId, coffee_name: coffeeName, brand }),
+    body: JSON.stringify(body),
   });
+};
+
+/**
+ * Potvrdí štruktúrované metadáta pre daný sken
+ */
+export const confirmStructuredScan = async (
+  scanId: string,
+  payload: ConfirmStructuredPayload
+): Promise<boolean> => {
+  await ensureOnline();
+  const token = await getAuthToken();
+  if (!token) throw new Error('Nie si prihlásený');
+
+  const response = await loggedFetch(
+    `${API_URL}/ocr/${encodeURIComponent(scanId)}/structured/confirm`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload ?? {}),
+    }
+  );
+
+  return response.ok;
 };
 
 /**

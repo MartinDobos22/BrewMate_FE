@@ -3,9 +3,14 @@ export {
   fetchOCRHistory,
   deleteOCRRecord,
   markCoffeePurchased,
+  confirmStructuredScan,
   extractCoffeeName,
   rateOCRResult,
   isCoffeeRelatedText,
+} from '../../../services/ocrServices';
+export type {
+  StructuredCoffeeMetadata,
+  ConfirmStructuredPayload,
 } from '../../../services/ocrServices';
 export { incrementProgress } from '../../../services/profileServices';
 export { saveOCRResult, loadOCRResult } from '../../../services/offlineCache';
