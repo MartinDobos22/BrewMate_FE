@@ -729,14 +729,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
             </View>
         </ScrollView>
 
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={onLogBrewPress}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.fabIcon}>➕</Text>
-        </TouchableOpacity>
-
         <BottomNav
           active="home"
           onHomePress={onHomePress}
