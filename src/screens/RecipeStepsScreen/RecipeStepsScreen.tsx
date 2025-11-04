@@ -15,8 +15,14 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { formatRecipeSteps, RecipeStep } from '../../components/utils/AITextFormatter';
 import { BrewDevice } from '../../types/Recipe';
 import Timer from '../../components/recipes/Timer';
-import { unifiedStyles } from '../../theme/unifiedStyles';
 import { incrementProgress } from '../../services/profileServices';
+import {
+  colors,
+  componentStyles,
+  spacing,
+  typography,
+  unifiedStyles,
+} from 'theme/unifiedStyles.ts';
 import type { ViewToken, FlatListProps } from 'react-native';
 
 export interface RecipeStepsScreenProps {
@@ -42,6 +48,9 @@ const AnimatedFlatList = Animated.createAnimatedComponent(FlatList) as React.Com
 
 const RecipeStepsScreen: React.FC<RecipeStepsScreenProps> = ({ recipe, brewDevice, onBack }) => {
   const { colors: themeColors } = useTheme();
+   // const steps = useMemo(() => formatRecipeSteps(recipe), [recipe]);
+  const [currentStep, setCurrentStep] = useState(0);
+  const slideAnim = useRef(new Animated.Value(0)).current;
   const { typography } = unifiedStyles;
   const steps = useMemo(() => formatRecipeSteps(recipe).slice(0, 10), [recipe]);
   const slides = useMemo(() => {
@@ -122,7 +131,7 @@ const RecipeStepsScreen: React.FC<RecipeStepsScreenProps> = ({ recipe, brewDevic
 
   if (slides.length === 0) {
     return (
-      <View style={[styles.emptyState, { backgroundColor: themeColors.background }]}> 
+      <View style={[styles.emptyState, { backgroundColor: themeColors.background }]}>
         <Text style={styles.emptyStateTitle}>Žiadne kroky na zobrazenie</Text>
         <Text style={styles.emptyStateSubtitle}>
           Skús opäť vygenerovať recept alebo sa vráť späť.
@@ -151,7 +160,7 @@ const RecipeStepsScreen: React.FC<RecipeStepsScreenProps> = ({ recipe, brewDevic
   };
 
   return (
-    <View style={styles.container}> 
+    <View style={styles.container}>
       <LinearGradient
         colors={[palette.espresso, palette.cappuccino, palette.latte]}
         style={styles.backgroundGradient}
@@ -194,7 +203,7 @@ const RecipeStepsScreen: React.FC<RecipeStepsScreenProps> = ({ recipe, brewDevic
           {slides.map((slide, index) => {
             const left = slides.length === 1 ? '0%' : `${(index / (slides.length - 1)) * 100}%`;
             return (
-              <View key={slide.id} style={[styles.progressNodeWrapper, { left }]}> 
+              <View key={slide.id} style={[styles.progressNodeWrapper, { left }]}>
                 <View
                   style={[
                     styles.progressNode,
@@ -233,7 +242,7 @@ const RecipeStepsScreen: React.FC<RecipeStepsScreenProps> = ({ recipe, brewDevic
           });
 
           return (
-            <View style={[styles.slideWrapper, { width }]}> 
+            <View style={[styles.slideWrapper, { width }]}>
               <View style={styles.slidePadding}>
                 <Animated.View
                   style={[
