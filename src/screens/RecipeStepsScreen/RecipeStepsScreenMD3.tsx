@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { formatRecipeSteps } from '../../components/utils/AITextFormatter';
+import type { RecipeStep } from '../../components/utils/AITextFormatter';
 import type { BrewDevice } from '../../types/Recipe';
 import { materialYouCoffee } from '../../theme/materialYouColors';
 
@@ -29,17 +30,7 @@ export interface RecipeStepsScreenProps {
   onBack: () => void;
 }
 
-type StepId =
-  | 'intro'
-  | 'ingredients'
-  | 'preparation'
-  | 'coffee'
-  | 'bloom'
-  | 'pour1'
-  | 'pour2'
-  | 'finish'
-  | 'enjoy'
-  | 'rating';
+type StepId = string;
 
 interface TimerConfig {
   id: string;
@@ -216,6 +207,19 @@ const STEP_CONFIG: StepConfig[] = [
   },
 ];
 
+const STEP_TYPE_LABELS: Partial<Record<RecipeStep['type'], string>> = {
+  hero: 'ÚVOD',
+  ingredients: 'INGREDIENCIE',
+  equipment: 'NÁČINIE',
+  grind: 'MLETIE',
+  heat: 'ZAHRIATIE',
+  bloom: 'BLOOM',
+  pour1: 'LIATIE',
+  pour2: 'LIATIE',
+  finish: 'DOKONČENIE',
+  summary: 'ZHRNUTIE',
+};
+
 const SERVING_OPTIONS = [1, 2, 4] as const;
 
 const formatTime = (totalSeconds: number) => {
@@ -315,15 +319,73 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
 
   const steps = useMemo(() => {
-    return STEP_CONFIG.map((step, index) => ({
-      ...step,
-      description: parsedSteps[index]?.text?.trim() || undefined,
-    }));
+    const baseFlowSteps = STEP_CONFIG.filter((step) => step.id !== 'rating');
+    const ratingStep = STEP_CONFIG.find((step) => step.id === 'rating');
+    const hasAIContent = parsedSteps.length > 0;
+
+    const mergeStep = (baseStep: StepConfig | undefined, aiStep: RecipeStep, index: number): StepConfig => {
+      const stepId = baseStep?.id ?? `ai-step-${aiStep.number ?? index + 1}`;
+      const aiDescription = aiStep.text?.trim();
+      const aiTip = aiStep.tip ? [aiStep.tip] : [];
+      const baseTips = baseStep?.tips ?? [];
+      const combinedTips = [...aiTip, ...baseTips];
+
+      const baseTimers = baseStep?.timers ?? [];
+      const timers = [...baseTimers];
+      if (aiStep.time) {
+        const aiTimerIdBase = `${stepId}-ai-timer`;
+        const uniqueAiTimerId = timers.some((timer) => timer.id === aiTimerIdBase)
+          ? `${aiTimerIdBase}-${timers.length}`
+          : aiTimerIdBase;
+        timers.push({
+          id: uniqueAiTimerId,
+          label: baseTimers[0]?.label ?? 'Odhadovaný čas kroku',
+          duration: aiStep.time,
+        });
+      }
+
+      const subtitleFromAI = aiStep.type ? STEP_TYPE_LABELS[aiStep.type] ?? aiStep.type.toUpperCase() : undefined;
+
+      return {
+        ...(baseStep ? { ...baseStep } : {}),
+        id: stepId,
+        icon: baseStep?.icon ?? aiStep.icon ?? '☕',
+        title:
+          baseStep?.title ??
+          (aiStep.type === 'hero'
+            ? 'Začnime'
+            : `Krok ${aiStep.number ?? index + 1}`),
+        subtitle: baseStep?.subtitle ?? subtitleFromAI,
+        tips: combinedTips.length > 0 ? combinedTips : undefined,
+        timers: timers.length > 0 ? timers : undefined,
+        description: aiDescription || baseStep?.description,
+      };
+    };
+
+    if (!hasAIContent) {
+      return ratingStep ? [...baseFlowSteps, ratingStep] : [...baseFlowSteps];
+    }
+
+    const mergedBaseSteps: StepConfig[] = parsedSteps
+      .slice(0, baseFlowSteps.length)
+      .map((aiStep, index) => mergeStep(baseFlowSteps[index], aiStep, index));
+
+    const additionalAISteps: StepConfig[] = parsedSteps
+      .slice(baseFlowSteps.length)
+      .map((aiStep, index) => mergeStep(undefined, aiStep, index + baseFlowSteps.length));
+
+    const combined = [...mergedBaseSteps, ...additionalAISteps];
+
+    if (ratingStep) {
+      combined.push({ ...ratingStep });
+    }
+
+    return combined;
   }, [parsedSteps]);
 
   const allTimers = useMemo(() => {
     const states: Record<string, TimerState> = {};
-    STEP_CONFIG.forEach((step) => {
+    steps.forEach((step) => {
       step.timers?.forEach((timer) => {
         states[timer.id] = {
           remaining: timer.duration,
@@ -333,10 +395,21 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
       });
     });
     return states;
-  }, []);
+  }, [steps]);
 
   const [timerStates, setTimerStates] = useState<Record<string, TimerState>>(allTimers);
   const timerIntervals = useRef<Record<string, NodeJS.Timeout | null>>({});
+
+  useEffect(() => {
+    const validTimerIds = new Set(Object.keys(allTimers));
+    Object.entries(timerIntervals.current).forEach(([timerId, interval]) => {
+      if (!validTimerIds.has(timerId) && interval) {
+        clearInterval(interval);
+        delete timerIntervals.current[timerId];
+      }
+    });
+    setTimerStates(allTimers);
+  }, [allTimers]);
 
   useEffect(() => {
     mainTimerRef.current = setInterval(() => {
