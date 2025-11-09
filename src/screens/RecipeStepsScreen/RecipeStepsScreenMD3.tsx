@@ -56,6 +56,7 @@ interface StepConfig {
   pills?: { icon: string; text: string; dynamic?: boolean; unit?: string; base?: number }[];
   tips?: string[];
   troubleshoot?: string[];
+  description?: string;
 }
 
 type TimerState = {
@@ -313,6 +314,13 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
   const scrollX = useRef(new Animated.Value(0)).current;
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
 
+  const steps = useMemo(() => {
+    return STEP_CONFIG.map((step, index) => ({
+      ...step,
+      description: parsedSteps[index]?.text?.trim() || undefined,
+    }));
+  }, [parsedSteps]);
+
   const allTimers = useMemo(() => {
     const states: Record<string, TimerState> = {};
     STEP_CONFIG.forEach((step) => {
@@ -329,24 +337,6 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
 
   const [timerStates, setTimerStates] = useState<Record<string, TimerState>>(allTimers);
   const timerIntervals = useRef<Record<string, NodeJS.Timeout | null>>({});
-
-  const stepDescriptions = useMemo(() => {
-    const mapping: Partial<Record<StepId, string>> = {};
-    const order: StepId[] = [
-      'ingredients',
-      'preparation',
-      'coffee',
-      'bloom',
-      'pour1',
-      'pour2',
-      'finish',
-      'enjoy',
-    ];
-    order.forEach((id, index) => {
-      mapping[id] = parsedSteps[index]?.text;
-    });
-    return mapping;
-  }, [parsedSteps]);
 
   useEffect(() => {
     mainTimerRef.current = setInterval(() => {
@@ -365,6 +355,16 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
       if (achievementTimeout.current) clearTimeout(achievementTimeout.current);
     };
   }, []);
+
+  useEffect(() => {
+    setCompleted((prev) => prev.filter((index) => index < steps.length));
+    setCurrentIndex((prev) => {
+      if (steps.length === 0) {
+        return 0;
+      }
+      return prev >= steps.length ? steps.length - 1 : prev;
+    });
+  }, [steps.length]);
 
   const showAchievement = useCallback(
     (text: string) => {
@@ -469,9 +469,18 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
     const shareTitle = brewDevice
       ? `BrewMate ${brewDevice} recept`
       : 'BrewMate recept';
-    const message = parsedSteps
-      .map((step) => `${step.number}. ${step.text}`)
-      .join('\n');
+    const recipeSteps = steps.filter((step) => step.id !== 'rating');
+    const maxCount = Math.max(parsedSteps.length, recipeSteps.length);
+    const shareLines = Array.from({ length: maxCount }, (_, index) => {
+      const aiStep = parsedSteps[index];
+      const configStep = recipeSteps[index];
+      const text = aiStep?.text?.trim() || configStep?.description || configStep?.title;
+      if (!text) return null;
+      const label = aiStep?.number ?? index + 1;
+      return `${label}. ${text}`;
+    }).filter(Boolean) as string[];
+
+    const message = shareLines.join('\n');
 
     try {
       await Share.share({
@@ -481,9 +490,12 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
     } catch (error) {
       console.error('share failed', error);
     }
-  }, [brewDevice, parsedSteps]);
+  }, [brewDevice, parsedSteps, steps]);
 
   const goToIndex = (index: number) => {
+    if (index < 0 || index >= steps.length) {
+      return;
+    }
     listRef.current?.scrollToOffset({
       offset: index * width,
       animated: true,
@@ -495,7 +507,7 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
       if (!completed.includes(currentIndex)) {
         setCompleted((prev) => [...prev, currentIndex]);
       }
-      if (currentIndex < STEP_CONFIG.length - 1) {
+      if (currentIndex < steps.length - 1) {
         goToIndex(currentIndex + 1);
       } else {
         completeExperience();
@@ -508,8 +520,12 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
   };
 
   const completeExperience = () => {
-    const totalSteps = STEP_CONFIG.length - 1;
-    const summary = `☕ Recept dokončený!\n⏱️ Čas: ${formatTime(mainTimer)}\n⭐ Hodnotenie: ${rating || 'bez hodnotenia'}\n✅ Kroky: ${completed.length}/${totalSteps}`;
+    const totalRecipeSteps = steps.filter((step) => step.id !== 'rating').length;
+    const totalForSummary = totalRecipeSteps || Math.max(steps.length - 1, 0);
+    const safeTotalForSummary = totalForSummary || steps.length || 1;
+    const completedSteps = completed.filter((index) => steps[index]?.id !== 'rating').length;
+    const clampedCompleted = Math.min(completedSteps, safeTotalForSummary);
+    const summary = `☕ Recept dokončený!\n⏱️ Čas: ${formatTime(mainTimer)}\n⭐ Hodnotenie: ${rating || 'bez hodnotenia'}\n✅ Kroky: ${clampedCompleted}/${safeTotalForSummary}`;
     Alert.alert('Skvelá práca!', summary, [{ text: 'Super!', onPress: onBack }]);
   };
 
@@ -529,7 +545,7 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
   };
 
   const saveNotes = (text: string) => {
-    const stepId = STEP_CONFIG[currentIndex]?.id;
+    const stepId = steps[currentIndex]?.id;
     if (!stepId) return;
     setNotes((prev) => ({ ...prev, [stepId]: text }));
     showAchievement('Poznámka uložená 📝');
@@ -804,28 +820,46 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
     </View>
   );
 
+  const renderPrimaryText = (
+    description: string | undefined,
+    fallback: React.ReactNode
+  ) => {
+    if (description) {
+      return <Text style={styles.cardText}>{description}</Text>;
+    }
+    return <>{fallback}</>;
+  };
+
   const renderStepContent = (step: StepConfig) => {
-    const description = stepDescriptions[step.id];
+    const { description } = step;
 
     switch (step.id) {
       case 'intro':
         return (
           <View style={styles.cardContent}>
-            <Text style={styles.introHighlight}>
-              Pripravíme <DynamicValue base={1} unit=" šálku" servings={servings} /> perfektnej kávy!
-            </Text>
-            <Text style={styles.cardText}>
-              Tento interaktívny recept ťa prevedie každým krokom s časovačmi, tipmi a riešením problémov.
-            </Text>
+            {renderPrimaryText(
+              description,
+              <>
+                <Text style={styles.introHighlight}>
+                  Pripravíme <DynamicValue base={1} unit=" šálku" servings={servings} /> perfektnej kávy!
+                </Text>
+                <Text style={styles.cardText}>
+                  Tento interaktívny recept ťa prevedie každým krokom s časovačmi, tipmi a riešením problémov.
+                </Text>
+              </>
+            )}
             {renderIntroChecklist()}
           </View>
         );
       case 'ingredients':
         return (
           <View style={styles.cardContent}>
-            <Text style={styles.cardText}>
-              Pre <DynamicValue base={1} unit=" porciu" servings={servings} />:
-            </Text>
+            {renderPrimaryText(
+              description,
+              <Text style={styles.cardText}>
+                Pre <DynamicValue base={1} unit=" porciu" servings={servings} />:
+              </Text>
+            )}
             {renderIngredientsChecklist()}
             <View style={styles.troubleshootContainer}>
               <Text style={styles.troubleshootTitle}>⚠️ Alternatívy:</Text>
@@ -837,10 +871,13 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
       case 'preparation':
         return (
           <View style={styles.cardContent}>
-            <Text style={styles.cardText}>
-              <Text style={styles.bold}>Zahrej </Text>
-              <DynamicValue base={300} unit=" ml" servings={servings} /> vody na 93°C
-            </Text>
+            {renderPrimaryText(
+              description,
+              <Text style={styles.cardText}>
+                <Text style={styles.bold}>Zahrej </Text>
+                <DynamicValue base={300} unit=" ml" servings={servings} /> vody na 93°C
+              </Text>
+            )}
             {step.timers?.map(renderTimer)}
             {renderPreparationChecklist()}
           </View>
@@ -848,21 +885,29 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
       case 'coffee':
         return (
           <View style={styles.cardContent}>
-            <Text style={styles.cardText}>
-              <Text style={styles.bold}>Odvážte </Text>
-              <DynamicValue base={15} unit=" g" servings={servings} /> kávy
-            </Text>
-            <Text style={styles.cardText}>Pomeľ na stredne hrubú konzistenciu (ako krupicový cukor)</Text>
+            {renderPrimaryText(
+              description,
+              <>
+                <Text style={styles.cardText}>
+                  <Text style={styles.bold}>Odvážte </Text>
+                  <DynamicValue base={15} unit=" g" servings={servings} /> kávy
+                </Text>
+                <Text style={styles.cardText}>Pomeľ na stredne hrubú konzistenciu (ako krupicový cukor)</Text>
+              </>
+            )}
             {renderCoffeeChecklist()}
           </View>
         );
       case 'bloom':
         return (
           <View style={styles.cardContent}>
-            <Text style={styles.cardText}>
-              <Text style={styles.bold}>Zalej </Text>
-              <DynamicValue base={50} unit=" ml" servings={servings} /> vody a čakaj
-            </Text>
+            {renderPrimaryText(
+              description,
+              <Text style={styles.cardText}>
+                <Text style={styles.bold}>Zalej </Text>
+                <DynamicValue base={50} unit=" ml" servings={servings} /> vody a čakaj
+              </Text>
+            )}
             {step.timers?.map(renderTimer)}
             {renderBloomChecklist()}
             {renderTroubleshoot(step.troubleshoot)}
@@ -871,11 +916,16 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
       case 'pour1':
         return (
           <View style={styles.cardContent}>
-            <Text style={styles.cardText}>
-              <Text style={styles.bold}>Dolej do </Text>
-              <DynamicValue base={150} unit=" ml" servings={servings} /> celkovo
-            </Text>
-            <Text style={styles.cardSubtext}>Lievaj v špirále od stredu von</Text>
+            {renderPrimaryText(
+              description,
+              <>
+                <Text style={styles.cardText}>
+                  <Text style={styles.bold}>Dolej do </Text>
+                  <DynamicValue base={150} unit=" ml" servings={servings} /> celkovo
+                </Text>
+                <Text style={styles.cardSubtext}>Lievaj v špirále od stredu von</Text>
+              </>
+            )}
             {step.timers?.map(renderTimer)}
             {renderPour1Checklist()}
           </View>
@@ -883,10 +933,13 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
       case 'pour2':
         return (
           <View style={styles.cardContent}>
-            <Text style={styles.cardText}>
-              <Text style={styles.bold}>Dolej do </Text>
-              <DynamicValue base={250} unit=" ml" servings={servings} /> celkovo
-            </Text>
+            {renderPrimaryText(
+              description,
+              <Text style={styles.cardText}>
+                <Text style={styles.bold}>Dolej do </Text>
+                <DynamicValue base={250} unit=" ml" servings={servings} /> celkovo
+              </Text>
+            )}
             {step.timers?.map(renderTimer)}
             {renderPour2Checklist()}
           </View>
@@ -894,10 +947,15 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
       case 'finish':
         return (
           <View style={styles.cardContent}>
-            <Text style={styles.cardText}>
-              <Text style={styles.bold}>Nechaj všetko prekvapkať</Text>
-            </Text>
-            <Text style={styles.cardSubtext}>Celkový čas: 2:30 - 3:00</Text>
+            {renderPrimaryText(
+              description,
+              <>
+                <Text style={styles.cardText}>
+                  <Text style={styles.bold}>Nechaj všetko prekvapkať</Text>
+                </Text>
+                <Text style={styles.cardSubtext}>Celkový čas: 2:30 - 3:00</Text>
+              </>
+            )}
             {step.timers?.map(renderTimer)}
             {renderFinishChecklist()}
             {renderTroubleshoot(step.troubleshoot)}
@@ -906,10 +964,15 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
       case 'enjoy':
         return (
           <View style={styles.cardContent}>
-            <Text style={styles.cardText}>
-              <Text style={styles.bold}>Tvoja káva je pripravená! ☕</Text>
-            </Text>
-            <Text style={styles.cardSubtext}>Celkový čas prípravy: {formatTime(mainTimer)}</Text>
+            {renderPrimaryText(
+              description,
+              <>
+                <Text style={styles.cardText}>
+                  <Text style={styles.bold}>Tvoja káva je pripravená! ☕</Text>
+                </Text>
+                <Text style={styles.cardSubtext}>Celkový čas prípravy: {formatTime(mainTimer)}</Text>
+              </>
+            )}
             {renderEnjoyChecklist()}
           </View>
         );
@@ -918,7 +981,11 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
       default:
         return (
           <View style={styles.cardContent}>
-            <Text style={styles.cardText}>{description}</Text>
+            {description ? (
+              <Text style={styles.cardText}>{description}</Text>
+            ) : (
+              <Text style={styles.cardText}>Pokračuj podľa pokynov na obrazovke.</Text>
+            )}
           </View>
         );
     }
@@ -934,6 +1001,9 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
       }
     }
   }).current;
+
+  const currentStepId = steps[currentIndex]?.id;
+  const currentNoteValue = currentStepId ? notes[currentStepId] || '' : '';
 
   return (
     <View style={styles.container}>
@@ -969,7 +1039,7 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
       </View>
 
       <View style={styles.progressSection}>
-        {STEP_CONFIG.map((step, index) => {
+        {steps.map((step, index) => {
           const isActive = index === currentIndex;
           const isCompleted = completed.includes(index);
           return (
@@ -1007,7 +1077,7 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
 
       <Animated.FlatList
         ref={listRef}
-        data={STEP_CONFIG}
+        data={steps}
         keyExtractor={(item) => item.id}
         horizontal
         pagingEnabled
@@ -1081,7 +1151,7 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
           </TouchableOpacity>
         </View>
         <TouchableOpacity style={styles.navButton} onPress={() => navigate(1)}>
-          <Text style={styles.navButtonText}>{currentIndex === STEP_CONFIG.length - 1 ? '✓' : '→'}</Text>
+          <Text style={styles.navButtonText}>{currentIndex === steps.length - 1 ? '✓' : '→'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -1115,19 +1185,17 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
             style={styles.notesInput}
             multiline
             placeholder="Napíš si poznámky k tomuto kroku..."
-            value={notes[STEP_CONFIG[currentIndex]?.id] || ''}
+            value={currentNoteValue}
             onChangeText={(text) => {
-              const stepId = STEP_CONFIG[currentIndex]?.id;
-              if (!stepId) return;
-              setNotes((prev) => ({ ...prev, [stepId]: text }));
+              if (!currentStepId) return;
+              setNotes((prev) => ({ ...prev, [currentStepId]: text }));
             }}
           />
           <TouchableOpacity
             style={styles.notesSave}
             onPress={() => {
-              const stepId = STEP_CONFIG[currentIndex]?.id;
-              if (!stepId) return;
-              saveNotes(notes[stepId] || '');
+              if (!currentStepId) return;
+              saveNotes(currentNoteValue);
             }}
           >
             <Text style={styles.notesSaveText}>Uložiť</Text>
