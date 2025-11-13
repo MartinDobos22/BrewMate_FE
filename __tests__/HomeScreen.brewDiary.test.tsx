@@ -8,25 +8,26 @@ import HomeScreen from '../src/screens/HomeScreen';
 jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper');
 
 const fetchCoffeesMock = jest.fn(() => Promise.resolve([]));
-const fetchDashboardDataMock = jest.fn(() => Promise.resolve({
-  stats: { coffeeCount: 0, avgRating: 0, favoritesCount: 0 },
-}));
-const fetchUserStatsMock = jest.fn(() =>
-  Promise.resolve({ coffeeCount: 0, avgRating: 0, favoritesCount: 0 })
+const fetchHomeStatisticsMock = jest.fn(() =>
+  Promise.resolve({ monthlyBrewCount: 0, topRecipe: null, topTastingNotes: [] }),
 );
-
-jest.mock('../src/services/homePagesService.ts', () => ({
-  fetchCoffees: fetchCoffeesMock,
-  fetchDashboardData: fetchDashboardDataMock,
-  fetchUserStats: fetchUserStatsMock,
+const fetchDailyTipMock = jest.fn(() => Promise.resolve(null));
+const fetchRecentScansMock = jest.fn(() => Promise.resolve([]));
+const getTipFromCacheMock = jest.fn(() => Promise.resolve(null));
+const getEmptyStatisticsMock = jest.fn(() => ({
+  monthlyBrewCount: 0,
+  topRecipe: null,
+  topTastingNotes: [],
 }));
 
-jest.mock('../src/services/contentServices', () => ({
-  fetchDailyTip: jest.fn(() => Promise.resolve(null)),
-}));
-
-jest.mock('../src/services/coffeeServices.ts', () => ({
-  fetchRecentScans: jest.fn(() => Promise.resolve([])),
+jest.mock('../src/screens/HomeScreen/services', () => ({
+  __esModule: true,
+  fetchCoffees: (...args: unknown[]) => fetchCoffeesMock(...args),
+  fetchDailyTip: (...args: unknown[]) => fetchDailyTipMock(...args),
+  fetchHomeStatistics: (...args: unknown[]) => fetchHomeStatisticsMock(...args),
+  fetchRecentScans: (...args: unknown[]) => fetchRecentScansMock(...args),
+  getTipFromCache: (...args: unknown[]) => getTipFromCacheMock(...args),
+  getEmptyStatistics: () => getEmptyStatisticsMock(),
 }));
 
 jest.mock('../src/hooks/usePersonalization', () => ({
@@ -81,3 +82,4 @@ describe('HomeScreen brew diary actions', () => {
     expect(props.onCommunityRecipesPress).toHaveBeenCalled();
   });
 });
+

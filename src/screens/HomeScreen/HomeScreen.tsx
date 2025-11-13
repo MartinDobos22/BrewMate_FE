@@ -21,13 +21,13 @@ import auth from '@react-native-firebase/auth';
 import { homeStyles } from './styles';
 import {
   fetchCoffees,
-  fetchDashboardData,
   fetchDailyTip,
+  fetchHomeStatistics,
   fetchRecentScans,
-  fetchUserStats,
+  getEmptyStatistics,
   getTipFromCache,
 } from './services';
-import type { RecentScan, Tip } from './services';
+import type { HomeStatistics, RecentScan, Tip } from './services';
 import DailyTipCard from './components/DailyTipCard';
 import DailyRitualCard, { DailyRitualCardProps } from './components/DailyRitualCard';
 import BottomNav from '../../components/navigation/BottomNav';
@@ -70,19 +70,11 @@ interface HomeScreenProps {
   userName?: string;
 }
 
-interface UserStatsSummary {
-  coffeeCount: number;
-  avgRating: number;
-  favoritesCount: number;
-}
-
 const BACKGROUND_GRADIENT = ['#FFE8D1', '#FFA000', '#FAF8F5'];
 const WELCOME_CARD_GRADIENT = ['#FF9966', '#A86B8C'];
 const ACTION_GRADIENTS = {
   scan: ['#8B6544', '#6B4423'],
   brew: ['#00897B', '#00695C'],
-  learn: ['#FFA000', '#FF8C42'],
-  personalize: ['#7E57C2', '#5E35B1'],
 };
 
 const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -110,11 +102,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   const [recentScans, setRecentScans] = useState<RecentScan[]>([]);
   const [ritualRecommendation, setRitualRecommendation] =
     useState<DailyRitualCardProps['recommendation'] | null>(null);
-  const [stats, setStats] = useState<UserStatsSummary>({
-    coffeeCount: 0,
-    avgRating: 0,
-    favoritesCount: 0,
-  });
+  const [stats, setStats] = useState<HomeStatistics>(getEmptyStatistics());
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState<string | null>(null);
   const [tastePreferenceSnapshot, setTastePreferenceSnapshot] =
@@ -132,26 +120,20 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     setStatsError(null);
 
     try {
-      const [dashboardResult, userStatsResult] = await Promise.all([
-        fetchDashboardData(),
-        fetchUserStats(),
-      ]);
-
-      if (dashboardResult?.stats) {
-        setStats(dashboardResult.stats);
-      } else {
-        setStats(userStatsResult);
-        setStatsError('Zobrazujú sa posledné známe údaje.');
-      }
+      const result = await fetchHomeStatistics();
+      setStats(result);
     } catch (error) {
-      console.warn('HomeScreen: failed to load stats', error);
-      try {
-        const fallback = await fetchUserStats();
-        setStats(fallback);
-        setStatsError('Nepodarilo sa načítať najnovšie štatistiky.');
-      } catch (fallbackError) {
-        console.warn('HomeScreen: failed to load fallback stats', fallbackError);
-        setStats({ coffeeCount: 0, avgRating: 0, favoritesCount: 0 });
+      console.warn('HomeScreen: failed to load home statistics', error);
+      setStats(getEmptyStatistics());
+      if (error instanceof Error) {
+        if (error.message.includes('nie je prihlásený')) {
+          setStatsError('Prihlás sa, aby si videl svoje štatistiky.');
+        } else if (error.message.includes('Supabase')) {
+          setStatsError('Štatistiky momentálne nie sú dostupné.');
+        } else {
+          setStatsError('Nepodarilo sa načítať štatistiky.');
+        }
+      } else {
         setStatsError('Nepodarilo sa načítať štatistiky.');
       }
     } finally {
@@ -372,24 +354,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
         gradient: ACTION_GRADIENTS.brew,
         onPress: onBrewPress,
       },
-      {
-        key: 'learn',
-        icon: '🎓',
-        title: 'Barista kurz',
-        subtitle: 'Uč sa nové',
-        gradient: ACTION_GRADIENTS.learn,
-        onPress: onCommunityRecipesPress,
-      },
-      {
-        key: 'personalize',
-        icon: '⚡',
-        title: 'Personalizácia',
-        subtitle: 'Tvoje preferencie',
-        gradient: ACTION_GRADIENTS.personalize,
-        onPress: onPersonalizationPress,
-      },
     ],
-    [onScanPress, onBrewPress, onCommunityRecipesPress, onPersonalizationPress],
+    [onScanPress, onBrewPress],
   );
 
   return (
@@ -482,6 +448,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                 style={styles.savedTipsLink}
                 onPress={onSavedTipsPress}
                 activeOpacity={0.85}
+                testID="saved-tips-cta"
               >
                 <Text style={styles.savedTipsLinkText}>Zobraziť uložené tipy</Text>
               </TouchableOpacity>
@@ -504,22 +471,48 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
               ) : (
                 <>
                   {statsError ? (
-                    <Text style={styles.statsErrorText}>{statsError}</Text>
+                    <Text style={styles.statsErrorText} testID="stats-fallback-message">
+                      {statsError}
+                    </Text>
                   ) : null}
                   <View style={styles.statsGrid}>
                     <View style={styles.statItem}>
-                      <Text style={styles.statLabel}>Naskenované kávy</Text>
-                      <Text style={styles.statValue}>{stats.coffeeCount}</Text>
-                    </View>
-                    <View style={styles.statItem}>
-                      <Text style={styles.statLabel}>Priemerné hodnotenie</Text>
-                      <Text style={styles.statValue}>
-                        {stats.avgRating.toFixed(1)}
+                      <Text style={styles.statLabel}>Prípravy za 30 dní</Text>
+                      <Text style={styles.statValue} testID="stat-monthly-brew-count">
+                        {stats.monthlyBrewCount}
                       </Text>
+                      <Text style={styles.statMeta}>Posledných 30 dní</Text>
                     </View>
                     <View style={styles.statItem}>
-                      <Text style={styles.statLabel}>Obľúbené kávy</Text>
-                      <Text style={styles.statValue}>{stats.favoritesCount}</Text>
+                      <Text style={styles.statLabel}>Najčastejší recept</Text>
+                      <Text style={styles.statHighlight} testID="stat-top-recipe-name">
+                        {stats.topRecipe?.name ?? 'Žiadny záznam'}
+                      </Text>
+                      {stats.topRecipe ? (
+                        <Text style={styles.statMeta} testID="stat-top-recipe-count">
+                          {`${stats.topRecipe.brewCount} príprav`}
+                        </Text>
+                      ) : (
+                        <Text style={styles.statMeta}>Zaznamenaj si svoje varenia</Text>
+                      )}
+                    </View>
+                    <View style={styles.statItem}>
+                      <Text style={styles.statLabel}>Top chuťové tóny</Text>
+                      {stats.topTastingNotes.length > 0 ? (
+                        <View style={styles.statNoteList} testID="stat-top-notes">
+                          {stats.topTastingNotes.slice(0, 3).map((note, index) => (
+                            <Text
+                              key={`${note.note}-${index}`}
+                              style={styles.statNoteItem}
+                              testID={`stat-top-note-${index}`}
+                            >
+                              {`${note.note} · ${note.occurrences}`}
+                            </Text>
+                          ))}
+                        </View>
+                      ) : (
+                        <Text style={styles.statMeta}>Zatiaľ žiadne dáta</Text>
+                      )}
                     </View>
                   </View>
                   <View style={styles.statsActions}>
@@ -527,6 +520,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                       style={styles.statsLink}
                       onPress={onBrewHistoryPress}
                       activeOpacity={0.85}
+                      testID="brew-history-cta"
                     >
                       <Text style={styles.statsLinkText}>História varení</Text>
                     </TouchableOpacity>
@@ -534,6 +528,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                       style={styles.statsLinkPrimary}
                       onPress={onLogBrewPress}
                       activeOpacity={0.85}
+                      testID="brew-log-cta"
                     >
                       <Text style={styles.statsLinkPrimaryText}>
                         Zaznamenať varenie
@@ -562,6 +557,25 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                   </LinearGradient>
                 </TouchableOpacity>
               ))}
+            </View>
+
+            <View style={styles.secondaryActions}>
+              <TouchableOpacity
+                style={styles.secondaryActionButton}
+                onPress={onCommunityRecipesPress}
+                activeOpacity={0.85}
+                testID="community-recipes-cta"
+              >
+                <Text style={styles.secondaryActionText}>Objav komunitné recepty</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.secondaryActionButton}
+                onPress={onPersonalizationPress}
+                activeOpacity={0.85}
+                testID="personalization-cta"
+              >
+                <Text style={styles.secondaryActionText}>Uprav chuťový profil</Text>
+              </TouchableOpacity>
             </View>
 
             <View style={styles.tasteProfileSection}>

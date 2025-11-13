@@ -1,8 +1,4 @@
-export {
-  fetchCoffees,
-  fetchDashboardData,
-  fetchUserStats,
-} from '../../../services/homePagesService';
+export { fetchCoffees } from '../../../services/homePagesService';
 
 export {
   clearScheduledDailyTipRefresh,
@@ -15,3 +11,16 @@ export type { Tip } from '../../../services/dailyTipService';
 
 export { fetchRecentScans } from '../../../services/coffeeServices';
 export type { RecentScan } from '../../../services/coffeeServices';
+
+export {
+  fetchHomeStatistics,
+  getMonthlyBrewCount,
+  getTopRecipe,
+  getTopTastingNotes,
+  getEmptyStatistics,
+} from '../../../services/homeStatisticsService';
+export type {
+  HomeStatistics,
+  TopRecipeStat,
+  TastingNoteStat,
+} from '../../../services/homeStatisticsService';

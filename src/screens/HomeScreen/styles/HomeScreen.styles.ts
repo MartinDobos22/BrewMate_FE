@@ -331,6 +331,25 @@ export const homeStyles = () =>
       fontWeight: '800',
       color: palette.espresso,
     },
+    statHighlight: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: palette.espresso,
+    },
+    statMeta: {
+      fontSize: 12,
+      color: palette.textSecondary,
+      marginTop: 6,
+      fontWeight: '600',
+    },
+    statNoteList: {
+      marginTop: 6,
+    },
+    statNoteItem: {
+      fontSize: 12,
+      color: palette.textSecondary,
+      marginBottom: 4,
+    },
 
     // Quick Actions
     quickActions: {
@@ -369,6 +388,28 @@ export const homeStyles = () =>
       color: '#FFFFFF',
       fontSize: 11,
       opacity: 0.9,
+    },
+    secondaryActions: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      flexWrap: 'wrap',
+      marginBottom: verticalScale(16),
+    },
+    secondaryActionButton: {
+      width: '48%',
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 18,
+      backgroundColor: palette.surfaceElevated,
+      borderWidth: 1,
+      borderColor: palette.borderGlass,
+      marginBottom: 12,
+    },
+    secondaryActionText: {
+      textAlign: 'center',
+      fontWeight: '600',
+      fontSize: 13,
+      color: palette.espresso,
     },
 
     // Taste profile
