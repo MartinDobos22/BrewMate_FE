@@ -7,23 +7,24 @@ import HomeScreen from '../src/screens/HomeScreen';
 jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper');
 
 const fetchCoffeesMock = jest.fn(() => Promise.resolve([]));
-const fetchDashboardDataMock = jest.fn();
-const fetchUserStatsMock = jest.fn();
+const fetchHomeStatisticsMock = jest.fn();
 const fetchDailyTipMock = jest.fn(() => Promise.resolve(null));
 const fetchRecentScansMock = jest.fn(() => Promise.resolve([]));
-
-jest.mock('../src/services/homePagesService.ts', () => ({
-  fetchCoffees: fetchCoffeesMock,
-  fetchDashboardData: fetchDashboardDataMock,
-  fetchUserStats: fetchUserStatsMock,
+const getTipFromCacheMock = jest.fn(() => Promise.resolve(null));
+const getEmptyStatisticsMock = jest.fn(() => ({
+  monthlyBrewCount: 0,
+  topRecipe: null,
+  topTastingNotes: [],
 }));
 
-jest.mock('../src/services/contentServices', () => ({
-  fetchDailyTip: fetchDailyTipMock,
-}));
-
-jest.mock('../src/services/coffeeServices.ts', () => ({
-  fetchRecentScans: fetchRecentScansMock,
+jest.mock('../src/screens/HomeScreen/services', () => ({
+  __esModule: true,
+  fetchCoffees: (...args: unknown[]) => fetchCoffeesMock(...args),
+  fetchDailyTip: (...args: unknown[]) => fetchDailyTipMock(...args),
+  fetchHomeStatistics: (...args: unknown[]) => fetchHomeStatisticsMock(...args),
+  fetchRecentScans: (...args: unknown[]) => fetchRecentScansMock(...args),
+  getTipFromCache: (...args: unknown[]) => getTipFromCacheMock(...args),
+  getEmptyStatistics: () => getEmptyStatisticsMock(),
 }));
 
 jest.mock('../src/hooks/usePersonalization', () => ({
@@ -53,16 +54,22 @@ describe('HomeScreen statistics', () => {
     fetchCoffeesMock.mockResolvedValue([]);
     fetchDailyTipMock.mockResolvedValue(null);
     fetchRecentScansMock.mockResolvedValue([]);
+    getTipFromCacheMock.mockResolvedValue(null);
+    getEmptyStatisticsMock.mockReturnValue({
+      monthlyBrewCount: 0,
+      topRecipe: null,
+      topTastingNotes: [],
+    });
   });
 
-  it('loads dashboard statistics on mount', async () => {
-    fetchDashboardDataMock.mockResolvedValueOnce({
-      stats: { coffeeCount: 12, avgRating: 4.3, favoritesCount: 5 },
-    });
-    fetchUserStatsMock.mockResolvedValueOnce({
-      coffeeCount: 1,
-      avgRating: 3.1,
-      favoritesCount: 2,
+  it('renders statistics from the data source', async () => {
+    fetchHomeStatisticsMock.mockResolvedValueOnce({
+      monthlyBrewCount: 12,
+      topRecipe: { id: 'recipe-1', name: 'Espresso', brewCount: 5 },
+      topTastingNotes: [
+        { note: 'Čokoláda', occurrences: 4 },
+        { note: 'Orechy', occurrences: 2 },
+      ],
     });
 
     let component!: ReactTestRenderer;
@@ -71,26 +78,22 @@ describe('HomeScreen statistics', () => {
       component = renderer.create(<HomeScreen {...baseProps} />);
     });
 
-    expect(fetchDashboardDataMock).toHaveBeenCalledTimes(1);
-    expect(fetchUserStatsMock).toHaveBeenCalledTimes(1);
+    expect(fetchHomeStatisticsMock).toHaveBeenCalledTimes(1);
 
-    const coffeeCount = component.root.findByProps({ testID: 'stat-value-coffeeCount' });
-    const avgRating = component.root.findByProps({ testID: 'stat-value-avgRating' });
-    const favoritesCount = component.root.findByProps({ testID: 'stat-value-favoritesCount' });
+    const monthly = component.root.findByProps({ testID: 'stat-monthly-brew-count' });
+    const recipeName = component.root.findByProps({ testID: 'stat-top-recipe-name' });
+    const recipeCount = component.root.findByProps({ testID: 'stat-top-recipe-count' });
+    const firstNote = component.root.findByProps({ testID: 'stat-top-note-0' });
 
-    expect(coffeeCount.props.children).toBe(12);
-    expect(avgRating.props.children).toBe('4.3');
-    expect(favoritesCount.props.children).toBe(5);
+    expect(monthly.props.children).toBe(12);
+    expect(recipeName.props.children).toBe('Espresso');
+    expect(recipeCount.props.children).toBe('5 príprav');
+    expect(firstNote.props.children).toBe('Čokoláda · 4');
     expect(() => component.root.findByProps({ testID: 'stats-fallback-message' })).toThrow();
   });
 
-  it('shows fallback statistics when dashboard data is unavailable', async () => {
-    fetchDashboardDataMock.mockResolvedValueOnce(null);
-    fetchUserStatsMock.mockResolvedValueOnce({
-      coffeeCount: 2,
-      avgRating: 3.5,
-      favoritesCount: 1,
-    });
+  it('shows a fallback message when statistics cannot be loaded', async () => {
+    fetchHomeStatisticsMock.mockRejectedValueOnce(new Error('network')); 
 
     let component!: ReactTestRenderer;
 
@@ -98,15 +101,14 @@ describe('HomeScreen statistics', () => {
       component = renderer.create(<HomeScreen {...baseProps} />);
     });
 
+    expect(fetchHomeStatisticsMock).toHaveBeenCalledTimes(1);
+    expect(getEmptyStatisticsMock).toHaveBeenCalled();
+
     const fallbackMessage = component.root.findByProps({ testID: 'stats-fallback-message' });
-    expect(fallbackMessage.props.children).toContain('Zobrazujú sa posledné známe údaje');
+    expect(fallbackMessage.props.children).toBe('Nepodarilo sa načítať štatistiky.');
 
-    const coffeeCount = component.root.findByProps({ testID: 'stat-value-coffeeCount' });
-    const avgRating = component.root.findByProps({ testID: 'stat-value-avgRating' });
-    const favoritesCount = component.root.findByProps({ testID: 'stat-value-favoritesCount' });
-
-    expect(coffeeCount.props.children).toBe(2);
-    expect(avgRating.props.children).toBe('3.5');
-    expect(favoritesCount.props.children).toBe(1);
+    const monthly = component.root.findByProps({ testID: 'stat-monthly-brew-count' });
+    expect(monthly.props.children).toBe(0);
   });
 });
+
