@@ -14,9 +14,6 @@ export type { RecentScan } from '../../../services/coffeeServices';
 
 export {
   fetchHomeStatistics,
-  getMonthlyBrewCount,
-  getTopRecipe,
-  getTopTastingNotes,
   getEmptyStatistics,
 } from '../../../services/homeStatisticsService';
 export type {

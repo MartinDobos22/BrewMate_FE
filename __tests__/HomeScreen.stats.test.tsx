@@ -7,7 +7,6 @@ import HomeScreen from '../src/screens/HomeScreen';
 jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper');
 
 const fetchCoffeesMock = jest.fn(() => Promise.resolve([]));
-const fetchHomeStatisticsMock = jest.fn();
 const fetchDailyTipMock = jest.fn(() => Promise.resolve(null));
 const fetchRecentScansMock = jest.fn(() => Promise.resolve([]));
 const getTipFromCacheMock = jest.fn(() => Promise.resolve(null));
@@ -17,15 +16,32 @@ const getEmptyStatisticsMock = jest.fn(() => ({
   topTastingNotes: [],
 }));
 
-jest.mock('../src/screens/HomeScreen/services', () => ({
-  __esModule: true,
-  fetchCoffees: (...args: unknown[]) => fetchCoffeesMock(...args),
-  fetchDailyTip: (...args: unknown[]) => fetchDailyTipMock(...args),
-  fetchHomeStatistics: (...args: unknown[]) => fetchHomeStatisticsMock(...args),
-  fetchRecentScans: (...args: unknown[]) => fetchRecentScansMock(...args),
-  getTipFromCache: (...args: unknown[]) => getTipFromCacheMock(...args),
-  getEmptyStatistics: () => getEmptyStatisticsMock(),
-}));
+const getIdTokenMock = jest.fn(() => Promise.resolve('test-token'));
+
+jest.mock('@react-native-firebase/auth', () => {
+  const authMock = () => ({
+    currentUser: {
+      getIdToken: getIdTokenMock,
+    },
+  });
+  return authMock;
+});
+
+jest.mock('../src/screens/HomeScreen/services', () => {
+  const actual = jest.requireActual('../src/screens/HomeScreen/services');
+  return {
+    __esModule: true,
+    ...actual,
+    fetchCoffees: (...args: unknown[]) => fetchCoffeesMock(...args),
+    fetchDailyTip: (...args: unknown[]) => fetchDailyTipMock(...args),
+    fetchRecentScans: (...args: unknown[]) => fetchRecentScansMock(...args),
+    getTipFromCache: (...args: unknown[]) => getTipFromCacheMock(...args),
+    getEmptyStatistics: () => getEmptyStatisticsMock(),
+  };
+});
+
+const originalFetch = global.fetch;
+const fetchMock = jest.fn();
 
 jest.mock('../src/hooks/usePersonalization', () => ({
   usePersonalization: () => ({ morningRitualManager: null }),
@@ -51,6 +67,10 @@ const baseProps = {
 describe('HomeScreen statistics', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    fetchMock.mockReset();
+    (global as any).fetch = fetchMock;
+    getIdTokenMock.mockReset();
+    getIdTokenMock.mockResolvedValue('test-token');
     fetchCoffeesMock.mockResolvedValue([]);
     fetchDailyTipMock.mockResolvedValue(null);
     fetchRecentScansMock.mockResolvedValue([]);
@@ -62,15 +82,22 @@ describe('HomeScreen statistics', () => {
     });
   });
 
+  afterAll(() => {
+    (global as any).fetch = originalFetch;
+  });
+
   it('renders statistics from the data source', async () => {
-    fetchHomeStatisticsMock.mockResolvedValueOnce({
-      monthlyBrewCount: 12,
-      topRecipe: { id: 'recipe-1', name: 'Espresso', brewCount: 5 },
-      topTastingNotes: [
-        { note: 'Čokoláda', occurrences: 4 },
-        { note: 'Orechy', occurrences: 2 },
-      ],
-    });
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        monthlyBrewCount: 12,
+        topRecipe: { id: 'recipe-1', name: 'Espresso', brewCount: 5 },
+        topTastingNotes: [
+          { note: 'Čokoláda', occurrences: 4 },
+          { note: 'Orechy', occurrences: 2 },
+        ],
+      }),
+    } as any);
 
     let component!: ReactTestRenderer;
 
@@ -78,7 +105,7 @@ describe('HomeScreen statistics', () => {
       component = renderer.create(<HomeScreen {...baseProps} />);
     });
 
-    expect(fetchHomeStatisticsMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
 
     const monthly = component.root.findByProps({ testID: 'stat-monthly-brew-count' });
     const recipeName = component.root.findByProps({ testID: 'stat-top-recipe-name' });
@@ -93,7 +120,7 @@ describe('HomeScreen statistics', () => {
   });
 
   it('shows a fallback message when statistics cannot be loaded', async () => {
-    fetchHomeStatisticsMock.mockRejectedValueOnce(new Error('network')); 
+    fetchMock.mockRejectedValueOnce(new Error('network'));
 
     let component!: ReactTestRenderer;
 
@@ -101,7 +128,7 @@ describe('HomeScreen statistics', () => {
       component = renderer.create(<HomeScreen {...baseProps} />);
     });
 
-    expect(fetchHomeStatisticsMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(getEmptyStatisticsMock).toHaveBeenCalled();
 
     const fallbackMessage = component.root.findByProps({ testID: 'stats-fallback-message' });
