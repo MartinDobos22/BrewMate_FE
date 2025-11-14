@@ -136,6 +136,198 @@ app.get('/api/profile', async (req, res) => {
   }
 });
 
+app.get('/api/home-stats', async (req, res) => {
+  const idToken = req.headers.authorization?.split(' ')[1];
+  if (!idToken) {
+    return res.status(401).json({ error: 'Token chýba' });
+  }
+
+  try {
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    const uid = decoded.uid;
+
+    const since = new Date();
+    since.setDate(since.getDate() - 30);
+
+    const { rows } = await db.query(
+      `SELECT
+        bh.id,
+        bh.recipe_id,
+        bh.flavor_notes,
+        bh.beans,
+        bh.created_at,
+        br.recipe AS recipe_text,
+        br.taste AS recipe_taste,
+        br.method AS recipe_method
+      FROM brew_history bh
+      LEFT JOIN brew_recipes br ON br.id = bh.recipe_id
+      WHERE bh.user_id::text = $1
+        AND bh.created_at >= $2::timestamptz
+      ORDER BY bh.created_at DESC`,
+      [uid, since.toISOString()]
+    );
+
+    const normalizeNoteName = (raw) => {
+      if (typeof raw === 'string') {
+        const trimmed = raw.trim();
+        return trimmed.length > 0 ? trimmed : null;
+      }
+
+      if (raw && typeof raw === 'object') {
+        const candidate = raw.note || raw.name || raw.label;
+        if (typeof candidate === 'string' && candidate.trim().length > 0) {
+          return candidate.trim();
+        }
+      }
+
+      return null;
+    };
+
+    const deriveRecipeDisplayName = (row) => {
+      const fromRecipe =
+        typeof row.recipe_text === 'string' ? row.recipe_text.trim() : '';
+      if (fromRecipe.length > 0) {
+        return fromRecipe.split('\n')[0].trim();
+      }
+
+      const fromTaste =
+        typeof row.recipe_taste === 'string' ? row.recipe_taste.trim() : '';
+      if (fromTaste.length > 0) {
+        return fromTaste;
+      }
+
+      const fromMethod =
+        typeof row.recipe_method === 'string' ? row.recipe_method.trim() : '';
+      if (fromMethod.length > 0) {
+        return fromMethod;
+      }
+
+      if (row.beans && typeof row.beans === 'object') {
+        const beanInfo = row.beans;
+        const beanCandidate =
+          (typeof beanInfo.name === 'string' && beanInfo.name) ||
+          (typeof beanInfo.label === 'string' && beanInfo.label) ||
+          (typeof beanInfo.title === 'string' && beanInfo.title) ||
+          null;
+        if (beanCandidate && beanCandidate.trim().length > 0) {
+          return beanCandidate.trim();
+        }
+      }
+
+      return null;
+    };
+
+    const incrementMap = (map, key, amount = 1) => {
+      const current = map.get(key) ?? 0;
+      map.set(key, current + amount);
+    };
+
+    const recipeUsage = new Map();
+    const tastingNoteTotals = new Map();
+
+    rows.forEach((row) => {
+      const recipeId = row.recipe_id ? String(row.recipe_id) : null;
+      const displayName = deriveRecipeDisplayName(row);
+      const key = recipeId || (displayName ? `beans:${displayName}` : null);
+
+      if (key) {
+        const current = recipeUsage.get(key) ?? {
+          id: recipeId || key,
+          name: displayName || 'Neznámy recept',
+          count: 0,
+        };
+        current.count += 1;
+        if (recipeId) {
+          current.id = recipeId;
+        }
+        if (displayName) {
+          current.name = displayName;
+        }
+        recipeUsage.set(key, current);
+      }
+
+      const notes = row.flavor_notes;
+
+      if (Array.isArray(notes)) {
+        notes.forEach((item) => {
+          const name = normalizeNoteName(item);
+          if (!name) {
+            return;
+          }
+
+          let weight = 1;
+          if (item && typeof item === 'object') {
+            if (typeof item.count === 'number') {
+              weight = item.count;
+            } else if (typeof item.value === 'number') {
+              weight = item.value;
+            }
+          }
+
+          incrementMap(tastingNoteTotals, name, weight);
+        });
+        return;
+      }
+
+      if (notes && typeof notes === 'object') {
+        Object.entries(notes).forEach(([nameCandidate, value]) => {
+          const name = normalizeNoteName(nameCandidate);
+          if (!name) {
+            return;
+          }
+
+          const weight = typeof value === 'number' ? value : 1;
+          incrementMap(tastingNoteTotals, name, weight);
+        });
+        return;
+      }
+
+      if (typeof notes === 'string' && notes.trim().length > 0) {
+        notes.split(/[;,]/).forEach((chunk) => {
+          const name = normalizeNoteName(chunk);
+          if (name) {
+            incrementMap(tastingNoteTotals, name);
+          }
+        });
+      }
+    });
+
+    let topRecipe = null;
+    recipeUsage.forEach((value) => {
+      if (!topRecipe || value.count > topRecipe.count) {
+        topRecipe = value;
+      }
+    });
+
+    const serializedTopRecipe = topRecipe
+      ? {
+          id: topRecipe.id,
+          name: topRecipe.name,
+          brewCount: topRecipe.count,
+        }
+      : null;
+
+    const topTastingNotes = Array.from(tastingNoteTotals.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([note, occurrences]) => ({
+        note,
+        occurrences: Math.max(1, Math.round(occurrences)),
+      }));
+
+    return res.json({
+      monthlyBrewCount: rows.length,
+      topRecipe: serializedTopRecipe,
+      topTastingNotes,
+    });
+  } catch (error) {
+    console.error('❌ Home stats error:', error);
+    return res
+      .status(500)
+      .json({ error: 'Nepodarilo sa načítať domovské štatistiky' });
+  }
+});
+
 // ========== OPTIMALIZOVANÝ UPDATE PROFILE ENDPOINT ==========
 /**
  * Aktualizuje profil používateľa a jeho preferencie kávy.

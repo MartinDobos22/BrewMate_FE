@@ -20,6 +20,17 @@ const getEmptyStatisticsMock = jest.fn(() => ({
   topTastingNotes: [],
 }));
 
+const getIdTokenMock = jest.fn(() => Promise.resolve('test-token'));
+
+jest.mock('@react-native-firebase/auth', () => {
+  const authMock = () => ({
+    currentUser: {
+      getIdToken: getIdTokenMock,
+    },
+  });
+  return authMock;
+});
+
 jest.mock('../src/screens/HomeScreen/services', () => ({
   __esModule: true,
   fetchCoffees: (...args: unknown[]) => fetchCoffeesMock(...args),
@@ -34,7 +45,38 @@ jest.mock('../src/hooks/usePersonalization', () => ({
   usePersonalization: () => ({ morningRitualManager: null }),
 }));
 
+const originalFetch = global.fetch;
+const fetchMock = jest.fn();
+
 describe('HomeScreen brew diary actions', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({}) } as any);
+    (global as any).fetch = fetchMock;
+    getIdTokenMock.mockResolvedValue('test-token');
+    fetchCoffeesMock.mockResolvedValue([]);
+    fetchDailyTipMock.mockResolvedValue(null);
+    fetchRecentScansMock.mockResolvedValue([]);
+    getTipFromCacheMock.mockResolvedValue(null);
+    getEmptyStatisticsMock.mockReturnValue({
+      monthlyBrewCount: 0,
+      topRecipe: null,
+      topTastingNotes: [],
+    });
+    fetchHomeStatisticsMock.mockImplementation(() =>
+      Promise.resolve({
+        monthlyBrewCount: 0,
+        topRecipe: null,
+        topTastingNotes: [],
+      }),
+    );
+  });
+
+  afterAll(() => {
+    (global as any).fetch = originalFetch;
+  });
+
   it('invokes callbacks when brew diary CTAs are pressed', async () => {
     const props = {
       onHomePress: jest.fn(),
