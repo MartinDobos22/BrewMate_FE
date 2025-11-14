@@ -2,6 +2,7 @@
 import auth from '@react-native-firebase/auth';
 import { API_URL } from './api';
 import { coffeeOfflineManager, offlineSync } from '../offline';
+import type { Coffee } from '../types/Coffee';
 
 /**
  * Wrapper okolo fetchu ktorý loguje požiadavky a odpovede medzi frontendom a backendom.
@@ -19,18 +20,9 @@ interface UserStats {
   favoritesCount: number;
 }
 
-interface CoffeeData {
-  id: string;
-  name: string;
-  rating?: number;
-  match?: number;
+interface CoffeeData extends Coffee {
   timestamp?: Date;
   isRecommended?: boolean;
-  brand?: string;
-  origin?: string;
-  roastLevel?: number;
-  intensity?: number;
-  flavorNotes?: string[];
 }
 
 interface DashboardData {
@@ -215,17 +207,57 @@ export const fetchCoffees = async (): Promise<CoffeeData[]> => {
     }
 
     const data = await response.json();
-    const mapped = data.map((item: any) => ({
-      id: item.id?.toString() || '',
-      name: item.name,
-      brand: item.brand,
-      origin: item.origin,
-      roastLevel: item.roast_level,
-      intensity: item.intensity,
-      flavorNotes: item.flavor_notes,
-      rating: item.rating,
-      match: item.match,
-    }));
+    const mapped: CoffeeData[] = data.map((item: any) => {
+      const flavorNotesRaw = item.flavor_notes ?? item.flavorNotes;
+      const flavorNotes = Array.isArray(flavorNotesRaw)
+        ? flavorNotesRaw
+        : typeof flavorNotesRaw === 'string'
+          ? flavorNotesRaw
+              .split(',')
+              .map((note: string) => note.trim())
+              .filter((note: string) => note.length > 0)
+          : undefined;
+
+      const matchValue = item.match ?? item.match_score ?? item.match_percentage;
+      const roastLevelValue =
+        typeof item.roast_level === 'number'
+          ? item.roast_level
+          : typeof item.roastLevel === 'number'
+            ? item.roastLevel
+            : undefined;
+      const intensityValue =
+        typeof item.intensity === 'number'
+          ? item.intensity
+          : typeof item.intensity_level === 'number'
+            ? item.intensity_level
+            : undefined;
+
+      const processValue =
+        item.process ?? item.processing ?? item.process_method ?? item.processing_method;
+      const varietyValue = item.variety ?? item.bean_variety ?? item.beanVariety;
+      const brandValue = item.brand ?? item.roastery ?? item.roaster;
+      const ratingValue =
+        typeof item.rating === 'number'
+          ? item.rating
+          : typeof item.avg_rating === 'number'
+            ? item.avg_rating
+            : undefined;
+
+      return {
+        id: item.id?.toString() || '',
+        name: item.name ?? item.coffee_name ?? 'Neznáma káva',
+        brand: brandValue ?? undefined,
+        origin: item.origin ?? item.country_of_origin ?? item.origin_country ?? undefined,
+        roastLevel: roastLevelValue,
+        intensity: intensityValue,
+        flavorNotes,
+        rating: ratingValue,
+        match: typeof matchValue === 'number' ? matchValue : undefined,
+        process: typeof processValue === 'string' ? processValue : undefined,
+        variety: typeof varietyValue === 'string' ? varietyValue : undefined,
+        isFavorite: Boolean(item.is_favorite ?? item.isFavorite ?? false),
+      };
+    });
     await coffeeOfflineManager.setItem(
       COFFEE_CACHE_KEY,
       mapped,
