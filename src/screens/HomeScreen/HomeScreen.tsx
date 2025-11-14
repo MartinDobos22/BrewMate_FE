@@ -39,19 +39,9 @@ import {
   CoffeePreferenceSnapshot,
   TasteRadarScores,
 } from '../../utils/tasteProfile';
+import type { Coffee } from '../../types/Coffee';
 
-interface CoffeeItem {
-  id: string;
-  name: string;
-  brand?: string;
-  origin?: string;
-  roastLevel?: number;
-  intensity?: number;
-  flavorNotes?: string[];
-  rating?: number;
-  match?: number;
-  hasCheckmark?: boolean;
-}
+type CoffeeItem = Coffee & { hasCheckmark?: boolean };
 
 interface HomeScreenProps {
   onHomePress: () => void;
