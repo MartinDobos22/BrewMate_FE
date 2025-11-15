@@ -1473,6 +1473,10 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     setCurrentScreen('recipes');
   };
 
+  const handleSeeAllRecipes = () => {
+    setCurrentScreen('recipes');
+  };
+
   const handleFavoritesPress = () => {
     setCurrentScreen('favorites');
   };
@@ -1650,6 +1654,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
             setCurrentScreen('recipe-steps');
           }}
           onRecipeHistoryPress={handleRecipeHistoryEntryPress}
+          onSeeAllRecipes={handleSeeAllRecipes}
         />
         <BottomNav
           active="home"
