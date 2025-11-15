@@ -20,7 +20,9 @@ import { homeStyles } from '../HomeScreen/styles';
 import BottomNav, {
   BOTTOM_NAV_CONTENT_OFFSET,
 } from '../../components/navigation/BottomNav';
-import { fetchRecipes } from '../../services/recipeServices';
+import { fetchRecipes, fetchRecipeHistory } from '../../services/recipeServices';
+import type { RecipeHistory } from '../../services/recipeServices';
+import { BREW_DEVICES } from '../../types/Recipe';
 import type { Recipe, BrewDevice } from '../../types/Recipe';
 
 export interface RecipesScreenProps {
@@ -41,6 +43,16 @@ type RecipeWithOptionalFields = Recipe & {
 
 const ALL_DEVICES_VALUE = '__all__';
 
+type ExtendedRecipe = Recipe & {
+  source: 'catalog' | 'history';
+  historyMeta?: {
+    taste?: string;
+    createdAt: string;
+  };
+};
+
+const HISTORY_FETCH_LIMIT = 50;
+
 const RecipesScreen: React.FC<RecipesScreenProps> = ({
   onBack,
   onHomePress,
@@ -53,6 +65,7 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
   const baseStyles = homeStyles();
   const styles = recipesStyles;
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [historyRecipes, setHistoryRecipes] = useState<RecipeHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,9 +79,26 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
       }
       setError(null);
       try {
-        const data = await fetchRecipes();
-        const normalized = data.map((recipe) => normalizeRecipe(recipe));
-        setRecipes(normalized);
+        const [recipesResult, historyResult] = await Promise.allSettled([
+          fetchRecipes(),
+          fetchRecipeHistory(HISTORY_FETCH_LIMIT),
+        ]);
+
+        if (recipesResult.status === 'fulfilled') {
+          const normalized = recipesResult.value.map((recipe) => normalizeRecipe(recipe));
+          setRecipes(normalized);
+        } else {
+          console.error('Error loading recipes:', recipesResult.reason);
+          setRecipes([]);
+          setError('Nepodarilo sa načítať recepty. Skúste to prosím znova.');
+        }
+
+        if (historyResult.status === 'fulfilled') {
+          setHistoryRecipes(historyResult.value);
+        } else {
+          console.error('Error loading recipe history:', historyResult.reason);
+          setHistoryRecipes([]);
+        }
       } catch (err) {
         console.error('Error loading recipes:', err);
         setError('Nepodarilo sa načítať recepty. Skúste to prosím znova.');
@@ -91,20 +121,29 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
     setRefreshing(false);
   }, [loadRecipes]);
 
+  const extendedRecipes = useMemo<ExtendedRecipe[]>(() => {
+    const catalogRecipes = recipes.map((recipe) => ({
+      ...recipe,
+      source: 'catalog' as const,
+    }));
+    const historyItems = historyRecipes.map((entry) => historyToRecipe(entry));
+    return [...historyItems, ...catalogRecipes];
+  }, [recipes, historyRecipes]);
+
   const devices = useMemo(() => {
     const values = new Set<string>();
-    recipes.forEach((recipe) => {
+    extendedRecipes.forEach((recipe) => {
       if (recipe.brewDevice) {
         values.add(recipe.brewDevice);
       }
     });
     return Array.from(values).sort((a, b) => a.localeCompare(b));
-  }, [recipes]);
+  }, [extendedRecipes]);
 
   const filteredRecipes = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
 
-    return recipes.filter((recipe) => {
+    return extendedRecipes.filter((recipe) => {
       if (
         selectedDevice !== ALL_DEVICES_VALUE &&
         recipe.brewDevice?.toLowerCase() !== selectedDevice.toLowerCase()
@@ -122,6 +161,7 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
         recipe.instructions,
         (recipe as RecipeWithOptionalFields).description,
         (recipe as RecipeWithOptionalFields).taste,
+        recipe.historyMeta?.taste,
       ]
         .filter(Boolean)
         .join(' ')
@@ -129,7 +169,7 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
 
       return haystack.includes(normalizedQuery);
     });
-  }, [recipes, searchQuery, selectedDevice]);
+  }, [extendedRecipes, searchQuery, selectedDevice]);
 
   const handleRecipePress = useCallback(
     (recipe: Recipe) => {
@@ -206,9 +246,26 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
               activeOpacity={0.85}
               onPress={() => handleRecipePress(recipe)}
             >
-              <Text style={baseStyles.coffeeName}>{recipe.title}</Text>
+              <View style={styles.recipeHeaderRow}>
+                <Text style={baseStyles.coffeeName}>
+                  {recipe.title}
+                </Text>
+                {recipe.source === 'history' ? (
+                  <View style={styles.historyBadge}>
+                    <Text style={styles.historyBadgeText}>História</Text>
+                  </View>
+                ) : null}
+              </View>
               {recipe.brewDevice ? (
                 <Text style={baseStyles.coffeeOrigin}>{recipe.brewDevice}</Text>
+              ) : null}
+              {recipe.source === 'history' && recipe.historyMeta?.taste ? (
+                <Text style={styles.historyTaste}>{recipe.historyMeta.taste}</Text>
+              ) : null}
+              {recipe.source === 'history' && recipe.historyMeta?.createdAt ? (
+                <Text style={styles.historyTimestamp}>
+                  {new Date(recipe.historyMeta.createdAt).toLocaleDateString('sk-SK')}
+                </Text>
               ) : null}
               <Text style={styles.instructionsPreview}>
                 {recipe.instructions.length > 160
@@ -239,6 +296,25 @@ const normalizeRecipe = (recipe: RecipeWithOptionalFields): Recipe => {
     ...recipe,
     instructions,
     brewDevice: typeof brewDevice === 'string' ? (brewDevice as BrewDevice) : recipe.brewDevice,
+  };
+};
+
+const historyToRecipe = (entry: RecipeHistory): ExtendedRecipe => {
+  const title = entry.method && entry.method.trim().length > 0 ? entry.method : 'Uložený recept';
+  const isValidDevice = (device: unknown): device is BrewDevice =>
+    typeof device === 'string' && (BREW_DEVICES as string[]).includes(device);
+  const fallbackDevice: BrewDevice = isValidDevice(entry.brewDevice) ? entry.brewDevice : 'V60';
+
+  return {
+    id: `history-${entry.id}`,
+    title,
+    instructions: entry.recipe,
+    brewDevice: fallbackDevice,
+    source: 'history',
+    historyMeta: {
+      taste: entry.taste,
+      createdAt: entry.created_at,
+    },
   };
 };
 
@@ -319,5 +395,33 @@ const recipesStyles = StyleSheet.create({
     fontSize: 13,
     color: '#5D4E37',
     lineHeight: 18,
+  },
+  recipeHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  historyBadge: {
+    backgroundColor: 'rgba(139, 111, 71, 0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  historyBadgeText: {
+    fontSize: 11,
+    color: '#6B4423',
+    fontWeight: '600',
+  },
+  historyTaste: {
+    marginTop: 6,
+    fontSize: 12,
+    color: '#6B4423',
+    fontWeight: '500',
+  },
+  historyTimestamp: {
+    marginTop: 4,
+    fontSize: 11,
+    color: '#8B7355',
   },
 });

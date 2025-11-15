@@ -1,5 +1,5 @@
 // CoffeeReceipeScanner.tsx
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -81,6 +81,7 @@ interface BrewScannerProps {
   onBack?: () => void;
   onRecipeGenerated?: (recipe: string) => void;
   onRecipeHistoryPress?: (entry: RecipeHistory) => void;
+  onSeeAllRecipes?: () => void;
 }
 
 const resolveTimeOfDay = (date: Date): BrewContext['timeOfDay'] => {
@@ -151,6 +152,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
   onBack,
   onRecipeGenerated,
   onRecipeHistoryPress,
+  onSeeAllRecipes,
 }) => {
   const { coffeeDiary: personalizationDiary, refreshInsights } = usePersonalization();
   const diary = personalizationDiary ?? fallbackCoffeeDiary;
@@ -192,6 +194,14 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     }),
     [],
   );
+
+  const handleSeeAllRecipes = useCallback(() => {
+    if (onSeeAllRecipes) {
+      onSeeAllRecipes();
+      return;
+    }
+    showToast('Pripravujeme prehľad receptov.');
+  }, [onSeeAllRecipes]);
 
   const nonCoffeeConfidence = useMemo(() => {
     if (typeof nonCoffeeDetails.confidence !== 'number') {
@@ -957,7 +967,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
                           <Text style={styles.historyTitle}>📖 História receptov</Text>
                           <TouchableOpacity
                             style={styles.historySeeAll}
-                            onPress={() => showToast('Pripravujeme prehľad receptov.')}
+                            onPress={handleSeeAllRecipes}
                           >
                             <Text style={styles.historySeeAllText}>Zobraziť všetky →</Text>
                           </TouchableOpacity>
