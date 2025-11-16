@@ -27,6 +27,7 @@ import { materialYouCoffee } from '../../theme/materialYouColors';
 export interface RecipeStepsScreenProps {
   recipe: string;
   brewDevice?: BrewDevice;
+  recipeTitle?: string;
   onBack: () => void;
 }
 
@@ -60,7 +61,7 @@ const STEP_CONFIG: StepConfig[] = [
   {
     id: 'intro',
     icon: '☕',
-    title: 'V60 Pour Over',
+    title: 'Personalizovaný recept',
     subtitle: 'PERSONALIZOVANÝ RECEPT',
   },
   {
@@ -297,9 +298,16 @@ const TipsCarousel: React.FC<{
 const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
   recipe,
   brewDevice,
+  recipeTitle,
   onBack,
 }) => {
   const parsedSteps = useMemo(() => formatRecipeSteps(recipe), [recipe]);
+  const heroTitle = recipeTitle?.trim().length
+    ? recipeTitle.trim()
+    : brewDevice
+    ? `${brewDevice} recept`
+    : 'Personalizovaný recept';
+  const heroSubtitle = brewDevice ? `Metóda: ${brewDevice}` : 'Interaktívny brew asistent';
   const { width } = useWindowDimensions();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [servings, setServings] = useState<typeof SERVING_OPTIONS[number]>(1);
@@ -380,8 +388,17 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
       combined.push({ ...ratingStep });
     }
 
-    return combined;
-  }, [parsedSteps]);
+    return combined.map((step) => {
+      if (step.id === 'intro') {
+        return {
+          ...step,
+          title: heroTitle,
+          subtitle: heroSubtitle,
+        };
+      }
+      return step;
+    });
+  }, [heroSubtitle, heroTitle, parsedSteps]);
 
   const allTimers = useMemo(() => {
     const states: Record<string, TimerState> = {};
@@ -718,7 +735,7 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
             </Text>
           ),
         },
-        { id: 'ing-dripper', label: '📐 V60 dripper' },
+        { id: 'ing-dripper', label: '📐 Dripper / zariadenie' },
         { id: 'ing-filter', label: '📄 Papierový filter' },
         { id: 'ing-scale', label: '⚖️ Váha s časovačom' },
       ].map((item) => (
@@ -736,7 +753,7 @@ const RecipeStepsScreenMD3: React.FC<RecipeStepsScreenProps> = ({
     <View style={styles.checklistWrapper}>
       {[
         { id: 'prep-temp', label: 'Voda je na teplote' },
-        { id: 'prep-filter', label: 'Filter je vo V60' },
+        { id: 'prep-filter', label: 'Filter vložený v zariadení' },
         { id: 'prep-rinse', label: 'Filter opláchnutý horúcou vodou' },
       ].map((item) => (
         <ChecklistItem

@@ -414,6 +414,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   const [generatedRecipe, setGeneratedRecipe] = useState('');
   const [selectedRecipeDevice, setSelectedRecipeDevice] =
     useState<BrewDevice | undefined>(undefined);
+  const [selectedRecipeTitle, setSelectedRecipeTitle] = useState<string | undefined>(undefined);
   const [recipeStepsReturnTo, setRecipeStepsReturnTo] =
     useState<ScreenName>('brew');
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
@@ -1650,6 +1651,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           onRecipeGenerated={(recipe) => {
             setGeneratedRecipe(recipe);
             setSelectedRecipeDevice(undefined);
+            setSelectedRecipeTitle(undefined);
             setRecipeStepsReturnTo('brew');
             setCurrentScreen('recipe-steps');
           }}
@@ -1683,11 +1685,13 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         <RecipeStepsScreen
           recipe={generatedRecipe}
           brewDevice={selectedRecipeDevice}
+          recipeTitle={selectedRecipeTitle}
           onBack={() => {
             const target = recipeStepsReturnTo;
             setCurrentScreen(target);
             if (target !== 'brew') {
               setSelectedRecipeDevice(undefined);
+              setSelectedRecipeTitle(undefined);
             }
             setRecipeStepsReturnTo('brew');
           }}
@@ -1892,6 +1896,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           onRecipeSelect={(recipe: Recipe) => {
             setGeneratedRecipe(recipe.instructions);
             setSelectedRecipeDevice(recipe.brewDevice);
+            setSelectedRecipeTitle(recipe.title);
             setRecipeStepsReturnTo('recipes');
             setCurrentScreen('recipe-steps');
           }}
