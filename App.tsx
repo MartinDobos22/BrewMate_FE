@@ -415,6 +415,8 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   const [selectedRecipe, setSelectedRecipe] = useState<RecipeDetail | null>(null);
   const [recipeStepsReturnTo, setRecipeStepsReturnTo] =
     useState<ScreenName>('brew');
+  const [preferencesReturnTo, setPreferencesReturnTo] =
+    useState<'profile' | 'home'>('profile');
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [isTasteQuizComplete, setIsTasteQuizComplete] = useState(false);
@@ -1464,6 +1466,11 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     setCurrentScreen('profile');
   };
 
+  const handleProfilePreferencesPress = () => {
+    setPreferencesReturnTo('profile');
+    setCurrentScreen('preferences');
+  };
+
   const handleDiscoverPress = () => {
     setCurrentScreen('discover');
   };
@@ -1485,7 +1492,14 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   };
 
   const handlePersonalizationPress = () => {
-    setCurrentScreen('personalization');
+    setPreferencesReturnTo('home');
+    setCurrentScreen('preferences');
+  };
+
+  const handlePreferencesBack = () => {
+    const target = preferencesReturnTo === 'home' ? 'home' : 'profile';
+    setCurrentScreen(target);
+    setPreferencesReturnTo('profile');
   };
 
   const handleBrewHistoryPress = () => {
@@ -1752,7 +1766,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         </View>
         <UserProfile
           onEdit={() => setCurrentScreen('edit-profile')}
-          onPreferences={() => setCurrentScreen('preferences')}
+          onPreferences={handleProfilePreferencesPress}
           onBack={handleBackPress}
           onHomePress={handleBackPress}
           onDiscoverPress={handleDiscoverPress}
@@ -1832,7 +1846,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         <View style={styles.header}>
           <QueueStatusBadge />
         </View>
-        <CoffeePreferenceForm onBack={() => setCurrentScreen('profile')} />
+        <CoffeePreferenceForm onBack={handlePreferencesBack} />
         <BottomNav
           active="profile"
           onHomePress={handleBackPress}
