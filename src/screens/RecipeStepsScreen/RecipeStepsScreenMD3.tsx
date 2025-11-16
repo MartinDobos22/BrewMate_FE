@@ -9,7 +9,6 @@ import { incrementProgress } from '../../services/profileServices';
 export interface RecipeStepsScreenProps {
   recipe: RecipeDetailType | string;
   brewDevice?: BrewDevice;
-  recipeTitle?: string;
   onBack: () => void;
 }
 
