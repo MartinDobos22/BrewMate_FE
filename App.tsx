@@ -85,7 +85,8 @@ import {
   type OnboardingAnalysis,
 } from './src/services/personalization/onboardingAnalysis';
 import type { BrewLog } from './src/types/BrewLog';
-import type { BrewDevice, Recipe } from './src/types/Recipe';
+import type { Recipe, RecipeDetail } from './src/types/Recipe';
+import { buildRecipeDetail, recipeTextToDetail } from './src/utils/recipeDetailBuilder';
 
 type ScreenName =
   | 'home'
@@ -411,9 +412,7 @@ interface AppContentProps {
 const AppContent = ({ personalization, setPersonalization }: AppContentProps): React.JSX.Element | null => {
   const [currentScreen, setCurrentScreen] = useState<ScreenName>('home');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [generatedRecipe, setGeneratedRecipe] = useState('');
-  const [selectedRecipeDevice, setSelectedRecipeDevice] =
-    useState<BrewDevice | undefined>(undefined);
+  const [selectedRecipe, setSelectedRecipe] = useState<RecipeDetail | null>(null);
   const [recipeStepsReturnTo, setRecipeStepsReturnTo] =
     useState<ScreenName>('brew');
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
@@ -1647,9 +1646,8 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           <QueueStatusBadge />
         </View>
         <CoffeeReceipeScanner
-          onRecipeGenerated={(recipe) => {
-            setGeneratedRecipe(recipe);
-            setSelectedRecipeDevice(undefined);
+          onRecipeGenerated={(recipePayload) => {
+            setSelectedRecipe(recipeTextToDetail(recipePayload));
             setRecipeStepsReturnTo('brew');
             setCurrentScreen('recipe-steps');
           }}
@@ -1670,6 +1668,10 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   }
 
   if (currentScreen === 'recipe-steps') {
+    if (!selectedRecipe) {
+      return null;
+    }
+
     return (
       <ResponsiveWrapper
         backgroundColor={colors.background}
@@ -1681,14 +1683,12 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           <QueueStatusBadge />
         </View>
         <RecipeStepsScreen
-          recipe={generatedRecipe}
-          brewDevice={selectedRecipeDevice}
+          recipe={selectedRecipe}
+          brewDevice={selectedRecipe.brewDevice}
           onBack={() => {
             const target = recipeStepsReturnTo;
             setCurrentScreen(target);
-            if (target !== 'brew') {
-              setSelectedRecipeDevice(undefined);
-            }
+            setSelectedRecipe(null);
             setRecipeStepsReturnTo('brew');
           }}
         />
@@ -1890,8 +1890,12 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           onFavoritesPress={handleFavoritesPress}
           onProfilePress={handleProfilePress}
           onRecipeSelect={(recipe: Recipe) => {
-            setGeneratedRecipe(recipe.instructions);
-            setSelectedRecipeDevice(recipe.brewDevice);
+            setSelectedRecipe(
+              buildRecipeDetail({
+                ...recipe,
+                source: recipe.source ?? 'catalog',
+              }),
+            );
             setRecipeStepsReturnTo('recipes');
             setCurrentScreen('recipe-steps');
           }}
