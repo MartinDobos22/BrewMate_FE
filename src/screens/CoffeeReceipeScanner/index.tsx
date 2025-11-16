@@ -45,6 +45,7 @@ import {
   isCoffeeRelatedText,
 } from './services';
 import type { RecipeHistory } from './services';
+import type { RecipeTextPayload } from '../../utils/recipeDetailBuilder';
 import { BrewContext } from '../../types/Personalization';
 import { usePersonalization } from '../../hooks/usePersonalization';
 import { showToast } from '../../utils/toast';
@@ -79,7 +80,7 @@ interface ScanResult {
 
 interface BrewScannerProps {
   onBack?: () => void;
-  onRecipeGenerated?: (recipe: string) => void;
+  onRecipeGenerated?: (recipe: RecipeTextPayload) => void;
   onRecipeHistoryPress?: (entry: RecipeHistory) => void;
   onSeeAllRecipes?: () => void;
 }
@@ -466,7 +467,19 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
 
       setGeneratedRecipe(recipe);
       if (onRecipeGenerated) {
-        onRecipeGenerated(recipe);
+        const noteSegments = [
+          selectedMethod ? `Metóda: ${selectedMethod}` : undefined,
+          tastePreference ? `Preferencia: ${tastePreference}` : undefined,
+          selectedTasteTags.length > 0 ? `Chuťové tóny: ${selectedTasteTags.join(', ')}` : undefined,
+        ].filter((segment): segment is string => Boolean(segment));
+
+        onRecipeGenerated({
+          text: recipe,
+          method: selectedMethod,
+          title: selectedMethod ? `${selectedMethod} recept` : undefined,
+          notes: noteSegments.length > 0 ? noteSegments : undefined,
+          source: 'ai',
+        });
       }
       setCurrentView('recipe');
       setOverlayVisible(false);
