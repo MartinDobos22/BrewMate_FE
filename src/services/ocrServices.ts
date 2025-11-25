@@ -136,6 +136,15 @@ interface OCRHistory {
   match_percentage?: number;
   is_recommended?: boolean;
   is_purchased?: boolean;
+  is_favorite?: boolean;
+  brand?: string | null;
+  origin?: string | null;
+  roast_level?: string | null;
+  flavor_notes?: string[] | string | null;
+  processing?: string | null;
+  roast_date?: string | null;
+  varietals?: string[] | string | null;
+  thumbnail_url?: string | null;
 }
 
 /**
@@ -813,6 +822,9 @@ export const fetchOCRHistory = async (limit: number = 10): Promise<OCRHistory[]>
       origin: item.origin ?? item.country_of_origin ?? null,
       roast_level: item.roast_level ?? item.roastLevel ?? null,
       flavor_notes: item.flavor_notes ?? item.flavorNotes ?? null,
+      processing: item.processing ?? null,
+      roast_date: item.roast_date ?? item.roastDate ?? null,
+      varietals: item.varietals ?? null,
       thumbnail_url: item.thumbnail_url ?? item.thumbnailUrl ?? null,
     }));
   } catch (error) {

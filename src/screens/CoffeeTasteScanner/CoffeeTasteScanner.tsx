@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   useColorScheme,
   TextInput,
-  Share,
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
@@ -496,6 +495,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
     return Number.isNaN(bounded) ? null : bounded;
   }, [nonCoffeeDetails.confidence]);
 
+  // Structured metadata is populated from AI/DB (scan response or history) and editable by the user.
   const structuredMetadata = useMemo(
     () => structuredFieldsToMetadata(structuredFields),
     [structuredFields],
@@ -706,6 +706,34 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
     setNonCoffeeModalVisible(true);
     showToast('Skús prosím naskenovať etiketu kávy.');
   };
+
+  const buildMetadataFromHistory = useCallback((item: OCRHistory): StructuredCoffeeMetadata | null => {
+    const roaster = normalizeStructuredStringValue(item.brand);
+    const origin = normalizeStructuredStringValue(item.origin);
+    const roastLevel = normalizeStructuredStringValue(item.roast_level);
+    const processing = normalizeStructuredStringValue(item.processing);
+    const roastDate = normalizeStructuredStringValue(item.roast_date);
+    const flavorNotes = normalizeStructuredStringArrayValue(item.flavor_notes);
+    const varietals = normalizeStructuredStringArrayValue(item.varietals);
+
+    const metadata: StructuredCoffeeMetadata = {
+      roaster,
+      origin,
+      roastLevel,
+      processing,
+      flavorNotes,
+      roastDate,
+      varietals,
+      confidenceFlags: null,
+    };
+
+    const hasAnyLabelValue =
+      [metadata.roaster, metadata.origin, metadata.roastLevel, metadata.processing, metadata.roastDate].some(Boolean) ||
+      (metadata.flavorNotes?.length ?? 0) > 0 ||
+      (metadata.varietals?.length ?? 0) > 0;
+
+    return hasAnyLabelValue ? metadata : null;
+  }, []);
 
   /**
    * Načíta nedávne OCR skeny pre používateľa.
@@ -1069,6 +1097,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
    * Načíta záznam z histórie do editora.
    */
   const loadFromHistory = (item: OCRHistory) => {
+    const historyMetadata = buildMetadataFromHistory(item);
     const historyResult: ScanResultLike = {
       original: item.original_text,
       corrected: item.corrected_text,
@@ -1076,9 +1105,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
       matchPercentage: item.match_percentage,
       isRecommended: item.is_recommended,
       isFavorite: item.is_favorite,
-      structuredMetadata: null,
+      structuredMetadata: historyMetadata,
       structuredConfidence: null,
-      structuredRaw: null,
+      structuredRaw: historyMetadata,
     };
 
     applyScanResult(historyResult);
@@ -1250,6 +1279,14 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
         return;
       }
 
+      setScanResult(prev => (prev ? { ...prev, isFavorite: nextValue } : prev));
+
+      try {
+        await loadHistory();
+      } catch (historyError) {
+        console.warn('CoffeeTasteScanner: failed to refresh history after favorite toggle', historyError);
+      }
+
       if (isConnected === false) {
         showToast('Zmena obľúbených uložená offline.');
       }
@@ -1258,6 +1295,13 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
       setIsFavorite(!nextValue);
       Alert.alert('Chyba', 'Nepodarilo sa aktualizovať obľúbenú kávu');
     }
+  };
+
+  const handleFlavorPress = (tag: string) => {
+    if (tag === 'N/A') {
+      return;
+    }
+    showToast(`Pripravujeme tipy pre ${tag}.`);
   };
 
   const handlePurchaseSelect = (answer: boolean) => {
@@ -1390,17 +1434,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
     }
   };
 
-  const exportText = async () => {
-    try {
-      await Share.share({
-        message: editedText,
-        title: 'Exportovaný text kávy',
-      });
-    } catch (error) {
-      Alert.alert('Chyba', 'Nepodarilo sa exportovať text');
-    }
-  };
-
   /**
    * Vymaže aktuálny výsledok skenovania.
    */
@@ -1472,6 +1505,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
     return scanResult.corrected?.length ? 'Rozpoznaná etiketa' : 'Pripravené na úpravy';
   }, [recognizedText, scanResult]);
 
+  // AI recommendation sentences coming from the scan response; reused for the insight section.
   const recommendationSentences = useMemo(() => {
     if (!scanResult?.recommendation) {
       return [];
@@ -1563,14 +1597,19 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
   }, [combinedLowerText, styles.tasteFillAcidity, styles.tasteFillSweetness, styles.tasteFillBitterness, styles.tasteFillBody]);
 
   const flavorTags = useMemo(() => {
+    const structuredNotes = structuredFields.flavorNotes.value;
+    if (structuredNotes?.length) {
+      return structuredNotes;
+    }
+
     const detected = FLAVOR_KEYWORDS.filter(item => combinedLowerText.includes(item.keyword)).map(
       item => item.label
     );
     if (detected.length) {
       return detected;
     }
-    return ['🌺 Kvetinová', '🍋 Citrón', '🍯 Jemne sladká'];
-  }, [combinedLowerText]);
+    return ['N/A'];
+  }, [combinedLowerText, structuredFields.flavorNotes.value]);
 
   const verdictLabel = scanResult?.isRecommended === false ? 'Skôr NIE' : 'Skôr ÁNO';
   const verdictExplanation =
@@ -2049,44 +2088,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
                         </View>
                       </View>
 
-                      <View style={styles.compatibilityCardModern}>
-                        <View style={styles.compatibilityHeaderRow}>
-                          <View style={styles.compatibilityIconWrapper}>
-                            <Text style={styles.compatibilityIcon}>🤖</Text>
-                          </View>
-                          <Text style={styles.sectionTitle}>AI vysvetlenie</Text>
-                        </View>
-                        <Text style={styles.compatibilityIntro}>
-                          {insightText}
-                        </Text>
-                        {positiveReasons.length > 0 && (
-                          <View style={styles.reasonBlock}>
-                            <Text style={styles.reasonTitle}>Prečo áno</Text>
-                            {positiveReasons.map(reason => (
-                              <View key={reason} style={styles.reasonRow}>
-                                <View style={[styles.reasonBadge, styles.reasonBadgePositive]}>
-                                  <Text style={styles.reasonBadgeText}>✓</Text>
-                                </View>
-                                <Text style={styles.reasonText}>{reason}</Text>
-                              </View>
-                            ))}
-                          </View>
-                        )}
-                        {cautionReasons.length > 0 && (
-                          <View style={styles.reasonBlock}>
-                            <Text style={styles.reasonTitle}>Na čo si dať pozor</Text>
-                            {cautionReasons.map(reason => (
-                              <View key={reason} style={styles.reasonRow}>
-                                <View style={[styles.reasonBadge, styles.reasonBadgeNegative]}>
-                                  <Text style={styles.reasonBadgeText}>✗</Text>
-                                </View>
-                                <Text style={styles.reasonText}>{reason}</Text>
-                              </View>
-                            ))}
-                          </View>
-                        )}
-                      </View>
-
                       <View style={styles.tasteProfileCard}>
                         <View style={styles.profileHeaderRow}>
                           <Text style={styles.sectionTitle}>Chuťový profil</Text>
@@ -2116,16 +2117,20 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
                           ))}
                         </View>
                         <View style={styles.flavorTagsRow}>
-                          {flavorTags.map(tag => (
-                            <TouchableOpacity
-                              key={tag}
-                              style={styles.flavorTag}
-                              onPress={() => showToast(`Pripravujeme tipy pre ${tag}.`)}
-                              activeOpacity={0.85}
-                            >
-                              <Text style={styles.flavorTagText}>{tag}</Text>
-                            </TouchableOpacity>
-                          ))}
+                          {flavorTags.map(tag => {
+                            const isPlaceholder = tag === 'N/A';
+                            return (
+                              <TouchableOpacity
+                                key={tag}
+                                style={styles.flavorTag}
+                                onPress={() => handleFlavorPress(tag)}
+                                activeOpacity={0.85}
+                                disabled={isPlaceholder}
+                              >
+                                <Text style={styles.flavorTagText}>{tag}</Text>
+                              </TouchableOpacity>
+                            );
+                          })}
                         </View>
                       </View>
 
@@ -2134,9 +2139,39 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
                           <View style={styles.insightIconWrapper}>
                             <Text style={styles.insightIcon}>🤖</Text>
                           </View>
-                          <Text style={styles.insightTitle}>AI Insight</Text>
+                          <Text style={styles.insightTitle}>AI insight</Text>
                         </View>
                         <Text style={styles.insightText}>{insightText}</Text>
+                        {(positiveReasons.length > 0 || cautionReasons.length > 0) && (
+                          <View style={styles.reasonBlocksWrapper}>
+                            {positiveReasons.length > 0 && (
+                              <View style={styles.reasonBlock}>
+                                <Text style={styles.reasonTitle}>Prečo áno</Text>
+                                {positiveReasons.map(reason => (
+                                  <View key={reason} style={styles.reasonRow}>
+                                    <View style={[styles.reasonBadge, styles.reasonBadgePositive]}>
+                                      <Text style={styles.reasonBadgeText}>✓</Text>
+                                    </View>
+                                    <Text style={styles.reasonText}>{reason}</Text>
+                                  </View>
+                                ))}
+                              </View>
+                            )}
+                            {cautionReasons.length > 0 && (
+                              <View style={styles.reasonBlock}>
+                                <Text style={styles.reasonTitle}>Na čo si dať pozor</Text>
+                                {cautionReasons.map(reason => (
+                                  <View key={reason} style={styles.reasonRow}>
+                                    <View style={[styles.reasonBadge, styles.reasonBadgeNegative]}>
+                                      <Text style={styles.reasonBadgeText}>✗</Text>
+                                    </View>
+                                    <Text style={styles.reasonText}>{reason}</Text>
+                                  </View>
+                                ))}
+                              </View>
+                            )}
+                          </View>
+                        )}
                       </LinearGradient>
 
                       <View style={styles.structuredCard}>
@@ -2294,31 +2329,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
           </View>
         </ScrollView>
 
-        {currentView === 'scan' && (
-          <View style={styles.bottomActionBar}>
-            <TouchableOpacity
-              style={[styles.bottomActionButton, styles.bottomActionSecondary]}
-              onPress={exportText}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.bottomActionIcon}>📤</Text>
-              <Text style={styles.bottomActionText}>Zdieľať poznámky</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.bottomActionButton, styles.bottomActionPrimary]}
-              onPress={() => {
-                clearAll();
-                openCamera();
-              }}
-              activeOpacity={0.9}
-            >
-              <Text style={[styles.bottomActionIcon, styles.bottomActionIconPrimary]}>📷</Text>
-              <Text style={[styles.bottomActionText, styles.bottomActionTextPrimary]}>
-                Nový scan
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
         {(overlayVisible || isLoading) && (
           <View style={styles.loadingOverlay}>
             <View style={styles.loadingContainer}>

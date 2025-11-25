@@ -590,6 +590,9 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       color: palette.textSecondary,
       lineHeight: 20,
     },
+    reasonBlocksWrapper: {
+      marginTop: 8,
+    },
     reasonBlock: {
       marginTop: 14,
     },
@@ -922,53 +925,7 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       color: palette.accent,
     },
     bottomSpacer: {
-      height: 140,
-    },
-    bottomActionBar: {
-      position: 'absolute',
-      left: 20,
-      right: 20,
-      bottom: 24,
-      flexDirection: 'row',
-      columnGap: 12,
-      padding: 12,
-      borderRadius: 20,
-      backgroundColor: 'rgba(255,255,255,0.95)',
-      borderWidth: 1,
-      borderColor: 'rgba(200,168,130,0.25)',
-      ...baseShadow,
-    },
-    bottomActionButton: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: 14,
-      paddingVertical: 14,
-      columnGap: 8,
-    },
-    bottomActionSecondary: {
-      backgroundColor: palette.foam,
-      borderWidth: 1,
-      borderColor: 'rgba(200,168,130,0.4)',
-    },
-    bottomActionPrimary: {
-      backgroundColor: palette.primary,
-    },
-    bottomActionIcon: {
-      fontSize: 16,
-      color: palette.primary,
-    },
-    bottomActionIconPrimary: {
-      color: '#FFFFFF',
-    },
-    bottomActionText: {
-      fontSize: 15,
-      fontWeight: '700',
-      color: palette.textPrimary,
-    },
-    bottomActionTextPrimary: {
-      color: '#FFFFFF',
+      height: 32,
     },
     generateButton: {
       borderRadius: 18,
