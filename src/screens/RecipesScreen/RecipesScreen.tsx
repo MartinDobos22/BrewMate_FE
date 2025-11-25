@@ -25,6 +25,9 @@ import type { RecipeHistory } from '../../services/recipeServices';
 import { BREW_DEVICES } from '../../types/Recipe';
 import type { Recipe, BrewDevice } from '../../types/Recipe';
 
+/**
+ * Navigation and selection callbacks for the Recipes screen.
+ */
 export interface RecipesScreenProps {
   onBack: () => void;
   onHomePress: () => void;
@@ -53,6 +56,19 @@ type ExtendedRecipe = Recipe & {
 
 const HISTORY_FETCH_LIMIT = 50;
 
+/**
+ * Displays curated and historical recipes with filtering and selection
+ * capabilities.
+ *
+ * @param onBack - Handler for returning to the previous screen.
+ * @param onHomePress - Callback when the Home tab is chosen.
+ * @param onDiscoverPress - Callback when the Discover tab is chosen.
+ * @param onRecipesPress - Callback when the Recipes tab is chosen.
+ * @param onFavoritesPress - Callback when the Favorites tab is chosen.
+ * @param onProfilePress - Callback when the Profile tab is chosen.
+ * @param onRecipeSelect - Invoked when a recipe with instructions is selected.
+ * @returns Rendered recipes listing with filters.
+ */
 const RecipesScreen: React.FC<RecipesScreenProps> = ({
   onBack,
   onHomePress,
@@ -72,6 +88,13 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDevice, setSelectedDevice] = useState<string>(ALL_DEVICES_VALUE);
 
+  /**
+   * Fetches catalog and history recipes, normalizing responses and handling
+   * fallback states when either request fails.
+   *
+   * @param useRefreshingState - When true, avoids toggling the primary loading
+   *   spinner to preserve the pull-to-refresh UX.
+   */
   const loadRecipes = useCallback(
     async (useRefreshingState = false) => {
       if (!useRefreshingState) {
@@ -115,6 +138,9 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
     void loadRecipes();
   }, [loadRecipes]);
 
+  /**
+   * Refresh handler for pull-to-refresh interactions.
+   */
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadRecipes(true);
@@ -140,6 +166,10 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
     return Array.from(values).sort((a, b) => a.localeCompare(b));
   }, [extendedRecipes]);
 
+  /**
+   * Filters recipes based on the selected brew device and search query while
+   * preserving both catalog and history entries.
+   */
   const filteredRecipes = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
 
@@ -171,6 +201,11 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
     });
   }, [extendedRecipes, searchQuery, selectedDevice]);
 
+  /**
+   * Validates selection and surfaces instructions or alerts when missing.
+   *
+   * @param recipe - Selected recipe item from the list.
+   */
   const handleRecipePress = useCallback(
     (recipe: Recipe) => {
       if (!recipe.instructions || recipe.instructions.trim().length === 0) {
