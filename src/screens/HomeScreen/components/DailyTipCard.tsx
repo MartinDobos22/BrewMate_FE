@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Share, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -13,11 +13,13 @@ import type { Tip } from '../services';
 
 interface Props {
   tip?: Tip;
+  insight?: string;
+  advice?: string;
 }
 
 const SAVED_TIPS_KEY = 'SavedTips';
 
-const DailyTipCard: React.FC<Props> = ({ tip }) => {
+const DailyTipCard: React.FC<Props> = ({ tip, insight, advice }) => {
   const [currentTip, setCurrentTip] = useState<Tip | null>(tip ?? null);
 
   useEffect(() => {
@@ -80,11 +82,6 @@ const DailyTipCard: React.FC<Props> = ({ tip }) => {
     }
   };
 
-  const shareTip = () => {
-    if (!currentTip) return;
-    Share.share({ message: currentTip.text });
-  };
-
   if (!currentTip) return null;
 
   const formattedDate = currentTip.date
@@ -111,12 +108,16 @@ const DailyTipCard: React.FC<Props> = ({ tip }) => {
         </View>
       </View>
       <Text style={styles.text}>{currentTip.text}</Text>
+      {insight ? (
+        <View style={styles.insightBlock}>
+          <Text style={styles.insightLabel}>Denný insight</Text>
+          <Text style={styles.insightText}>{insight}</Text>
+        </View>
+      ) : null}
+      {advice ? <Text style={styles.adviceText}>{advice}</Text> : null}
       <View style={styles.actions}>
         <TouchableOpacity onPress={saveTip} style={styles.actionPrimary}>
           <Text style={styles.actionPrimaryText}>Ulož</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={shareTip} style={styles.actionSecondary}>
-          <Text style={styles.actionSecondaryText}>Zdieľaj</Text>
         </TouchableOpacity>
       </View>
     </LinearGradient>
@@ -179,25 +180,36 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 14,
     alignItems: 'center',
-    marginRight: 12,
   },
   actionPrimaryText: {
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 13,
   },
-  actionSecondary: {
-    paddingVertical: 10,
-    paddingHorizontal: 18,
+  insightBlock: {
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    padding: 12,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.6)',
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    marginBottom: 12,
   },
-  actionSecondaryText: {
+  insightLabel: {
+    color: '#3E2617',
+    fontWeight: '700',
+    fontSize: 12,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  insightText: {
     color: '#FFFFFF',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  adviceText: {
+    color: '#F8E7D6',
+    fontSize: 12,
     fontWeight: '600',
-    fontSize: 13,
+    marginBottom: 12,
   },
 });
 

@@ -79,37 +79,6 @@ export const homeStyles = () =>
       flexDirection: 'row',
       alignItems: 'center',
     },
-    notificationBtn: {
-      width: 40,
-      height: 40,
-      borderRadius: 14,
-      backgroundColor: 'rgba(255,255,255,0.75)',
-      borderWidth: 1,
-      borderColor: palette.borderGlass,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    notificationIcon: {
-      fontSize: 18,
-    },
-    notificationBadge: {
-      position: 'absolute',
-      top: -2,
-      right: -2,
-      width: 18,
-      height: 18,
-      borderRadius: 9,
-      backgroundColor: palette.accentCoral,
-      justifyContent: 'center',
-      alignItems: 'center',
-      borderWidth: 2,
-      borderColor: palette.surfacePrimary,
-    },
-    badgeText: {
-      color: '#FFFFFF',
-      fontSize: 10,
-      fontWeight: '700',
-    },
     profileAvatar: {
       width: 44,
       height: 44,
@@ -222,19 +191,6 @@ export const homeStyles = () =>
       color: '#FFFFFF',
       fontWeight: '700',
     },
-    savedTipsLink: {
-      alignSelf: 'flex-start',
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 14,
-      backgroundColor: palette.surfaceElevated,
-      marginTop: 12,
-    },
-    savedTipsLinkText: {
-      color: palette.espresso,
-      fontWeight: '600',
-      fontSize: 13,
-    },
 
     // Stats
     statsCard: {
@@ -288,38 +244,6 @@ export const homeStyles = () =>
       borderRadius: 18,
       marginHorizontal: 6,
     },
-    statsActions: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginTop: 20,
-    },
-    statsLink: {
-      flex: 1,
-      paddingVertical: 10,
-      paddingHorizontal: 16,
-      borderRadius: 14,
-      backgroundColor: palette.surfaceElevated,
-      alignItems: 'center',
-      marginRight: 12,
-    },
-    statsLinkText: {
-      color: palette.espresso,
-      fontWeight: '600',
-      fontSize: 13,
-    },
-    statsLinkPrimary: {
-      flex: 1,
-      paddingVertical: 10,
-      paddingHorizontal: 16,
-      borderRadius: 14,
-      backgroundColor: palette.accentOrange,
-      alignItems: 'center',
-    },
-    statsLinkPrimaryText: {
-      color: '#FFFFFF',
-      fontWeight: '700',
-      fontSize: 13,
-    },
     statLabel: {
       fontSize: 12,
       color: palette.textTertiary,
@@ -341,14 +265,6 @@ export const homeStyles = () =>
       color: palette.textSecondary,
       marginTop: 6,
       fontWeight: '600',
-    },
-    statNoteList: {
-      marginTop: 6,
-    },
-    statNoteItem: {
-      fontSize: 12,
-      color: palette.textSecondary,
-      marginBottom: 4,
     },
 
     // Quick Actions
@@ -388,28 +304,6 @@ export const homeStyles = () =>
       color: '#FFFFFF',
       fontSize: 11,
       opacity: 0.9,
-    },
-    secondaryActions: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      flexWrap: 'wrap',
-      marginBottom: verticalScale(16),
-    },
-    secondaryActionButton: {
-      width: '48%',
-      paddingVertical: 12,
-      paddingHorizontal: 16,
-      borderRadius: 18,
-      backgroundColor: palette.surfaceElevated,
-      borderWidth: 1,
-      borderColor: palette.borderGlass,
-      marginBottom: 12,
-    },
-    secondaryActionText: {
-      textAlign: 'center',
-      fontWeight: '600',
-      fontSize: 13,
-      color: palette.espresso,
     },
 
     // Taste profile
@@ -636,63 +530,9 @@ export const homeStyles = () =>
       fontSize: 24,
     },
 
-    // Insight
-    insightCard: {
-      backgroundColor: palette.surfaceElevated,
-      borderRadius: 24,
-      padding: 20,
-      borderWidth: 1,
-      borderColor: palette.borderGlass,
-      marginBottom: verticalScale(16),
-    },
-    insightHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 12,
-    },
-    insightIcon: {
-      width: 36,
-      height: 36,
-      borderRadius: 12,
-      backgroundColor: palette.accentAmber,
-      justifyContent: 'center',
-      alignItems: 'center',
-      marginRight: 12,
-    },
-    insightLabel: {
-      fontSize: 12,
-      fontWeight: '700',
-      color: palette.textTertiary,
-      textTransform: 'uppercase',
-      letterSpacing: 0.8,
-    },
-    insightText: {
-      fontSize: 15,
-      lineHeight: 22,
-      color: palette.textPrimary,
-      fontStyle: 'italic',
-      marginBottom: 12,
-    },
-    insightFooter: {
-      fontSize: 13,
-      color: palette.textSecondary,
-      fontWeight: '600',
-    },
-
     // Activity
     activitySection: {
       marginBottom: verticalScale(16),
-    },
-    sectionLink: {
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 14,
-      backgroundColor: palette.surfaceElevated,
-    },
-    sectionLinkText: {
-      color: palette.espresso,
-      fontWeight: '600',
-      fontSize: 12,
     },
     activityList: {
       backgroundColor: palette.surfaceCard,

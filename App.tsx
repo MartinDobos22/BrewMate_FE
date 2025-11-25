@@ -2231,16 +2231,12 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         onHomePress={handleBackPress}
         onScanPress={handleScannerPress}
         onBrewPress={handleBrewPress}
-        onBrewHistoryPress={handleBrewHistoryPress}
-        onLogBrewPress={handleBrewLogPress}
         onProfilePress={handleProfilePress}
         onDiscoverPress={handleDiscoverPress}
         onRecipesPress={handleRecipesPress}
         onFavoritesPress={handleFavoritesPress}
         onInventoryPress={handleInventoryPress}
         onPersonalizationPress={handlePersonalizationPress}
-        onCommunityRecipesPress={handleCommunityRecipesPress}
-        onSavedTipsPress={handleSavedTipsPress}
       />
       <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
     </ResponsiveWrapper>
