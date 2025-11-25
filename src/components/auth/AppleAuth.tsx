@@ -5,14 +5,32 @@ import auth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LinearGradient from 'react-native-linear-gradient';
 
+/**
+ * Props for the Apple authentication bottom sheet component.
+ */
 interface AppleAuthProps {
+  /** Callback executed to close the sheet or navigate away from Apple auth. */
   onBack?: () => void;
 }
 
+/**
+ * Bottom sheet that signs the user in with Apple ID, persists the Firebase token, and informs the
+ * backend of the chosen auth provider.
+ *
+ * @param {AppleAuthProps} props - Handlers to dismiss the sheet when necessary.
+ * @returns {JSX.Element} The rendered Apple login prompt with gradient styling.
+ */
 const AppleAuth: React.FC<AppleAuthProps> = ({ onBack }) => {
   const isDarkMode = useColorScheme() === 'dark';
   const styles = createStyles(isDarkMode);
 
+  /**
+   * Initiates Apple authentication, exchanges the identity token for Firebase credentials, and
+   * stores the resulting token locally.
+   *
+   * @returns {Promise<void>} Promise resolved when the login and token persistence complete.
+   * @throws {Error} If Apple sign-in fails or Firebase credential exchange is unsuccessful.
+   */
   const handleLogin = async () => {
     try {
       const response = await appleAuth.performRequest({
@@ -83,6 +101,12 @@ const AppleAuth: React.FC<AppleAuthProps> = ({ onBack }) => {
   );
 };
 
+/**
+ * Generates StyleSheet rules for the Apple authentication UI using theme brightness.
+ *
+ * @param {boolean} isDark - Flag indicating whether the current theme is dark mode.
+ * @returns {ReturnType<typeof StyleSheet.create>} StyleSheet definition for the component.
+ */
 const createStyles = (isDark: boolean) =>
   StyleSheet.create({
     overlay: {

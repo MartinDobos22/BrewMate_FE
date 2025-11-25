@@ -11,6 +11,11 @@ const fallbackDimensions: ScaledSize = {
 
 let hasLoggedDimensionsWarning = false;
 
+/**
+ * Resolves current window dimensions while gracefully handling environments without native bindings.
+ *
+ * @returns {ScaledSize} The resolved screen dimensions or a predefined fallback when unavailable.
+ */
 const resolveDimensions = (): ScaledSize => {
   try {
     // Lazy require keeps us safe in environments where the native Dimensions
@@ -40,9 +45,19 @@ const resolveDimensions = (): ScaledSize => {
   return fallbackDimensions;
 };
 
+/**
+ * Retrieves the current screen height using safe dimension resolution.
+ *
+ * @returns {number} Screen height in pixels.
+ */
 const getScreenHeight = () => resolveDimensions().height;
 
 // Pomocné funkcie pre bezpečné zóny (bez externých dependencies)
+/**
+ * Estimates the safe area inset for the top of the screen based on platform and device height.
+ *
+ * @returns {number} Top inset in pixels to avoid notches and status bars.
+ */
 export const getSafeAreaTop = () => {
   const screenHeight = getScreenHeight();
   if (Platform.OS === 'ios') {
@@ -57,6 +72,11 @@ export const getSafeAreaTop = () => {
   return StatusBar.currentHeight || 24;
 };
 
+/**
+ * Estimates the safe area inset for the bottom of the screen to avoid home indicator or navigation bar.
+ *
+ * @returns {number} Bottom inset in pixels appropriate for the device type.
+ */
 export const getSafeAreaBottom = () => {
   const screenHeight = getScreenHeight();
   if (Platform.OS === 'ios') {
@@ -71,18 +91,34 @@ export const getSafeAreaBottom = () => {
 };
 
 // Detekcia malých zariadení
+/**
+ * Determines whether the device has a narrow screen width, indicating a small handset.
+ *
+ * @returns {boolean} True when the device width is smaller than 375 points.
+ */
 export const isSmallDevice = () => {
   const { width } = resolveDimensions();
   return width < 375;
 };
 
 // Detekcia tabletov
+/**
+ * Determines whether the device meets a minimal width threshold to be considered a tablet.
+ *
+ * @returns {boolean} True when the device width is at least 768 points.
+ */
 export const isTablet = () => {
   const { width } = resolveDimensions();
   return width >= 768;
 };
 
 // Získať responzívnu veľkosť
+/**
+ * Scales a base size proportionally to the device width within constrained bounds.
+ *
+ * @param {number} size - Baseline size value to adjust.
+ * @returns {number} Rounded pixel size adapted to the current device width.
+ */
 export const scale = (size: number) => {
   const { width } = resolveDimensions();
   const baseWidth = 375; // iPhone 11 Pro
@@ -96,6 +132,12 @@ export const scale = (size: number) => {
   return Math.round(size * finalScale);
 };
 
+/**
+ * Scales a base size relative to device height while limiting extremes.
+ *
+ * @param {number} size - Baseline vertical size to adjust.
+ * @returns {number} Rounded pixel size adapted to the current device height.
+ */
 export const verticalScale = (size: number) => {
   const { height } = resolveDimensions();
   const baseHeight = 812; // Reference height (iPhone 11 Pro)

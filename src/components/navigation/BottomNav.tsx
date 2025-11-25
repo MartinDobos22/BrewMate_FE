@@ -14,6 +14,18 @@ interface BottomNavProps {
   onProfilePress: () => void;
 }
 
+/**
+ * Renders the primary bottom navigation bar for switching between main app sections.
+ *
+ * @param {BottomNavProps} props - Component props describing the active tab and navigation callbacks.
+ * @param {NavItem} props.active - Identifier of the currently active navigation item.
+ * @param {() => void} props.onHomePress - Handler invoked when the home tab is selected.
+ * @param {() => void} props.onDiscoverPress - Handler invoked when the discover tab is selected.
+ * @param {() => void} props.onRecipesPress - Handler invoked when the recipes tab is selected.
+ * @param {() => void} props.onFavoritesPress - Handler invoked when the favorites tab is selected.
+ * @param {() => void} props.onProfilePress - Handler invoked when the profile tab is selected.
+ * @returns {JSX.Element} Rendered bottom navigation component with emojis representing each destination.
+ */
 const BottomNav: React.FC<BottomNavProps> = ({
   active,
   onHomePress,
