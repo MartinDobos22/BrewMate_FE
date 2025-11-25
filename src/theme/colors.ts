@@ -1,3 +1,9 @@
+/**
+ * Color palette for light-mode surfaces and text.
+ *
+ * Values are used by themed components and should maintain sufficient
+ * contrast against light backgrounds for accessibility.
+ */
 export const lightColors = {
   background: '#F4ECE6',
   cardBackground: '#FFFFFF',
@@ -12,6 +18,12 @@ export const lightColors = {
   border: 'rgba(0,0,0,0.1)',
 };
 
+/**
+ * Color palette for dark-mode surfaces and text.
+ *
+ * Colors favor warmer browns to align with the coffee brand identity while
+ * preserving readability on dark backgrounds.
+ */
 export const darkColors = {
   background: '#3E2723',
   cardBackground: '#4E342E',
@@ -26,8 +38,20 @@ export const darkColors = {
   border: 'rgba(255,255,255,0.1)',
 };
 
+/**
+ * Resolves the active color palette based on the current theme flag.
+ *
+ * @param isDarkMode - When `true`, returns the dark palette; otherwise, the
+ *   light palette.
+ * @returns The palette object that should be fed into theming hooks and
+ *   components.
+ */
 export const getColors = (isDarkMode: boolean) => (
   isDarkMode ? darkColors : lightColors
 );
 
+/**
+ * Derived type representing the shape of the active color palette returned by
+ * {@link getColors}. Keep in sync when adding new theme tokens.
+ */
 export type Colors = ReturnType<typeof getColors>;

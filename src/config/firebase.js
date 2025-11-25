@@ -1,3 +1,11 @@
+/**
+ * Placeholder Firebase web configuration for potential browser builds.
+ *
+ * The imports and initialization logic remain commented out because the mobile
+ * application uses the React Native Firebase SDKs instead. When adapting this
+ * project for the web, uncomment the initialization code, provide runtime
+ * configuration, and export the initialized services (e.g., `authorization`).
+ */
 // // Import the functions you need from the SDKs you need
 // import { initializeApp } from "firebase/app";
 // import { getAnalytics } from "firebase/analytics";

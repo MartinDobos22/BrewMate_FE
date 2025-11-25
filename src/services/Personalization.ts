@@ -3,6 +3,9 @@ import type { TrackingPreferences, TasteProfileVector } from '../types/Personali
 import type { ExportPayload } from '../types/Personalization';
 import { PrivacyManager } from './PrivacyManager';
 
+/**
+ * Fallback taste profile used when community averages cannot be computed.
+ */
 export const DEFAULT_COMMUNITY_AVERAGE: TasteProfileVector = {
   sweetness: 5,
   acidity: 5,
@@ -10,12 +13,19 @@ export const DEFAULT_COMMUNITY_AVERAGE: TasteProfileVector = {
   body: 5,
 };
 
+/**
+ * Default opt-in flags for personalization data processing.
+ */
 export const optIn: { dataControl: (keyof TrackingPreferences)[] } = {
   dataControl: ['analytics', 'autoTracking', 'communityInsights'],
 };
 
 const manager: PrivacyManager = basePrivacyManager;
 
+/**
+ * Facade exposing privacy and data-portability operations scoped to the
+ * personalization user ID.
+ */
 export const privacyManager = {
   manager,
   loadPreferences(): Promise<TrackingPreferences> {
