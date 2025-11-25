@@ -756,6 +756,24 @@ export const processOCR = async (
   }
 };
 
+export interface OCRHistory {
+  id: string;
+  coffee_name: string;
+  original_text: string;
+  corrected_text: string;
+  created_at: Date;
+  rating?: number;
+  match_percentage?: number;
+  is_recommended?: boolean;
+  is_purchased?: boolean;
+  is_favorite?: boolean;
+  brand?: string | null;
+  origin?: string | null;
+  roast_level?: string | null;
+  flavor_notes?: string[] | null;
+  thumbnail_url?: string | null;
+}
+
 /**
  * Načíta históriu OCR skenovaní
  */
@@ -791,6 +809,11 @@ export const fetchOCRHistory = async (limit: number = 10): Promise<OCRHistory[]>
       is_recommended: item.is_recommended,
       is_purchased: item.is_purchased,
       is_favorite: item.is_favorite,
+      brand: item.brand ?? item.roaster ?? null,
+      origin: item.origin ?? item.country_of_origin ?? null,
+      roast_level: item.roast_level ?? item.roastLevel ?? null,
+      flavor_notes: item.flavor_notes ?? item.flavorNotes ?? null,
+      thumbnail_url: item.thumbnail_url ?? item.thumbnailUrl ?? null,
     }));
   } catch (error) {
     console.error('Error fetching OCR history:', error);

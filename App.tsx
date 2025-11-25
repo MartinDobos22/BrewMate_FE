@@ -32,6 +32,8 @@ import FlavorJourneyMap from './src/components/personalization/FlavorJourneyMap'
 import AICoachChat from './src/components/personalization/AICoachChat';
 import BrewHistoryScreen from './src/screens/BrewHistory';
 import BrewHistoryDetailScreen from './src/screens/BrewHistory/DetailScreen';
+import ScanHistoryScreen from './src/screens/ScanHistoryScreen';
+import ScanDetailScreen from './src/screens/ScanDetailScreen';
 import BrewLogForm from './src/components/brew/BrewLogForm';
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 import { scale } from './src/theme/responsive';
@@ -86,6 +88,7 @@ import {
 } from './src/services/personalization/onboardingAnalysis';
 import type { BrewLog } from './src/types/BrewLog';
 import type { BrewDevice, Recipe } from './src/types/Recipe';
+import type { OCRHistory } from './src/services/ocrServices';
 
 type ScreenName =
   | 'home'
@@ -108,7 +111,9 @@ type ScreenName =
   | 'brew-history-detail'
   | 'brew-log'
   | 'community-recipes'
-  | 'saved-tips';
+  | 'saved-tips'
+  | 'scan-history'
+  | 'scan-detail';
 
 type AuthNotice = {
   message: string;
@@ -434,6 +439,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   const [syncVisible, setSyncVisible] = useState(false);
   const [selectedBrewLog, setSelectedBrewLog] = useState<BrewLog | null>(null);
   const [selectedRecipeHistory, setSelectedRecipeHistory] = useState<RecipeHistory | null>(null);
+  const [selectedScan, setSelectedScan] = useState<OCRHistory | null>(null);
   const [authNotice] = useState<AuthNotice | null>(null);
   const { isDark, colors } = useTheme();
   const {
@@ -1458,6 +1464,15 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     setCurrentScreen('scanner');
   };
 
+  const handleScanHistoryPress = () => {
+    setCurrentScreen('scan-history');
+  };
+
+  const handleScanDetailPress = (scan: OCRHistory) => {
+    setSelectedScan(scan);
+    setCurrentScreen('scan-detail');
+  };
+
   // Open dedicated scanner for preparing a drink (same as scan for now)
   const handleBrewPress = () => {
     setCurrentScreen('brew');
@@ -1540,9 +1555,20 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     setCurrentScreen('saved-tips');
   };
 
+  const handleScanHistoryBack = () => {
+    setSelectedScan(null);
+    setCurrentScreen('scanner');
+  };
+
+  const handleScanDetailBack = () => {
+    setSelectedScan(null);
+    setCurrentScreen('scan-history');
+  };
+
   const handleBackPress = () => {
     setSelectedBrewLog(null);
     setSelectedRecipeHistory(null);
+    setSelectedScan(null);
     setCurrentScreen('home');
   };
 
@@ -1630,7 +1656,73 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           </TouchableOpacity>
           <QueueStatusBadge />
         </View>
-        <CoffeeTasteScanner />
+        <CoffeeTasteScanner onHistoryPress={handleScanHistoryPress} />
+        <BottomNav
+          active="home"
+          onHomePress={handleBackPress}
+          onDiscoverPress={handleDiscoverPress}
+          onRecipesPress={handleRecipesPress}
+          onFavoritesPress={handleFavoritesPress}
+          onProfilePress={handleProfilePress}
+        />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
+      </ResponsiveWrapper>
+    );
+  }
+
+  if (currentScreen === 'scan-history') {
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.background}
+      >
+        <ConnectionStatusBar />
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={[styles.backButton, { backgroundColor: colors.primary }]}
+            onPress={handleScanHistoryBack}
+          >
+            <Text style={styles.backButtonText}>← Späť</Text>
+          </TouchableOpacity>
+          <QueueStatusBadge />
+        </View>
+        <ScanHistoryScreen onBack={handleScanHistoryBack} onSelectScan={handleScanDetailPress} />
+        <BottomNav
+          active="home"
+          onHomePress={handleBackPress}
+          onDiscoverPress={handleDiscoverPress}
+          onRecipesPress={handleRecipesPress}
+          onFavoritesPress={handleFavoritesPress}
+          onProfilePress={handleProfilePress}
+        />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
+      </ResponsiveWrapper>
+    );
+  }
+
+  if (currentScreen === 'scan-detail') {
+    if (!selectedScan) {
+      return null;
+    }
+
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.background}
+      >
+        <ConnectionStatusBar />
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={[styles.backButton, { backgroundColor: colors.primary }]}
+            onPress={handleScanDetailBack}
+          >
+            <Text style={styles.backButtonText}>← Späť</Text>
+          </TouchableOpacity>
+          <QueueStatusBadge />
+        </View>
+        <ScanDetailScreen scan={selectedScan} onBack={handleScanDetailBack} />
         <BottomNav
           active="home"
           onHomePress={handleBackPress}
