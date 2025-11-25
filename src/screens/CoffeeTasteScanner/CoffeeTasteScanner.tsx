@@ -43,25 +43,12 @@ import {
   toggleFavorite,
   isCoffeeRelatedText,
 } from './services';
-import type { StructuredCoffeeMetadata, ConfirmStructuredPayload } from './services';
+import type { OCRHistory, StructuredCoffeeMetadata, ConfirmStructuredPayload } from './services';
 import { BrewContext } from '../../types/Personalization';
 import { usePersonalization } from '../../hooks/usePersonalization';
 import { recognizeCoffee } from '../../offline/VisionService';
 import { coffeeOfflineManager, offlineSync } from '../../offline';
 import { showToast } from '../../utils/toast';
-
-interface OCRHistory {
-  id: string;
-  coffee_name: string;
-  original_text: string;
-  corrected_text: string;
-  created_at: Date;
-  rating?: number;
-  match_percentage?: number;
-  is_recommended?: boolean;
-  is_purchased?: boolean;
-  is_favorite?: boolean;
-}
 
 interface ScanResult {
   original: string;
@@ -90,6 +77,7 @@ type StructuredConfirmPayload = ConfirmStructuredPayload & {
 
 interface ProfessionalOCRScannerProps {
   onBack?: () => void;
+  onHistoryPress?: () => void;
 }
 
 const resolveTimeOfDay = (date: Date): BrewContext['timeOfDay'] => {
@@ -451,7 +439,7 @@ const clampTasteValue = (value: number): number => {
   return Math.min(10, Math.max(0, value));
 };
 
-const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) => {
+const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onHistoryPress }) => {
   const { coffeeDiary: personalizationDiary, refreshInsights } = usePersonalization();
   const diary = personalizationDiary ?? fallbackCoffeeDiary;
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
@@ -1443,16 +1431,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
     }
   };
 
-  const ratedHistory = ocrHistory.filter(
-    (item) => typeof item.rating === 'number' && (item.rating ?? 0) > 0
-  );
-  const averageRating = ratedHistory.length
-    ? (
-        ratedHistory.reduce((acc, item) => acc + (item.rating ?? 0), 0) /
-        ratedHistory.length
-      ).toFixed(1)
-    : '0.0';
-  const favoritesCount = ocrHistory.filter((item) => item.is_favorite).length;
   const showBackButton = currentView !== 'home';
   const matchLabel = scanResult?.matchPercentage
     ? `${scanResult.matchPercentage}% zhoda`
@@ -1840,17 +1818,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
         >
           <View style={styles.contentWrapper}>
             <View style={styles.phoneContainer}>
-              <View style={styles.statusBar}>
-                <Text style={styles.statusTime}>9:41</Text>
-                <View style={styles.statusIcons}>
-                  <Text style={styles.statusIcon}>📶</Text>
-                  <Text style={styles.statusIcon}>
-                    {isConnected === false ? '⚠️' : '📶'}
-                  </Text>
-                  <Text style={styles.statusIcon}>🔋</Text>
-                </View>
-              </View>
-
               <View style={styles.appHeader}>
                 <TouchableOpacity
                   style={[styles.backButton, showBackButton ? styles.backButtonVisible : null]}
@@ -1913,30 +1880,13 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
                       </View>
                     </View>
 
-                    <View style={styles.statsContainer}>
-                      <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>{ocrHistory.length}</Text>
-                        <Text style={styles.statLabel}>Skenov</Text>
-                      </View>
-                      <View style={styles.statDivider} />
-                      <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>{favoritesCount}</Text>
-                        <Text style={styles.statLabel}>Obľúbené</Text>
-                      </View>
-                      <View style={styles.statDivider} />
-                      <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>{averageRating}</Text>
-                        <Text style={styles.statLabel}>Priemer ⭐</Text>
-                      </View>
-                    </View>
-
                     <View style={styles.historySection}>
                       <View style={styles.historyHeader}>
                         <Text style={styles.historyTitle}>📚 História skenovaní</Text>
                         {ocrHistory.length > 0 && (
                           <TouchableOpacity
                             style={styles.historySeeAll}
-                            onPress={() => showToast('Pripravujeme prehľad histórie.')}
+                            onPress={onHistoryPress}
                           >
                             <Text style={styles.historySeeAllText}>Zobraziť všetky →</Text>
                           </TouchableOpacity>
@@ -2369,15 +2319,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
             </TouchableOpacity>
           </View>
         )}
-
-        <TouchableOpacity
-          style={[styles.fab, currentView === 'home' ? styles.fabVisible : null]}
-          onPress={openCamera}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.fabIcon}>📷</Text>
-        </TouchableOpacity>
-
         {(overlayVisible || isLoading) && (
           <View style={styles.loadingOverlay}>
             <View style={styles.loadingContainer}>
