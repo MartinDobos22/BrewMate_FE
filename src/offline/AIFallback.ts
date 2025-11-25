@@ -8,6 +8,10 @@ const CACHE_TTL_HOURS = 24; // expirácia 24h
 
 /**
  * Vypočíta podobnosť dvoch reťazcov pomocou Levenshtein distance.
+ *
+ * @param {string} a - Prvý reťazec na porovnanie.
+ * @param {string} b - Druhý reťazec na porovnanie.
+ * @returns {number} Hodnota v rozsahu 0-1, kde 1 znamená identické reťazce.
  */
 function similarity(a: string, b: string): number {
   const matrix: number[][] = [];
@@ -34,10 +38,16 @@ function similarity(a: string, b: string): number {
 
 /**
  * Offline AI fallback systém.
+ * Poskytuje odpoveď z cache alebo z predpripravených otázok, keď online dotaz zlyhá alebo chýba pripojenie.
  */
 export class AIFallback {
   /**
    * Získa odpoveď na otázku s využitím cache a offline fallbacku.
+   *
+   * @param {string} question - Pôvodná otázka používateľa.
+   * @param {(q: string) => Promise<string>} [onlineFetcher] - Voliteľný online fetcher; ak zlyhá, použije sa offline režim.
+   * @returns {Promise<{ answer: string; offline: boolean }>} Objekt s textom odpovede a informáciou, či pochádza z offline zdroja.
+   * @throws {Error} Pri zlyhaní čítania alebo zápisu do AsyncStorage sa chyba zaloguje a odpoveď sa fallbackne na offline dáta.
    */
   static async getAnswer(
     question: string,

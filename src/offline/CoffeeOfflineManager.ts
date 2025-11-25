@@ -12,7 +12,9 @@ export class CoffeeOfflineManager {
   private constructor() {}
 
   /**
-   * Singleton prístup k manažéru
+   * Poskytuje singleton inštanciu manažéra cache, aby sa zabránilo duplicitným prístupom k úložisku.
+   *
+   * @returns {CoffeeOfflineManager} Jediná zdieľaná inštancia triedy pre správu offline dát.
    */
   public static getInstance() {
     if (!this.instance) {
@@ -22,7 +24,14 @@ export class CoffeeOfflineManager {
   }
 
   /**
-   * Uloženie dát do cache s metadátami
+   * Uloženie dát do cache s metadátami o expirácii a prioritou.
+   *
+   * @param {string} key - Jedinečný kľúč položky v AsyncStorage.
+   * @param {unknown} value - Hodnota, ktorá sa má uložiť; serializuje sa do JSON.
+   * @param {number} expiresInHours - Počet hodín, po ktorých sa má položka považovať za expirovanú.
+   * @param {number} [priority=0] - Priorita pre vymazávanie; vyššia hodnota znamená dôležitejšiu položku.
+   * @returns {Promise<void>} Promise indikujúci dokončenie zápisu.
+   * @throws {Error} Pri zlyhaní zápisu do AsyncStorage sa vyhodí chyba a zapíše sa warning do logu.
    */
   public async setItem(
     key: string,
@@ -44,7 +53,12 @@ export class CoffeeOfflineManager {
   }
 
   /**
-   * Načítanie dát z cache s kontrolou expirácie
+   * Načítanie dát z cache s kontrolou expirácie.
+   *
+   * @template T
+   * @param {string} key - Kľúč uložený v AsyncStorage.
+   * @returns {Promise<T | null>} Uložená hodnota, alebo null ak neexistuje alebo expirovala.
+   * @throws {Error} Pri chybe čítania z AsyncStorage sa vyhodí chyba a metóda vráti null.
    */
   public async getItem<T>(key: string): Promise<T | null> {
     try {
@@ -63,7 +77,10 @@ export class CoffeeOfflineManager {
   }
 
   /**
-   * Vymazanie expirovaných položiek
+   * Vymazanie expirovaných položiek na základe uloženého metadátového timestampu.
+   *
+   * @returns {Promise<void>} Promise indikujúci ukončenie čistenia expirovaných položiek.
+   * @throws {Error} Pri chybe čítania alebo mazania dát sa vyhodí chyba a proces pokračuje s ďalšími položkami.
    */
   public async purgeExpired() {
     const keys = await AsyncStorage.getAllKeys();
@@ -86,7 +103,10 @@ export class CoffeeOfflineManager {
   }
 
   /**
-   * Prefetch prioritného obsahu pri pripojení na WiFi
+   * Prefetch prioritného obsahu pri pripojení na WiFi a uloženie s vyššou prioritou.
+   *
+   * @param {() => Promise<any[]>} fetchTopRecipes - Funkcia zabezpečujúca stiahnutie top receptov pri dostupnom pripojení.
+   * @returns {void} Nevracia hodnotu; registruje listener na NetInfo.
    */
   public startWifiPrefetch(fetchTopRecipes: () => Promise<any[]>) {
     NetInfo.addEventListener(async state => {
@@ -105,6 +125,8 @@ export class CoffeeOfflineManager {
   /**
    * Jednoduchá stratégia pre uvoľnenie miesta –
    * odstráni položky s najnižšou prioritou.
+   *
+   * @returns {Promise<void>} Promise indikujúci dokončenie prípadného mazania.
    */
   private async ensureSpace() {
     const keys = await AsyncStorage.getAllKeys();
@@ -125,7 +147,11 @@ export class CoffeeOfflineManager {
   }
 
   /**
-   * Pomocná metóda pre offline odpovede z AI
+   * Pomocná metóda pre offline odpovede z AI pomocou predpripravených dát.
+   *
+   * @param {string} question - Otázka používateľa, ktorá sa porovnáva s offline databázou otázok.
+   * @returns {Promise<string | null>} Nájdená odpoveď alebo null, ak pre otázku neexistuje offline match.
+   * @throws {Error} Pri zlyhaní vyhľadávania či zobrazovania toastu sa chyba zaloguje a vráti sa null.
    */
   public async getOfflineAIAnswer(question: string): Promise<string | null> {
     // jednoduché vyhľadanie v predpripravenom zozname

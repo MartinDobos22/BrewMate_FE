@@ -30,6 +30,8 @@ const MAX_RETRIES = 3;
 
 /**
  * Trieda spravujúca frontu offline zmien a ich synchronizáciu so Supabase.
+ * Registruje listeners na zmeny konektivity, ukladá požiadavky do AsyncStorage a
+ * pri obnovení pripojenia odosiela požiadavky na backend REST endpoint.
  */
 export class OfflineSync {
   private static instance: OfflineSync;
@@ -39,6 +41,11 @@ export class OfflineSync {
 
   private constructor() {}
 
+  /**
+   * Poskytuje singleton inštanciu synchronizačného manažéra.
+   *
+   * @returns {OfflineSync} Zdieľaná inštancia, aby sa zabránilo súbežným sync procesom.
+   */
   public static getInstance() {
     if (!this.instance) this.instance = new OfflineSync();
     return this.instance;
@@ -46,6 +53,12 @@ export class OfflineSync {
 
   /**
    * Pridanie zmeny do fronty s optimistickou aktualizáciou UI.
+   *
+   * @param {string} operation - Názov operácie (napr. insert/update) posielanej na Supabase.
+   * @param {any} payload - Telo požiadavky, ktoré sa uloží do fronty a neskôr sa odošle.
+   * @param {string} [userId] - Identifikátor používateľa; ak chýba, skúsi sa odvodiť z payloadu.
+   * @returns {Promise<void>} Promise indikujúci dokončenie zápisu do AsyncStorage.
+   * @throws {Error} Pri zlyhaní zápisu do úložiska sa chyba zaloguje a listener dostane pôvodný počet položiek.
    */
   public async enqueue(operation: string, payload: any, userId?: string) {
     const item: QueueItem = {
@@ -64,6 +77,8 @@ export class OfflineSync {
 
   /**
    * Spustenie sledovania pripojenia a synchronizácie.
+   *
+   * @returns {void} Registruje NetInfo listener pre automatický re-run processQueue pri online stave.
    */
   public start() {
     NetInfo.addEventListener(state => {
@@ -75,6 +90,9 @@ export class OfflineSync {
 
   /**
    * Zaregistruj listener na zmeny dĺžky fronty.
+   *
+   * @param {(count: number) => void} cb - Callback, ktorý dostane aktuálnu dĺžku fronty.
+   * @returns {() => void} Funkcia na odregistrovanie listenera.
    */
   public addListener(cb: (count: number) => void): () => void {
     this.listeners.push(cb);
@@ -88,35 +106,82 @@ export class OfflineSync {
     return () => this.removeListener(cb);
   }
 
+  /**
+   * Odregistruje listener sledujúci dĺžku fronty.
+   *
+   * @param {(count: number) => void} cb - Callback registrovaný cez addListener.
+   * @returns {void} Nevracia hodnotu; upraví interný zoznam listenerov.
+   */
   public removeListener(cb: (count: number) => void) {
     this.listeners = this.listeners.filter((listener) => listener !== cb);
   }
 
+  /**
+   * Odregistruje listener sledujúci dĺžku fronty.
+   *
+   * @param {(count: number) => void} cb - Callback registrovaný cez addListener.
+   * @returns {void} Nevracia hodnotu; upraví interný zoznam listenerov.
+   */
   public removeListener(cb: (count: number) => void) {
     this.listeners = this.listeners.filter(listener => listener !== cb);
   }
 
+  /**
+   * Zaregistruje listener na priebeh synchronizácie.
+   *
+   * @param {(processed: number, total: number) => void} cb - Funkcia dostávajúca počet spracovaných a celkových položiek.
+   * @returns {() => void} Funkcia na odregistrovanie progress listenera.
+   */
   public addProgressListener(cb: (processed: number, total: number) => void) {
     this.progressListeners.push(cb);
     return () => this.removeProgressListener(cb);
   }
 
+  /**
+   * Odstráni listener priebehu synchronizácie.
+   *
+   * @param {(processed: number, total: number) => void} cb - Callback vracaný z addProgressListener.
+   * @returns {void} Nevracia hodnotu; aktualizuje interné pole listenerov.
+   */
   public removeProgressListener(cb: (processed: number, total: number) => void) {
     this.progressListeners = this.progressListeners.filter(listener => listener !== cb);
   }
 
+  /**
+   * Indikátor, či práve prebieha synchronizačný beh.
+   *
+   * @returns {boolean} True ak je synchronizácia aktívna, inak false.
+   */
   public isSyncing() {
     return this.syncing;
   }
 
+  /**
+   * Informuje všetkých listenerov o aktuálnej dĺžke fronty.
+   *
+   * @param {number} count - Počet položiek vo fronte.
+   * @returns {void}
+   */
   private notify(count: number) {
     this.listeners.forEach(l => l(count));
   }
 
+  /**
+   * Informuje progress listenery o spracovaných položkách.
+   *
+   * @param {number} processed - Počet doposiaľ spracovaných položiek.
+   * @param {number} total - Celkový počet položiek v tomto behu synchronizácie.
+   * @returns {void}
+   */
   private notifyProgress(processed: number, total: number) {
     this.progressListeners.forEach(listener => listener(processed, total));
   }
 
+  /**
+   * Načíta aktuálnu frontu z AsyncStorage a doplní chýbajúce defaulty.
+   *
+   * @returns {Promise<QueueItem[]>} Parsovaný obsah fronty; pri chybe vráti prázdne pole.
+   */
   private async getQueue(): Promise<QueueItem[]> {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (!raw) {
@@ -137,6 +202,12 @@ export class OfflineSync {
     }
   }
 
+  /**
+   * Uloží frontu do AsyncStorage a notifikuje listenerov o novej veľkosti.
+   *
+   * @param {QueueItem[]} queue - Kompletná kolekcia položiek určená na perzistenciu.
+   * @returns {Promise<void>} Promise indikujúci dokončenie zápisu.
+   */
   private async setQueue(queue: QueueItem[]) {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
     this.notify(queue.length);
@@ -144,6 +215,9 @@ export class OfflineSync {
 
   /**
    * Pokúsi sa odoslať položky vo fronte na Supabase REST endpoint.
+   *
+   * @returns {Promise<void>} Promise indikujúci ukončenie synchronizačného behu.
+   * @throws {Error} Pri zlyhaní zápisu do AsyncStorage alebo sieťovej chybe sa chyba zaloguje a beh sa ukončí.
    */
   public async processQueue() {
     if (this.syncing) return;
@@ -214,6 +288,12 @@ export class OfflineSync {
     }
   }
 
+  /**
+   * Odvodí identifikátor používateľa z bežných kľúčov payloadu.
+   *
+   * @param {any} payload - Payload operácie, ktorý môže obsahovať identifikátor.
+   * @returns {string|undefined} Nájde userId z bežných tvarov alebo undefined ak sa nenájde.
+   */
   private resolveUserIdFromPayload(payload: any): string | undefined {
     if (!payload) return undefined;
     if (typeof payload.userId === 'string') return payload.userId;
@@ -224,6 +304,12 @@ export class OfflineSync {
     return undefined;
   }
 
+  /**
+   * Zostaví hlavičky pre komunikáciu so Supabase REST API.
+   *
+   * @returns {{ 'Content-Type': 'application/json'; Accept: 'application/json'; apikey: string; Authorization: string; Prefer: 'return=representation'; } | null}
+   * Hlavičky s API kľúčom, alebo null ak chýba konfigurácia.
+   */
   private getSupabaseHeaders() {
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
       return null;
@@ -238,11 +324,24 @@ export class OfflineSync {
     } as const;
   }
 
+  /**
+   * Vytvorí úplnú URL pre Supabase REST endpoint.
+   *
+   * @param {string} path - Cesta (vrátane úvodného lomítka) k požadovanému endpointu.
+   * @returns {string | null} Kompletná URL alebo null ak nie je dostupná základná Supabase URL.
+   */
   private getSupabaseEndpoint(path: string) {
     if (!SUPABASE_URL) return null;
     return `${SUPABASE_URL.replace(/\/$/, '')}${path}`;
   }
 
+  /**
+   * Spracuje jednu položku fronty a rozhodne o dokončení, opakovaní alebo permanentnom zlyhaní.
+   *
+   * @param {QueueItem} item - Položka fronty s operáciou a payloadom.
+   * @returns {Promise<{ type: 'complete' } | { type: 'retry'; message?: string } | { type: 'failed'; message?: string }>}
+   * Rozhodnutie pre danú položku vrátane voliteľnej chybovej správy.
+   */
   private async processQueueItem(item: QueueItem): Promise<
     | { type: 'complete' }
     | { type: 'retry'; message?: string }
@@ -317,6 +416,15 @@ export class OfflineSync {
     }
   }
 
+  /**
+   * Pokúsi sa vyriešiť konflikt synchronizačného záznamu zlúčením payloadov a aktualizáciou stavu.
+   *
+   * @param {SupabaseQueueRecord} record - Konfliktný záznam z backendu.
+   * @param {QueueItem} item - Lokálna položka fronty.
+   * @param {ReturnType<OfflineSync['getSupabaseHeaders']>} headers - Autentizačné hlavičky pre Supabase.
+   * @param {string} endpoint - Cesta k offline_sync_queue endpointu.
+   * @returns {Promise<boolean>} True ak sa konflikt podarilo vyriešiť, inak false.
+   */
   private async resolveConflictRecord(
     record: SupabaseQueueRecord,
     item: QueueItem,
@@ -344,6 +452,13 @@ export class OfflineSync {
     }
   }
 
+  /**
+   * Zlúči payloady podľa časovej známky alebo štruktúry.
+   *
+   * @param {any} localPayload - Lokálne dáta, ktoré sa pokúsime zachovať.
+   * @param {any} remotePayload - Dáta z backendu získané pri konflikte.
+   * @returns {any} Výsledný payload po zlúčení (preferuje novšie alebo spojené objekty).
+   */
   private mergePayloads(localPayload: any, remotePayload: any) {
     const localTimestamp = this.extractTimestamp(localPayload);
     const remoteTimestamp = this.extractTimestamp(remotePayload);
@@ -362,6 +477,12 @@ export class OfflineSync {
     return localPayload ?? remotePayload;
   }
 
+  /**
+   * Pokúša sa extrahovať časovú známku z payloadu pomocou bežných kľúčov.
+   *
+   * @param {any} payload - Objekt payloadu z lokálneho alebo vzdialeného záznamu.
+   * @returns {number | null} Číselný timestamp alebo null ak sa nenašiel validný údaj.
+   */
   private extractTimestamp(payload: any) {
     if (!payload || typeof payload !== 'object') {
       return null;
@@ -385,10 +506,25 @@ export class OfflineSync {
     return null;
   }
 
+  /**
+   * Overí, či je hodnota obyčajný objekt (nie pole).
+   *
+   * @param {unknown} value - Hodnota na kontrolu.
+   * @returns {value is Record<string, unknown>} True ak ide o plain object.
+   */
   private isPlainObject(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
   }
 
+  /**
+   * Nájde najnovší konfliktný záznam pre danú operáciu a používateľa.
+   *
+   * @param {QueueItem} item - Položka fronty, podľa ktorej sa hľadá konflikt.
+   * @param {string} userId - Identifikátor používateľa.
+   * @param {ReturnType<OfflineSync['getSupabaseHeaders']>} headers - Hlavičky pre Supabase dotaz.
+   * @param {string} endpoint - Cesta na REST endpoint.
+   * @returns {Promise<SupabaseQueueRecord | null>} Nájde konfliktný záznam alebo vráti null pri chybe.
+   */
   private async findConflictRecord(
     item: QueueItem,
     userId: string,
@@ -422,6 +558,12 @@ export class OfflineSync {
     }
   }
 
+  /**
+   * Prečíta textovú chybovú správu z HTTP odpovede.
+   *
+   * @param {Response} response - Fetch odpoveď zo Supabase REST API.
+   * @returns {Promise<string | null>} Text odpovede alebo null, ak sa nepodarilo prečítať.
+   */
   private async readErrorMessage(response: Response) {
     try {
       const text = await response.text();
@@ -431,6 +573,13 @@ export class OfflineSync {
     }
   }
 
+  /**
+   * Označí položku ako trvalo zlyhanú a upozorní používateľa.
+   *
+   * @param {QueueItem} item - Položka, ktorá zlyhala po vyčerpaní pokusov.
+   * @param {string} [message] - Voliteľná vlastná chybová správa pre používateľa.
+   * @returns {Promise<void>} Promise indikujúci ukončenie spracovania zlyhania.
+   */
   private async handlePermanentFailure(item: QueueItem, message?: string) {
     const headers = this.getSupabaseHeaders();
     const endpoint = this.getSupabaseEndpoint('/rest/v1/offline_sync_queue');
