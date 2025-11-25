@@ -14,6 +14,8 @@ const getEmptyStatisticsMock = jest.fn(() => ({
   monthlyBrewCount: 0,
   topRecipe: null,
   topTastingNotes: [],
+  scanCount: 0,
+  recipeGenerationCount: 0,
 }));
 
 const getIdTokenMock = jest.fn(() => Promise.resolve('test-token'));
@@ -51,16 +53,12 @@ const baseProps = {
   onHomePress: jest.fn(),
   onScanPress: jest.fn(),
   onBrewPress: jest.fn(),
-  onBrewHistoryPress: jest.fn(),
-  onLogBrewPress: jest.fn(),
   onProfilePress: jest.fn(),
   onDiscoverPress: jest.fn(),
   onRecipesPress: jest.fn(),
   onFavoritesPress: jest.fn(),
   onInventoryPress: jest.fn(),
   onPersonalizationPress: jest.fn(),
-  onCommunityRecipesPress: jest.fn(),
-  onSavedTipsPress: jest.fn(),
   userName: 'Tester',
 };
 
@@ -79,6 +77,8 @@ describe('HomeScreen statistics', () => {
       monthlyBrewCount: 0,
       topRecipe: null,
       topTastingNotes: [],
+      scanCount: 0,
+      recipeGenerationCount: 0,
     });
   });
 
@@ -96,6 +96,8 @@ describe('HomeScreen statistics', () => {
           { note: 'Čokoláda', occurrences: 4 },
           { note: 'Orechy', occurrences: 2 },
         ],
+        scanCount: 7,
+        recipeGenerationCount: 3,
       }),
     } as any);
 
@@ -107,15 +109,13 @@ describe('HomeScreen statistics', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    const monthly = component.root.findByProps({ testID: 'stat-monthly-brew-count' });
-    const recipeName = component.root.findByProps({ testID: 'stat-top-recipe-name' });
-    const recipeCount = component.root.findByProps({ testID: 'stat-top-recipe-count' });
-    const firstNote = component.root.findByProps({ testID: 'stat-top-note-0' });
+    const owned = component.root.findByProps({ testID: 'stat-owned-coffees' });
+    const scans = component.root.findByProps({ testID: 'stat-scan-count' });
+    const recipes = component.root.findByProps({ testID: 'stat-recipe-generation-count' });
 
-    expect(monthly.props.children).toBe(12);
-    expect(recipeName.props.children).toBe('Espresso');
-    expect(recipeCount.props.children).toBe('5 príprav');
-    expect(firstNote.props.children).toBe('Čokoláda · 4');
+    expect(owned.props.children).toBe(0);
+    expect(scans.props.children).toBe(7);
+    expect(recipes.props.children).toBe(3);
     expect(() => component.root.findByProps({ testID: 'stats-fallback-message' })).toThrow();
   });
 
@@ -134,8 +134,8 @@ describe('HomeScreen statistics', () => {
     const fallbackMessage = component.root.findByProps({ testID: 'stats-fallback-message' });
     expect(fallbackMessage.props.children).toBe('Nepodarilo sa načítať štatistiky.');
 
-    const monthly = component.root.findByProps({ testID: 'stat-monthly-brew-count' });
-    expect(monthly.props.children).toBe(0);
+    const owned = component.root.findByProps({ testID: 'stat-owned-coffees' });
+    expect(owned.props.children).toBe(0);
   });
 });
 

@@ -47,16 +47,12 @@ interface HomeScreenProps {
   onHomePress: () => void;
   onScanPress: () => void;
   onBrewPress: () => void;
-  onBrewHistoryPress: () => void;
-  onLogBrewPress: () => void;
   onProfilePress: () => void;
   onDiscoverPress: () => void;
   onRecipesPress: () => void;
   onFavoritesPress: () => void;
   onInventoryPress: () => void;
   onPersonalizationPress: () => void;
-  onCommunityRecipesPress: () => void;
-  onSavedTipsPress: () => void;
   userName?: string;
 }
 
@@ -66,21 +62,19 @@ const ACTION_GRADIENTS = {
   scan: ['#8B6544', '#6B4423'],
   brew: ['#00897B', '#00695C'],
 };
+const DAILY_INSIGHT_COPY =
+  '"Vedeli ste, že správne namletá káva by mala mať konzistenciu hrubej morskej soli pre French Press a jemného prášku pre espresso? Mletie je kľúčové pre extrakciu."';
 
 const HomeScreen: React.FC<HomeScreenProps> = ({
   onHomePress,
   onScanPress,
   onBrewPress,
-  onBrewHistoryPress,
-  onLogBrewPress,
   onProfilePress,
   onDiscoverPress,
   onRecipesPress,
   onFavoritesPress,
   onInventoryPress,
   onPersonalizationPress,
-  onCommunityRecipesPress,
-  onSavedTipsPress,
   userName = 'Martin',
 }) => {
   const [refreshing, setRefreshing] = useState(false);
@@ -360,12 +354,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
               <Text style={styles.logoText}>BrewMate</Text>
             </View>
             <View style={styles.headerActions}>
-              <TouchableOpacity style={styles.notificationBtn} activeOpacity={0.85}>
-                <Text style={styles.notificationIcon}>🔔</Text>
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.badgeText}>3</Text>
-                </View>
-              </TouchableOpacity>
               <TouchableOpacity
                 style={styles.profileAvatar}
                 onPress={onProfilePress}
@@ -426,7 +414,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                   </TouchableOpacity>
                 </View>
               ) : dailyTip ? (
-                <DailyTipCard tip={dailyTip} />
+                <DailyTipCard
+                  tip={dailyTip}
+                  insight={DAILY_INSIGHT_COPY}
+                  advice={getCoffeeAdvice()}
+                />
               ) : (
                 <View style={styles.tipFeedback}>
                   <Text style={styles.tipFeedbackText}>
@@ -434,21 +426,14 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                   </Text>
                 </View>
               )}
-              <TouchableOpacity
-                style={styles.savedTipsLink}
-                onPress={onSavedTipsPress}
-                activeOpacity={0.85}
-                testID="saved-tips-cta"
-              >
-                <Text style={styles.savedTipsLinkText}>Zobraziť uložené tipy</Text>
-              </TouchableOpacity>
+              {/* TODO: Re-introduce navigation to saved tips in a dedicated insights hub after redesign. */}
             </View>
 
             <View style={styles.statsCard}>
               <View style={styles.statsHeader}>
                 <Text style={styles.sectionTitle}>📊 Tvoje štatistiky</Text>
                 <Text style={styles.sectionSubtitle}>
-                  Prehľad aktivít v BrewMate
+                  Jednoduchý prehľad tvojich aktivít
                 </Text>
               </View>
               {statsLoading ? (
@@ -467,63 +452,29 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                   ) : null}
                   <View style={styles.statsGrid}>
                     <View style={styles.statItem}>
-                      <Text style={styles.statLabel}>Prípravy za 30 dní</Text>
-                      <Text style={styles.statValue} testID="stat-monthly-brew-count">
-                        {stats.monthlyBrewCount}
+                      <Text style={styles.statLabel}>Kávy v inventári</Text>
+                      <Text style={styles.statValue} testID="stat-owned-coffees">
+                        {coffeeCount}
                       </Text>
-                      <Text style={styles.statMeta}>Posledných 30 dní</Text>
+                      <Text style={styles.statMeta}>Aktuálne dostupné</Text>
                     </View>
                     <View style={styles.statItem}>
-                      <Text style={styles.statLabel}>Najčastejší recept</Text>
-                      <Text style={styles.statHighlight} testID="stat-top-recipe-name">
-                        {stats.topRecipe?.name ?? 'Žiadny záznam'}
+                      <Text style={styles.statLabel}>Počet skenov</Text>
+                      <Text style={styles.statValue} testID="stat-scan-count">
+                        {stats.scanCount}
                       </Text>
-                      {stats.topRecipe ? (
-                        <Text style={styles.statMeta} testID="stat-top-recipe-count">
-                          {`${stats.topRecipe.brewCount} príprav`}
-                        </Text>
-                      ) : (
-                        <Text style={styles.statMeta}>Zaznamenaj si svoje varenia</Text>
-                      )}
+                      <Text style={styles.statMeta}>Koľkokrát si skenoval</Text>
                     </View>
                     <View style={styles.statItem}>
-                      <Text style={styles.statLabel}>Top chuťové tóny</Text>
-                      {stats.topTastingNotes.length > 0 ? (
-                        <View style={styles.statNoteList} testID="stat-top-notes">
-                          {stats.topTastingNotes.slice(0, 3).map((note, index) => (
-                            <Text
-                              key={`${note.note}-${index}`}
-                              style={styles.statNoteItem}
-                              testID={`stat-top-note-${index}`}
-                            >
-                              {`${note.note} · ${note.occurrences}`}
-                            </Text>
-                          ))}
-                        </View>
-                      ) : (
-                        <Text style={styles.statMeta}>Zatiaľ žiadne dáta</Text>
-                      )}
-                    </View>
-                  </View>
-                  <View style={styles.statsActions}>
-                    <TouchableOpacity
-                      style={styles.statsLink}
-                      onPress={onBrewHistoryPress}
-                      activeOpacity={0.85}
-                      testID="brew-history-cta"
-                    >
-                      <Text style={styles.statsLinkText}>História varení</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.statsLinkPrimary}
-                      onPress={onLogBrewPress}
-                      activeOpacity={0.85}
-                      testID="brew-log-cta"
-                    >
-                      <Text style={styles.statsLinkPrimaryText}>
-                        Zaznamenať varenie
+                      <Text style={styles.statLabel}>Generovania receptov</Text>
+                      <Text
+                        style={styles.statValue}
+                        testID="stat-recipe-generation-count"
+                      >
+                        {stats.recipeGenerationCount}
                       </Text>
-                    </TouchableOpacity>
+                      <Text style={styles.statMeta}>Koľkokrát si si vygeneroval recept</Text>
+                    </View>
                   </View>
                 </>
               )}
@@ -547,25 +498,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
                   </LinearGradient>
                 </TouchableOpacity>
               ))}
-            </View>
-
-            <View style={styles.secondaryActions}>
-              <TouchableOpacity
-                style={styles.secondaryActionButton}
-                onPress={onCommunityRecipesPress}
-                activeOpacity={0.85}
-                testID="community-recipes-cta"
-              >
-                <Text style={styles.secondaryActionText}>Objav komunitné recepty</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.secondaryActionButton}
-                onPress={onPersonalizationPress}
-                activeOpacity={0.85}
-                testID="personalization-cta"
-              >
-                <Text style={styles.secondaryActionText}>Uprav chuťový profil</Text>
-              </TouchableOpacity>
             </View>
 
             <View style={styles.tasteProfileSection}>
@@ -654,31 +586,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
               )}
             </View>
 
-            <View style={styles.insightCard}>
-              <View style={styles.insightHeader}>
-                <View style={styles.insightIcon}>
-                  <Text>🔬</Text>
-                </View>
-                <Text style={styles.insightLabel}>Denný insight</Text>
-              </View>
-              <Text style={styles.insightText}>
-                "Vedeli ste, že správne namletá káva by mala mať konzistenciu hrubej
-                morskej soli pre French Press a jemného prášku pre espresso? Mletie je
-                kľúčové pre extrakciu."
-              </Text>
-              <Text style={styles.insightFooter}>{getCoffeeAdvice()}</Text>
-            </View>
-
             <View style={styles.activitySection}>
               <View style={styles.sectionHeaderRow}>
                 <Text style={styles.sectionTitle}>Nedávna aktivita</Text>
-                <TouchableOpacity
-                  onPress={onScanPress}
-                  style={styles.sectionLink}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.sectionLinkText}>Skenovať teraz</Text>
-                </TouchableOpacity>
               </View>
               <View style={styles.activityList}>
                 {recentScans.length === 0 ? (

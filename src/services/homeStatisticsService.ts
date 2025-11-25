@@ -17,12 +17,16 @@ export interface HomeStatistics {
   monthlyBrewCount: number;
   topRecipe: TopRecipeStat | null;
   topTastingNotes: TastingNoteStat[];
+  scanCount: number;
+  recipeGenerationCount: number;
 }
 
 const DEFAULT_STATS: HomeStatistics = {
   monthlyBrewCount: 0,
   topRecipe: null,
   topTastingNotes: [],
+  scanCount: 0,
+  recipeGenerationCount: 0,
 };
 
 const ensureAuthenticated = async (): Promise<string> => {
@@ -148,6 +152,8 @@ export const fetchHomeStatistics = async (): Promise<HomeStatistics> => {
       monthlyBrewCount: Math.round(coerceNumber(payload?.monthlyBrewCount, 0)),
       topRecipe: sanitizeTopRecipe(payload?.topRecipe),
       topTastingNotes: sanitizeTopTastingNotes(payload?.topTastingNotes),
+      scanCount: Math.round(coerceNumber(payload?.scanCount, 0)),
+      recipeGenerationCount: Math.round(coerceNumber(payload?.recipeGenerationCount, 0)),
     };
   } catch (error) {
     console.warn('homeStatisticsService: nepodarilo sa načítať štatistiky', error);
