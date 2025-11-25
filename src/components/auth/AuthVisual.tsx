@@ -18,10 +18,21 @@ import { getColors, Colors } from '../../theme/colors';
 import auth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+/**
+ * Props accepted by the authentication landing screen that aggregates multiple login options.
+ */
 interface AuthScreenProps {
+  /** Optional transient notice displayed as informational feedback to the user. */
   notice?: { message: string; id: number } | null;
 }
 
+/**
+ * Multi-provider authentication screen offering email login, registration, Google, and Apple sign
+ * in experiences with contextual error and info feedback.
+ *
+ * @param {AuthScreenProps} props - Contains optional notice to surface to the user.
+ * @returns {JSX.Element} The rendered authentication UI and related modals.
+ */
 const AuthScreen: React.FC<AuthScreenProps> = ({ notice }) => {
   const [showEmailRegister, setShowEmailRegister] = useState(false);
   const [showAppleAuth, setShowAppleAuth] = useState(false);
@@ -51,6 +62,11 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ notice }) => {
     };
   }, []);
 
+  /**
+   * Presents an error toast banner for a fixed duration, replacing any active info message.
+   *
+   * @param {string} message - Localized error text to show to the user.
+   */
   const triggerError = (message: string) => {
     if (errorTimeout.current) {
       clearTimeout(errorTimeout.current);
@@ -63,6 +79,11 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ notice }) => {
     }, 3000);
   };
 
+  /**
+   * Presents an informational banner for a fixed duration, clearing existing error banners.
+   *
+   * @param {string} message - Localized info text to display.
+   */
   const triggerInfo = (message: string) => {
     if (infoTimeout.current) {
       clearTimeout(infoTimeout.current);
@@ -91,6 +112,13 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ notice }) => {
     }, 6000);
   }, [notice]);
 
+  /**
+   * Attempts Firebase email/password authentication, persists the token, and surfaces appropriate
+   * feedback depending on success or failure codes.
+   *
+   * @returns {Promise<void>} Promise resolved when login completes.
+   * @throws {Error} When Firebase sign-in fails unexpectedly.
+   */
   const handleLoginPress = async () => {
     const trimmedEmail = email.trim();
     const trimmedPassword = password.trim();
@@ -159,6 +187,12 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ notice }) => {
     }
   };
 
+  /**
+   * Sends a password reset email for the provided address and surfaces success or failure states.
+   *
+   * @returns {Promise<void>} Promise resolved after the request is sent.
+   * @throws {Error} If Firebase password reset fails to send.
+   */
   const handleForgotPassword = async () => {
     const trimmedEmail = email.trim();
 
@@ -177,11 +211,21 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ notice }) => {
     }
   };
 
+  /**
+   * Opens the registration modal while pre-filling the email field with the current input value.
+   */
   const handleRegister = () => {
     setModalEmail(email);
     setShowEmailRegister(true);
   };
 
+  /**
+   * Closes the registration modal and optionally updates the login form with prefilled email or a
+   * notice to show on return.
+   *
+   * @param {string} [prefillEmail] - Email to pre-populate after registration.
+   * @param {string} [notice] - Info message to display upon returning to login.
+   */
   const openLoginFromRegister = (prefillEmail?: string, notice?: string) => {
     setShowEmailRegister(false);
     if (prefillEmail) {
@@ -337,6 +381,13 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ notice }) => {
   );
 };
 
+/**
+ * Generates StyleSheet rules for the authentication screen using palette tokens and theme mode.
+ *
+ * @param {Colors} colors - Theme-derived color tokens for backgrounds and text.
+ * @param {boolean} isDark - Whether the UI is currently in dark mode.
+ * @returns {ReturnType<typeof StyleSheet.create>} Style definitions for the authentication screen.
+ */
 const createStyles = (colors: Colors, isDark: boolean) =>
   StyleSheet.create({
     screen: {

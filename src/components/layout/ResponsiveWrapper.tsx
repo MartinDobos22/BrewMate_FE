@@ -10,6 +10,16 @@ interface ResponsiveWrapperProps {
   statusBarBackground?: string;
 }
 
+/**
+ * Provides consistent safe-area padding and status bar styling for screens across platforms.
+ *
+ * @param {ResponsiveWrapperProps} props - Wrapper configuration and children content.
+ * @param {React.ReactNode} props.children - Screen content to render within the safe area.
+ * @param {string} [props.backgroundColor='#FAF7F5'] - Background color applied to the container.
+ * @param {'default'|'light-content'|'dark-content'} [props.statusBarStyle='dark-content'] - Status bar content style.
+ * @param {string} [props.statusBarBackground='#6B4423'] - Status bar background color on Android.
+ * @returns {JSX.Element} Layout wrapper ensuring proper spacing from device notches and bars.
+ */
 const ResponsiveWrapper: React.FC<ResponsiveWrapperProps> = ({
                                                                children,
                                                                backgroundColor = '#FAF7F5',
