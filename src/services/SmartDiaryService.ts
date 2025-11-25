@@ -11,16 +11,32 @@ export interface SmartDiaryInsight {
   createdAt: string;
 }
 
+/**
+ * Generuje personalizované denníkové insighty na základe histórie príprav a chuťových preferencií.
+ * Využíva embeddingy chutí a učenie preferencií na navrhovanie trendov, míľnikov a pripomienok zásob.
+ */
 export class SmartDiaryService {
   private latestInsights: SmartDiaryInsight[] = [];
 
   private lastProcessedEntryId: string | null = null;
 
+  /**
+   * @param {PreferenceLearningEngine} learningEngine - Engine na učenie trendov preferencií podľa histórie.
+   * @param {FlavorEmbeddingService} flavorEmbeddingService - Služba na ukladanie a čítanie embeddingov chutí.
+   */
   constructor(
     private readonly learningEngine: PreferenceLearningEngine,
     private readonly flavorEmbeddingService: FlavorEmbeddingService,
   ) {}
 
+  /**
+   * Vypočíta nový zoznam insightov na základe histórie príprav a správania používateľa.
+   *
+   * @param {string} userId - Identifikátor používateľa, pre ktorého sa generujú insighty.
+   * @param {BrewHistoryEntry[]} entries - História príprav káv zoradená od najnovšej.
+   * @returns {Promise<SmartDiaryInsight[]>} Zoznam nových insightov pripravených na zobrazenie.
+   * @throws {Error} Pri zlyhaní ukladania embeddingu sa chyba zaloguje, ostatné insighty sa však spočítajú.
+   */
   public async generateInsights(userId: string, entries: BrewHistoryEntry[]): Promise<SmartDiaryInsight[]> {
     const insights: SmartDiaryInsight[] = [];
     if (!entries.length) {
@@ -80,10 +96,21 @@ export class SmartDiaryService {
     return insights;
   }
 
+  /**
+   * Vracia posledne vypočítané insighty bez mutovania pôvodného poľa.
+   *
+   * @returns {SmartDiaryInsight[]} Kópia posledných insightov pre opätovné využitie v UI.
+   */
   public getLatestInsights(): SmartDiaryInsight[] {
     return [...this.latestInsights];
   }
 
+  /**
+   * Odhadne, koľko dní vydržia aktuálne zásoby kávových zŕn.
+   *
+   * @param {BrewHistoryEntry[]} entries - História príprav používaná na výpočet spotreby.
+   * @returns {{ daysLeft: number } | undefined} Počet dní do minutia zásob alebo undefined, ak chýbajú dáta.
+   */
   private predictBeanDepletion(entries: BrewHistoryEntry[]): { daysLeft: number } | undefined {
     const consumptionPerDay = this.calculateDailyConsumption(entries);
     if (!consumptionPerDay) {
@@ -101,6 +128,12 @@ export class SmartDiaryService {
     return { daysLeft: Math.max(1, Math.round(stockGrams / consumptionPerDay)) };
   }
 
+  /**
+   * Vypočíta priemernú dennú spotrebu zŕn podľa histórie príprav.
+   *
+   * @param {BrewHistoryEntry[]} entries - Záznamy príprav zoradené od najnovšej.
+   * @returns {number | undefined} Priemerná gramáž na deň alebo undefined pri nedostatku dát.
+   */
   private calculateDailyConsumption(entries: BrewHistoryEntry[]): number | undefined {
     if (entries.length < 3) {
       return undefined;
@@ -118,6 +151,12 @@ export class SmartDiaryService {
     return gramsUsed / days;
   }
 
+  /**
+   * Pripraví pripomienku cold brew prípravy pred pondelkom, ak používateľ nemá relevantné záznamy.
+   *
+   * @param {BrewHistoryEntry[]} entries - História príprav na zistenie, či používateľ pripravoval cold brew.
+   * @returns {SmartDiaryInsight | undefined} Pripomienka alebo undefined, ak nie je potrebná.
+   */
   private buildColdBrewReminder(entries: BrewHistoryEntry[]): SmartDiaryInsight | undefined {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);

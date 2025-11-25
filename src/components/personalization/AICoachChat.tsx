@@ -14,11 +14,24 @@ interface AICoachChatProps {
   moodSignals?: MoodSignal[];
 }
 
+/**
+ * Chat komponent na vedenie konverzácie s AI koučom a zobrazovanie náladových signálov.
+ *
+ * @param {object} props - Vstupné vlastnosti komponentu.
+ * @param {(message: string) => Promise<string>} props.onSend - Asynchrónna funkcia, ktorá odošle text používateľa na backend/AI a vráti odpoveď.
+ * @param {MoodSignal[]} [props.moodSignals] - Voliteľné náladové signály zobrazované nad vstupom ako kontext pre rozhovor.
+ * @returns {JSX.Element} Zostavený chat UI s listom správ, náladovými čipmi a vstupom na odoslanie.
+ */
 export const AICoachChat: React.FC<AICoachChatProps> = ({ onSend, moodSignals }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
 
+  /**
+   * Odošle aktuálnu správu používateľa, pridá ju do zoznamu a zobrazí odpoveď AI.
+   *
+   * @returns {Promise<void>} Promise, ktorá sa vyrieši po pridaní oboch správ do stavu.
+   */
   const handleSend = useCallback(async () => {
     if (!input.trim() || isSending) {
       return;

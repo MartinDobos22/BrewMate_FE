@@ -21,13 +21,30 @@ import {
   EMAIL_GRADIENT_LIGHT,
 } from './constants';
 
+/**
+ * Props for the email login form that enables sign-in with Firebase credentials.
+ */
 interface EmailLoginProps {
+  /** Optional callback executed when the user presses the back pill. */
   onBack?: () => void;
+  /** Email value prefilled into the email field when the component mounts. */
   initialEmail?: string;
+  /** Password value prefilled into the password field when the component mounts. */
   initialPassword?: string;
+  /**
+   * Callback invoked when the user requests to switch to registration, receiving the current email
+   * value to prefill the registration form.
+   */
   onSwitchToRegister?: (email?: string) => void;
 }
 
+/**
+ * Screen-level form that authenticates a user with Firebase email/password and stores the token in
+ * AsyncStorage for subsequent API requests.
+ *
+ * @param {EmailLoginProps} props - Component props for configuring callbacks and initial values.
+ * @returns {JSX.Element} The rendered email login UI with gradient background and form controls.
+ */
 const EmailLogin: React.FC<EmailLoginProps> = ({
   onBack,
   initialEmail,
@@ -40,6 +57,13 @@ const EmailLogin: React.FC<EmailLoginProps> = ({
   const colors = getColors(isDarkMode);
   const styles = createStyles(colors, isDarkMode);
 
+  /**
+   * Authenticates the user with Firebase credentials, persists the token locally, and notifies the
+   * backend of the authentication event.
+   *
+   * @returns {Promise<void>} Promise that resolves after login and token storage complete.
+   * @throws {Error} If authentication fails or token storage encounters an error.
+   */
   const handleLogin = async () => {
     try {
       const userCredential = await auth().signInWithEmailAndPassword(email, password);
@@ -71,6 +95,10 @@ const EmailLogin: React.FC<EmailLoginProps> = ({
     }
   };
 
+  /**
+   * Notifies parent consumers that the registration view should be opened while preserving the
+   * currently typed email.
+   */
   const handleSwitchToRegister = () => {
     if (onSwitchToRegister) {
       onSwitchToRegister(email);
@@ -148,6 +176,14 @@ const EmailLogin: React.FC<EmailLoginProps> = ({
   );
 };
 
+/**
+ * Generates memoized styles for the email login form using the active color palette and theme
+ * brightness.
+ *
+ * @param {Colors} colors - Theme-driven color tokens used throughout the form UI.
+ * @param {boolean} isDark - Whether the current theme is dark mode, affecting contrast and shadows.
+ * @returns {ReturnType<typeof StyleSheet.create>} StyleSheet object for the component.
+ */
 const createStyles = (colors: Colors, isDark: boolean) =>
   StyleSheet.create({
     overlay: {

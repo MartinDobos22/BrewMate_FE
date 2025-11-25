@@ -1,6 +1,16 @@
 import { getBrewLogs } from './brewLogService';
 import { BrewLog } from '../types/BrewLog';
 
+/**
+ * Exports brew log history to a CSV string for sharing or external analysis.
+ *
+ * @param {string} [recipeId] - Optional recipe identifier to filter logs; when
+ * omitted all brew logs are exported.
+ * @returns {Promise<string>} CSV content including headers and one row per log
+ * with newline characters stripped from notes.
+ * @throws {Error} Propagates failures from {@link getBrewLogs} or string
+ * serialization issues.
+ */
 export const exportBrewLogsToCSV = async (recipeId?: string): Promise<string> => {
   const logs: BrewLog[] = await getBrewLogs(recipeId);
   const headers = [
