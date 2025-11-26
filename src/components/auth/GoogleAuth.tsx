@@ -7,10 +7,23 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Inicializácia konfigurácie Google Sign-In (vykoná sa raz pri importe)
 import '../../config/googleSignin';
 
+/**
+ * Touch target that authenticates the user with Google Sign-In and persists the Firebase token for
+ * authenticated requests.
+ *
+ * @returns {JSX.Element} The rendered Google authentication button.
+ */
 const GoogleLogin = () => {
   const isDarkMode = useColorScheme() === 'dark';
   const styles = createStyles(isDarkMode);
 
+  /**
+   * Performs Google Sign-In, exchanges the resulting ID token for Firebase credentials, and stores
+   * the Firebase token locally.
+   *
+   * @returns {Promise<void>} Promise resolved once authentication and token persistence finish.
+   * @throws {Error} If Google Play Services are unavailable or Firebase credential creation fails.
+   */
   const handleLogin = async () => {
     try {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
@@ -59,6 +72,12 @@ const GoogleLogin = () => {
   );
 };
 
+/**
+ * Produces themed styles for the Google login button depending on dark or light mode.
+ *
+ * @param {boolean} isDark - Whether the interface is currently using a dark color scheme.
+ * @returns {ReturnType<typeof StyleSheet.create>} The generated StyleSheet for the button.
+ */
 const createStyles = (isDark: boolean) =>
   StyleSheet.create({
     button: {

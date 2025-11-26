@@ -11,12 +11,25 @@ interface BrewHistoryScreenProps {
   onLogPress?: (log: BrewLog) => void;
 }
 
+/**
+ * Zobrazuje históriu záznamov kávových nápojov s filtrami a detailmi.
+ *
+ * @param {object} props - Vstupné vlastnosti obrazovky.
+ * @param {() => void} [props.onAddLog] - Voliteľný callback na otvorenie formulára pre nový záznam.
+ * @param {(log: BrewLog) => void} [props.onLogPress] - Voliteľný handler pri kliknutí na existujúci záznam.
+ * @returns {JSX.Element} Rozhranie s filtrami, zoznamom záznamov a akciami.
+ */
 const BrewHistoryScreen: React.FC<BrewHistoryScreenProps> = ({ onAddLog, onLogPress }) => {
   const [logs, setLogs] = useState<BrewLog[]>([]);
   const [deviceFilter, setDeviceFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState('');
 
   useEffect(() => {
+    /**
+     * Načíta uložené logy prípravy kávy z úložiska služby a uloží ich do stavu.
+     *
+     * @returns {Promise<void>} Promise vyriešená po načítaní zoznamu.
+     */
     const load = async () => {
       const data = await getBrewLogs();
       setLogs(data);
@@ -30,6 +43,12 @@ const BrewHistoryScreen: React.FC<BrewHistoryScreenProps> = ({ onAddLog, onLogPr
     return byDevice && byDate;
   });
 
+  /**
+   * Vykreslí jednotlivý záznam so základnými detailmi a možnosťou otvoriť detail.
+   *
+   * @param {{ item: BrewLog }} param0 - Položka zoznamu s logom prípravy.
+   * @returns {JSX.Element} Dotykový prvok so zhrnutím záznamu.
+   */
   const renderItem = ({ item }: { item: BrewLog }) => (
     <TouchableOpacity
       style={styles.item}

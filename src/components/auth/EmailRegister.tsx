@@ -21,12 +21,28 @@ import {
   EMAIL_GRADIENT_LIGHT,
 } from './constants';
 
+/**
+ * Props for the email registration form displayed during onboarding or account creation flows.
+ */
 interface EmailRegisterProps {
+  /** Optional callback to navigate back to the previous screen. */
   onBack?: () => void;
+  /** Email prefill for the registration form, typically forwarded from a login flow. */
   initialEmail?: string;
+  /**
+   * Callback invoked when switching back to the login view, optionally providing email and a notice
+   * message for the login screen.
+   */
   onSwitchToLogin?: (email?: string, notice?: string) => void;
 }
 
+/**
+ * Full-screen registration form that creates a Firebase user, validates password strength, and
+ * optionally redirects to login after success.
+ *
+ * @param {EmailRegisterProps} props - Configuration for navigation callbacks and initial form state.
+ * @returns {JSX.Element} The rendered registration UI with validation feedback and social buttons.
+ */
 const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onSwitchToLogin }) => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -81,6 +97,10 @@ const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onS
     );
   }, [confirmPassword, email, firstName, lastName, password, termsAccepted]);
 
+  /**
+   * Handles navigation away from the registration form, preferring a dedicated back handler but
+   * falling back to the login redirect when provided.
+   */
   const handleBack = () => {
     if (onBack) {
       onBack();
@@ -89,6 +109,12 @@ const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onS
     }
   };
 
+  /**
+   * Requests navigation to the login screen while preserving the current email and optional notice
+   * message so the destination can show contextual feedback.
+   *
+   * @param {string} [notice] - Optional success or info message to present on the login screen.
+   */
   const handleSwitchToLogin = (notice?: string) => {
     if (onSwitchToLogin) {
       onSwitchToLogin(email, notice);
@@ -97,6 +123,13 @@ const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onS
     }
   };
 
+  /**
+   * Creates a Firebase user, initializes backend profile state, and redirects to the login flow on
+   * success.
+   *
+   * @returns {Promise<void>} Promise resolved when registration handling completes.
+   * @throws {Error} When Firebase sign-up fails or profile initialization cannot proceed.
+   */
   const handleRegister = async () => {
     try {
       if (password !== confirmPassword) {
@@ -319,6 +352,14 @@ const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onS
   );
 };
 
+/**
+ * Builds themed StyleSheet definitions for the registration screen using the provided palette and
+ * brightness flag.
+ *
+ * @param {Colors} colors - Color tokens sourced from the theme provider.
+ * @param {boolean} isDark - Whether dark mode is active, altering contrast and backgrounds.
+ * @returns {ReturnType<typeof StyleSheet.create>} StyleSheet for the component.
+ */
 const createStyles = (colors: Colors, isDark: boolean) =>
   StyleSheet.create({
     overlay: {

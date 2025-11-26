@@ -26,6 +26,12 @@ export const darkColors = {
   border: 'rgba(255,255,255,0.1)',
 };
 
+/**
+ * Returns the appropriate color palette based on whether dark mode is enabled.
+ *
+ * @param {boolean} isDarkMode - Flag indicating if dark mode should be used.
+ * @returns {typeof lightColors|typeof darkColors} Color token map for the current theme.
+ */
 export const getColors = (isDarkMode: boolean) => (
   isDarkMode ? darkColors : lightColors
 );

@@ -17,6 +17,13 @@ import { getColors, Colors } from '../../theme/colors';
 import { getSafeAreaTop, getSafeAreaBottom, scale } from '../utils/safeArea';
 
 
+/**
+ * Screen component for editing the authenticated user's profile details including name, bio, and avatar.
+ *
+ * @param {{ onBack: () => void }} props - Component properties.
+ * @param {() => void} props.onBack - Callback invoked when the user navigates back after save or cancel.
+ * @returns {JSX.Element} Editable profile form with loading and saving states.
+ */
 const EditUserProfile = ({ onBack }: { onBack: () => void }) => {
   const isDarkMode = useColorScheme() === 'dark';
   const colors = getColors(isDarkMode);
@@ -29,6 +36,11 @@ const EditUserProfile = ({ onBack }: { onBack: () => void }) => {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    /**
+     * Fetches the user's profile from the backend API using the Firebase ID token for authentication.
+     *
+     * @returns {Promise<void>} Resolves when profile data is loaded into state or an alert is shown on failure.
+     */
     const fetchProfile = async () => {
       try {
         const user = auth().currentUser;
@@ -53,6 +65,11 @@ const EditUserProfile = ({ onBack }: { onBack: () => void }) => {
     fetchProfile();
   }, []);
 
+  /**
+   * Sends updated profile information to the backend API and navigates back on success.
+   *
+   * @returns {Promise<void>} Promise resolving after the save request completes and navigation callback runs.
+   */
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -183,6 +200,12 @@ const EditUserProfile = ({ onBack }: { onBack: () => void }) => {
   );
 };
 
+/**
+ * Factory for generating themed styles for the edit profile screen respecting safe areas.
+ *
+ * @param {Colors} colors - Theme palette derived from current color scheme.
+ * @returns {ReturnType<typeof StyleSheet.create>} StyleSheet applied throughout the profile form.
+ */
 const createStyles = (colors: Colors) =>
   StyleSheet.create({
     container: {
