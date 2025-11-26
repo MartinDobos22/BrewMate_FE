@@ -2,6 +2,12 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { Colors, getColors } from './colors';
 
+/**
+ * Shape of the shared theme context consumed by components.
+ *
+ * This interface captures the current theme mode, resolved color tokens, and a
+ * setter that allows components to override the system scheme.
+ */
 interface ThemeContextProps {
   isDark: boolean;
   colors: Colors;

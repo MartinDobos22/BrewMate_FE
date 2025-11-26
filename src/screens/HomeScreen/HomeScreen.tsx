@@ -43,6 +43,9 @@ import type { Coffee } from '../../types/Coffee';
 
 type CoffeeItem = Coffee & { hasCheckmark?: boolean };
 
+/**
+ * Navigation callbacks and personalization props for the Home screen.
+ */
 interface HomeScreenProps {
   onHomePress: () => void;
   onScanPress: () => void;
@@ -66,22 +69,23 @@ const DAILY_INSIGHT_COPY =
   '"Vedeli ste, že správne namletá káva by mala mať konzistenciu hrubej morskej soli pre French Press a jemného prášku pre espresso? Mletie je kľúčové pre extrakciu."';
 
 /**
- * Landing experience showing coffee stats, daily tips, and shortcuts into the app.
- * Fetches personalized data (statistics, recent scans, taste profile) and renders
- * actions to scanning, brewing, discovery, and personalization flows.
+ * Renders the primary dashboard with recommendations, tips, and quick actions.
  *
- * @param {HomeScreenProps} props - Props for configuring navigation callbacks and personalization.
- * @param {() => void} props.onHomePress - Handler to open the home tab (usually a no-op in place).
- * @param {() => void} props.onScanPress - Opens the coffee scanning experience.
- * @param {() => void} props.onBrewPress - Navigates to brewing or recipe creation.
- * @param {() => void} props.onProfilePress - Opens the profile screen.
- * @param {() => void} props.onDiscoverPress - Navigates to discovery content.
- * @param {() => void} props.onRecipesPress - Navigates to recipe lists.
- * @param {() => void} props.onFavoritesPress - Shows saved/favorite items.
- * @param {() => void} props.onInventoryPress - Opens the inventory management screen.
- * @param {() => void} props.onPersonalizationPress - Opens personalization quiz/editor.
- * @param {string} [props.userName='Martin'] - Optional user display name for greetings.
- * @returns {JSX.Element} The rendered home screen.
+ * The screen orchestrates multiple data sources including personalization,
+ * daily tips, brew statistics, and recent scans. It also exposes navigation
+ * callbacks for the main app surfaces.
+ *
+ * @param onHomePress - Handler for switching to the Home tab.
+ * @param onScanPress - Handler for launching the scan experience.
+ * @param onBrewPress - Handler for starting the brew flow.
+ * @param onProfilePress - Handler for opening the profile view.
+ * @param onDiscoverPress - Handler for navigating to discovery content.
+ * @param onRecipesPress - Handler for navigating to recipes.
+ * @param onFavoritesPress - Handler for navigating to favorites.
+ * @param onInventoryPress - Handler for navigating to inventory.
+ * @param onPersonalizationPress - Handler for opening personalization.
+ * @param userName - Name used for the greeting and avatar initial.
+ * @returns Fully composed home dashboard.
  */
 const HomeScreen: React.FC<HomeScreenProps> = ({
   onHomePress,
@@ -118,11 +122,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     usePersonalization();
 
   /**
-   * Loads home statistics from backend or returns empty defaults on failure.
-   * Updates loading/error state and falls back to empty statistics when unauthenticated
-   * or when Supabase is unavailable.
-   *
-   * @returns {Promise<void>} Resolves when statistics have been loaded or fallback applied.
+   * Loads home statistics, handling authentication and Supabase error cases
+   * with user-friendly messaging.
    */
   const loadStats = useCallback(async () => {
     setStatsLoading(true);
@@ -151,9 +152,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   }, []);
 
   /**
-   * Retrieves recommended coffees for the user and updates the carousel and count.
-   *
-   * @returns {Promise<void>} Resolves after coffees are fetched or an error is logged.
+   * Fetches recommended coffees and updates count state.
    */
   const loadCoffees = useCallback(async () => {
     try {
@@ -166,10 +165,8 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   }, []);
 
   /**
-   * Fetches the authenticated user's taste profile from the backend and normalizes it
-   * for radar visualization. Sets error state when the user is signed out or the request fails.
-   *
-   * @returns {Promise<void>} Resolves after taste profile data has been processed.
+   * Retrieves the user's taste profile from the backend and normalizes it for
+   * visualization.
    */
   const loadTasteProfile = useCallback(async () => {
     setTasteProfileLoading(true);
@@ -338,10 +335,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   /**
-   * Refresh handler for pull-to-refresh gesture to reload all home content streams.
-   * Invokes statistics, coffees, tip, taste profile, and recent scans fetchers sequentially.
-   *
-   * @returns {Promise<void>} Resolves once all fetch operations have completed.
+   * Refresh handler invoked by pull-to-refresh to reload all dashboard data.
    */
   const onRefresh = async () => {
     setRefreshing(true);

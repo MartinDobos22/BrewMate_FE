@@ -4,6 +4,9 @@ import PersonalizationOnboarding, {
   type PersonalizationResult,
 } from '../../components/personalization/PersonalizationOnboarding';
 
+/**
+ * Props for the onboarding experience wrapper.
+ */
 export interface Props {
   onFinish: (result: PersonalizationResult) => void;
   onSkip?: () => void;

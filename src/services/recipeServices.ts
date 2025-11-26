@@ -9,6 +9,12 @@ const USER_RECIPES_CACHE_KEY = 'recipes:user';
 const CACHE_TTL_DAYS = 24 * 7;
 const SECONDARY_CACHE_PRIORITY = 5;
 
+/**
+ * Detects whether an error likely originated from offline network conditions.
+ *
+ * @param error - Unknown error thrown by a fetch or auth request.
+ * @returns True when the message hints at network unavailability.
+ */
 const isOfflineError = (error: unknown) => {
   if (!error) return false;
   const message = (error as Error)?.message?.toLowerCase?.() ?? '';
@@ -19,6 +25,13 @@ const isOfflineError = (error: unknown) => {
   );
 };
 
+/**
+ * Wrapper around `fetch` that logs outgoing requests and response status.
+ *
+ * @param url - Fully qualified request URL.
+ * @param options - Request configuration including method, headers, and body.
+ * @returns The raw `Response` object from the server.
+ */
 const loggedFetch = async (url: string, options: RequestInit) => {
   console.log('📤 [FE->BE]', url, options);
   const res = await fetch(url, options);
@@ -26,6 +39,11 @@ const loggedFetch = async (url: string, options: RequestInit) => {
   return res;
 };
 
+/**
+ * Retrieves the Firebase authentication token for the current user, if any.
+ *
+ * @returns ID token string when signed in; otherwise, `null`.
+ */
 const getAuthToken = async (): Promise<string | null> => {
   try {
     const user = auth().currentUser;
@@ -37,6 +55,9 @@ const getAuthToken = async (): Promise<string | null> => {
   }
 };
 
+/**
+ * Shape of a saved recipe history record returned by the API.
+ */
 export interface RecipeHistory {
   id: string;
   method: string;
@@ -46,6 +67,14 @@ export interface RecipeHistory {
   created_at: string;
 }
 
+/**
+ * Persists a recipe variant to the backend or queues it for offline sync.
+ *
+ * @param method - Brew method used for the recipe.
+ * @param taste - Taste description captured from the brew session.
+ * @param recipe - Detailed instructions for preparing the drink.
+ * @returns Saved history entry or an optimistic placeholder when offline.
+ */
 export const saveRecipe = async (
   method: string,
   taste: string,
@@ -115,6 +144,15 @@ export const saveRecipe = async (
   }
 };
 
+/**
+ * Retrieves recent recipe history for the authenticated user.
+ *
+ * Falls back to cached history when the network request fails or the user is
+ * not authenticated.
+ *
+ * @param limit - Maximum number of history entries to fetch from the API.
+ * @returns Array of recipe history entries ordered by recency.
+ */
 export const fetchRecipeHistory = async (
   limit: number = 10
 ): Promise<RecipeHistory[]> => {
@@ -154,6 +192,13 @@ export const fetchRecipeHistory = async (
   }
 };
 
+/**
+ * Creates a new recipe in the backend or queues it for offline synchronization.
+ *
+ * @param recipe - Recipe payload to persist.
+ * @returns Created recipe with IDs normalized, or an optimistic version when
+ *   offline.
+ */
 export const createRecipe = async (recipe: Recipe): Promise<Recipe | null> => {
   const payload = { ...recipe };
   try {
@@ -207,9 +252,20 @@ export const createRecipe = async (recipe: Recipe): Promise<Recipe | null> => {
   }
 };
 
+/**
+ * Normalizes raw API recipe records to strongly typed `Recipe` objects.
+ *
+ * @param arr - Array of raw recipe payloads from the API.
+ * @returns Typed recipe objects with brew device coerced to the enum.
+ */
 const mapRecipes = (arr: any[]): Recipe[] =>
   arr.map((r) => ({ ...r, brewDevice: r.brewDevice as BrewDevice }));
 
+/**
+ * Retrieves featured recipes from the API, caching the result for offline use.
+ *
+ * @returns Array of recipe cards, favoring cache when the network fails.
+ */
 export const fetchRecipes = async (): Promise<Recipe[]> => {
   const cached = await coffeeOfflineManager.getItem<Recipe[]>(TOP_RECIPES_CACHE_KEY);
   try {
@@ -231,6 +287,13 @@ export const fetchRecipes = async (): Promise<Recipe[]> => {
   }
 };
 
+/**
+ * Retrieves recipes created by the authenticated user.
+ *
+ * Falls back to cached entries when offline to preserve usability.
+ *
+ * @returns Array of user-authored recipes.
+ */
 export const fetchUserRecipes = async (): Promise<Recipe[]> => {
   const cached = await coffeeOfflineManager.getItem<Recipe[]>(USER_RECIPES_CACHE_KEY);
   try {
