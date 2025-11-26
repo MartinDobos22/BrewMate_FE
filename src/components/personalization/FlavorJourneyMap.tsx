@@ -7,6 +7,14 @@ interface FlavorJourneyMapProps {
   onShare?: () => void;
 }
 
+/**
+ * Renders a horizontal map of personalization milestones to visualize the user's flavor journey progression.
+ *
+ * @param {FlavorJourneyMapProps} props - Component properties.
+ * @param {FlavorJourneyMilestone[]} props.milestones - Ordered list of milestones that will be rendered as numbered cards.
+ * @param {() => void} [props.onShare] - Optional callback to trigger sharing the journey summary; currently unused in the UI but reserved for future actions.
+ * @returns {JSX.Element} Scrollable list of milestone cards with title, date, and description details.
+ */
 export const FlavorJourneyMap: React.FC<FlavorJourneyMapProps> = ({ milestones }) => {
   return (
     <ScrollView horizontal style={styles.container} showsHorizontalScrollIndicator={false}>

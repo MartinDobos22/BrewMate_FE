@@ -15,6 +15,19 @@ interface PersonalizationDashboardProps {
   profile?: UserTasteProfile | null;
 }
 
+/**
+ * Displays aggregated personalization insights including taste profiles, confidence levels, experimentation toggles, and timeline milestones.
+ *
+ * @param {PersonalizationDashboardProps} props - Component properties.
+ * @param {TasteQuizResult} [props.quizResult] - Latest quiz outcome used to contextualize taste findings (currently unused in rendering but available for future sections).
+ * @param {{ label: string, value: number }[]} [props.confidence] - Confidence metrics for AI predictions where value is normalized between 0 and 1.
+ * @param {{ date: string, description: string }[]} [props.timeline] - Chronological entries describing how preferences evolved.
+ * @param {(enabled: boolean) => void} props.onToggleExperiment - Handler invoked when the user toggles A/B experiment participation.
+ * @param {boolean} props.experimentsEnabled - Indicates whether the user is currently opted into experiments.
+ * @param {FlavorJourneyMilestone[]} [props.journey] - Optional flavor journey milestones displayed as achievements.
+ * @param {UserTasteProfile|null} [props.profile] - Current taste profile to surface primary preference scores; null hides the section.
+ * @returns {JSX.Element} Scrollable dashboard summarizing personalization data and smart diary insights.
+ */
 export const PersonalizationDashboard: React.FC<PersonalizationDashboardProps> = ({
   quizResult,
   confidence,
