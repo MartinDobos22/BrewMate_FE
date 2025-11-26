@@ -29,6 +29,66 @@ interface CoffeeData extends Coffee {
   isRecommended?: boolean;
 }
 
+/**
+ * Maps raw API payloads into the normalized CoffeeData shape used throughout the app.
+ *
+ * @param {Record<string, any>} item - Arbitrary backend coffee representation.
+ * @returns {CoffeeData} Coffee entity with consistent field names and optional metadata parsed.
+ */
+const mapCoffeeItem = (item: Record<string, any>): CoffeeData => {
+  const flavorNotesRaw = item.flavor_notes ?? item.flavorNotes;
+  const flavorNotes = Array.isArray(flavorNotesRaw)
+    ? flavorNotesRaw
+    : typeof flavorNotesRaw === 'string'
+      ? flavorNotesRaw
+          .split(',')
+          .map((note: string) => note.trim())
+          .filter((note: string) => note.length > 0)
+      : undefined;
+
+  const matchValue = item.match ?? item.match_score ?? item.match_percentage;
+  const roastLevelValue =
+    typeof item.roast_level === 'number'
+      ? item.roast_level
+      : typeof item.roastLevel === 'number'
+        ? item.roastLevel
+        : undefined;
+  const intensityValue =
+    typeof item.intensity === 'number'
+      ? item.intensity
+      : typeof item.intensity_level === 'number'
+        ? item.intensity_level
+        : undefined;
+
+  const processValue =
+    item.process ?? item.processing ?? item.process_method ?? item.processing_method;
+  const varietyValue = item.variety ?? item.bean_variety ?? item.beanVariety;
+  const brandValue = item.brand ?? item.roastery ?? item.roaster;
+  const ratingValue =
+    typeof item.rating === 'number'
+      ? item.rating
+      : typeof item.avg_rating === 'number'
+        ? item.avg_rating
+        : undefined;
+
+  return {
+    id: item.id?.toString() || '',
+    name: item.name ?? item.coffee_name ?? 'Neznáma káva',
+    brand: brandValue ?? undefined,
+    origin: item.origin ?? item.country_of_origin ?? item.origin_country ?? undefined,
+    roastLevel: roastLevelValue,
+    intensity: intensityValue,
+    flavorNotes,
+    rating: ratingValue,
+    match: typeof matchValue === 'number' ? matchValue : undefined,
+    process: typeof processValue === 'string' ? processValue : undefined,
+    variety: typeof varietyValue === 'string' ? varietyValue : undefined,
+    isFavorite: Boolean(item.is_favorite ?? item.isFavorite ?? false),
+    timestamp: item.timestamp ? new Date(item.timestamp) : undefined,
+    isRecommended: item.isRecommended,
+  };
+};
+
 interface DashboardData {
   stats: UserStats;
   recentScans: CoffeeData[];
@@ -231,57 +291,7 @@ export const fetchCoffees = async (): Promise<CoffeeData[]> => {
     }
 
     const data = await response.json();
-    const mapped: CoffeeData[] = data.map((item: any) => {
-      const flavorNotesRaw = item.flavor_notes ?? item.flavorNotes;
-      const flavorNotes = Array.isArray(flavorNotesRaw)
-        ? flavorNotesRaw
-        : typeof flavorNotesRaw === 'string'
-          ? flavorNotesRaw
-              .split(',')
-              .map((note: string) => note.trim())
-              .filter((note: string) => note.length > 0)
-          : undefined;
-
-      const matchValue = item.match ?? item.match_score ?? item.match_percentage;
-      const roastLevelValue =
-        typeof item.roast_level === 'number'
-          ? item.roast_level
-          : typeof item.roastLevel === 'number'
-            ? item.roastLevel
-            : undefined;
-      const intensityValue =
-        typeof item.intensity === 'number'
-          ? item.intensity
-          : typeof item.intensity_level === 'number'
-            ? item.intensity_level
-            : undefined;
-
-      const processValue =
-        item.process ?? item.processing ?? item.process_method ?? item.processing_method;
-      const varietyValue = item.variety ?? item.bean_variety ?? item.beanVariety;
-      const brandValue = item.brand ?? item.roastery ?? item.roaster;
-      const ratingValue =
-        typeof item.rating === 'number'
-          ? item.rating
-          : typeof item.avg_rating === 'number'
-            ? item.avg_rating
-            : undefined;
-
-      return {
-        id: item.id?.toString() || '',
-        name: item.name ?? item.coffee_name ?? 'Neznáma káva',
-        brand: brandValue ?? undefined,
-        origin: item.origin ?? item.country_of_origin ?? item.origin_country ?? undefined,
-        roastLevel: roastLevelValue,
-        intensity: intensityValue,
-        flavorNotes,
-        rating: ratingValue,
-        match: typeof matchValue === 'number' ? matchValue : undefined,
-        process: typeof processValue === 'string' ? processValue : undefined,
-        variety: typeof varietyValue === 'string' ? varietyValue : undefined,
-        isFavorite: Boolean(item.is_favorite ?? item.isFavorite ?? false),
-      };
-    });
+    const mapped: CoffeeData[] = data.map((item: any) => mapCoffeeItem(item));
     await coffeeOfflineManager.setItem(
       COFFEE_CACHE_KEY,
       mapped,
@@ -295,6 +305,42 @@ export const fetchCoffees = async (): Promise<CoffeeData[]> => {
       return cached;
     }
     return [];
+  }
+};
+
+/**
+ * Fetches a single coffee detail by id, falling back to cached lists when offline.
+ *
+ * @param {string} coffeeId - Identifier of the coffee to load.
+ * @returns {Promise<CoffeeData | null>} Normalized coffee detail or null when unavailable.
+ */
+export const fetchCoffeeById = async (coffeeId: string): Promise<CoffeeData | null> => {
+  const cached = await coffeeOfflineManager.getItem<CoffeeData[]>(COFFEE_CACHE_KEY);
+  const cachedMatch = cached?.find((coffee) => coffee.id === coffeeId);
+
+  try {
+    const token = await getAuthToken();
+    if (!token) {
+      return cachedMatch ?? null;
+    }
+
+    const response = await loggedFetch(`${API_URL}/coffees/${coffeeId}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      return cachedMatch ?? null;
+    }
+
+    const data = await response.json();
+    return mapCoffeeItem(data);
+  } catch (error) {
+    console.error('Error fetching coffee detail:', error);
+    return cachedMatch ?? null;
   }
 };
 

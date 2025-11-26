@@ -17,7 +17,6 @@ import CoffeeReceipeScanner from './src/screens/CoffeeReceipeScanner';
 import RecipeHistoryDetailScreen from './src/screens/CoffeeReceipeScanner/RecipeHistoryDetailScreen';
 import {
   DiscoverCoffeesScreen,
-  FavoriteCoffeesScreen,
 } from './src/screens/AllCoffeesScreen';
 import UserProfile from './src/screens/UserProfile';
 import GamificationScreen from './src/screens/GamificationScreen';
@@ -45,6 +44,8 @@ import { scheduleLowStockCheck } from './src/utils/reminders';
 import InventoryScreen from './src/screens/InventoryScreen';
 import CommunityRecipesScreen from './src/screens/CommunityRecipesScreen';
 import SavedTipsScreen from './src/screens/SavedTipsScreen';
+import ScannedCoffeeDetailScreen from './src/screens/ScannedCoffeeDetailScreen';
+import TipsScreen from './src/screens/TipsScreen';
 import { coffeeOfflineManager, offlineSync } from './src/offline';
 import {
   ConnectionStatusBar,
@@ -113,7 +114,8 @@ type ScreenName =
   | 'community-recipes'
   | 'saved-tips'
   | 'scan-history'
-  | 'scan-detail';
+  | 'scan-detail'
+  | 'coffee-detail';
 
 type AuthNotice = {
   message: string;
@@ -440,6 +442,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   const [selectedBrewLog, setSelectedBrewLog] = useState<BrewLog | null>(null);
   const [selectedRecipeHistory, setSelectedRecipeHistory] = useState<RecipeHistory | null>(null);
   const [selectedScan, setSelectedScan] = useState<OCRHistory | null>(null);
+  const [selectedCoffeeId, setSelectedCoffeeId] = useState<string | null>(null);
   const [authNotice] = useState<AuthNotice | null>(null);
   const { isDark, colors } = useTheme();
   const {
@@ -1565,10 +1568,23 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     setCurrentScreen('scan-history');
   };
 
+  // Navigate to coffee detail when a card is tapped in "Moje kávy".
+  const handleCoffeePress = (coffeeId: string) => {
+    setSelectedCoffeeId(coffeeId);
+    setCurrentScreen('coffee-detail');
+  };
+
+  // Navigate back from coffee detail to the coffee list, resetting selected state.
+  const handleCoffeeDetailBack = () => {
+    setSelectedCoffeeId(null);
+    setCurrentScreen('discover');
+  };
+
   const handleBackPress = () => {
     setSelectedBrewLog(null);
     setSelectedRecipeHistory(null);
     setSelectedScan(null);
+    setSelectedCoffeeId(null);
     setCurrentScreen('home');
   };
 
@@ -1725,6 +1741,40 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         <ScanDetailScreen scan={selectedScan} onBack={handleScanDetailBack} />
         <BottomNav
           active="home"
+          onHomePress={handleBackPress}
+          onDiscoverPress={handleDiscoverPress}
+          onRecipesPress={handleRecipesPress}
+          onFavoritesPress={handleFavoritesPress}
+          onProfilePress={handleProfilePress}
+        />
+        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
+      </ResponsiveWrapper>
+    );
+  }
+
+  if (currentScreen === 'coffee-detail') {
+    if (!selectedCoffeeId) {
+      return null;
+    }
+
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.background}
+      >
+        <ConnectionStatusBar />
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={[styles.backButton, { backgroundColor: colors.primary }]}
+            onPress={handleCoffeeDetailBack}>
+            <Text style={styles.backButtonText}>← Späť</Text>
+          </TouchableOpacity>
+          <QueueStatusBadge />
+        </View>
+        <ScannedCoffeeDetailScreen coffeeId={selectedCoffeeId} onBack={handleCoffeeDetailBack} />
+        <BottomNav
+          active="discover"
           onHomePress={handleBackPress}
           onDiscoverPress={handleDiscoverPress}
           onRecipesPress={handleRecipesPress}
@@ -2048,14 +2098,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         <View style={styles.header}>
           <QueueStatusBadge />
         </View>
-        <FavoriteCoffeesScreen
-          onBack={handleBackPress}
-          onHomePress={handleBackPress}
-          onDiscoverPress={handleDiscoverPress}
-          onRecipesPress={handleRecipesPress}
-          onFavoritesPress={handleFavoritesPress}
-          onProfilePress={handleProfilePress}
-        />
+        <TipsScreen />
         <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
       </ResponsiveWrapper>
     );
@@ -2303,6 +2346,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           onRecipesPress={handleRecipesPress}
           onFavoritesPress={handleFavoritesPress}
           onProfilePress={handleProfilePress}
+          onCoffeePress={handleCoffeePress}
         />
         <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
       </ResponsiveWrapper>
