@@ -2,7 +2,13 @@
 
 
 /**
- * Rozdelí text z OpenAI na štruktúrované sekcie
+ * Parses a free-form AI response into structured sections with optional emojis, bullets, and highlights.
+ *
+ * Attempts to detect headings, bullet points, and brewing parameters (temperature, time, ratios) so that
+ * downstream UI components can render them in a rich layout.
+ *
+ * @param {string} text - Raw message from the AI model; may contain emoji headers, numbered lists, or plain text.
+ * @returns {ParsedContent} Structured representation containing extracted sections.
  */
 export const parseAIResponse = (text: string): ParsedContent => {
   if (!text) return { sections: [] };
@@ -80,7 +86,10 @@ export const parseAIResponse = (text: string): ParsedContent => {
 };
 
 /**
- * Extrahuje dôležité hodnoty z textu
+ * Extracts highlighted brewing metrics such as temperature, time, ratio, weight, or volume from a string.
+ *
+ * @param {string} text - Line of text potentially containing brewing parameters.
+ * @returns {Highlight} Identified highlight with a type and label; defaults to a text highlight when no metric is found.
  */
 const extractHighlight = (text: string): Highlight => {
   const tempMatch = text.match(/(\d+)°C/);
@@ -109,7 +118,12 @@ const extractHighlight = (text: string): Highlight => {
 };
 
 /**
- * Formátuje recept na kroky
+ * Converts a recipe description into ordered steps with inferred metadata like time, icon, and tips.
+ *
+ * Supports numbered lists, bullet points, and sentence-based parsing when no explicit structure is present.
+ *
+ * @param {string} recipe - Free-form recipe text to segment into actionable steps.
+ * @returns {RecipeStep[]} Array of structured recipe steps ready for timeline visualization.
  */
 export const formatRecipeSteps = (recipe: string): RecipeStep[] => {
   const steps: RecipeStep[] = [];
@@ -213,7 +227,10 @@ export const formatRecipeSteps = (recipe: string): RecipeStep[] => {
 };
 
 /**
- * Vráti ikonu pre krok receptu
+ * Determines an emoji icon representing the dominant action within a recipe step.
+ *
+ * @param {string} text - Step description used to match keyword groups.
+ * @returns {string} Emoji string conveying the action category for the step.
  */
 const getStepIcon = (text: string): string => {
   const lowerText = text.toLowerCase();
@@ -235,7 +252,12 @@ const getStepIcon = (text: string): string => {
 };
 
 /**
- * Vráti typ kroku na základe obsahu textu
+ * Infers the recipe step type from text content and position in the sequence.
+ *
+ * @param {string} text - Step text used for keyword detection.
+ * @param {number} index - Zero-based position of the step.
+ * @param {number} totalSteps - Total number of detected steps for identifying hero/summary steps.
+ * @returns {RecipeStep['type']} Semantic step category used for styling and tips.
  */
 const getStepType = (text: string, index: number, totalSteps: number): RecipeStep['type'] => {
   const lowerText = text.toLowerCase();
@@ -256,7 +278,10 @@ const getStepType = (text: string, index: number, totalSteps: number): RecipeSte
 };
 
 /**
- * Vráti tip od baristu na základe typu kroku
+ * Returns a contextual barista tip tailored to the provided step type.
+ *
+ * @param {RecipeStep['type']} type - Semantic step category.
+ * @returns {string} Encouraging or instructional tip for the user.
  */
 const getBaristaTip = (type: RecipeStep['type']): string => {
   const tips = {
@@ -276,7 +301,10 @@ const getBaristaTip = (type: RecipeStep['type']): string => {
 };
 
 /**
- * Formátuje coffee evaluation/odporúčanie
+ * Parses and enriches an AI coffee recommendation with sentiment and match percentage signals.
+ *
+ * @param {string} text - AI-generated recommendation text block.
+ * @returns {FormattedRecommendation} Structured recommendation including sections, sentiment, and optional match percentage.
  */
 export const formatCoffeeRecommendation = (text: string): FormattedRecommendation => {
   const parsed = parseAIResponse(text);
