@@ -4,6 +4,9 @@ import { scheduleLocalNotification } from './NotificationService';
 
 const STORAGE_KEY = 'userProgress';
 
+/**
+ * Tracks progress toward BrewMate achievements and levels.
+ */
 export interface UserProgress {
   level: number;
   scan: number;
@@ -19,6 +22,11 @@ const defaultProgress: UserProgress = {
   badges: [],
 };
 
+/**
+ * Loads persisted progress from storage or initializes defaults when absent.
+ *
+ * @returns Promise resolving to the most recent {@link UserProgress} snapshot.
+ */
 export async function getUserProgress(): Promise<UserProgress> {
   const raw = await AsyncStorage.getItem(STORAGE_KEY);
   if (raw) {
@@ -28,10 +36,24 @@ export async function getUserProgress(): Promise<UserProgress> {
   return { ...defaultProgress };
 }
 
+/**
+ * Persists the provided progress snapshot to AsyncStorage.
+ *
+ * @param progress - State object representing unlocked badges and counters.
+ */
 async function saveProgress(progress: UserProgress) {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
 }
 
+/**
+ * Increments progress counters for scans or recipe completions and awards any
+ * newly unlocked badges.
+ *
+ * @param eventType - Action type being recorded (scan or recipe).
+ * @param brewDevice - Optional brew device identifier used to tally recipe
+ *   usage per device.
+ * @returns Promise resolving to an array of badges unlocked by this action.
+ */
 export async function incrementProgress(eventType: 'scan' | 'recipe', brewDevice?: string): Promise<Badge[]> {
   const progress = await getUserProgress();
 
@@ -81,6 +103,12 @@ export async function incrementProgress(eventType: 'scan' | 'recipe', brewDevice
   return newlyUnlocked;
 }
 
+/**
+ * Retrieves all badges the user has earned.
+ *
+ * @returns Promise resolving to badge metadata filtered by the user's stored
+ *   progress.
+ */
 export async function getUnlockedBadges(): Promise<Badge[]> {
   const progress = await getUserProgress();
   return badges.filter((b) => progress.badges.includes(b.id));
