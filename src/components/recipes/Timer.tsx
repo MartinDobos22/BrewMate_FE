@@ -7,6 +7,13 @@ interface TimerProps {
   seconds: number;
 }
 
+/**
+ * Displays a simple countdown timer with start/pause controls for recipe steps.
+ *
+ * @param {TimerProps} props - Component properties.
+ * @param {number} props.seconds - Initial countdown duration in seconds; updates reset the timer state.
+ * @returns {JSX.Element} Timer display with controls to start or pause the countdown.
+ */
 const Timer: React.FC<TimerProps> = ({ seconds }) => {
   const { colors } = useTheme();
   const styles = timerStyles(colors);
@@ -28,6 +35,11 @@ const Timer: React.FC<TimerProps> = ({ seconds }) => {
     };
   }, [running, timeLeft]);
 
+  /**
+   * Formats remaining seconds into a mm:ss string for display.
+   *
+   * @returns {string} Human-readable remaining time.
+   */
   const formatTime = () => {
     const mins = Math.floor(timeLeft / 60);
     const secs = timeLeft % 60;

@@ -2,6 +2,12 @@ import { StyleSheet } from 'react-native';
 import { scale } from '../../theme/responsive';
 import { Colors } from '../../theme/colors';
 
+/**
+ * Generates themed styles for the recipe steps walkthrough screen.
+ *
+ * @param {Colors} colors - Current theme palette to colorize backgrounds and text.
+ * @returns {ReturnType<typeof StyleSheet.create>} StyleSheet object applied to recipe step components.
+ */
 export const recipeStepsStyles = (colors: Colors) =>
   StyleSheet.create({
     container: {

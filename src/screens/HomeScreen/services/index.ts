@@ -1,3 +1,6 @@
+/**
+ * Barrel exports for home screen data dependencies, keeping UI components decoupled from service paths.
+ */
 export { fetchCoffees } from '../../../services/homePagesService';
 
 export {

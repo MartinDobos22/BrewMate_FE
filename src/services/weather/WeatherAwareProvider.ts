@@ -2,9 +2,24 @@ import { WeatherProvider, WeatherContext } from '../../types/Personalization';
 
 const WEATHER_API_ENDPOINT = 'https://api.open-meteo.com/v1/forecast';
 
+/**
+ * Weather provider that enriches personalization flows with live weather data
+ * and caches the latest response per location to reduce network calls.
+ */
 export class WeatherAwareProvider implements WeatherProvider {
   private cache: { key: string; value: WeatherContext; expiresAt: number } | null = null;
 
+  /**
+   * Retrieves weather context for the given coordinates, falling back to the
+   * cached value if it is still valid.
+   *
+   * @param {{ latitude: number, longitude: number }} [location] - Optional GPS
+   * coordinates; when omitted, the provider returns `undefined` because no
+   * lookup can be performed.
+   * @returns {Promise<WeatherContext|undefined>} Weather context including
+   * condition, temperature, humidity, and raw API payload, or `undefined` when
+   * data cannot be fetched.
+   */
   public async getWeather(location?: { latitude: number; longitude: number }): Promise<WeatherContext | undefined> {
     const key = location ? `${location.latitude}:${location.longitude}` : 'default';
     const now = Date.now();

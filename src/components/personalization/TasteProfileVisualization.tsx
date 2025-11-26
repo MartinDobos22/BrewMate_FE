@@ -25,6 +25,12 @@ const labels: Record<TasteDimension, string> = {
 
 /**
  * Zobrazenie chuťového profilu cez radar graf s animovanými prechodmi.
+ *
+ * @param {object} props - Vstupné vlastnosti komponentu.
+ * @param {TasteProfileVector} props.profile - Aktuálny chuťový profil používateľa s hodnotami 0-10.
+ * @param {TasteProfileVector} [props.communityAverage] - Voliteľný priemerný profil komunity na porovnanie.
+ * @param {(dimension: TasteDimension, value: number) => void} [props.onValueChange] - Handler, ktorý sa spustí pri manuálnej úprave hodnoty dimenzie.
+ * @returns {JSX.Element} Radar graf so štítkami, ovládacími prvkami a legendou.
  */
 const TasteProfileVisualization: React.FC<TasteProfileVisualizationProps> = ({
   profile,
@@ -143,6 +149,15 @@ const TasteProfileVisualization: React.FC<TasteProfileVisualizationProps> = ({
   );
 };
 
+/**
+ * Upraví hodnotu zvolenej chuťovej dimenzie v krokoch a spustí callback.
+ *
+ * @param {TasteDimension} dimension - Dimenzia chuťového profilu, ktorá sa mení (sladkosť, kyslosť, horkosť, telo).
+ * @param {number} delta - Prírastok alebo úbytok hodnoty v rozsahu -10 až 10.
+ * @param {TasteProfileVector} profile - Aktuálny profil, z ktorého sa vypočíta nová hodnota.
+ * @param {(dimension: TasteDimension, value: number) => void} [onValueChange] - Callback spustený s orezanou hodnotou, ak je k dispozícii.
+ * @returns {void}
+ */
 function handleAdjustment(
   dimension: TasteDimension,
   delta: number,
@@ -156,6 +171,12 @@ function handleAdjustment(
   onValueChange(dimension, nextValue);
 }
 
+/**
+ * Vytvorí reťazec súradníc pre polygón chuťového profilu.
+ *
+ * @param {TasteProfileVector} vector - Vstupný vektor s hodnotami jednotlivých dimenzií.
+ * @returns {string} Reťazec "x,y" bodov oddelených medzerou pre SVG polygon.
+ */
 function buildPointString(vector: TasteProfileVector): string {
   return dimensions
     .map((dimension, index) => {
@@ -167,6 +188,14 @@ function buildPointString(vector: TasteProfileVector): string {
     .join(' ');
 }
 
+/**
+ * Prevedie polárne súradnice dimenzie na kartézsky bod v SVG.
+ *
+ * @param {number} index - Index dimenzie (0-based) v rámci celkového počtu.
+ * @param {number} total - Celkový počet dimenzií.
+ * @param {number} r - Polomer pre danú hodnotu (už škálovaný).
+ * @returns {{ x: number, y: number }} Kartézske súradnice v rámci canvasu.
+ */
 function polarToCartesian(index: number, total: number, r: number): { x: number; y: number } {
   const angle = (Math.PI * 2 * index) / total - Math.PI / 2;
   const x = center + r * Math.cos(angle);

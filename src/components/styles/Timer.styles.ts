@@ -2,6 +2,12 @@ import { StyleSheet } from 'react-native';
 import { scale } from '../../theme/responsive';
 import { Colors } from '../../theme/colors';
 
+/**
+ * Creates themed styles for the countdown timer component.
+ *
+ * @param {Colors} colors - Theme color palette used to style text and buttons.
+ * @returns {ReturnType<typeof StyleSheet.create>} StyleSheet for the timer layout.
+ */
 export const timerStyles = (colors: Colors) =>
   StyleSheet.create({
     container: {

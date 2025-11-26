@@ -17,6 +17,12 @@ export const BOTTOM_NAV_CONTENT_OFFSET = Math.max(
   0,
 );
 
+/**
+ * Creates styled definitions for the bottom navigation bar with safe-area awareness.
+ *
+ * @param {Colors} colors - Current theme palette to align navigation colors with the rest of the UI.
+ * @returns {ReturnType<typeof StyleSheet.create>} StyleSheet containing container and navigation item styles.
+ */
 export const bottomNavStyles = (colors: Colors) =>
   StyleSheet.create({
     bottomNav: {
@@ -38,23 +44,23 @@ export const bottomNavStyles = (colors: Colors) =>
       shadowRadius: 20,
       elevation: 10,
     },
-  navItem: {
-    alignItems: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 16,
-  },
-  navIcon: {
-    fontSize: 24,
-    lineHeight: 24,
-    marginBottom: 2,
-    color: colors.text,
-  },
-  navLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  navActive: {
-    color: colors.primary,
-  },
-});
+    navItem: {
+      alignItems: 'center',
+      paddingVertical: 4,
+      paddingHorizontal: 16,
+    },
+    navIcon: {
+      fontSize: 24,
+      lineHeight: 24,
+      marginBottom: 2,
+      color: colors.text,
+    },
+    navLabel: {
+      fontSize: 11,
+      fontWeight: '500',
+      color: colors.text,
+    },
+    navActive: {
+      color: colors.primary,
+    },
+  });

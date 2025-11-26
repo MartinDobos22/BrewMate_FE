@@ -27,6 +27,17 @@ const size = 220;
 const center = size / 2;
 const radius = size / 2 - 18;
 
+/**
+ * Displays a radar chart summarizing the user's taste profile with loading and error states.
+ *
+ * @param {TasteProfileRadarCardProps} props - Component props for the radar card.
+ * @param {TasteRadarScores|null} props.scores - Computed taste radar values; when null the chart shows empty state.
+ * @param {boolean} [props.loading=false] - Whether taste data is currently being fetched.
+ * @param {string|null} [props.error] - Optional error message to display when scores are unavailable.
+ * @param {() => void} [props.onRetry] - Handler invoked to retry fetching when an error occurs.
+ * @param {() => void} props.onEdit - Callback that opens the personalization questionnaire.
+ * @returns {JSX.Element} The radar chart card with appropriate state handling.
+ */
 const TasteProfileRadarCard: React.FC<TasteProfileRadarCardProps> = ({
   scores,
   loading = false,
@@ -145,6 +156,12 @@ const TasteProfileRadarCard: React.FC<TasteProfileRadarCardProps> = ({
   );
 };
 
+/**
+ * Generates polygon point coordinates for a given radial scale factor.
+ *
+ * @param {number} scaleFactor - Scalar between 0 and 1 used to scale points relative to max radius.
+ * @returns {string} Space-separated coordinate list suitable for the `points` prop of an SVG polygon.
+ */
 function buildPolygonPoints(scaleFactor: number): string {
   return axes
     .map((axis, index) => {
@@ -154,6 +171,12 @@ function buildPolygonPoints(scaleFactor: number): string {
     .join(' ');
 }
 
+/**
+ * Builds polygon coordinates from taste radar scores.
+ *
+ * @param {TasteRadarScores} scores - Radar scores for each axis.
+ * @returns {string} Serialized coordinate list representing the scored polygon.
+ */
 function buildPolygonPointsFromScores(scores: TasteRadarScores): string {
   return axes
     .map((axis, index) => {
@@ -164,6 +187,15 @@ function buildPolygonPointsFromScores(scores: TasteRadarScores): string {
     .join(' ');
 }
 
+/**
+ * Computes an (x, y) coordinate on the radar for a given value and axis.
+ *
+ * @param {number} value - Axis value between 0 and 10.
+ * @param {number} index - Index of the axis to position the point.
+ * @param {number} total - Total number of axes in the radar chart.
+ * @param {number} [customRadius] - Optional override radius; defaults to the chart radius.
+ * @returns {{ x: number, y: number }} Cartesian coordinates for the point.
+ */
 function pointForValue(value: number, index: number, total: number, customRadius?: number) {
   const angle = (Math.PI * 2 * index) / total - Math.PI / 2;
   const r = (typeof customRadius === 'number' ? customRadius : radius) * (value / 10);

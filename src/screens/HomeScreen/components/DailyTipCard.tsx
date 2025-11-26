@@ -19,6 +19,15 @@ interface Props {
 
 const SAVED_TIPS_KEY = 'SavedTips';
 
+/**
+ * Renders a daily tip card with optional AI insights and allows saving tips for later.
+ *
+ * @param {Props} props - Component props.
+ * @param {import('../services').Tip} [props.tip] - Tip object to display; if omitted the component fetches the latest tip.
+ * @param {string} [props.insight] - Optional AI-generated insight copy shown below the tip.
+ * @param {string} [props.advice] - Optional advice text displayed under the insight.
+ * @returns {JSX.Element|null} Tip card when data is available, otherwise null until a tip loads.
+ */
 const DailyTipCard: React.FC<Props> = ({ tip, insight, advice }) => {
   const [currentTip, setCurrentTip] = useState<Tip | null>(tip ?? null);
 
@@ -72,6 +81,12 @@ const DailyTipCard: React.FC<Props> = ({ tip, insight, advice }) => {
     };
   }, [tip]);
 
+  /**
+   * Persists the currently displayed tip into AsyncStorage if it has not been saved already.
+   * Uses a simple array under the SAVED_TIPS_KEY for retrieval by the saved tips screen.
+   *
+   * @returns {Promise<void>} Resolves once the tip has been written to storage or skipped if missing.
+   */
   const saveTip = async () => {
     if (!currentTip) return;
     const raw = await AsyncStorage.getItem(SAVED_TIPS_KEY);

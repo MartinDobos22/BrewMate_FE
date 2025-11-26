@@ -1,3 +1,15 @@
+/**
+ * Describes a gamification badge displayed to users based on their in-app activity.
+ *
+ * @typedef {object} Badge
+ * @property {string} id - Unique identifier used to track progress and unlock state.
+ * @property {string} title - Human-readable name shown in badge lists.
+ * @property {string} description - Short explanation of the action required to earn the badge.
+ * @property {string} icon - Emoji or asset reference used as the badge visual.
+ * @property {{ type: 'scan' | 'recipe', count: number, device?: string }} criteria -
+ * A rule describing which event type and count unlocks the badge; device narrows recipe badges
+ * to a specific brew method when present.
+ */
 export interface Badge {
   id: string;
   title: string;
@@ -10,6 +22,12 @@ export interface Badge {
   };
 }
 
+/**
+ * Static catalog of all available badges used by the gamification layer to determine earned rewards.
+ * The array is consumed by badge services and profile views to render progress and achievements.
+ *
+ * @type {Badge[]}
+ */
 export const badges: Badge[] = [
   {
     id: 'scan_10',

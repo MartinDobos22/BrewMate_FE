@@ -10,6 +10,15 @@ interface RecipeFormProps {
   onReload?: () => Promise<void> | void;
 }
 
+/**
+ * Form component for creating a new coffee recipe and persisting it through the recipe service.
+ *
+ * @param {RecipeFormProps} props - Component properties.
+ * @param {() => void} props.onClose - Callback triggered after a successful save or when the user cancels.
+ * @param {(recipe: Recipe) => void} [props.onCreated] - Optional handler invoked with the created recipe returned from the API.
+ * @param {() => Promise<void>|void} [props.onReload] - Optional hook to refresh recipe lists; awaited after creation when provided.
+ * @returns {JSX.Element} Controlled form for entering recipe title, instructions, and brew device with validation feedback.
+ */
 const RecipeForm: React.FC<RecipeFormProps> = ({ onClose, onCreated, onReload }) => {
   const [title, setTitle] = useState('');
   const [instructions, setInstructions] = useState('');
@@ -17,6 +26,11 @@ const RecipeForm: React.FC<RecipeFormProps> = ({ onClose, onCreated, onReload })
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  /**
+   * Validates user input and submits the recipe to the backend service, handling optimistic UI resets and error presentation.
+   *
+   * @returns {Promise<void>} Promise resolving once the recipe is created and callbacks have completed.
+   */
   const handleSave = async () => {
     if (submitting) {
       return;
