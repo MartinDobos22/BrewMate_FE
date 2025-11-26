@@ -39,12 +39,10 @@ export const darkColors = {
 };
 
 /**
- * Resolves the active color palette based on the current theme flag.
+ * Returns the appropriate color palette based on whether dark mode is enabled.
  *
- * @param isDarkMode - When `true`, returns the dark palette; otherwise, the
- *   light palette.
- * @returns The palette object that should be fed into theming hooks and
- *   components.
+ * @param {boolean} isDarkMode - Flag indicating if dark mode should be used.
+ * @returns {typeof lightColors|typeof darkColors} Color token map for the current theme.
  */
 export const getColors = (isDarkMode: boolean) => (
   isDarkMode ? darkColors : lightColors

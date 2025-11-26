@@ -1,8 +1,21 @@
+/**
+ * Represents a canned offline Q&A pair used when AI services are unavailable.
+ *
+ * @typedef {object} OfflineQA
+ * @property {string} question - Localized user question text matched in offline mode.
+ * @property {string} answer - Preauthored response returned when no network AI is reachable.
+ */
 export interface OfflineQA {
   question: string;
   answer: string;
 }
 
+/**
+ * Fallback knowledge base returned by the AI coach when offline to preserve core functionality.
+ * Entries are consumed sequentially or via keyword lookup to answer frequent brewing questions.
+ *
+ * @type {OfflineQA[]}
+ */
 export const OFFLINE_QA: OfflineQA[] = [
   { question: 'Ako pripravím espresso?', answer: 'Použi pomer 1:2 káva:voda a čas extrakcie 25 sekúnd.' },
   { question: 'Čo je latte?', answer: 'Espresso s napeneným mliekom, typicky 1:3 pomer.' },

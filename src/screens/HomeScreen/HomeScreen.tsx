@@ -253,8 +253,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   }, [morningRitualManager]);
 
   /**
-   * Fetches the daily tip, falling back to cached content when the network
-   * fails.
+   * Loads the daily tip from content services, falling back to cached tips when network calls fail.
+   *
+   * @returns {Promise<void>} Resolves after tip state is updated with fetched or cached data.
    */
   const loadTip = useCallback(async () => {
     setTipLoading(true);
@@ -295,6 +296,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     loadScans();
   }, []);
 
+  /**
+   * Computes a localized greeting based on the current hour of day.
+   *
+   * @returns {string} Greeting string for the header.
+   */
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Dobré ráno';
@@ -302,6 +308,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     return 'Dobrý večer';
   };
 
+  /**
+   * Provides a contextual coffee suggestion based on time of day.
+   *
+   * @returns {string} Recommendation text describing what to drink.
+   */
   const getTimeBasedMessage = () => {
     const hour = new Date().getHours();
     if (hour < 11) return 'Ranná káva je ideálna';
@@ -309,6 +320,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     return 'Pozor na spánok';
   };
 
+  /**
+   * Supplies educational advice about coffee timing tailored to morning/afternoon/evening.
+   *
+   * @returns {string} Informational copy used in the daily insight card.
+   */
   const getCoffeeAdvice = () => {
     const hour = new Date().getHours();
     if (hour < 11)
@@ -337,10 +353,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   /**
-   * Shows a quick detail alert for a coffee card and routes to brewing when
-   * requested.
+   * Displays a detail alert for a coffee carousel item and offers a shortcut to brew.
    *
-   * @param coffee - Coffee item selected from recommendations.
+   * @param {CoffeeItem} coffee - Coffee item selected by the user.
+   * @returns {void}
    */
   const handleCoffeeCardPress = (coffee: CoffeeItem) => {
     const details = [

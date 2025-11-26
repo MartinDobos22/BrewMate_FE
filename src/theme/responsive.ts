@@ -5,17 +5,17 @@ const guidelineBaseWidth = 375;
 const guidelineBaseHeight = 812;
 
 /**
- * Scales a horizontal size value relative to a 375px design baseline.
+ * Scales a size horizontally based on the device width relative to a 375pt guideline.
  *
- * @param size - The design-space measurement to transform.
- * @returns The measurement adjusted for the current device width.
+ * @param {number} size - Base size value defined for the guideline device width.
+ * @returns {number} Adjusted size proportional to the current screen width.
  */
 export const scale = (size: number) => (width / guidelineBaseWidth) * size;
 
 /**
- * Scales a vertical size value relative to an 812px design baseline.
+ * Scales a size vertically based on the device height relative to an 812pt guideline.
  *
- * @param size - The design-space measurement to transform.
- * @returns The measurement adjusted for the current device height.
+ * @param {number} size - Base size value defined for the guideline device height.
+ * @returns {number} Adjusted size proportional to the current screen height.
  */
 export const verticalScale = (size: number) => (height / guidelineBaseHeight) * size;

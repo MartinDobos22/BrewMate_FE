@@ -13,14 +13,12 @@ export interface Props {
 }
 
 /**
- * Hosts the personalization onboarding flow and passes navigation callbacks to
- * the underlying component.
+ * Screen wrapper for the personalization onboarding flow that collects user taste preferences.
  *
- * @param onFinish - Callback invoked with personalization outcomes when the
- *   onboarding flow completes.
- * @param onSkip - Optional handler when the user opts out of onboarding; falls
- *   back to a no-op to avoid conditional rendering.
- * @returns Wrapped onboarding UI.
+ * @param {Props} props - Component props.
+ * @param {(result: PersonalizationResult) => void} props.onFinish - Callback invoked when onboarding completes with the generated profile.
+ * @param {() => void} [props.onSkip] - Optional handler executed when the user opts to skip onboarding.
+ * @returns {JSX.Element} The rendered onboarding screen container.
  */
 const OnboardingScreen: React.FC<Props> = ({ onFinish, onSkip }) => {
   return (

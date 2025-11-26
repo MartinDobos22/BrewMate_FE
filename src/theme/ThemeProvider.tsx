@@ -21,14 +21,11 @@ const ThemeContext = createContext<ThemeContextProps>({
 });
 
 /**
- * Provides theme context values to the React component tree.
+ * Provides theme colors and scheme toggling based on system preference or manual overrides.
  *
- * The provider reads the system color scheme, exposes a manual override, and
- * computes the active palette using {@link getColors}. All nested components
- * can consume the theme via {@link useTheme}.
- *
- * @param children - Application subtree that should receive themed styling.
- * @returns Provider element wrapping the supplied children.
+ * @param {{ children: React.ReactNode }} props - Provider properties.
+ * @param {React.ReactNode} props.children - React tree that consumes the theme context.
+ * @returns {JSX.Element} Context provider exposing color palette and setter for scheme.
  */
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const systemScheme = useColorScheme();
@@ -50,9 +47,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 };
 
 /**
- * Hook for consuming the shared theme values within functional components.
+ * Accessor hook for the theme context to retrieve colors and scheme toggling.
  *
- * @returns The current theme context containing palette tokens and scheme
- *   controls.
+ * @returns {ThemeContextProps} Current theme state including palette and setter.
  */
 export const useTheme = () => useContext(ThemeContext);
