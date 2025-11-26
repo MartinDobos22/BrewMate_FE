@@ -53,7 +53,7 @@ const BottomNav: React.FC<BottomNavProps> = ({
       </TouchableOpacity>
       <TouchableOpacity style={styles.navItem} onPress={onFavoritesPress}>
         <Text style={[styles.navIcon, active === 'favorites' && styles.navActive]}>❤️</Text>
-        <Text style={[styles.navLabel, active === 'favorites' && styles.navActive]}>Obľúbené</Text>
+        <Text style={[styles.navLabel, active === 'favorites' && styles.navActive]}>Tipy</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.navItem} onPress={onProfilePress}>
         <Text style={[styles.navIcon, active === 'profile' && styles.navActive]}>👤</Text>
