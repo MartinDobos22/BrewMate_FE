@@ -5,9 +5,13 @@ import { coffeeOfflineManager, offlineSync } from '../offline';
 import type { Coffee } from '../types/Coffee';
 
 /**
- * Wrapper okolo fetchu ktorý loguje požiadavky a odpovede medzi frontendom a backendom.
+ * Wraps the native fetch call with verbose logging to trace frontend-backend traffic.
+ *
+ * @param {string} url - Target endpoint including query parameters.
+ * @param {RequestInit} options - Request configuration such as method, headers, and body.
+ * @returns {Promise<Response>} Response object returned by the fetch call.
  */
-const loggedFetch = async (url: string, options: RequestInit) => {
+const loggedFetch = async (url: string, options: RequestInit): Promise<Response> => {
   console.log('📤 [FE->BE]', url, options);
   const res = await fetch(url, options);
   console.log('📥 [BE->FE]', url, res.status);
@@ -36,12 +40,24 @@ const COFFEE_CACHE_KEY = 'coffees:favorites';
 const SCAN_HISTORY_CACHE_KEY = 'scans:history';
 const CACHE_TTL_HOURS = 24;
 
+/**
+ * Converts cached coffee item timestamps back into Date instances.
+ *
+ * @param {CoffeeData} item - Coffee item potentially containing a serialized timestamp.
+ * @returns {CoffeeData} Coffee item with `timestamp` coerced to `Date` when present.
+ */
 const normalizeCachedTimestamp = (item: CoffeeData): CoffeeData => ({
   ...item,
   timestamp: item.timestamp ? new Date(item.timestamp) : undefined,
 });
 
-const isOfflineError = (error: unknown) => {
+/**
+ * Detects network-related errors to decide when to fall back to offline behavior.
+ *
+ * @param {unknown} error - Error thrown by fetch or other network utilities.
+ * @returns {boolean} True when the error message suggests offline or network issues.
+ */
+const isOfflineError = (error: unknown): boolean => {
   const message = (error as Error)?.message?.toLowerCase?.() ?? '';
   return (
     message.includes('network request failed') ||
@@ -51,7 +67,9 @@ const isOfflineError = (error: unknown) => {
 };
 
 /**
- * Získa autorizačný token
+ * Retrieves the Firebase ID token for authenticated calls.
+ *
+ * @returns {Promise<string|null>} Token string when signed in, otherwise null.
  */
 const getAuthToken = async (): Promise<string | null> => {
   try {
@@ -65,7 +83,9 @@ const getAuthToken = async (): Promise<string | null> => {
 };
 
 /**
- * Načíta dáta pre dashboard
+ * Loads dashboard data including stats, recent scans, recommendations, and a daily tip.
+ *
+ * @returns {Promise<DashboardData|null>} Aggregated dashboard payload or `null` when authentication is missing or errors occur.
  */
 export const fetchDashboardData = async (): Promise<DashboardData | null> => {
   try {
@@ -128,7 +148,9 @@ export const fetchDashboardData = async (): Promise<DashboardData | null> => {
 };
 
 /**
- * Načíta štatistiky používateľa
+ * Retrieves lightweight user statistics for quick display.
+ *
+ * @returns {Promise<UserStats>} Populated statistics or default values when unauthenticated or on failure.
  */
 export const fetchUserStats = async (): Promise<UserStats> => {
   try {
@@ -186,7 +208,9 @@ export const fetchUserStats = async (): Promise<UserStats> => {
 // };
 
 /**
- * Načíta všetky kávy z databázy
+ * Fetches the full coffee catalog, caching results for offline access.
+ *
+ * @returns {Promise<CoffeeData[]>} List of coffees with normalized fields; may return cached data when offline.
  */
 export const fetchCoffees = async (): Promise<CoffeeData[]> => {
   const cached = await coffeeOfflineManager.getItem<CoffeeData[]>(COFFEE_CACHE_KEY);
@@ -275,7 +299,10 @@ export const fetchCoffees = async (): Promise<CoffeeData[]> => {
 };
 
 /**
- * Načíta históriu skenovaní
+ * Retrieves recent OCR scan history entries, prioritizing cached data when offline.
+ *
+ * @param {number} [limit=5] - Maximum number of history items to fetch from the API.
+ * @returns {Promise<CoffeeData[]>} Array of scanned coffee records ordered by recency.
  */
 export const fetchScanHistory = async (limit: number = 5): Promise<CoffeeData[]> => {
   const cached = await coffeeOfflineManager.getItem<CoffeeData[]>(SCAN_HISTORY_CACHE_KEY);
@@ -324,7 +351,9 @@ export const fetchScanHistory = async (limit: number = 5): Promise<CoffeeData[]>
 };
 
 /**
- * Získa denný tip
+ * Returns a deterministic daily tip string based on the current weekday.
+ *
+ * @returns {string} Daily tip text chosen from a rotating set of messages.
  */
 export const getDailyTip = (): string => {
   const tips = [
@@ -343,7 +372,9 @@ export const getDailyTip = (): string => {
 // Helper funkcie pre predvolené dáta
 
 /**
- * Vráti prázdne štatistiky používateľa ako predvolenú hodnotu.
+ * Provides default user statistics when no data is available.
+ *
+ * @returns {UserStats} Object containing zeroed coffee counts and averages.
  */
 const getDefaultStats = (): UserStats => ({
   coffeeCount: 0,
@@ -352,7 +383,12 @@ const getDefaultStats = (): UserStats => ({
 });
 
 /**
- * Uloží hodnotenie kávy
+ * Saves a coffee rating, enqueuing the action offline if authentication fails due to connectivity.
+ *
+ * @param {string} coffeeId - Identifier of the coffee being rated.
+ * @param {number} rating - User-provided rating value.
+ * @param {string} [notes] - Optional text notes accompanying the rating.
+ * @returns {Promise<boolean>} True when the rating was accepted or queued for sync.
  */
 export const saveCoffeeRating = async (
   coffeeId: string,
@@ -395,7 +431,10 @@ export const saveCoffeeRating = async (
 };
 
 /**
- * Pridá kávu do obľúbených
+ * Toggles favorite status for a coffee, queuing the change if offline.
+ *
+ * @param {string} coffeeId - Identifier of the coffee to favorite or unfavorite.
+ * @returns {Promise<boolean>} True when the operation succeeds immediately or is queued for later sync.
  */
 export const toggleFavorite = async (coffeeId: string): Promise<boolean> => {
   try {
