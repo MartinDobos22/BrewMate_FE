@@ -13,7 +13,6 @@ import {
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   Modal,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
@@ -680,17 +679,6 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     setIsFavorite(false);
     setCurrentView('home');
   };
-
-  const ratedHistory = ocrHistory.filter(
-    (item) => typeof item.rating === 'number' && (item.rating ?? 0) > 0
-  );
-  const averageRating = ratedHistory.length
-    ? (
-        ratedHistory.reduce((acc, item) => acc + (item.rating ?? 0), 0) /
-        ratedHistory.length
-      ).toFixed(1)
-    : '0.0';
-  const favoritesCount = ocrHistory.filter((item) => item.is_favorite).length;
   const showBackButton = currentView !== 'home';
   const brewingMethods = scanResult?.brewingMethods ?? [];
   const matchLabel = scanResult?.matchPercentage
@@ -865,20 +853,11 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
           showsVerticalScrollIndicator={false}
           refreshControl={refreshControl}
         >
-          <View style={styles.contentWrapper}>
-            <View style={styles.phoneContainer}>
-              <View style={styles.statusBar}>
-                <Text style={styles.statusTime}>9:41</Text>
-                <View style={styles.statusIcons}>
-                  <Text style={styles.statusIcon}>📶</Text>
-                  <Text style={styles.statusIcon}>📶</Text>
-                  <Text style={styles.statusIcon}>🔋</Text>
-                </View>
-              </View>
-
-              <View style={styles.appHeader}>
-                <TouchableOpacity
-                  style={[styles.backButton, showBackButton ? styles.backButtonVisible : null]}
+            <View style={styles.contentWrapper}>
+              <View style={styles.phoneContainer}>
+                <View style={styles.appHeader}>
+                  <TouchableOpacity
+                    style={[styles.backButton, showBackButton ? styles.backButtonVisible : null]}
                   onPress={handleBack}
                   activeOpacity={0.8}
                   disabled={!showBackButton}
@@ -941,23 +920,6 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
                           <Text style={styles.actionLabel}>Vybrať z galérie</Text>
                           <Text style={styles.actionSublabel}>Nahrať fotku</Text>
                         </TouchableOpacity>
-                      </View>
-                    </View>
-
-                    <View style={styles.statsContainer}>
-                      <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>{recipeHistory.length}</Text>
-                        <Text style={styles.statLabel}>Receptov</Text>
-                      </View>
-                      <View style={styles.statDivider} />
-                      <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>{favoritesCount}</Text>
-                        <Text style={styles.statLabel}>Obľúbené</Text>
-                      </View>
-                      <View style={styles.statDivider} />
-                      <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>{averageRating}</Text>
-                        <Text style={styles.statLabel}>Priemer ⭐</Text>
                       </View>
                     </View>
 
