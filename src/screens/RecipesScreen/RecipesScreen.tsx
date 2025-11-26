@@ -57,17 +57,18 @@ type ExtendedRecipe = Recipe & {
 const HISTORY_FETCH_LIMIT = 50;
 
 /**
- * Displays curated and historical recipes with filtering and selection
- * capabilities.
+ * Renders the recipes tab combining catalog items and a user's brew history with
+ * device filtering, search, and bottom navigation hooks.
  *
- * @param onBack - Handler for returning to the previous screen.
- * @param onHomePress - Callback when the Home tab is chosen.
- * @param onDiscoverPress - Callback when the Discover tab is chosen.
- * @param onRecipesPress - Callback when the Recipes tab is chosen.
- * @param onFavoritesPress - Callback when the Favorites tab is chosen.
- * @param onProfilePress - Callback when the Profile tab is chosen.
- * @param onRecipeSelect - Invoked when a recipe with instructions is selected.
- * @returns Rendered recipes listing with filters.
+ * @param {RecipesScreenProps} props - Screen callbacks used for navigation and recipe selection.
+ * @param {() => void} props.onBack - Handler for returning to the previous screen.
+ * @param {() => void} props.onHomePress - Callback when the Home tab is chosen.
+ * @param {() => void} props.onDiscoverPress - Callback when the Discover tab is chosen.
+ * @param {() => void} props.onRecipesPress - Callback when the Recipes tab is chosen.
+ * @param {() => void} props.onFavoritesPress - Callback when the Favorites tab is chosen.
+ * @param {() => void} props.onProfilePress - Callback when the Profile tab is chosen.
+ * @param {(recipe: Recipe) => void} props.onRecipeSelect - Invoked when a recipe with instructions is selected.
+ * @returns {JSX.Element} Rendered recipes listing with filters and navigation footer.
  */
 const RecipesScreen: React.FC<RecipesScreenProps> = ({
   onBack,
@@ -92,8 +93,9 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
    * Fetches catalog and history recipes, normalizing responses and handling
    * fallback states when either request fails.
    *
-   * @param useRefreshingState - When true, avoids toggling the primary loading
-   *   spinner to preserve the pull-to-refresh UX.
+   * @param {boolean} [useRefreshingState=false] - When true, avoids toggling the primary loading
+   * spinner to preserve the pull-to-refresh UX.
+   * @returns {Promise<void>} Resolves once recipes and history have been hydrated or error states set.
    */
   const loadRecipes = useCallback(
     async (useRefreshingState = false) => {
@@ -140,6 +142,8 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
 
   /**
    * Refresh handler for pull-to-refresh interactions.
+   *
+   * @returns {Promise<void>} Resolves after the refresh data load completes.
    */
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -169,6 +173,8 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
   /**
    * Filters recipes based on the selected brew device and search query while
    * preserving both catalog and history entries.
+   *
+   * @returns {ExtendedRecipe[]} Recipes matching the current filter criteria.
    */
   const filteredRecipes = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -204,7 +210,8 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
   /**
    * Validates selection and surfaces instructions or alerts when missing.
    *
-   * @param recipe - Selected recipe item from the list.
+   * @param {Recipe} recipe - Selected recipe item from the list.
+   * @returns {void}
    */
   const handleRecipePress = useCallback(
     (recipe: Recipe) => {
@@ -322,6 +329,12 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
   );
 };
 
+/**
+ * Normalizes recipe entries that may include legacy property names into a consistent format.
+ *
+ * @param {RecipeWithOptionalFields} recipe - Recipe payload from catalog APIs with optional aliases.
+ * @returns {Recipe} Recipe object with guaranteed `instructions` and normalized `brewDevice` fields.
+ */
 const normalizeRecipe = (recipe: RecipeWithOptionalFields): Recipe => {
   const instructions = recipe.instructions ?? recipe.recipe ?? '';
   const brewDevice =
@@ -334,6 +347,12 @@ const normalizeRecipe = (recipe: RecipeWithOptionalFields): Recipe => {
   };
 };
 
+/**
+ * Converts a brew history record into a recipe card entry for display.
+ *
+ * @param {RecipeHistory} entry - Historical brew record from the API.
+ * @returns {ExtendedRecipe} Recipe-like object annotated with history metadata.
+ */
 const historyToRecipe = (entry: RecipeHistory): ExtendedRecipe => {
   const title = entry.method && entry.method.trim().length > 0 ? entry.method : 'Uložený recept';
   const isValidDevice = (device: unknown): device is BrewDevice =>
