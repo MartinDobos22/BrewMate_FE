@@ -19,7 +19,6 @@ import {
   DiscoverCoffeesScreen,
 } from './src/screens/AllCoffeesScreen';
 import UserProfile from './src/screens/UserProfile';
-import GamificationScreen from './src/screens/GamificationScreen';
 import EditUserProfile from './src/components/profile/EditUserProfile';
 import CoffeePreferenceForm from './src/components/personalization/CoffeePreferenceForm';
 import EditPreferences from './src/components/personalization/EditPreferences';
@@ -105,7 +104,6 @@ type ScreenName =
   | 'recipe-history-detail'
   | 'favorites'
   | 'inventory'
-  | 'gamification'
   | 'taste-quiz'
   | 'personalization'
   | 'brew-history'
@@ -1910,37 +1908,6 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           onEdit={() => setCurrentScreen('edit-profile')}
           onPreferences={handleProfilePreferencesPress}
           onBack={handleBackPress}
-          onHomePress={handleBackPress}
-          onDiscoverPress={handleDiscoverPress}
-          onRecipesPress={handleRecipesPress}
-          onFavoritesPress={handleFavoritesPress}
-          onProfilePress={handleProfilePress}
-          onGamification={() => setCurrentScreen('gamification')}
-        />
-        <SyncProgressIndicator progress={syncProgress} visible={indicatorVisible} />
-      </ResponsiveWrapper>
-    );
-  }
-
-  if (currentScreen === 'gamification') {
-    return (
-      <ResponsiveWrapper
-        backgroundColor={colors.background}
-        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
-        statusBarBackground={colors.primary}
-      >
-        <ConnectionStatusBar />
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={[styles.backButton, { backgroundColor: colors.primary }]}
-            onPress={() => setCurrentScreen('profile')}>
-            <Text style={styles.backButtonText}>← Späť</Text>
-          </TouchableOpacity>
-          <QueueStatusBadge />
-        </View>
-        <GamificationScreen />
-        <BottomNav
-          active="profile"
           onHomePress={handleBackPress}
           onDiscoverPress={handleDiscoverPress}
           onRecipesPress={handleRecipesPress}

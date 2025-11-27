@@ -12,7 +12,6 @@ export type {
   StructuredCoffeeMetadata,
   ConfirmStructuredPayload,
 } from '../../../services/ocrServices';
-export { incrementProgress } from '../../../services/profileServices';
 export { saveOCRResult, loadOCRResult } from '../../../services/offlineCache';
 export { addRecentScan } from '../../../services/coffeeServices';
 export { coffeeDiary as fallbackCoffeeDiary, preferenceEngine } from '../../../services/personalizationGateway';

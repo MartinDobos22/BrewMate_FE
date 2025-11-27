@@ -183,7 +183,6 @@ const UserProfile = ({
                        onRecipesPress,
                        onFavoritesPress,
                        onProfilePress,
-                       onGamification,
                      }: {
   onEdit: () => void;
   onPreferences: () => void;
@@ -194,7 +193,6 @@ const UserProfile = ({
   onRecipesPress: () => void;
   onFavoritesPress: () => void;
   onProfilePress: () => void;
-  onGamification: () => void;
 }) => {
   const { ready: personalizationReady, privacyManager: contextPrivacyManager } = usePersonalization();
   const privacyManagerRef = useRef<PrivacyManager>(contextPrivacyManager ?? privacyManager.manager);
