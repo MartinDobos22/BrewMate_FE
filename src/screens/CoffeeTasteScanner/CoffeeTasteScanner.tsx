@@ -33,7 +33,6 @@ import {
   confirmStructuredScan,
   extractCoffeeName,
   rateOCRResult,
-  incrementProgress,
   saveOCRResult,
   loadOCRResult,
   addRecentScan,
@@ -896,13 +895,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
         setCurrentView('scan');
         setOverlayVisible(false);
         setOverlayText('Analyzujem...');
-
-        // Update user progress for successful scan
-        try {
-          await incrementProgress('scan');
-        } catch (e) {
-          console.error('Failed to update progress', e);
-        }
 
         // Ulož do zoznamu posledných skenov
         const name = extractCoffeeName(normalizedResult.corrected || normalizedResult.original);
