@@ -4,8 +4,6 @@ import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
 import { PersonalizationContext } from '../../../App';
 import {
   TasteProfileQuizEngine,
-  FlavorEmbeddingService,
-  FlavorJourneyRepository,
   DefaultRecommendationTelemetry,
   RecommendationEngine,
   TravelModeManager,
@@ -227,13 +225,10 @@ export const TasteProfileQuizScreen: React.FC<TasteProfileQuizScreenProps> = ({ 
         telemetry,
         travelModeManager: travelMode,
       });
-      const flavorRepository = new FlavorJourneyRepository();
-      const flavorService = new FlavorEmbeddingService(flavorRepository);
 
       const quizEngine = new TasteProfileQuizEngine({
         learningEngine: personalization.learningEngine,
         recommendationEngine,
-        flavorEmbeddingService: flavorService,
         userId: personalization.userId,
       });
       await quizEngine.hydrateFromCache();

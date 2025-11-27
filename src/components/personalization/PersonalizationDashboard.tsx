@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { TasteQuizResult } from '../../types/PersonalizationAI';
-import { FlavorJourneyMilestone } from '../../types/PersonalizationAI';
 import { UserTasteProfile } from '../../types/Personalization';
 import { usePersonalization } from '../../hooks/usePersonalization';
 
@@ -11,7 +10,6 @@ interface PersonalizationDashboardProps {
   timeline?: Array<{ date: string; description: string }>;
   onToggleExperiment: (enabled: boolean) => void;
   experimentsEnabled: boolean;
-  journey?: FlavorJourneyMilestone[];
   profile?: UserTasteProfile | null;
 }
 
@@ -24,7 +22,6 @@ interface PersonalizationDashboardProps {
  * @param {{ date: string, description: string }[]} [props.timeline] - Chronological entries describing how preferences evolved.
  * @param {(enabled: boolean) => void} props.onToggleExperiment - Handler invoked when the user toggles A/B experiment participation.
  * @param {boolean} props.experimentsEnabled - Indicates whether the user is currently opted into experiments.
- * @param {FlavorJourneyMilestone[]} [props.journey] - Optional flavor journey milestones displayed as achievements.
  * @param {UserTasteProfile|null} [props.profile] - Current taste profile to surface primary preference scores; null hides the section.
  * @returns {JSX.Element} Scrollable dashboard summarizing personalization data and smart diary insights.
  */
@@ -32,9 +29,8 @@ export const PersonalizationDashboard: React.FC<PersonalizationDashboardProps> =
   quizResult,
   confidence,
   timeline,
-  onToggleExperiment,
+ onToggleExperiment,
   experimentsEnabled,
-  journey,
   profile,
 }) => {
   const { insights, refreshInsights, ready } = usePersonalization();
@@ -114,18 +110,6 @@ export const PersonalizationDashboard: React.FC<PersonalizationDashboardProps> =
           </Text>
         </Pressable>
       </View>
-
-      {journey && journey.length ? (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Flavor journey</Text>
-          {journey.map((milestone) => (
-            <View key={milestone.id} style={styles.milestone}>
-              <Text style={styles.milestoneTitle}>{milestone.title}</Text>
-              <Text style={styles.milestoneDescription}>{milestone.description}</Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
 
       {insights && insights.length ? (
         <View style={styles.section}>
@@ -214,19 +198,6 @@ const styles = StyleSheet.create({
   },
   toggleTextActive: {
     color: '#fff',
-  },
-  milestone: {
-    marginBottom: 16,
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: '#F5EFE9',
-  },
-  milestoneTitle: {
-    fontWeight: '700',
-  },
-  milestoneDescription: {
-    marginTop: 6,
-    color: '#555',
   },
   insightCard: {
     marginBottom: 16,

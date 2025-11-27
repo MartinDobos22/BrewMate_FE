@@ -26,7 +26,6 @@ import RecipeStepsScreen from './src/screens/RecipeStepsScreen/RecipeStepsScreen
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import type { PersonalizationResult } from './src/components/personalization/PersonalizationOnboarding';
 import PersonalizationDashboard from './src/components/personalization/PersonalizationDashboard';
-import FlavorJourneyMap from './src/components/personalization/FlavorJourneyMap';
 import AICoachChat from './src/components/personalization/AICoachChat';
 import BrewHistoryScreen from './src/screens/BrewHistory';
 import BrewHistoryDetailScreen from './src/screens/BrewHistory/DetailScreen';
@@ -61,8 +60,6 @@ import { MorningRitualManager } from './src/services/MorningRitualManager';
 import { PreferenceLearningEngine } from './src/services/PreferenceLearningEngine';
 import { CoffeeDiary } from './src/services/CoffeeDiary';
 import { PrivacyManager } from './src/services/PrivacyManager';
-import { FlavorJourneyRepository } from './src/services/flavor/FlavorJourneyRepository';
-import { FlavorEmbeddingService } from './src/services/flavor/FlavorEmbeddingService';
 import { SmartDiaryInsight, SmartDiaryService } from './src/services/SmartDiaryService';
 import {
   CalendarProvider,
@@ -77,7 +74,7 @@ import {
   TasteDimension,
   UserTasteProfile,
 } from './src/types/Personalization';
-import type { FlavorJourneyMilestone, MoodSignal, TasteQuizResult } from './src/types/PersonalizationAI';
+import type { MoodSignal, TasteQuizResult } from './src/types/PersonalizationAI';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { LearningEventProvider } from './src/services/PrivacyManager';
 import { supabaseClient } from './src/services/supabaseClient';
@@ -148,7 +145,6 @@ interface PersonalizationContextValue {
   smartDiary: SmartDiaryService | null;
   refreshInsights: (() => Promise<void>) | null;
   quizResult: TasteQuizResult | null;
-  journeyMilestones: FlavorJourneyMilestone[];
   experimentsEnabled: boolean;
   moodSignals: MoodSignal[];
   sendCoachMessage: ((message: string) => Promise<string>) | null;
@@ -170,7 +166,6 @@ const emptyPersonalizationState: PersonalizationContextValue = {
   smartDiary: null,
   refreshInsights: null,
   quizResult: null,
-  journeyMilestones: [],
   experimentsEnabled: false,
   moodSignals: [],
   sendCoachMessage: null,
@@ -451,26 +446,8 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     privacyManager,
     userId,
   } = personalization;
-  const flavorJourneyRepository = useMemo(() => new FlavorJourneyRepository(), []);
-  const flavorEmbeddingService = useMemo(
-    () => new FlavorEmbeddingService(flavorJourneyRepository),
-    [flavorJourneyRepository],
-  );
   const onboardingResponseService = useMemo(() => new OnboardingResponseService(), []);
   const indicatorVisible = syncVisible || queueLength > 0;
-
-  const timelineData = useMemo(() => {
-    return personalization.journeyMilestones.slice(0, 6).map((milestone) => {
-      const date = new Date(milestone.date);
-      const formatted = Number.isNaN(date.getTime())
-        ? milestone.date
-        : date.toLocaleDateString('sk-SK');
-      return {
-        date: formatted,
-        description: milestone.description,
-      };
-    });
-  }, [personalization.journeyMilestones]);
 
   const handleExperimentToggle = useCallback(
     async (enabled: boolean) => {
@@ -876,14 +853,6 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
 
         await learningEngine.updateProfile(updatedProfile);
 
-        if (userId && analysis.embeddings.length > 0) {
-          try {
-            await flavorEmbeddingService.recordQuizEmbeddings(userId, analysis.embeddings);
-          } catch (error) {
-            console.warn('App: failed to record onboarding embeddings', error);
-          }
-        }
-
         if (!cancelled) {
           setHasAppliedPersonalizationOnboarding(true);
           setPersonalization((prev) => ({
@@ -906,7 +875,6 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     hasAppliedPersonalizationOnboarding,
     learningEngine,
     onboardingAnalysis,
-    flavorEmbeddingService,
     personalizationOnboardingResult,
     setPersonalization,
     userId,
@@ -988,7 +956,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         const engine = new PreferenceLearningEngine(activeUserId, { storage: learningStorage });
         await engine.initialize();
 
-        const smartDiaryService = new SmartDiaryService(engine, flavorEmbeddingService);
+        const smartDiaryService = new SmartDiaryService(engine);
         const diary = new CoffeeDiary({
           storage: diaryStorage,
           learningEngine: engine,
@@ -1073,7 +1041,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     return () => {
       cancelled = true;
     };
-  }, [flavorEmbeddingService, isAuthenticated, setPersonalization, userId]);
+  }, [isAuthenticated, setPersonalization, userId]);
 
   useEffect(() => {
     if (!personalizationReady || !learningEngine || morningRitualManager) {
@@ -1255,40 +1223,6 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
       active = false;
     };
   }, [privacyManager, setPersonalization, userId]);
-
-  useEffect(() => {
-    if (!userId) {
-      return;
-    }
-
-    let active = true;
-
-    const loadJourney = async () => {
-      try {
-        const milestones = await flavorJourneyRepository.fetchJourney(userId);
-        if (!active) {
-          return;
-        }
-        setPersonalization((prev) => {
-          const identical =
-            prev.journeyMilestones.length === milestones.length &&
-            prev.journeyMilestones.every((existing, index) => existing.id === milestones[index]?.id);
-          if (identical) {
-            return prev;
-          }
-          return { ...prev, journeyMilestones: milestones };
-        });
-      } catch (error) {
-        console.warn('App: failed to load flavor journey', error);
-      }
-    };
-
-    loadJourney();
-
-    return () => {
-      active = false;
-    };
-  }, [flavorJourneyRepository, setPersonalization, userId, personalization.quizResult]);
 
   useEffect(() => {
     if (!personalizationReady || !coffeeDiary || !userId) {
@@ -2267,17 +2201,10 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
               quizResult={personalization.quizResult ?? undefined}
               profile={personalization.profile ?? undefined}
               confidence={personalization.confidenceScores}
-              timeline={timelineData}
               onToggleExperiment={handleExperimentToggle}
               experimentsEnabled={personalization.experimentsEnabled}
-              journey={personalization.journeyMilestones}
             />
           </View>
-          {personalization.journeyMilestones.length ? (
-            <View style={{ paddingHorizontal: scale(24), marginBottom: scale(16) }}>
-              <FlavorJourneyMap milestones={personalization.journeyMilestones} />
-            </View>
-          ) : null}
           <View style={{ flex: 1, marginTop: scale(8) }}>
             <AICoachChat onSend={handleCoachSend} moodSignals={personalization.moodSignals} />
           </View>

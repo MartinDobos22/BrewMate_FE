@@ -1,6 +1,5 @@
 import { differenceInDays } from 'date-fns';
 import { BrewHistoryEntry } from '../types/Personalization';
-import { FlavorEmbeddingService } from './flavor/FlavorEmbeddingService';
 import { PreferenceLearningEngine } from './PreferenceLearningEngine';
 
 export interface SmartDiaryInsight {
@@ -13,21 +12,15 @@ export interface SmartDiaryInsight {
 
 /**
  * Generuje personalizované denníkové insighty na základe histórie príprav a chuťových preferencií.
- * Využíva embeddingy chutí a učenie preferencií na navrhovanie trendov, míľnikov a pripomienok zásob.
+ * Využíva učenie preferencií na navrhovanie trendov a pripomienok zásob.
  */
 export class SmartDiaryService {
   private latestInsights: SmartDiaryInsight[] = [];
 
-  private lastProcessedEntryId: string | null = null;
-
   /**
    * @param {PreferenceLearningEngine} learningEngine - Engine na učenie trendov preferencií podľa histórie.
-   * @param {FlavorEmbeddingService} flavorEmbeddingService - Služba na ukladanie a čítanie embeddingov chutí.
    */
-  constructor(
-    private readonly learningEngine: PreferenceLearningEngine,
-    private readonly flavorEmbeddingService: FlavorEmbeddingService,
-  ) {}
+  constructor(private readonly learningEngine: PreferenceLearningEngine) {}
 
   /**
    * Vypočíta nový zoznam insightov na základe histórie príprav a správania používateľa.
@@ -35,7 +28,6 @@ export class SmartDiaryService {
    * @param {string} userId - Identifikátor používateľa, pre ktorého sa generujú insighty.
    * @param {BrewHistoryEntry[]} entries - História príprav káv zoradená od najnovšej.
    * @returns {Promise<SmartDiaryInsight[]>} Zoznam nových insightov pripravených na zobrazenie.
-   * @throws {Error} Pri zlyhaní ukladania embeddingu sa chyba zaloguje, ostatné insighty sa však spočítajú.
    */
   public async generateInsights(userId: string, entries: BrewHistoryEntry[]): Promise<SmartDiaryInsight[]> {
     const insights: SmartDiaryInsight[] = [];
@@ -44,33 +36,12 @@ export class SmartDiaryService {
       return insights;
     }
 
-    const [latest] = entries;
-    if (latest?.id && latest.id !== this.lastProcessedEntryId) {
-      try {
-        await this.flavorEmbeddingService.recordDiaryEntry(latest);
-      } catch (error) {
-        console.warn('SmartDiaryService: failed to record diary embedding', error);
-      }
-      this.lastProcessedEntryId = latest.id;
-    }
-
     const tasteTrend = await this.learningEngine.calculateTasteTrend(userId, entries);
     if (tasteTrend) {
       insights.push({
         id: 'trend',
         title: 'Chuť sa posúva k vyváženosti',
         body: `Za posledné ${tasteTrend.periodDays} dni sa tvoje preferencie posunuli smerom k ${tasteTrend.direction}.`,
-        type: 'pattern',
-        createdAt: new Date().toISOString(),
-      });
-    }
-
-    const journey = await this.flavorEmbeddingService.getJourney(userId);
-    if (journey.length > 3) {
-      insights.push({
-        id: 'journey-milestone',
-        title: 'Dosiahol si chuťový míľnik',
-        body: `Na základe flavor journey mapy si objavil ${journey[journey.length - 1].description}.`,
         type: 'pattern',
         createdAt: new Date().toISOString(),
       });

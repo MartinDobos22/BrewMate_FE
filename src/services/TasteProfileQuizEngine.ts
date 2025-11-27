@@ -18,14 +18,12 @@ import {
 } from '../types/PersonalizationAI';
 import { PreferenceLearningEngine } from './PreferenceLearningEngine';
 import { RecommendationEngine } from './recommendation/RecommendationEngine';
-import { FlavorEmbeddingService } from './flavor/FlavorEmbeddingService';
 
 const QUIZ_CACHE_KEY = 'brewmate:taste_quiz:cache_v1';
 
 export interface TasteProfileQuizEngineConfig {
   learningEngine: PreferenceLearningEngine;
   recommendationEngine: RecommendationEngine;
-  flavorEmbeddingService: FlavorEmbeddingService;
   userId: string;
   weather?: BrewContext['weather'];
   timeOfDay?: BrewContext['timeOfDay'];
@@ -284,7 +282,7 @@ export class TasteProfileQuizEngine {
   }
 
   /**
-   * Finalizes the quiz by updating the user's taste profile, generating recommendations, storing embeddings, and clearing cache.
+   * Finalizes the quiz by updating the user's taste profile, generating recommendations, and clearing cache.
    *
    * @param {TasteQuizRuntimeContext} context - Context captured during quiz completion such as time of day and weather.
    * @returns {Promise<TasteQuizResult>} Comprehensive result including updated profile, confidence scores, and suggestions.
@@ -301,8 +299,6 @@ export class TasteProfileQuizEngine {
     });
 
     const learningPath = this.buildLearningPath(updatedProfile, predictions.predictions);
-
-    await this.config.flavorEmbeddingService.recordQuizEmbeddings(this.config.userId, this.answers);
 
     await EncryptedStorage.removeItem(QUIZ_CACHE_KEY);
     this.answers = [];
