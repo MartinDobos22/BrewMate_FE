@@ -209,40 +209,6 @@ export interface PrivacySettingState {
 }
 
 /**
- * Embedding vector representing a flavor insight extracted from user actions.
- *
- * @typedef {object} FlavorEmbeddingVector
- * @property {number[]} embedding - Numeric embedding values representing flavor space coordinates.
- * @property {string} label - Human label for the embedding (e.g., "citrus-forward").
- * @property {string} createdAt - ISO timestamp when the embedding was recorded.
- * @property {'quiz' | 'diary' | 'recipe' | 'scan'} source - Originating data source for the embedding.
- */
-export interface FlavorEmbeddingVector {
-  embedding: number[];
-  label: string;
-  createdAt: string;
-  source: 'quiz' | 'diary' | 'recipe' | 'scan';
-}
-
-/**
- * Milestone on the user's flavor journey timeline used to render progress.
- *
- * @typedef {object} FlavorJourneyMilestone
- * @property {string} id - Unique identifier for the milestone entry.
- * @property {string} date - ISO date when the milestone was achieved.
- * @property {string} title - Milestone title displayed in the UI.
- * @property {string} description - Additional detail about the insight.
- * @property {FlavorEmbeddingVector} embedding - Embedding capturing the flavor signature at that time.
- */
-export interface FlavorJourneyMilestone {
-  id: string;
-  date: string;
-  title: string;
-  description: string;
-  embedding: FlavorEmbeddingVector;
-}
-
-/**
  * Describes cached payloads stored with expiration metadata for personalization flows.
  *
  * @template T
