@@ -1,9 +1,4 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import React, { JSX, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -78,7 +73,7 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
   onFavoritesPress,
   onProfilePress,
   onRecipeSelect,
-}) => {
+}: RecipesScreenProps): JSX.Element => {
   const baseStyles = homeStyles();
   const styles = recipesStyles;
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -87,7 +82,8 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedDevice, setSelectedDevice] = useState<string>(ALL_DEVICES_VALUE);
+  const [selectedDevice, setSelectedDevice] =
+    useState<string>(ALL_DEVICES_VALUE);
 
   /**
    * Fetches catalog and history recipes, normalizing responses and handling
@@ -97,44 +93,43 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
    * spinner to preserve the pull-to-refresh UX.
    * @returns {Promise<void>} Resolves once recipes and history have been hydrated or error states set.
    */
-  const loadRecipes = useCallback(
-    async (useRefreshingState = false) => {
-      if (!useRefreshingState) {
-        setLoading(true);
-      }
-      setError(null);
-      try {
-        const [recipesResult, historyResult] = await Promise.allSettled([
-          fetchRecipes(),
-          fetchRecipeHistory(HISTORY_FETCH_LIMIT),
-        ]);
+  const loadRecipes = useCallback(async (useRefreshingState = false) => {
+    if (!useRefreshingState) {
+      setLoading(true);
+    }
+    setError(null);
+    try {
+      const [recipesResult, historyResult] = await Promise.allSettled([
+        fetchRecipes(),
+        fetchRecipeHistory(HISTORY_FETCH_LIMIT),
+      ]);
 
-        if (recipesResult.status === 'fulfilled') {
-          const normalized = recipesResult.value.map((recipe) => normalizeRecipe(recipe));
-          setRecipes(normalized);
-        } else {
-          console.error('Error loading recipes:', recipesResult.reason);
-          setRecipes([]);
-          setError('Nepodarilo sa načítať recepty. Skúste to prosím znova.');
-        }
-
-        if (historyResult.status === 'fulfilled') {
-          setHistoryRecipes(historyResult.value);
-        } else {
-          console.error('Error loading recipe history:', historyResult.reason);
-          setHistoryRecipes([]);
-        }
-      } catch (err) {
-        console.error('Error loading recipes:', err);
+      if (recipesResult.status === 'fulfilled') {
+        const normalized = recipesResult.value.map(recipe =>
+          normalizeRecipe(recipe),
+        );
+        setRecipes(normalized);
+      } else {
+        console.error('Error loading recipes:', recipesResult.reason);
+        setRecipes([]);
         setError('Nepodarilo sa načítať recepty. Skúste to prosím znova.');
-      } finally {
-        if (!useRefreshingState) {
-          setLoading(false);
-        }
       }
-    },
-    [],
-  );
+
+      if (historyResult.status === 'fulfilled') {
+        setHistoryRecipes(historyResult.value);
+      } else {
+        console.error('Error loading recipe history:', historyResult.reason);
+        setHistoryRecipes([]);
+      }
+    } catch (err) {
+      console.error('Error loading recipes:', err);
+      setError('Nepodarilo sa načítať recepty. Skúste to prosím znova.');
+    } finally {
+      if (!useRefreshingState) {
+        setLoading(false);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     void loadRecipes();
@@ -152,17 +147,17 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
   }, [loadRecipes]);
 
   const extendedRecipes = useMemo<ExtendedRecipe[]>(() => {
-    const catalogRecipes = recipes.map((recipe) => ({
+    const catalogRecipes = recipes.map(recipe => ({
       ...recipe,
       source: 'catalog' as const,
     }));
-    const historyItems = historyRecipes.map((entry) => historyToRecipe(entry));
+    const historyItems = historyRecipes.map(entry => historyToRecipe(entry));
     return [...historyItems, ...catalogRecipes];
   }, [recipes, historyRecipes]);
 
   const devices = useMemo(() => {
     const values = new Set<string>();
-    extendedRecipes.forEach((recipe) => {
+    extendedRecipes.forEach(recipe => {
       if (recipe.brewDevice) {
         values.add(recipe.brewDevice);
       }
@@ -179,7 +174,7 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
   const filteredRecipes = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
 
-    return extendedRecipes.filter((recipe) => {
+    return extendedRecipes.filter(recipe => {
       if (
         selectedDevice !== ALL_DEVICES_VALUE &&
         recipe.brewDevice?.toLowerCase() !== selectedDevice.toLowerCase()
@@ -233,13 +228,20 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
         <TouchableOpacity onPress={onBack} style={baseStyles.logoSection}>
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
-        <Text style={[baseStyles.appTitle, { flex: 1, textAlign: 'center' }]}>Recepty</Text>
-        <TouchableOpacity onPress={() => void loadRecipes()} style={styles.reloadButton}>
+        <Text style={[baseStyles.appTitle, { flex: 1, textAlign: 'center' }]}>
+          Recepty
+        </Text>
+        <TouchableOpacity
+          onPress={() => void loadRecipes()}
+          style={styles.reloadButton}
+        >
           <Text style={styles.reloadText}>↻</Text>
         </TouchableOpacity>
       </View>
       <ScrollView
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
         contentContainerStyle={{
           padding: 16,
           paddingBottom: BOTTOM_NAV_CONTENT_OFFSET,
@@ -259,10 +261,10 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
             <View style={styles.pickerWrapper}>
               <Picker
                 selectedValue={selectedDevice}
-                onValueChange={(value) => setSelectedDevice(String(value))}
+                onValueChange={value => setSelectedDevice(String(value))}
               >
                 <Picker.Item label="Všetky" value={ALL_DEVICES_VALUE} />
-                {devices.map((device) => (
+                {devices.map(device => (
                   <Picker.Item key={device} label={device} value={device} />
                 ))}
               </Picker>
@@ -273,7 +275,11 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         {loading ? (
-          <ActivityIndicator size="large" color="#6B4423" style={styles.loader} />
+          <ActivityIndicator
+            size="large"
+            color="#6B4423"
+            style={styles.loader}
+          />
         ) : null}
 
         {!loading && filteredRecipes.length === 0 ? (
@@ -281,7 +287,7 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
         ) : null}
 
         {!loading &&
-          filteredRecipes.map((recipe) => (
+          filteredRecipes.map(recipe => (
             <TouchableOpacity
               key={recipe.id}
               style={[baseStyles.coffeeCard, styles.recipeCard]}
@@ -289,9 +295,7 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
               onPress={() => handleRecipePress(recipe)}
             >
               <View style={styles.recipeHeaderRow}>
-                <Text style={baseStyles.coffeeName}>
-                  {recipe.title}
-                </Text>
+                <Text style={baseStyles.coffeeName}>{recipe.title}</Text>
                 {recipe.source === 'history' ? (
                   <View style={styles.historyBadge}>
                     <Text style={styles.historyBadgeText}>História</Text>
@@ -302,11 +306,15 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
                 <Text style={baseStyles.coffeeOrigin}>{recipe.brewDevice}</Text>
               ) : null}
               {recipe.source === 'history' && recipe.historyMeta?.taste ? (
-                <Text style={styles.historyTaste}>{recipe.historyMeta.taste}</Text>
+                <Text style={styles.historyTaste}>
+                  {recipe.historyMeta.taste}
+                </Text>
               ) : null}
               {recipe.source === 'history' && recipe.historyMeta?.createdAt ? (
                 <Text style={styles.historyTimestamp}>
-                  {new Date(recipe.historyMeta.createdAt).toLocaleDateString('sk-SK')}
+                  {new Date(recipe.historyMeta.createdAt).toLocaleDateString(
+                    'sk-SK',
+                  )}
                 </Text>
               ) : null}
               <Text style={styles.instructionsPreview}>
@@ -338,7 +346,8 @@ const RecipesScreen: React.FC<RecipesScreenProps> = ({
 const normalizeRecipe = (recipe: RecipeWithOptionalFields): Recipe => {
   const instructions = recipe.instructions ?? recipe.recipe ?? '';
   const brewDevice =
-    recipe.brewDevice ?? (recipe as Record<string, unknown>).brew_device;
+    recipe.brewDevice ??
+    (recipe as unknown as Record<string, unknown>).brew_device;
 
   return {
     ...recipe,

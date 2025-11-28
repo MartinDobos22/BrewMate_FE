@@ -148,16 +148,6 @@ const CoffeeLibraryScreen: React.FC<CoffeeLibraryInternalProps> = ({
     return 'Žiadne kávy sa nenašli.';
   }, [favoritesOnly]);
 
-  // Navigate to the dedicated coffee detail screen when an item is tapped.
-  const handleCoffeePress = useCallback(
-    (coffee: Coffee) => {
-      if (onCoffeePress) {
-        onCoffeePress(coffee.id);
-      }
-    },
-    [onCoffeePress],
-  );
-
   return (
     <View style={baseStyles.container}>
       <View style={baseStyles.appHeader}>
@@ -257,7 +247,6 @@ const CoffeeLibraryScreen: React.FC<CoffeeLibraryInternalProps> = ({
               key={coffee.id}
               style={[baseStyles.coffeeCard, styles.coffeeCard]}
               activeOpacity={0.85}
-              onPress={() => handleCoffeePress(coffee)}
             >
               <View style={baseStyles.coffeeImage}>
                 <Text style={baseStyles.coffeeEmoji}>☕</Text>

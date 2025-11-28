@@ -44,9 +44,8 @@ import {
 import type { OCRHistory, StructuredCoffeeMetadata, ConfirmStructuredPayload } from './services';
 import { BrewContext } from '../../types/Personalization';
 import { usePersonalization } from '../../hooks/usePersonalization';
-import { recognizeCoffee } from '../../offline/VisionService';
-import { coffeeOfflineManager, offlineSync } from '../../offline';
 import { showToast } from '../../utils/toast';
+import { recognizeCoffee } from 'services/VisionService.ts';
 
 interface ScanResult {
   original: string;
@@ -439,7 +438,7 @@ const clampTasteValue = (value: number): number => {
 
 const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onHistoryPress }) => {
   const { coffeeDiary: personalizationDiary, refreshInsights } = usePersonalization();
-  const diary = personalizationDiary ?? fallbackCoffeeDiary;
+  const diary = personalizationDiary ;
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [editedText, setEditedText] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -1014,12 +1013,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
         const payload = imagePath
           ? { ...offlineResult, imagePath, createdAt: timestamp }
           : { ...offlineResult, createdAt: timestamp };
-        await coffeeOfflineManager.setItem(
-          'taste:last-offline',
-          payload,
-          24 * 30,
-          5
-        );
       } catch (cacheError) {
         console.error('Failed to cache offline scan', cacheError);
       }
@@ -1185,7 +1178,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
             const payload = notes
               ? { coffeeId: scanResult.scanId, rating, notes }
               : { coffeeId: scanResult.scanId, rating };
-            await offlineSync.enqueue('coffee:rate', payload);
             queuedOffline = true;
           } catch (queueError) {
             console.error('Failed to enqueue rating for offline sync', queueError);

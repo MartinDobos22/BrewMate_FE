@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CONFIG } from '../config/config';
-import { coffeeOfflineManager } from '../offline';
-const tipsData = require('../../content/dailyTips.json');
+import tipsData from '../../content/dailyTips.json';
 
 export interface Tip {
   id: number;
@@ -18,71 +17,6 @@ let scheduledRefreshHandle: ReturnType<typeof setTimeout> | null = null;
 const tipList: Tip[] = tipsData as Tip[];
 const OPENAI_API_KEY = CONFIG.OPENAI_API_KEY;
 const isTestEnvironment = process.env.NODE_ENV === 'test';
-
-/**
- * Builds a stable cache key for storing the tip content for a given date in offline storage.
- *
- * @param {string} date - ISO date string (YYYY-MM-DD) used to namespace the cached tip entry.
- * @returns {string} A cache key string scoped to the provided date.
- */
-const buildOfflineCacheKey = (date: string) => `${TIP_OFFLINE_CACHE_KEY_PREFIX}:${date}`;
-
-/**
- * Reads a cached tip for the provided date from AsyncStorage or offline cache.
- *
- * @param {string} date - ISO date string (YYYY-MM-DD) to fetch the cached tip for.
- * @returns {Promise<Tip | null>} A promise resolving with the cached tip or null when no cached entry exists.
- */
-export const getTipFromCache = async (date: string): Promise<Tip | null> => {
-  try {
-    const offlineKey = buildOfflineCacheKey(date);
-    const offlineCached = await coffeeOfflineManager.getItem<Tip>(offlineKey);
-    if (offlineCached) {
-      return offlineCached;
-    }
-
-    const stored = await AsyncStorage.getItem(TIP_STORAGE_KEY);
-    if (!stored) {
-      return null;
-    }
-
-    const parsed: Tip = JSON.parse(stored);
-    if (parsed.date === date) {
-      try {
-        await coffeeOfflineManager.setItem(offlineKey, parsed, TIP_CACHE_TTL_HOURS, 4);
-      } catch (error) {
-        console.error('Error caching tip offline:', error);
-      }
-      return parsed;
-    }
-
-    return null;
-  } catch (error) {
-    console.error('Error reading cached tip:', error);
-    return null;
-  }
-};
-
-/**
- * Persists the given tip to AsyncStorage and the offline cache for future reads.
- *
- * @param {Tip} tip - Tip object to persist; must include `id`, `text`, and `date`.
- * @returns {Promise<void>} Promise that resolves when storage operations complete (errors are logged but not thrown).
- */
-export const persistTip = async (tip: Tip): Promise<void> => {
-  const offlineKey = buildOfflineCacheKey(tip.date);
-  try {
-    await AsyncStorage.setItem(TIP_STORAGE_KEY, JSON.stringify(tip));
-  } catch (error) {
-    console.error('Error saving last tip:', error);
-  }
-
-  try {
-    await coffeeOfflineManager.setItem(offlineKey, tip, TIP_CACHE_TTL_HOURS, 4);
-  } catch (error) {
-    console.error('Error caching daily tip:', error);
-  }
-};
 
 /**
  * Picks a deterministic tip for the specified date from the bundled static list.
@@ -203,13 +137,9 @@ const generateTipWithAI = async (date: string): Promise<Tip | null> => {
  */
 export const fetchDailyTip = async (now: Date = new Date()): Promise<Tip> => {
   const today = now.toISOString().slice(0, 10);
-  const cached = await getTipFromCache(today);
-  if (cached) {
-    return cached;
-  }
+
 
   const tip = (await generateTipWithAI(today)) ?? pickTipForDate(today);
-  await persistTip(tip);
   return tip;
 };
 

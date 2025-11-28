@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { JSX } from 'react';
 import { View, Text, Image, FlatList, TouchableOpacity, Dimensions, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { RecentScan } from '../../services/coffeeServices';
@@ -29,7 +29,7 @@ const RecentScansCarousel: React.FC<Props> = ({ scans }) => {
    * @param {{ item: RecentScan }} param0 - Item data supplied by FlatList.
    * @returns {JSX.Element} The rendered card element.
    */
-  const renderItem = ({ item }: { item: RecentScan }) => (
+  const renderItem = ({ item }: { item: RecentScan }): JSX.Element => (
     <TouchableOpacity
       style={{ width: ITEM_WIDTH, marginRight: 12 }}
       onPress={() => navigation.navigate('CoffeeDetail', { id: item.id })}

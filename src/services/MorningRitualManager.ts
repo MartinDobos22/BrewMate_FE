@@ -48,26 +48,29 @@ interface RitualResponseLog {
  */
 export class MorningRitualManager {
   private readonly notificationChannel: NotificationChannel;
-  private readonly weatherProvider: WeatherProvider;
   private readonly calendarProvider: CalendarProvider;
   private readonly learningEngine: PreferenceLearningEngine;
   private readonly userId: string;
 
-  constructor(config: MorningRitualManagerConfig) {
+  constructor(config: {
+    notificationChannel: NotificationChannel;
+    calendarProvider: CalendarProvider;
+    learningEngine: PreferenceLearningEngine;
+    userId: string;
+  }) {
     this.notificationChannel = config.notificationChannel;
-    this.weatherProvider = config.weatherProvider;
     this.calendarProvider = config.calendarProvider;
     this.learningEngine = config.learningEngine;
     this.userId = config.userId ?? 'local-user';
   }
 
-  public async scheduleNotifications(context: MorningRitualContext = {}): Promise<void> {
+  public async scheduleNotifications(
+    context: MorningRitualContext = {},
+  ): Promise<void> {
     await this.scheduleMorningNotification(this.userId, context);
   }
 
-  public async getRecommendation(
-    context: MorningRitualContext = {},
-  ): Promise<
+  public async getRecommendation(context: MorningRitualContext = {}): Promise<
     | (PredictionResult & {
         message: string;
         strengthHint: RitualRecommendation['strengthHint'];
@@ -78,7 +81,10 @@ export class MorningRitualManager {
     try {
       return await this.getRecommendationForCard(context);
     } catch (error) {
-      console.warn('MorningRitualManager: failed to resolve recommendation', error);
+      console.warn(
+        'MorningRitualManager: failed to resolve recommendation',
+        error,
+      );
       return null;
     }
   }
@@ -143,36 +149,59 @@ export class MorningRitualManager {
     try {
       await this.learningEngine.ingestBrew(brewEntry, learningEvent);
     } catch (error) {
-      console.warn('MorningRitualManager: failed to record feedback in learning engine', error);
+      console.warn(
+        'MorningRitualManager: failed to record feedback in learning engine',
+        error,
+      );
     }
 
     try {
-      const stored = (await AsyncStorage.getItem(RESPONSES_STORAGE_KEY)) ?? '[]';
+      const stored =
+        (await AsyncStorage.getItem(RESPONSES_STORAGE_KEY)) ?? '[]';
       const parsed = JSON.parse(stored) as RitualResponseLog[];
       const updated: RitualResponseLog[] = [
         { recipeId, accepted, timestamp: isoNow },
         ...parsed,
       ].slice(0, 30);
-      await AsyncStorage.setItem(RESPONSES_STORAGE_KEY, JSON.stringify(updated));
+      await AsyncStorage.setItem(
+        RESPONSES_STORAGE_KEY,
+        JSON.stringify(updated),
+      );
     } catch (error) {
-      console.warn('MorningRitualManager: failed to persist ritual response', error);
+      console.warn(
+        'MorningRitualManager: failed to persist ritual response',
+        error,
+      );
     }
   }
 
   /**
    * Naplánuje rannú notifikáciu podľa predpokladaného času vstávania a aktuálneho kontextu.
    */
-  public async scheduleMorningNotification(userId: string, context: MorningRitualContext = {}): Promise<void> {
+  public async scheduleMorningNotification(
+    userId: string,
+    context: MorningRitualContext = {},
+  ): Promise<void> {
     try {
       await this.learningEngine.initialize();
       const wakeTime = await this.resolveWakeTime();
-      const weather = await this.weatherProvider.getWeather(context.location);
       const variant = await this.resolveABVariant();
       const weekday = this.getIsoWeekday(wakeTime);
-      const { prediction, recommendation } = await this.resolvePrediction(context, weekday, weather);
+      const { prediction, recommendation } = await this.resolvePrediction(
+        context,
+        weekday
+      );
 
-      const message = this.composeMessage(prediction, weather?.condition, variant, weekday, recommendation?.message);
-      const title = variant === 'B' ? 'Objav svoju ideálnu rannú kávu' : 'Dobré ráno s BrewMate';
+      const message = this.composeMessage(
+        prediction,
+        variant,
+        weekday,
+        recommendation?.message,
+      );
+      const title =
+        variant === 'B'
+          ? 'Objav svoju ideálnu rannú kávu'
+          : 'Dobré ráno s BrewMate';
 
       await this.notificationChannel.scheduleNotification({
         id: `morning-ritual-${userId}`,
@@ -195,7 +224,9 @@ export class MorningRitualManager {
    * Zruší aktuálnu rannú notifikáciu (napr. pri zmene nastavení).
    */
   public async cancelMorningNotification(userId: string): Promise<void> {
-    await this.notificationChannel.cancelNotification(`morning-ritual-${userId}`);
+    await this.notificationChannel.cancelNotification(
+      `morning-ritual-${userId}`,
+    );
   }
 
   /**
@@ -213,27 +244,37 @@ export class MorningRitualManager {
 
   public async getRecommendationForCard(
     context: MorningRitualContext,
-  ): Promise<(PredictionResult & { message: string; strengthHint: RitualRecommendation['strengthHint']; weatherCondition?: string }) | null> {
+  ): Promise<
+    | (PredictionResult & {
+        message: string;
+        strengthHint: RitualRecommendation['strengthHint'];
+        weatherCondition?: string;
+      })
+    | null
+  > {
     const wakeTime = await this.resolveWakeTime();
     const weekday = this.getIsoWeekday(wakeTime);
-    const weather = await this.weatherProvider.getWeather(context.location);
-    const { prediction, recommendation } = await this.resolvePrediction(context, weekday, weather);
+    const { prediction, recommendation } = await this.resolvePrediction(
+      context,
+      weekday
+    );
     if (!recommendation) {
       return null;
     }
     return {
       ...prediction,
       message: recommendation.message,
-      strengthHint: recommendation.strengthHint,
-      weatherCondition: weather?.condition,
-    };
+      strengthHint: recommendation.strengthHint};
   }
 
   private async resolvePrediction(
     context: MorningRitualContext,
     weekday: number,
     weather?: BrewContext['weather'],
-  ): Promise<{ prediction: PredictionResult; recommendation?: RitualRecommendation }> {
+  ): Promise<{
+    prediction: PredictionResult;
+    recommendation?: RitualRecommendation;
+  }> {
     const predictionContext: PredictionContext = {
       timeOfDay: 'morning',
       weekday,
@@ -241,16 +282,26 @@ export class MorningRitualManager {
       anticipatedMood: context.anticipatedMood,
     };
 
-    const recommendation = await this.buildDecisionTreeRecommendation(weekday, weather, context);
+    const recommendation = await this.buildDecisionTreeRecommendation(
+      weekday,
+      weather,
+      context,
+    );
     const recipeId = recommendation?.recipeId ?? context.fallbackRecipeId;
 
     if (recipeId) {
-      const prediction = await this.learningEngine.predictRating(recipeId, predictionContext);
+      const prediction = await this.learningEngine.predictRating(
+        recipeId,
+        predictionContext,
+      );
       return { prediction, recommendation: recommendation ?? undefined };
     }
 
     if (recommendation) {
-      const prediction = await this.learningEngine.predictRating(recommendation.recipeId, predictionContext);
+      const prediction = await this.learningEngine.predictRating(
+        recommendation.recipeId,
+        predictionContext,
+      );
       return { prediction, recommendation };
     }
 
@@ -294,8 +345,11 @@ export class MorningRitualManager {
     weekday: number,
     recommendationMessage?: string,
   ): string {
-    const ratingText = prediction.predictedRating >= 4.2 ? 'Top výber' : 'Zlepši si ráno';
-    const weatherFragment = weatherCondition ? ` Vonku je ${weatherCondition.toLowerCase()}, prispôsobili sme extrakciu.` : '';
+    const ratingText =
+      prediction.predictedRating >= 4.2 ? 'Top výber' : 'Zlepši si ráno';
+    const weatherFragment = weatherCondition
+      ? ` Vonku je ${weatherCondition.toLowerCase()}, prispôsobili sme extrakciu.`
+      : '';
     const weekdayName = format(this.isoToDate(weekday), 'EEEE', { locale: sk });
     const basePrefix = recommendationMessage ? `${recommendationMessage} ` : '';
     const base = `${basePrefix}${ratingText}: recept ${prediction.recipeId}. ${weatherFragment}`;
@@ -316,8 +370,11 @@ export class MorningRitualManager {
     weather?: BrewContext['weather'],
     context: MorningRitualContext = {},
   ): Promise<RitualRecommendation | null> {
-    const strengthFromCalendar = await this.calendarProvider.getWeekdayPlan(weekday);
-    const contextStrength: RitualRecommendation['strengthHint'] = strengthFromCalendar ?? this.inferStrength(weekday);
+    const strengthFromCalendar = await this.calendarProvider.getWeekdayPlan(
+      weekday,
+    );
+    const contextStrength: RitualRecommendation['strengthHint'] =
+      strengthFromCalendar ?? this.inferStrength(weekday);
     const mood = context.anticipatedMood?.toLowerCase();
     const isWeekend = weekday === 6 || weekday === 7;
     const condition = weather?.condition?.toLowerCase();
@@ -383,7 +440,8 @@ export class MorningRitualManager {
       return {
         recipeId: 'power-aeropress',
         strengthHint: 'strong',
-        message: 'Kalendár hlási náročný deň – odporúčame Aeropress s vyšším pomerom kávy.',
+        message:
+          'Kalendár hlási náročný deň – odporúčame Aeropress s vyšším pomerom kávy.',
         context: {
           timeOfDay: 'morning',
           weather,
@@ -397,7 +455,8 @@ export class MorningRitualManager {
     return {
       recipeId: 'balanced-house-espresso',
       strengthHint: contextStrength,
-      message: 'Udrž stabilitu – klasický espresso recept so strednou sladkosťou.',
+      message:
+        'Udrž stabilitu – klasický espresso recept so strednou sladkosťou.',
       context: {
         timeOfDay: 'morning',
         weather,

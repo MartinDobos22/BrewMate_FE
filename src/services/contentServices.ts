@@ -13,8 +13,6 @@ export {
   fetchDailyTip,
   getNextRefreshDelay,
   getScheduledDailyTipRefreshHandle,
-  getTipFromCache,
-  persistTip,
   pickTipForDate,
   scheduleDailyTipRefresh,
 } from './dailyTipService';

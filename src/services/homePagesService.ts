@@ -1,7 +1,6 @@
 // services/homeService.ts
 import auth from '@react-native-firebase/auth';
 import { API_URL } from './api';
-import { coffeeOfflineManager, offlineSync } from '../offline';
 import type { Coffee } from '../types/Coffee';
 
 /**
@@ -273,7 +272,6 @@ export const fetchUserStats = async (): Promise<UserStats> => {
  * @returns {Promise<CoffeeData[]>} List of coffees with normalized fields; may return cached data when offline.
  */
 export const fetchCoffees = async (): Promise<CoffeeData[]> => {
-  const cached = await coffeeOfflineManager.getItem<CoffeeData[]>(COFFEE_CACHE_KEY);
   try {
     const token = await getAuthToken();
     if (!token) return [];
@@ -287,23 +285,16 @@ export const fetchCoffees = async (): Promise<CoffeeData[]> => {
     });
 
     if (!response.ok) {
-      return cached ?? [];
+      return  [];
     }
 
     const data = await response.json();
     const mapped: CoffeeData[] = data.map((item: any) => mapCoffeeItem(item));
-    await coffeeOfflineManager.setItem(
-      COFFEE_CACHE_KEY,
-      mapped,
-      CACHE_TTL_HOURS,
-      8,
-    );
+
     return mapped;
   } catch (error) {
     console.error('Error fetching coffees:', error);
-    if (cached) {
-      return cached;
-    }
+
     return [];
   }
 };
@@ -315,13 +306,11 @@ export const fetchCoffees = async (): Promise<CoffeeData[]> => {
  * @returns {Promise<CoffeeData | null>} Normalized coffee detail or null when unavailable.
  */
 export const fetchCoffeeById = async (coffeeId: string): Promise<CoffeeData | null> => {
-  const cached = await coffeeOfflineManager.getItem<CoffeeData[]>(COFFEE_CACHE_KEY);
-  const cachedMatch = cached?.find((coffee) => coffee.id === coffeeId);
 
   try {
     const token = await getAuthToken();
     if (!token) {
-      return cachedMatch ?? null;
+      return null;
     }
 
     const response = await loggedFetch(`${API_URL}/coffees/${coffeeId}`, {
@@ -333,14 +322,14 @@ export const fetchCoffeeById = async (coffeeId: string): Promise<CoffeeData | nu
     });
 
     if (!response.ok) {
-      return cachedMatch ?? null;
+      return null;
     }
 
     const data = await response.json();
     return mapCoffeeItem(data);
   } catch (error) {
     console.error('Error fetching coffee detail:', error);
-    return cachedMatch ?? null;
+    return  null;
   }
 };
 
@@ -351,7 +340,6 @@ export const fetchCoffeeById = async (coffeeId: string): Promise<CoffeeData | nu
  * @returns {Promise<CoffeeData[]>} Array of scanned coffee records ordered by recency.
  */
 export const fetchScanHistory = async (limit: number = 5): Promise<CoffeeData[]> => {
-  const cached = await coffeeOfflineManager.getItem<CoffeeData[]>(SCAN_HISTORY_CACHE_KEY);
   try {
     const token = await getAuthToken();
     if (!token) return [];
@@ -366,7 +354,7 @@ export const fetchScanHistory = async (limit: number = 5): Promise<CoffeeData[]>
 
     if (!response.ok) {
       console.warn('Scan history API returned error:', response.status);
-      return (cached ?? []).map(normalizeCachedTimestamp);
+      return ([]).map(normalizeCachedTimestamp);
     }
 
     const data = await response.json();
@@ -380,18 +368,11 @@ export const fetchScanHistory = async (limit: number = 5): Promise<CoffeeData[]>
       brand: item.brand,
       origin: item.origin,
     }));
-    await coffeeOfflineManager.setItem(
-      SCAN_HISTORY_CACHE_KEY,
-      mapped,
-      CACHE_TTL_HOURS,
-      6,
-    );
+
     return mapped;
   } catch (error) {
     console.error('Error fetching scan history:', error);
-    if (cached) {
-      return cached.map(normalizeCachedTimestamp);
-    }
+
     return [];
   }
 };
@@ -462,14 +443,12 @@ export const saveCoffeeRating = async (
       return true;
     }
     if (response.status === 401) {
-      await offlineSync.enqueue('coffee:rate', { coffeeId, rating, notes });
       return true;
     }
     return false;
   } catch (error) {
     console.error('Error saving coffee rating:', error);
     if (isOfflineError(error)) {
-      await offlineSync.enqueue('coffee:rate', { coffeeId, rating, notes });
       return true;
     }
     return false;
@@ -499,14 +478,12 @@ export const toggleFavorite = async (coffeeId: string): Promise<boolean> => {
       return true;
     }
     if (response.status === 401) {
-      await offlineSync.enqueue('coffee:favorite', { coffeeId });
       return true;
     }
     return false;
   } catch (error) {
     console.error('Error toggling favorite:', error);
     if (isOfflineError(error)) {
-      await offlineSync.enqueue('coffee:favorite', { coffeeId });
       return true;
     }
     return false;

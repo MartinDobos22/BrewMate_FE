@@ -1,5 +1,5 @@
 // components/ResponsiveWrapper.tsx
-import React from 'react';
+import React, { JSX } from 'react';
 import { SafeAreaView, StatusBar, View, Text, StyleSheet, Platform } from 'react-native';
 import { getSafeAreaTop, getSafeAreaBottom } from '../utils/safeArea';
 
@@ -21,11 +21,11 @@ interface ResponsiveWrapperProps {
  * @returns {JSX.Element} Layout wrapper ensuring proper spacing from device notches and bars.
  */
 const ResponsiveWrapper: React.FC<ResponsiveWrapperProps> = ({
-                                                               children,
-                                                               backgroundColor = '#FAF7F5',
-                                                               statusBarStyle = 'dark-content',
-                                                               statusBarBackground = '#6B4423',
-                                                             }) => {
+  children,
+  backgroundColor = '#FAF7F5',
+  statusBarStyle = 'dark-content',
+  statusBarBackground = '#6B4423',
+}: ResponsiveWrapperProps): JSX.Element => {
   return (
     <>
       <StatusBar
@@ -36,9 +36,11 @@ const ResponsiveWrapper: React.FC<ResponsiveWrapperProps> = ({
       <SafeAreaView style={[styles.container, { backgroundColor }]}>
         <View style={styles.content}>
           {React.Children.map(children, child =>
-            typeof child === 'string' || typeof child === 'number'
-              ? <Text>{child}</Text>
-              : child
+            typeof child === 'string' || typeof child === 'number' ? (
+              <Text>{child}</Text>
+            ) : (
+              child
+            ),
           )}
         </View>
       </SafeAreaView>

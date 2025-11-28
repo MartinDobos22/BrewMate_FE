@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { JSX, useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { BrewLog } from '../../types/BrewLog';
@@ -19,7 +19,13 @@ interface BrewHistoryScreenProps {
  * @param {(log: BrewLog) => void} [props.onLogPress] - Voliteľný handler pri kliknutí na existujúci záznam.
  * @returns {JSX.Element} Rozhranie s filtrami, zoznamom záznamov a akciami.
  */
-const BrewHistoryScreen: React.FC<BrewHistoryScreenProps> = ({ onAddLog, onLogPress }) => {
+const BrewHistoryScreen: React.FC<BrewHistoryScreenProps> = ({
+  onAddLog,
+  onLogPress,
+}: {
+  onAddLog?: () => void;
+  onLogPress?: (log: BrewLog) => void;
+}): JSX.Element => {
   const [logs, setLogs] = useState<BrewLog[]>([]);
   const [deviceFilter, setDeviceFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState('');
@@ -37,7 +43,7 @@ const BrewHistoryScreen: React.FC<BrewHistoryScreenProps> = ({ onAddLog, onLogPr
     load();
   }, []);
 
-  const filtered = logs.filter((log) => {
+  const filtered = logs.filter(log => {
     const byDevice = deviceFilter === 'all' || log.brewDevice === deviceFilter;
     const byDate = dateFilter === '' || log.date.startsWith(dateFilter);
     return byDevice && byDate;
@@ -49,11 +55,13 @@ const BrewHistoryScreen: React.FC<BrewHistoryScreenProps> = ({ onAddLog, onLogPr
    * @param {{ item: BrewLog }} param0 - Položka zoznamu s logom prípravy.
    * @returns {JSX.Element} Dotykový prvok so zhrnutím záznamu.
    */
-  const renderItem = ({ item }: { item: BrewLog }) => (
+  const renderItem = ({ item }: { item: BrewLog }): JSX.Element => (
     <TouchableOpacity
       style={styles.item}
       onPress={() =>
-        onLogPress ? onLogPress(item) : Alert.alert('Detail záznamu', JSON.stringify(item, null, 2))
+        onLogPress
+          ? onLogPress(item)
+          : Alert.alert('Detail záznamu', JSON.stringify(item, null, 2))
       }
     >
       <Text style={styles.itemTitle}>
@@ -68,7 +76,11 @@ const BrewHistoryScreen: React.FC<BrewHistoryScreenProps> = ({ onAddLog, onLogPr
     <View style={styles.container}>
       {onAddLog ? (
         <View style={styles.actionsRow}>
-          <TouchableOpacity style={styles.addButton} onPress={onAddLog} testID="history-add-log">
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={onAddLog}
+            testID="history-add-log"
+          >
             <Text style={styles.addButtonText}>Pridať záznam</Text>
           </TouchableOpacity>
         </View>
@@ -77,10 +89,10 @@ const BrewHistoryScreen: React.FC<BrewHistoryScreenProps> = ({ onAddLog, onLogPr
         <Picker
           selectedValue={deviceFilter}
           style={styles.devicePicker}
-          onValueChange={(v) => setDeviceFilter(String(v))}
+          onValueChange={v => setDeviceFilter(String(v))}
         >
           <Picker.Item label="Všetky" value="all" />
-          {BREW_DEVICES.map((d) => (
+          {BREW_DEVICES.map(d => (
             <Picker.Item key={d} label={d} value={d} />
           ))}
         </Picker>
@@ -91,7 +103,11 @@ const BrewHistoryScreen: React.FC<BrewHistoryScreenProps> = ({ onAddLog, onLogPr
           onChangeText={setDateFilter}
         />
       </View>
-      <FlatList data={filtered} keyExtractor={(item) => item.id} renderItem={renderItem} />
+      <FlatList
+        data={filtered}
+        keyExtractor={item => item.id}
+        renderItem={renderItem}
+      />
     </View>
   );
 };

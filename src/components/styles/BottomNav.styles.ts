@@ -23,7 +23,9 @@ export const BOTTOM_NAV_CONTENT_OFFSET = Math.max(
  * @param {Colors} colors - Current theme palette to align navigation colors with the rest of the UI.
  * @returns {ReturnType<typeof StyleSheet.create>} StyleSheet containing container and navigation item styles.
  */
-export const bottomNavStyles = (colors: Colors) =>
+export const bottomNavStyles = (
+  colors: Colors,
+): ReturnType<typeof StyleSheet.create> =>
   StyleSheet.create({
     bottomNav: {
       position: 'absolute',

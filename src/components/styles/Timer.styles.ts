@@ -8,7 +8,7 @@ import { Colors } from '../../theme/colors';
  * @param {Colors} colors - Theme color palette used to style text and buttons.
  * @returns {ReturnType<typeof StyleSheet.create>} StyleSheet for the timer layout.
  */
-export const timerStyles = (colors: Colors) =>
+export const timerStyles = (colors: Colors): ReturnType<typeof StyleSheet.create> =>
   StyleSheet.create({
     container: {
       flexDirection: 'row',

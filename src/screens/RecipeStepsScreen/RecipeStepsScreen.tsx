@@ -16,10 +16,6 @@ import { formatRecipeSteps, RecipeStep } from '../../components/utils/AITextForm
 import { BrewDevice } from '../../types/Recipe';
 import Timer from '../../components/recipes/Timer';
 import {
-  colors,
-  componentStyles,
-  spacing,
-  typography,
   unifiedStyles,
 } from 'theme/unifiedStyles.ts';
 import type { ViewToken, FlatListProps } from 'react-native';
