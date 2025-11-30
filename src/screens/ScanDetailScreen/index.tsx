@@ -11,6 +11,12 @@ interface ScanDetailScreenProps {
 const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({ scan }) => {
   const { colors } = useTheme();
 
+  const flavorNotes = Array.isArray(scan.flavor_notes)
+    ? scan.flavor_notes.filter((note): note is string => typeof note === 'string')
+    : typeof scan.flavor_notes === 'string'
+      ? [scan.flavor_notes]
+      : [];
+
   const detailRows: { label: string; value?: string | number | null }[] = [
     { label: 'Pražiareň / Značka', value: scan.brand },
     { label: 'Pôvod', value: scan.origin },
@@ -42,10 +48,10 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({ scan }) => {
               <Text style={[styles.value, { color: colors.text }]}>{row.value}</Text>
             </View>
           ))}
-        {scan.flavor_notes && scan.flavor_notes.length ? (
+        {flavorNotes.length ? (
           <View style={styles.row}>
             <Text style={[styles.label, { color: colors.textSecondary }]}>Chuťové poznámky</Text>
-            <Text style={[styles.value, { color: colors.text }]}>{scan.flavor_notes.join(', ')}</Text>
+            <Text style={[styles.value, { color: colors.text }]}>{flavorNotes.join(', ')}</Text>
           </View>
         ) : null}
       </View>
