@@ -1154,6 +1154,11 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
       return;
     }
 
+    if (!diary) {
+      Alert.alert('Chyba', 'Denník nie je dostupný. Skús to neskôr.');
+      return;
+    }
+
     const previousRating = userRating;
     setUserRating(rating);
 
