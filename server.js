@@ -669,6 +669,53 @@ Výsledok napíš ako používateľovi:
   }
 });
 
+/**
+ * Potvrdí štruktúrované údaje skenu a uchová ich pre budúce odporúčania.
+ *
+ * Endpoint len validuje vstup a uloží auditný log, aby FE vedel, že
+ * potvrdenie prebehlo úspešne. DB schéma aktuálne neobsahuje
+ * dedikované polia na štruktúrované dáta, preto hodnoty iba logujeme.
+ */
+app.post('/api/ocr/:id/structured/confirm', async (req, res) => {
+  const idToken = req.headers.authorization?.split(' ')[1];
+  if (!idToken) return res.status(401).json({ error: 'Token chýba' });
+
+  try {
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    await ensureAppUserExists(decoded.uid, decoded.email || decoded.user?.email, {
+      client: db,
+      name: decoded.name || decoded.user?.name,
+    });
+
+    const scanId = req.params.id;
+    if (!scanId) {
+      return res.status(400).json({ error: 'Chýba scanId' });
+    }
+
+    const { metadata, confidence, raw, correctedText, purchased } = req.body || {};
+    const logPayload = {
+      userId: decoded.uid,
+      scanId,
+      purchased: Boolean(purchased),
+      hasMetadata: Boolean(metadata),
+      hasConfidence: Boolean(confidence),
+      hasRaw: Boolean(raw),
+      hasCorrectedText: Boolean(correctedText),
+      timestamp: new Date().toISOString(),
+    };
+
+    const logEntry = `${JSON.stringify(logPayload)}\n`;
+    fs.appendFile(path.join(LOG_DIR, 'structured_confirm.log'), logEntry, (err) => {
+      if (err) console.error('❌ Chyba pri logovaní structured confirm:', err);
+    });
+
+    return res.status(200).json({ message: 'Štruktúrované dáta potvrdené', ok: true });
+  } catch (err) {
+    console.error('❌ Chyba pri potvrdení štruktúrovaných dát:', err);
+    return res.status(500).json({ error: 'Nepodarilo sa potvrdiť štruktúrované dáta' });
+  }
+});
+
 // ========== DASHBOARD ENDPOINT ==========
 
 /**
