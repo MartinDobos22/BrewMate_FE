@@ -44,6 +44,33 @@ const db = new Pool({
   connectionString: process.env.SUPABASE_DB_URL,
 });
 
+// Ensure app_users shadow table is populated for any authenticated request
+const ensureAppUser = async (client, decoded) => {
+  const uid = decoded.uid;
+  const email = decoded.email || decoded.user?.email || null;
+  const name =
+    decoded.name || decoded.user?.name || (email ? email.split('@')[0] : null);
+
+  await client.query(
+    `INSERT INTO app_users (id, email, name)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, name = COALESCE(EXCLUDED.name, app_users.name)`,
+    [uid, email, name]
+  );
+
+  await client.query(
+    `INSERT INTO user_statistics (user_id)
+     VALUES ($1)
+     ON CONFLICT (user_id) DO NOTHING`,
+    [uid]
+  );
+};
+
+const toNumberOrFallback = (value, fallback) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+};
+
 // Wrap default query method to log all interactions with Supabase
 const originalQuery = db.query.bind(db);
 db.query = async (text, params) => {
@@ -76,56 +103,36 @@ app.get('/api/profile', async (req, res) => {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
 
-    // Použitie pohľadu pre získanie kompletného profilu
-    const result = await db.query(
-      `SELECT 
-        id, 
-        email, 
-        name, 
-        bio,
-        avatar_url,
-        experience_level,
-        intensity,
-        roast,
-        temperature,
-        milk,
-        sugar,
-        preferred_drinks,
-        flavor_notes,
-        ai_recommendation,
-        user_notes as manual_input,
-        recommendation_version,
-        recommendation_updated_at
-      FROM user_complete_profile 
-      WHERE id = $1`,
+    await ensureAppUser(db, decoded);
+
+    const tasteResult = await db.query(
+      `SELECT * FROM user_taste_profiles WHERE user_id = $1`,
       [uid]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Profil neexistuje' });
-    }
+    const taste = tasteResult.rows[0];
 
-    const profile = result.rows[0];
-
-    // Transformuj do starého formátu pre kompatibilitu s frontend
     const response = {
-      id: profile.id,
-      email: profile.email,
-      name: profile.name,
-      bio: profile.bio,
-      avatar_url: profile.avatar_url,
-      experience_level: profile.experience_level,
-      ai_recommendation: profile.ai_recommendation,
-      manual_input: profile.manual_input,
-      coffee_preferences: profile.experience_level ? {
-        intensity: profile.intensity,
-        roast: profile.roast,
-        temperature: profile.temperature,
-        milk: profile.milk,
-        sugar: profile.sugar,
-        preferred_drinks: profile.preferred_drinks,
-        flavor_notes: profile.flavor_notes
-      } : null
+      id: uid,
+      email: decoded.email,
+      name: decoded.name || decoded.email?.split('@')[0] || 'Kávoš',
+      bio: null,
+      avatar_url: null,
+      experience_level: null,
+      ai_recommendation: null,
+      manual_input: null,
+      coffee_preferences: taste
+        ? {
+            sweetness: Number(taste.sweetness),
+            acidity: Number(taste.acidity),
+            bitterness: Number(taste.bitterness),
+            body: Number(taste.body),
+            flavor_notes: taste.flavor_notes,
+            milk_preferences: taste.milk_preferences,
+            caffeine_sensitivity: taste.caffeine_sensitivity,
+            preferred_strength: taste.preferred_strength,
+          }
+        : null,
     };
 
     fs.appendFileSync(path.join(LOG_DIR, 'profile.log'), `[${new Date().toISOString()}] GET profile ${uid}\n`);
@@ -146,6 +153,8 @@ app.get('/api/home-stats', async (req, res) => {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
 
+    await ensureAppUser(db, decoded);
+
     const since = new Date();
     since.setDate(since.getDate() - 30);
 
@@ -156,12 +165,12 @@ app.get('/api/home-stats', async (req, res) => {
         bh.flavor_notes,
         bh.beans,
         bh.created_at,
-        br.recipe AS recipe_text,
-        br.taste AS recipe_taste,
-        br.method AS recipe_method
+        ur.instructions AS recipe_text,
+        ur.title AS recipe_taste,
+        ur.method AS recipe_method
       FROM brew_history bh
-      LEFT JOIN brew_recipes br ON br.id = bh.recipe_id
-      WHERE bh.user_id::text = $1
+      LEFT JOIN user_recipes ur ON ur.id = bh.recipe_id
+      WHERE bh.user_id = $1
         AND bh.created_at >= $2::timestamptz
       ORDER BY bh.created_at DESC`,
       [uid, since.toISOString()]
@@ -345,78 +354,69 @@ app.put('/api/profile', async (req, res) => {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
 
+    await ensureAppUser(client, decoded);
+
     const {
-      name,
-      bio,
-      avatar_url,
       coffee_preferences,
-      experience_level,
-      ai_recommendation,
-      manual_input,
+      sweetness,
+      acidity,
+      bitterness,
+      body,
+      flavor_notes,
+      milk_preferences,
+      caffeine_sensitivity,
+      preferred_strength,
+      preference_confidence,
     } = req.body;
 
-    // 1. Aktualizuj základný profil
-    if (name !== undefined || bio !== undefined || avatar_url !== undefined) {
-      await client.query(
-        `UPDATE user_profiles SET
-          name = COALESCE($1, name),
-          bio = COALESCE($2, bio),
-          avatar_url = COALESCE($3, avatar_url),
-          updated_at = now()
-        WHERE id = $4`,
-        [name, bio, avatar_url, uid]
-      );
-    }
+    const prefs = coffee_preferences || {};
+    const flavorNotes = flavor_notes ?? prefs.flavor_notes ?? {};
+    const milkPrefs = milk_preferences ?? prefs.milk_preferences ?? {};
 
-    // 2. Aktualizuj kávové preferencie
-    if (coffee_preferences || experience_level) {
-      const prefs = coffee_preferences || {};
-
-      await client.query(
-        `INSERT INTO user_coffee_preferences (
-          user_id, experience_level, intensity, roast, temperature,
-          milk, sugar, preferred_drinks, flavor_notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        [
-          uid,
-          experience_level,
-          prefs.intensity,
-          prefs.roast,
-          prefs.temperature,
-          prefs.milk,
-          prefs.sugar,
-          prefs.preferred_drinks,
-          prefs.flavor_notes
-        ]
-      );
-    }
-
-    // 3. Aktualizuj AI odporúčanie (vytvor novú verziu)
-    if (ai_recommendation !== undefined) {
-      // Deaktivuj staré odporúčania
-      await client.query(
-        `UPDATE preference_updates SET is_current = false
-         WHERE user_id::text = $1 AND is_current = true`,
-        [uid]
-      );
-
-      // Získaj najvyššiu verziu
-      const versionResult = await client.query(
-        `SELECT COALESCE(MAX(version), 0) as max_version
-         FROM preference_updates WHERE user_id::text = $1`,
-        [uid]
-      );
-
-      const nextVersion = versionResult.rows[0].max_version + 1;
-
-      // Vlož nové odporúčanie
-      await client.query(
-        `INSERT INTO preference_updates (
-          user_id, ai_recommendation, user_notes, version, is_current
-        ) VALUES ($1::text, $2, $3, $4, true)`,
-        [uid, ai_recommendation, manual_input, nextVersion]
-      );
-    }
+    await client.query(
+      `INSERT INTO user_taste_profiles (
+        user_id,
+        sweetness,
+        acidity,
+        bitterness,
+        body,
+        flavor_notes,
+        milk_preferences,
+        caffeine_sensitivity,
+        preferred_strength,
+        seasonal_adjustments,
+        preference_confidence,
+        last_recalculated_at,
+        updated_at
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,'medium'),COALESCE($9,'balanced'),'[]',$10,now(),now())
+      ON CONFLICT (user_id) DO UPDATE SET
+        sweetness = EXCLUDED.sweetness,
+        acidity = EXCLUDED.acidity,
+        bitterness = EXCLUDED.bitterness,
+        body = EXCLUDED.body,
+        flavor_notes = EXCLUDED.flavor_notes,
+        milk_preferences = EXCLUDED.milk_preferences,
+        caffeine_sensitivity = EXCLUDED.caffeine_sensitivity,
+        preferred_strength = EXCLUDED.preferred_strength,
+        preference_confidence = EXCLUDED.preference_confidence,
+        last_recalculated_at = now(),
+        updated_at = now()`
+      , [
+        uid,
+        toNumberOrFallback(sweetness ?? prefs.sweetness, 5),
+        toNumberOrFallback(acidity ?? prefs.acidity, 5),
+        toNumberOrFallback(bitterness ?? prefs.bitterness, 5),
+        toNumberOrFallback(body ?? prefs.body, 5),
+        flavorNotes,
+        milkPrefs,
+        caffeine_sensitivity ?? prefs.caffeine_sensitivity,
+        preferred_strength ?? prefs.preferred_strength,
+        toNumberOrFallback(
+          preference_confidence ?? prefs.preference_confidence,
+          0.35
+        ),
+      ]
+    );
 
     await client.query('COMMIT');
 
@@ -466,16 +466,7 @@ app.post('/api/auth', async (req, res) => {
     const timestamp = new Date().toISOString();
     const userAgent = req.headers['user-agent'] || 'unknown';
 
-    // Vlož profil do DB ak neexistuje
-    try {
-      await db.query(
-        `INSERT INTO user_profiles (id, email) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`,
-        [uid, email]
-      );
-      console.log('✅ Profil vložený (alebo už existoval)');
-    } catch (dbErr) {
-      console.warn('⚠️ Nepodarilo sa vložiť profil:', dbErr);
-    }
+    await ensureAppUser(db, decoded);
 
     const logEntry = `[${timestamp}] LOGIN ${provider}: ${email} (${uid}) — ${userAgent}\n`;
     fs.appendFileSync(path.join(LOG_DIR, 'auth.log'), logEntry);
@@ -536,29 +527,32 @@ app.post('/api/ocr/save', async (req, res) => {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
 
+    await ensureAppUser(db, decoded);
+
     const { original_text, corrected_text } = req.body;
 
-    // Získaj najnovšie preferencie používateľa
     const prefResult = await db.query(
-      `SELECT * FROM user_coffee_preferences WHERE user_id::text = $1 ORDER BY updated_at DESC LIMIT 1`,
+      `SELECT * FROM user_taste_profiles WHERE user_id = $1`,
       [uid]
     );
 
     const preferences = prefResult.rows[0];
     const matchPercentage = calculateMatch(corrected_text, preferences);
     const isRecommended = matchPercentage > 75;
+    const coffeeName = extractCoffeeName(corrected_text || original_text);
 
-    const result = await db.query(`
-      INSERT INTO ocr_logs (user_id, original_text, corrected_text, match_percentage, is_recommended, created_at)
-      VALUES ($1::text, $2, $3, $4, $5, now())
-      RETURNING id
-    `, [uid, original_text, corrected_text, matchPercentage, isRecommended]);
+    const result = await db.query(
+      `INSERT INTO scan_events (user_id, coffee_name, brand, barcode, image_url, match_score, is_recommended, detected_at, created_at)
+       VALUES ($1, $2, NULL, NULL, NULL, $3, $4, now(), now())
+       RETURNING id`,
+      [uid, coffeeName, matchPercentage, isRecommended]
+    );
 
     res.status(200).json({
       message: 'OCR uložené',
       id: result.rows[0].id,
       match_percentage: matchPercentage,
-      is_recommended: isRecommended
+      is_recommended: isRecommended,
     });
   } catch (err) {
     console.error('❌ Chyba pri ukladaní OCR:', err);
@@ -578,12 +572,13 @@ app.post('/api/ocr/evaluate', async (req, res) => {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
 
+    await ensureAppUser(db, decoded);
+
     const { corrected_text } = req.body;
     if (!corrected_text) return res.status(400).json({ error: 'Chýba text kávy' });
 
-    // Získaj najnovšie preferencie z novej štruktúry
     const result = await db.query(
-      `SELECT * FROM user_coffee_preferences WHERE user_id::text = $1 ORDER BY updated_at DESC LIMIT 1`,
+      `SELECT * FROM user_taste_profiles WHERE user_id = $1 LIMIT 1`,
       [uid]
     );
 
@@ -596,13 +591,13 @@ app.post('/api/ocr/evaluate', async (req, res) => {
     const prompt = `
 Porovnaj preferencie používateľa s popisom kávy a vyhodnoť, či mu káva bude chutiť.
 Používateľove preferencie:
-- Intenzita: ${preferences.intensity}
-- Praženie: ${preferences.roast}
-- Teplota: ${preferences.temperature}
-- Mlieko: ${preferences.milk ? 'áno' : 'nie'}
-- Cukor: ${preferences.sugar ? 'áno' : 'nie'}
-- Obľúbené nápoje: ${preferences.preferred_drinks?.join(', ')}
-- Preferované chute: ${preferences.flavor_notes?.join(', ')}
+- Sladkosť: ${preferences.sweetness}
+- Kyslosť: ${preferences.acidity}
+- Horkosť: ${preferences.bitterness}
+- Telo: ${preferences.body}
+- Chuťové poznámky: ${Array.isArray(preferences.flavor_notes) ? preferences.flavor_notes.join(', ') : ''}
+- Mliečne preferencie: ${JSON.stringify(preferences.milk_preferences || {})}
+- Sila: ${preferences.preferred_strength}
 
 Popis kávy (OCR výstup):
 ${corrected_text}
@@ -653,68 +648,50 @@ app.get('/api/dashboard', async (req, res) => {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
 
-    // Získaj profil používateľa z pohľadu
-    const profileResult = await db.query(
-      'SELECT name, email FROM user_profiles WHERE id = $1',
+    await ensureAppUser(db, decoded);
+
+    const tasteResult = await db.query(
+      'SELECT * FROM user_taste_profiles WHERE user_id = $1',
       [uid]
     );
+    const taste = tasteResult.rows[0];
 
-    const profile = profileResult.rows[0] || {};
-
-    // Získaj štatistiky
-    const statsResult = await db.query(`
-      SELECT 
-        COUNT(*) as coffee_count,
-        COALESCE(AVG(rating), 0) as avg_rating,
-        COUNT(DISTINCT coffee_id) FILTER (WHERE is_favorite = true) as favorites_count
-      FROM coffee_ratings
-      WHERE user_id::text = $1
-        AND EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
-    `, [uid]);
-
+    const statsResult = await db.query(
+      'SELECT brew_count, recipe_count, scan_count, coffee_count, updated_at FROM user_statistics WHERE user_id = $1',
+      [uid]
+    );
+    const statsRow = statsResult.rows[0] || {};
     const stats = {
-      coffeeCount: parseInt(statsResult.rows[0]?.coffee_count || 0),
-      avgRating: parseFloat(statsResult.rows[0]?.avg_rating || 0).toFixed(1),
-      favoritesCount: parseInt(statsResult.rows[0]?.favorites_count || 0)
+      coffeeCount: parseInt(statsRow.coffee_count || 0),
+      avgRating: '0.0',
+      favoritesCount: parseInt(statsRow.scan_count || 0),
     };
 
-    // Získaj históriu skenovaní (posledných 5)
-    const scansResult = await db.query(`
-      SELECT 
-        id,
-        corrected_text as coffee_name,
-        COALESCE(rating, 4.0) as rating,
-        COALESCE(match_percentage, 70) as match,
-        created_at as timestamp,
-        is_recommended
-      FROM ocr_logs
-      WHERE user_id::text = $1
-      ORDER BY created_at DESC
-      LIMIT 5
-    `, [uid]);
-
-    const recentScans = scansResult.rows.map(row => ({
-      id: row.id.toString(),
-      name: extractCoffeeName(row.coffee_name) || 'Neznáma káva',
-      rating: parseFloat(row.rating),
-      match: parseInt(row.match),
-      timestamp: row.timestamp,
-      isRecommended: row.is_recommended || row.match > 75
-    }));
-
-    // Získaj najnovšie preferencie pre generovanie odporúčaní
-    const prefResult = await db.query(
-      'SELECT * FROM user_coffee_preferences WHERE user_id::text = $1 ORDER BY updated_at DESC LIMIT 1',
+    const scansResult = await db.query(
+      `SELECT id, coffee_name, match_score, is_recommended, created_at
+       FROM scan_events
+       WHERE user_id = $1
+       ORDER BY created_at DESC
+       LIMIT 5`,
       [uid]
     );
 
-    const recommendations = await generateRecommendations(prefResult.rows[0]);
+    const recentScans = scansResult.rows.map((row) => ({
+      id: row.id.toString(),
+      name: row.coffee_name || 'Neznáma káva',
+      rating: null,
+      match: row.match_score ? parseFloat(row.match_score) : 0,
+      timestamp: row.created_at,
+      isRecommended: row.is_recommended || (row.match_score ?? 0) > 75,
+    }));
+
+    const recommendations = await generateRecommendations(taste);
     const dailyTip = getDailyTip();
 
     res.json({
       profile: {
-        name: profile.name || profile.email?.split('@')[0] || 'Kávoš',
-        email: profile.email
+        name: decoded.name || decoded.email?.split('@')[0] || 'Kávoš',
+        email: decoded.email
       },
       stats,
       recentScans,
@@ -741,21 +718,24 @@ app.get('/api/preference-history', async (req, res) => {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
 
-    const result = await db.query(`
-      SELECT 
-        id,
-        ai_recommendation,
-        user_notes,
-        version,
-        is_current,
-        created_at
-      FROM preference_updates
-      WHERE user_id::text = $1
-      ORDER BY version DESC
-      LIMIT 10
-    `, [uid]);
+    const result = await db.query(
+      `SELECT user_id, sweetness, acidity, bitterness, body, flavor_notes, milk_preferences, caffeine_sensitivity, preferred_strength, updated_at
+       FROM user_taste_profiles
+       WHERE user_id = $1
+       LIMIT 1`,
+      [uid]
+    );
 
-    res.json(result.rows);
+    res.json(
+      result.rows.map((row) => ({
+        id: row.user_id,
+        ai_recommendation: null,
+        user_notes: null,
+        version: 1,
+        is_current: true,
+        created_at: row.updated_at,
+      }))
+    );
   } catch (err) {
     console.error('❌ History error:', err);
     res.status(500).json({ error: 'Chyba pri načítaní histórie' });
@@ -774,6 +754,8 @@ app.post('/api/logout', async (req, res) => {
   try {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
+
+    await ensureAppUser(db, decoded);
     await admin.auth().revokeRefreshTokens(uid);
     console.log('✅ Refresh tokeny zneplatnené pre UID:', uid);
     res.status(200).json({ message: 'Odhlásenie úspešné' });
@@ -792,6 +774,21 @@ app.post('/api/register', async (req, res) => {
   try {
     const userRecord = await admin.auth().createUser({ email, password });
     const link = await admin.auth().generateEmailVerificationLink(email);
+
+    // Persist shadow user so DB tables with FK to app_users work even with Firebase Auth
+    await db.query(
+      `INSERT INTO app_users (id, email, name)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, name = EXCLUDED.name`,
+      [userRecord.uid, userRecord.email, userRecord.displayName || null]
+    );
+
+    await db.query(
+      `INSERT INTO user_statistics (user_id)
+       VALUES ($1)
+       ON CONFLICT (user_id) DO NOTHING`,
+      [userRecord.uid]
+    );
 
     const transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -910,21 +907,17 @@ app.delete('/api/ocr/:id', async (req, res) => {
   try {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
+    await ensureAppUser(db, decoded);
     const recordId = req.params.id;
 
     const result = await db.query(
-      'DELETE FROM ocr_logs WHERE id = $1 AND user_id::text = $2 RETURNING id',
+      'DELETE FROM scan_events WHERE id = $1 AND user_id = $2 RETURNING id',
       [recordId, uid]
     );
 
     if (result.rowCount === 0) {
       return res.status(404).json({ error: 'Záznam neexistuje' });
     }
-
-    await db.query(
-      'DELETE FROM coffee_ratings WHERE coffee_id = $1 AND user_id::text = $2',
-      [recordId, uid]
-    );
 
     console.log(`✅ OCR záznam ${recordId} vymazaný`);
     res.json({ message: 'Záznam vymazaný' });
@@ -944,34 +937,27 @@ app.get('/api/ocr/history', async (req, res) => {
   try {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
+
+    await ensureAppUser(db, decoded);
     const limit = parseInt(req.query.limit) || 10;
 
-    const result = await db.query(`
-      SELECT 
-        id,
-        original_text,
-        corrected_text,
-        created_at,
-        rating,
-        match_percentage,
-        is_recommended,
-        is_purchased
-      FROM ocr_logs
-      WHERE user_id::text = $1
-      ORDER BY created_at DESC
-      LIMIT $2
-    `, [uid, limit]);
+    const result = await db.query(
+      `SELECT id, coffee_name, match_score, is_recommended, created_at
+       FROM scan_events
+       WHERE user_id = $1
+       ORDER BY created_at DESC
+       LIMIT $2`,
+      [uid, limit]
+    );
 
-    const history = result.rows.map(row => ({
+    const history = result.rows.map((row) => ({
       id: row.id.toString(),
-      coffee_name: extractCoffeeName(row.corrected_text),
-      original_text: row.original_text,
-      corrected_text: row.corrected_text,
+      coffee_name: row.coffee_name,
       created_at: row.created_at,
-      rating: row.rating || 0,
-      match_percentage: row.match_percentage || 0,
+      rating: null,
+      match_percentage: row.match_score || 0,
       is_recommended: row.is_recommended || false,
-      is_purchased: row.is_purchased || false
+      is_purchased: false,
     }));
 
     res.json(history);
@@ -982,7 +968,7 @@ app.get('/api/ocr/history', async (req, res) => {
 });
 
 /**
- * Označí, že používateľ zakúpil danú kávu a uloží ju do tabuľky coffees.
+ * Označí, že používateľ zakúpil danú kávu a uloží ju do knižnice používateľa.
  */
 app.post('/api/ocr/purchase', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
@@ -992,19 +978,22 @@ app.post('/api/ocr/purchase', async (req, res) => {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
 
+    await ensureAppUser(db, decoded);
+
     const { ocr_log_id, coffee_name, brand } = req.body;
     if (!ocr_log_id) return res.status(400).json({ error: 'Chýba ID záznamu OCR' });
 
     await db.query(
-      `UPDATE ocr_logs SET is_purchased = true WHERE id = $1 AND user_id::text = $2`,
+      `UPDATE scan_events SET is_recommended = true WHERE id = $1 AND user_id = $2`,
       [ocr_log_id, uid]
     );
 
     if (coffee_name) {
       await db.query(
-        `INSERT INTO coffees (name, brand, created_at, updated_at)
-         VALUES ($1, $2, now(), now())`,
-        [coffee_name, brand || null]
+        `INSERT INTO user_coffees (user_id, name, brand)
+         VALUES ($1, $2, $3)
+         ON CONFLICT DO NOTHING`,
+        [uid, coffee_name, brand || null]
       );
     }
 
@@ -1026,23 +1015,16 @@ app.post('/api/coffee/rate', async (req, res) => {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
 
-    const { coffee_id, rating, notes } = req.body;
+    await ensureAppUser(db, decoded);
 
-    await db.query(`
-      INSERT INTO coffee_ratings (user_id, coffee_id, rating, notes, created_at)
-      VALUES ($1::text, $2, $3, $4, now())
-      ON CONFLICT (user_id, coffee_id)
-      DO UPDATE SET
-        rating = $3,
-        notes = $4,
-        updated_at = now()
-    `, [uid, coffee_id, rating, notes]);
+    const { coffee_id, rating, name, brand } = req.body;
 
-    await db.query(`
-      UPDATE ocr_logs
-      SET rating = $2
-      WHERE id = $1 AND user_id::text = $3
-    `, [coffee_id, rating, uid]);
+    await db.query(
+      `INSERT INTO user_coffees (id, user_id, name, brand, rating, added_at)
+       VALUES ($1, $2, COALESCE($3,'Neznáma káva'), $4, $5, now())
+       ON CONFLICT (id) DO UPDATE SET rating = EXCLUDED.rating, name = EXCLUDED.name, brand = EXCLUDED.brand`,
+      [coffee_id, uid, name, brand || null, rating]
+    );
 
     res.json({ message: 'Hodnotenie uložené' });
   } catch (err) {
@@ -1061,24 +1043,25 @@ app.post('/api/coffee/favorite/:id', async (req, res) => {
   try {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
+    await ensureAppUser(db, decoded);
     const coffeeId = req.params.id;
 
     const existing = await db.query(
-      'SELECT is_favorite FROM coffee_ratings WHERE user_id::text = $1 AND coffee_id = $2',
+      'SELECT is_favorite FROM user_coffees WHERE user_id = $1 AND id = $2',
       [uid, coffeeId]
     );
 
     if (existing.rows.length > 0) {
       const newFavorite = !existing.rows[0].is_favorite;
       await db.query(
-        'UPDATE coffee_ratings SET is_favorite = $3, updated_at = now() WHERE user_id::text = $1 AND coffee_id = $2',
+        'UPDATE user_coffees SET is_favorite = $3 WHERE user_id = $1 AND id = $2',
         [uid, coffeeId, newFavorite]
       );
       res.json({ is_favorite: newFavorite });
     } else {
       await db.query(
-        'INSERT INTO coffee_ratings (user_id, coffee_id, is_favorite, created_at) VALUES ($1::text, $2, true, now())',
-        [uid, coffeeId]
+        'INSERT INTO user_coffees (id, user_id, name, is_favorite) VALUES ($1, $2, $3, true)',
+        [coffeeId, uid, 'Neznáma káva']
       );
       res.json({ is_favorite: true });
     }
@@ -1096,32 +1079,29 @@ app.get('/api/coffees', async (req, res) => {
   if (!idToken) return res.status(401).json({ error: 'Token chýba' });
 
   try {
-    await admin.auth().verifyIdToken(idToken);
+    const decoded = await admin.auth().verifyIdToken(idToken);
+
+    await ensureAppUser(db, decoded);
 
     const result = await db.query(
-      `SELECT c.id,
-              c.name,
-              c.brand,
-              c.origin,
-              c.roast_level,
-              c.intensity,
-              c.flavor_notes,
-              COALESCE(AVG(r.rating), 0) AS rating
-       FROM coffees c
-       LEFT JOIN coffee_ratings r ON r.coffee_id = c.id::text
-       GROUP BY c.id, c.name, c.brand, c.origin, c.roast_level, c.intensity, c.flavor_notes
-       ORDER BY c.created_at DESC`
+      `SELECT id, name, brand, origin, roast_level, flavor_notes, rating, is_favorite, added_at
+       FROM user_coffees
+       WHERE user_id = $1
+       ORDER BY added_at DESC`,
+      [decoded.uid]
     );
 
-    const coffees = result.rows.map(row => ({
+    const coffees = result.rows.map((row) => ({
       id: row.id.toString(),
       name: row.name,
       brand: row.brand,
       origin: row.origin,
       roast_level: row.roast_level,
-      intensity: row.intensity,
+      intensity: null,
       flavor_notes: row.flavor_notes,
-      rating: parseFloat(row.rating)
+      rating: row.rating ? parseFloat(row.rating) : null,
+      is_favorite: row.is_favorite,
+      added_at: row.added_at,
     }));
 
     res.json(coffees);
@@ -1141,10 +1121,12 @@ app.post('/api/recipes', async (req, res) => {
   try {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
-    const { method, taste, recipe } = req.body;
+    await ensureAppUser(db, decoded);
+    const { method, taste, recipe, title } = req.body;
     const result = await db.query(
-      'INSERT INTO brew_recipes (user_id, method, taste, recipe, created_at) VALUES ($1::text, $2, $3, $4, now()) RETURNING id',
-      [uid, method, taste, recipe]
+      `INSERT INTO user_recipes (user_id, title, method, instructions, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, now(), now()) RETURNING id`,
+      [uid, title || taste || method || 'Recept', method, recipe]
     );
     res.json({ id: result.rows[0].id });
   } catch (err) {
@@ -1164,8 +1146,9 @@ app.get('/api/recipes/history', async (req, res) => {
   try {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
+    await ensureAppUser(db, decoded);
     const result = await db.query(
-      'SELECT id, method, taste, recipe, created_at FROM brew_recipes WHERE user_id::text = $1 ORDER BY created_at DESC LIMIT $2',
+      'SELECT id, title, method, instructions, created_at FROM user_recipes WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2',
       [uid, limit]
     );
     res.json(result.rows);
@@ -1187,25 +1170,26 @@ function calculateMatch(coffeeText, preferences) {
   if (!preferences) return 70;
 
   let score = 50;
+  const lower = (coffeeText || '').toLowerCase();
 
-  // Kontrola intenzity
-  if (preferences.intensity && coffeeText.toLowerCase().includes(preferences.intensity.toLowerCase())) {
-    score += 20;
+  if (preferences.preferred_strength) {
+    if (lower.includes(preferences.preferred_strength.toLowerCase())) {
+      score += 10;
+    }
   }
 
-  // Kontrola typu praženia
-  if (preferences.roast && coffeeText.toLowerCase().includes(preferences.roast.toLowerCase())) {
-    score += 15;
-  }
+  const flavorList = Array.isArray(preferences.flavor_notes)
+    ? preferences.flavor_notes
+    : Object.keys(preferences.flavor_notes || {});
 
-  // Kontrola chutí
-  if (preferences.flavor_notes && Array.isArray(preferences.flavor_notes)) {
-    preferences.flavor_notes.forEach(flavor => {
-      if (coffeeText.toLowerCase().includes(flavor.toLowerCase())) {
-        score += 10;
-      }
-    });
-  }
+  flavorList.forEach((flavor) => {
+    if (typeof flavor === 'string' && lower.includes(flavor.toLowerCase())) {
+      score += 5;
+    }
+  });
+
+  if (preferences.sweetness && preferences.sweetness >= 7) score += 5;
+  if (preferences.acidity && preferences.acidity <= 3) score += 5;
 
   return Math.min(score, 100);
 }
