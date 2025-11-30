@@ -3,6 +3,7 @@ import { differenceInMinutes } from 'date-fns';
 import EncryptedStorage from 'react-native-encrypted-storage';
 import {
   BrewContext,
+  PredictionContext,
   PredictionResult,
   TasteProfileVector,
   UserTasteProfile,
@@ -292,9 +293,15 @@ export class TasteProfileQuizEngine {
     const updatedProfile = this.mergeAnswersIntoProfile(baseProfile, context);
     await this.config.learningEngine.updateProfile(updatedProfile);
 
+    const predictionContext: PredictionContext & { location?: BrewContext['location'] } = {
+      ...(context.timeOfDay ? { timeOfDay: context.timeOfDay } : {}),
+      ...(context.weather ? { weather: context.weather } : {}),
+      ...('location' in context ? { location: (context as { location?: BrewContext['location'] }).location } : {}),
+    };
+
     const predictions = await this.config.recommendationEngine.getTopPredictions({
       userId: this.config.userId,
-      context,
+      context: predictionContext,
       limit: 3,
     });
 
