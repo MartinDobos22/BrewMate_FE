@@ -497,8 +497,8 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
         setUserRating(previousRating);
         Alert.alert('Chyba', 'Nepodarilo sa uložiť hodnotenie offline');
         return;
+      }
     }
-}
     try {
       const recipeMetadata: Record<string, unknown> = {
         source: 'recipe-scanner',
@@ -511,6 +511,11 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
       };
 
       const context = buildBrewContext(recipeMetadata);
+      if (!diary) {
+        setUserRating(previousRating);
+        Alert.alert('Chyba', 'Denník nie je dostupný. Skús to neskôr.');
+        return;
+      }
       await diary.addManualEntry({
         recipe: generatedRecipe || scanResult.corrected || scanResult.original,
         notes,
