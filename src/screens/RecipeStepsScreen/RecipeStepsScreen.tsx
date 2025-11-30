@@ -65,6 +65,7 @@ const RecipeStepsScreen: React.FC<RecipeStepsScreenProps> = ({ recipe, brewDevic
   }, [steps]);
 
   const { width } = useWindowDimensions();
+  const [trackWidth, setTrackWidth] = useState(0);
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollX = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef<FlatList<SlideData> | null>(null);
@@ -186,12 +187,15 @@ const RecipeStepsScreen: React.FC<RecipeStepsScreenProps> = ({ recipe, brewDevic
       </View>
 
       <View style={styles.progressContainer}>
-        <View style={styles.progressTrack}>
+        <View
+          style={styles.progressTrack}
+          onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
+        >
           <Animated.View
             style={[styles.progressHighlight, { width: `${Math.min(progress, 1) * 100}%` }]}
           />
           {slides.map((slide, index) => {
-            const left = slides.length === 1 ? '0%' : `${(index / (slides.length - 1)) * 100}%`;
+            const left = slides.length === 1 ? 0 : (index / (slides.length - 1)) * trackWidth;
             return (
               <View key={slide.id} style={[styles.progressNodeWrapper, { left }]}>
                 <View
