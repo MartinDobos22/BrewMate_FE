@@ -44,26 +44,46 @@ const db = new Pool({
   connectionString: process.env.SUPABASE_DB_URL,
 });
 
-// Ensure app_users shadow table is populated for any authenticated request
-const ensureAppUser = async (client, decoded) => {
-  const uid = decoded.uid;
-  const email = decoded.email || decoded.user?.email || null;
-  const name =
-    decoded.name || decoded.user?.name || (email ? email.split('@')[0] : null);
+/**
+ * Ensures that the shadow records required by FK constraints exist before any
+ * endpoint writes into dependent tables. By selecting first and only
+ * inserting missing rows we avoid transient FK violations when multiple
+ * inserts run in the same transaction.
+ *
+ * @param {string} userId - Authenticated Firebase UID.
+ * @param {string | null | undefined} email - User email, stored for auditing.
+ * @param {{ name?: string | null, client?: Pool | import('pg').PoolClient }} options
+ *   Optional display name and DB client; defaults to the global pool to work
+ *   outside transactions.
+ */
+const ensureAppUserExists = async (userId, email, options = {}) => {
+  const client = options.client || db;
+  const name = options.name || (email ? email.split('@')[0] : null);
 
-  await client.query(
-    `INSERT INTO app_users (id, email, name)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, name = COALESCE(EXCLUDED.name, app_users.name)`,
-    [uid, email, name]
+  const existingUser = await client.query(
+    `SELECT 1 FROM app_users WHERE id = $1 LIMIT 1`,
+    [userId]
   );
 
-  await client.query(
-    `INSERT INTO user_statistics (user_id)
-     VALUES ($1)
-     ON CONFLICT (user_id) DO NOTHING`,
-    [uid]
+  if (existingUser.rowCount === 0) {
+    await client.query(
+      `INSERT INTO app_users (id, email, name)
+       VALUES ($1, $2, $3)`,
+      [userId, email || null, name]
+    );
+  }
+
+  const existingStats = await client.query(
+    `SELECT 1 FROM user_statistics WHERE user_id = $1 LIMIT 1`,
+    [userId]
   );
+
+  if (existingStats.rowCount === 0) {
+    await client.query(
+      `INSERT INTO user_statistics (user_id) VALUES ($1)`,
+      [userId]
+    );
+  }
 };
 
 const toNumberOrFallback = (value, fallback) => {
@@ -151,7 +171,10 @@ app.get('/api/home-stats', async (req, res) => {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
 
-    await ensureAppUser(db, decoded);
+    await ensureAppUserExists(decoded.uid, decoded.email || decoded.user?.email, {
+      client: db,
+      name: decoded.name || decoded.user?.name,
+    });
 
     const since = new Date();
     since.setDate(since.getDate() - 30);
@@ -352,7 +375,10 @@ app.put('/api/profile', async (req, res) => {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
 
-    await ensureAppUser(client, decoded);
+    await ensureAppUserExists(decoded.uid, decoded.email || decoded.user?.email, {
+      client,
+      name: decoded.name || decoded.user?.name,
+    });
 
     const {
       coffee_preferences,
@@ -461,6 +487,10 @@ app.post('/api/auth', async (req, res) => {
     const timestamp = new Date().toISOString();
     const userAgent = req.headers['user-agent'] || 'unknown';
 
+    await ensureAppUserExists(uid, email, {
+      name: decoded.name || decoded.user?.name,
+    });
+
     const logEntry = `[${timestamp}] LOGIN ${provider}: ${email} (${uid}) — ${userAgent}\n`;
     fs.appendFileSync(path.join(LOG_DIR, 'auth.log'), logEntry);
     console.log('✅ Audit log:', logEntry.trim());
@@ -520,7 +550,10 @@ app.post('/api/ocr/save', async (req, res) => {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
 
-    await ensureAppUser(db, decoded);
+    await ensureAppUserExists(decoded.uid, decoded.email || decoded.user?.email, {
+      client: db,
+      name: decoded.name || decoded.user?.name,
+    });
 
     const { original_text, corrected_text } = req.body;
 
@@ -565,7 +598,10 @@ app.post('/api/ocr/evaluate', async (req, res) => {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
 
-    await ensureAppUser(db, decoded);
+    await ensureAppUserExists(decoded.uid, decoded.email || decoded.user?.email, {
+      client: db,
+      name: decoded.name || decoded.user?.name,
+    });
 
     const { corrected_text } = req.body;
     if (!corrected_text) return res.status(400).json({ error: 'Chýba text kávy' });
@@ -746,7 +782,10 @@ app.post('/api/logout', async (req, res) => {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
 
-    await ensureAppUser(db, decoded);
+    await ensureAppUserExists(decoded.uid, decoded.email || decoded.user?.email, {
+      client: db,
+      name: decoded.name || decoded.user?.name,
+    });
     await admin.auth().revokeRefreshTokens(uid);
     console.log('✅ Refresh tokeny zneplatnené pre UID:', uid);
     res.status(200).json({ message: 'Odhlásenie úspešné' });
@@ -766,20 +805,9 @@ app.post('/api/register', async (req, res) => {
     const userRecord = await admin.auth().createUser({ email, password });
     const link = await admin.auth().generateEmailVerificationLink(email);
 
-    // Persist shadow user so DB tables with FK to app_users work even with Firebase Auth
-    await db.query(
-      `INSERT INTO app_users (id, email, name)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, name = EXCLUDED.name`,
-      [userRecord.uid, userRecord.email, userRecord.displayName || null]
-    );
-
-    await db.query(
-      `INSERT INTO user_statistics (user_id)
-       VALUES ($1)
-       ON CONFLICT (user_id) DO NOTHING`,
-      [userRecord.uid]
-    );
+    await ensureAppUserExists(userRecord.uid, userRecord.email, {
+      name: userRecord.displayName,
+    });
 
     const transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -898,7 +926,10 @@ app.delete('/api/ocr/:id', async (req, res) => {
   try {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
-    await ensureAppUser(db, decoded);
+    await ensureAppUserExists(decoded.uid, decoded.email || decoded.user?.email, {
+      client: db,
+      name: decoded.name || decoded.user?.name,
+    });
     const recordId = req.params.id;
 
     const result = await db.query(
@@ -929,7 +960,10 @@ app.get('/api/ocr/history', async (req, res) => {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
 
-    await ensureAppUser(db, decoded);
+    await ensureAppUserExists(decoded.uid, decoded.email || decoded.user?.email, {
+      client: db,
+      name: decoded.name || decoded.user?.name,
+    });
     const limit = parseInt(req.query.limit) || 10;
 
     const result = await db.query(
@@ -969,7 +1003,10 @@ app.post('/api/ocr/purchase', async (req, res) => {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
 
-    await ensureAppUser(db, decoded);
+    await ensureAppUserExists(decoded.uid, decoded.email || decoded.user?.email, {
+      client: db,
+      name: decoded.name || decoded.user?.name,
+    });
 
     const { ocr_log_id, coffee_name, brand } = req.body;
     if (!ocr_log_id) return res.status(400).json({ error: 'Chýba ID záznamu OCR' });
@@ -1032,7 +1069,10 @@ app.post('/api/coffee/favorite/:id', async (req, res) => {
   try {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
-    await ensureAppUser(db, decoded);
+    await ensureAppUserExists(decoded.uid, decoded.email || decoded.user?.email, {
+      client: db,
+      name: decoded.name || decoded.user?.name,
+    });
     const coffeeId = req.params.id;
 
     const existing = await db.query(
@@ -1132,7 +1172,10 @@ app.get('/api/recipes/history', async (req, res) => {
   try {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
-    await ensureAppUser(db, decoded);
+    await ensureAppUserExists(decoded.uid, decoded.email || decoded.user?.email, {
+      client: db,
+      name: decoded.name || decoded.user?.name,
+    });
     const result = await db.query(
       'SELECT id, title, method, instructions, created_at FROM user_recipes WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2',
       [uid, limit]
@@ -1254,3 +1297,5 @@ async function generateRecommendations(preferences) {
 app.listen(PORT, () => {
   console.log(`OCR server beží na porte ${PORT}`);
 });
+
+export { ensureAppUserExists };
