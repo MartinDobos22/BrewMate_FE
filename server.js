@@ -91,6 +91,59 @@ const toNumberOrFallback = (value, fallback) => {
   return Number.isFinite(num) ? num : fallback;
 };
 
+const normalizeTasteInput = (raw, fallback, fieldName = 'taste') => {
+  const clamp = (val) => Math.max(0, Math.min(10, val));
+  const mappings = {
+    none: 0,
+    low: 3,
+    little: 3,
+    mild: 4,
+    medium: 5,
+    balanced: 5,
+    'medium-high': 7,
+    medium_high: 7,
+    high: 8,
+    strong: 8,
+    'very-high': 10,
+    very_high: 10,
+  };
+
+  const coerce = (value) => {
+    if (value === undefined || value === null || value === '') return null;
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return clamp(value);
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      const numeric = Number(trimmed);
+      if (Number.isFinite(numeric)) {
+        return clamp(numeric);
+      }
+
+      const mapped = mappings[trimmed.toLowerCase()];
+      if (mapped !== undefined) {
+        return clamp(mapped);
+      }
+    }
+
+    return undefined;
+  };
+
+  const normalized = coerce(raw);
+  if (normalized !== null && normalized !== undefined) {
+    return normalized;
+  }
+
+  const fallbackNormalized = coerce(fallback);
+  if (fallbackNormalized !== null && fallbackNormalized !== undefined) {
+    return fallbackNormalized;
+  }
+
+  throw new Error(`Neplatná hodnota pre ${fieldName}`);
+};
+
 // Wrap default query method to log all interactions with Supabase
 const originalQuery = db.query.bind(db);
 db.query = async (text, params) => {
@@ -402,6 +455,36 @@ app.put('/api/profile', async (req, res) => {
     const flavorNotes = flavor_notes ?? prefs.flavor_notes ?? {};
     const milkPrefs = milk_preferences ?? prefs.milk_preferences ?? {};
 
+    let normalizedSweetness;
+    let normalizedAcidity;
+    let normalizedBitterness;
+    let normalizedBody;
+
+    try {
+      normalizedSweetness = normalizeTasteInput(
+        sweetness,
+        prefs.sweetness ?? 5,
+        'sweetness'
+      );
+      normalizedAcidity = normalizeTasteInput(
+        acidity,
+        prefs.acidity ?? 5,
+        'acidity'
+      );
+      normalizedBitterness = normalizeTasteInput(
+        bitterness,
+        prefs.bitterness ?? 5,
+        'bitterness'
+      );
+      normalizedBody = normalizeTasteInput(body, prefs.body ?? 5, 'body');
+    } catch (validationError) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: validationError.message });
+    }
+
+    // Normalizácia chutí, aby sme pri ukladaní dotazníka nepadali na 22P02
+    // (invalid_text_representation) chybách, keď frontend pošle textové štítky
+    // ako "little", "medium", "high" namiesto čísiel.
     await client.query(
       `INSERT INTO user_taste_profiles (
         user_id,
@@ -432,10 +515,10 @@ app.put('/api/profile', async (req, res) => {
         updated_at = now()`
       , [
         uid,
-        sweetness ?? prefs.sweetness ?? 5,
-        acidity ?? prefs.acidity ?? 5,
-        bitterness ?? prefs.bitterness ?? 5,
-        body ?? prefs.body ?? 5,
+        normalizedSweetness,
+        normalizedAcidity,
+        normalizedBitterness,
+        normalizedBody,
         flavorNotes,
         milkPrefs,
         caffeine_sensitivity ?? prefs.caffeine_sensitivity,
