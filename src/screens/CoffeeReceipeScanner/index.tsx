@@ -13,8 +13,6 @@ import {
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
-  Modal,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import {
@@ -39,7 +37,6 @@ import {
   rateOCRResult,
   saveRecipe,
   fetchRecipeHistory,
-  fallbackCoffeeDiary,
   preferenceEngine,
   toggleFavorite,
   isCoffeeRelatedText,
@@ -48,7 +45,6 @@ import type { RecipeHistory } from './services';
 import { BrewContext } from '../../types/Personalization';
 import { usePersonalization } from '../../hooks/usePersonalization';
 import { showToast } from '../../utils/toast';
-import { offlineSync } from '../../offline';
 
 interface OCRHistory {
   id: string;
@@ -117,12 +113,6 @@ const buildBrewContext = (metadata?: Record<string, unknown>): BrewContext => {
   return context;
 };
 
-const isOfflineError = (error: unknown): boolean => {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-  return error.message === 'Offline' || error.message.includes('Network request failed');
-};
 
 const WELCOME_GRADIENT = ['#FF9966', '#A86B8C'];
 const COFFEE_GRADIENT = ['#8B6544', '#6B4423'];
@@ -155,7 +145,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
   onSeeAllRecipes,
 }) => {
   const { coffeeDiary: personalizationDiary, refreshInsights } = usePersonalization();
-  const diary = personalizationDiary ?? fallbackCoffeeDiary;
+  const diary = personalizationDiary ;
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [editedText, setEditedText] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -428,26 +418,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     }
   };
 
-  /**
-   * Uloží hodnotenie skenovanej kávy.
-   */
-  // const rateCoffee = async (rating: number) => {
-  //   if (!scanResult?.scanId) return;
-  //
-  //   try {
-  //     const success = await rateOCRResult(scanResult.scanId, rating);
-  //     if (success) {
-  //       setUserRating(rating);
-  //       Alert.alert(
-  //         'Hodnotenie uložené',
-  //         `Ohodnotil si kávu na ${rating}/5 ⭐`,
-  //       );
-  //       await loadHistory();
-  //     }
-  //   } catch (error) {
-  //     console.error('Error rating coffee:', error);
-  //   }
-  // };
+
 
   const generateRecipe = async () => {
     if (!selectedMethod) {
@@ -514,7 +485,6 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     ].filter((part): part is string => Boolean(part));
     const notes = notesSegments.length > 0 ? notesSegments.join('\n') : undefined;
 
-    let queuedOffline = false;
 
     if (scanResult.scanId) {
       try {
@@ -522,31 +492,13 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
         if (!success) {
           throw new Error('RATE_FAILED');
         }
-      } catch (error) {
-        if (isOfflineError(error) || isConnected === false) {
-          try {
-            const payload = notes
-              ? { coffeeId: scanResult.scanId, rating, notes }
-              : { coffeeId: scanResult.scanId, rating };
-            await offlineSync.enqueue('coffee:rate', payload);
-            queuedOffline = true;
-          } catch (queueError) {
-            console.error('Failed to enqueue recipe rating for offline sync', queueError);
-            setUserRating(previousRating);
-            Alert.alert('Chyba', 'Nepodarilo sa uložiť hodnotenie offline');
-            return;
-          }
-        } else {
-          console.error('Error rating result:', error);
-          setUserRating(previousRating);
-          Alert.alert('Chyba', 'Nepodarilo sa uložiť hodnotenie');
-          return;
-        }
-      }
-    } else {
-      queuedOffline = true;
+      } catch (queueError) {
+        console.error('Failed to enqueue recipe rating for offline sync', queueError);
+        setUserRating(previousRating);
+        Alert.alert('Chyba', 'Nepodarilo sa uložiť hodnotenie offline');
+        return;
     }
-
+}
     try {
       const recipeMetadata: Record<string, unknown> = {
         source: 'recipe-scanner',
@@ -581,9 +533,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
       await Promise.all([loadHistory(), loadRecipeHistory()]);
 
       Alert.alert('Hodnotenie uložené', `Ohodnotil si recept na ${rating}/5 ⭐`);
-      if (queuedOffline || isConnected === false) {
-        showToast('Hodnotenie uložené offline. Synchronizácia prebehne neskôr.');
-      }
+
     } catch (error) {
       console.error('Error rating result:', error);
       setUserRating(previousRating);
@@ -680,17 +630,6 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     setIsFavorite(false);
     setCurrentView('home');
   };
-
-  const ratedHistory = ocrHistory.filter(
-    (item) => typeof item.rating === 'number' && (item.rating ?? 0) > 0
-  );
-  const averageRating = ratedHistory.length
-    ? (
-        ratedHistory.reduce((acc, item) => acc + (item.rating ?? 0), 0) /
-        ratedHistory.length
-      ).toFixed(1)
-    : '0.0';
-  const favoritesCount = ocrHistory.filter((item) => item.is_favorite).length;
   const showBackButton = currentView !== 'home';
   const brewingMethods = scanResult?.brewingMethods ?? [];
   const matchLabel = scanResult?.matchPercentage
@@ -814,71 +753,17 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
           locations={backgroundGradient.locations}
           style={styles.backgroundGradient}
         />
-        <Modal
-          visible={nonCoffeeModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={closeNonCoffeeModal}
-        >
-          <View style={styles.validationModalOverlay}>
-            <LinearGradient colors={['#FFF8F4', '#FFE0D9']} style={styles.validationModalContent}>
-              <View style={styles.validationModalIconCircle}>
-                <Text style={styles.validationModalIcon}>🚫</Text>
-              </View>
-              <Text style={styles.validationModalTitle}>Zdá sa, že toto nie je káva</Text>
-              <Text style={styles.validationModalMessage}>
-                AI nerozpoznala kávu na vybranom obrázku. Uisti sa, že fotíš etiketu alebo balenie kávy v dobrom svetle.
-              </Text>
-              {nonCoffeeConfidence !== null ? (
-                <Text style={styles.validationModalConfidence}>
-                  Istota modelu: {nonCoffeeConfidence}%
-                </Text>
-              ) : null}
-              {nonCoffeeDetails.reason ? (
-                <Text style={styles.validationModalReason}>{nonCoffeeDetails.reason}</Text>
-              ) : null}
-              {nonCoffeeDetails.labels?.length ? (
-                <View style={styles.validationModalChips}>
-                  {nonCoffeeDetails.labels.slice(0, 4).map(label => (
-                    <View key={label} style={styles.validationModalChip}>
-                      <Text style={styles.validationModalChipText}>{label}</Text>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
-              <Text style={styles.validationModalHint}>
-                Tip: Priblíž sa k etikete, aby boli texty ostré a čitateľné.
-              </Text>
-              <TouchableOpacity
-                style={styles.validationModalButton}
-                onPress={closeNonCoffeeModal}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.validationModalButtonText}>Skúsiť znova</Text>
-              </TouchableOpacity>
-            </LinearGradient>
-          </View>
-        </Modal>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           refreshControl={refreshControl}
         >
-          <View style={styles.contentWrapper}>
-            <View style={styles.phoneContainer}>
-              <View style={styles.statusBar}>
-                <Text style={styles.statusTime}>9:41</Text>
-                <View style={styles.statusIcons}>
-                  <Text style={styles.statusIcon}>📶</Text>
-                  <Text style={styles.statusIcon}>📶</Text>
-                  <Text style={styles.statusIcon}>🔋</Text>
-                </View>
-              </View>
-
-              <View style={styles.appHeader}>
-                <TouchableOpacity
-                  style={[styles.backButton, showBackButton ? styles.backButtonVisible : null]}
+            <View style={styles.contentWrapper}>
+              <View style={styles.phoneContainer}>
+                <View style={styles.appHeader}>
+                  <TouchableOpacity
+                    style={[styles.backButton, showBackButton ? styles.backButtonVisible : null]}
                   onPress={handleBack}
                   activeOpacity={0.8}
                   disabled={!showBackButton}
@@ -941,23 +826,6 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
                           <Text style={styles.actionLabel}>Vybrať z galérie</Text>
                           <Text style={styles.actionSublabel}>Nahrať fotku</Text>
                         </TouchableOpacity>
-                      </View>
-                    </View>
-
-                    <View style={styles.statsContainer}>
-                      <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>{recipeHistory.length}</Text>
-                        <Text style={styles.statLabel}>Receptov</Text>
-                      </View>
-                      <View style={styles.statDivider} />
-                      <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>{favoritesCount}</Text>
-                        <Text style={styles.statLabel}>Obľúbené</Text>
-                      </View>
-                      <View style={styles.statDivider} />
-                      <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>{averageRating}</Text>
-                        <Text style={styles.statLabel}>Priemer ⭐</Text>
                       </View>
                     </View>
 

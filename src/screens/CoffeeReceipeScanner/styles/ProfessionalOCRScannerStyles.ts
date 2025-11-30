@@ -77,28 +77,6 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       borderWidth: 0,
       overflow: 'hidden',
     },
-    statusBar: {
-      paddingHorizontal: 24,
-      paddingTop: Platform.OS === 'ios' ? 20 : 16,
-      paddingBottom: 8,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      alignSelf: 'stretch',
-    },
-    statusTime: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: palette.textPrimary,
-    },
-    statusIcons: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-    },
-    statusIcon: {
-      fontSize: 14,
-    },
     appHeader: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -222,40 +200,6 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
     actionSublabel: {
       fontSize: 12,
       color: palette.textTertiary,
-    },
-    statsContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-around',
-      alignItems: 'center',
-      marginBottom: 24,
-      paddingVertical: 20,
-      borderRadius: 20,
-      backgroundColor: 'rgba(255,255,255,0.75)',
-      borderWidth: 1,
-      borderColor: 'rgba(139, 111, 71, 0.08)',
-      ...baseShadow,
-    },
-    statItem: {
-      alignItems: 'center',
-      flex: 1,
-    },
-    statNumber: {
-      fontSize: 24,
-      fontWeight: '800',
-      color: palette.textPrimary,
-    },
-    statLabel: {
-      fontSize: 11,
-      color: palette.textTertiary,
-      marginTop: 4,
-      textTransform: 'uppercase',
-      letterSpacing: 0.6,
-    },
-    statDivider: {
-      width: 1,
-      height: '80%',
-      backgroundColor: palette.border,
-      opacity: 0.6,
     },
     historySection: {
       marginBottom: 24,

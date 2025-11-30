@@ -1,12 +1,6 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -33,6 +27,7 @@ export interface CoffeeLibraryScreenProps {
   onRecipesPress: () => void;
   onFavoritesPress: () => void;
   onProfilePress: () => void;
+  onCoffeePress?: (coffeeId: string) => void;
 }
 
 interface CoffeeLibraryInternalProps extends CoffeeLibraryScreenProps {
@@ -62,12 +57,12 @@ const CoffeeLibraryScreen: React.FC<CoffeeLibraryInternalProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  // Local state holding the current coffee filter selection (search, roast/process metadata, favorites flag)
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBrand, setSelectedBrand] = useState<string>(ALL_OPTION_VALUE);
   const [selectedProcess, setSelectedProcess] = useState<string>(ALL_OPTION_VALUE);
   const [selectedVariety, setSelectedVariety] = useState<string>(ALL_OPTION_VALUE);
   const [favoritesOnly, setFavoritesOnly] = useState(mode === 'favorites');
-  const [selectedCoffee, setSelectedCoffee] = useState<Coffee | null>(null);
 
   useEffect(() => {
     setFavoritesOnly(mode === 'favorites');
@@ -134,61 +129,17 @@ const CoffeeLibraryScreen: React.FC<CoffeeLibraryInternalProps> = ({
     return Array.from(values).sort((a, b) => a.localeCompare(b));
   }, [coffees]);
 
-  const filteredCoffees = useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLowerCase();
-
-    return coffees.filter((coffee) => {
-      if (favoritesOnly && !coffee.isFavorite) {
-        return false;
-      }
-
-      if (
-        selectedBrand !== ALL_OPTION_VALUE &&
-        (coffee.brand ?? '').toLowerCase() !== selectedBrand.toLowerCase()
-      ) {
-        return false;
-      }
-
-      if (
-        selectedProcess !== ALL_OPTION_VALUE &&
-        (coffee.process ?? '').toLowerCase() !== selectedProcess.toLowerCase()
-      ) {
-        return false;
-      }
-
-      if (
-        selectedVariety !== ALL_OPTION_VALUE &&
-        (coffee.variety ?? '').toLowerCase() !== selectedVariety.toLowerCase()
-      ) {
-        return false;
-      }
-
-      if (!normalizedQuery) {
-        return true;
-      }
-
-      const haystack = [
-        coffee.name,
-        coffee.brand,
-        coffee.origin,
-        coffee.process,
-        coffee.variety,
-        ...(coffee.flavorNotes ?? []),
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-
-      return haystack.includes(normalizedQuery);
-    });
-  }, [
-    coffees,
-    favoritesOnly,
-    searchQuery,
-    selectedBrand,
-    selectedProcess,
-    selectedVariety,
-  ]);
+  const filteredCoffees = useMemo(
+    () =>
+      applyCoffeeFilter(coffees, {
+        favoritesOnly,
+        searchQuery,
+        selectedBrand,
+        selectedProcess,
+        selectedVariety,
+      }),
+    [coffees, favoritesOnly, searchQuery, selectedBrand, selectedProcess, selectedVariety],
+  );
 
   const emptyMessage = useMemo(() => {
     if (favoritesOnly) {
@@ -196,14 +147,6 @@ const CoffeeLibraryScreen: React.FC<CoffeeLibraryInternalProps> = ({
     }
     return 'Žiadne kávy sa nenašli.';
   }, [favoritesOnly]);
-
-  const handleCoffeePress = useCallback((coffee: Coffee) => {
-    setSelectedCoffee(coffee);
-  }, []);
-
-  const closeModal = useCallback(() => {
-    setSelectedCoffee(null);
-  }, []);
 
   return (
     <View style={baseStyles.container}>
@@ -300,115 +243,64 @@ const CoffeeLibraryScreen: React.FC<CoffeeLibraryInternalProps> = ({
 
         {!loading &&
           filteredCoffees.map((coffee) => (
-          <TouchableOpacity
-            key={coffee.id}
-            style={[baseStyles.coffeeCard, styles.coffeeCard]}
-            activeOpacity={0.85}
-            onPress={() => handleCoffeePress(coffee)}
-          >
-            <View style={baseStyles.coffeeImage}>
-              <Text style={baseStyles.coffeeEmoji}>☕</Text>
-            </View>
-            <View style={styles.cardHeader}>
-              <Text style={baseStyles.coffeeName}>{coffee.name}</Text>
-              {coffee.isFavorite ? <Text style={styles.favoriteBadge}>❤️</Text> : null}
-            </View>
-            {coffee.brand ? (
-              <Text style={baseStyles.coffeeOrigin}>{coffee.brand}</Text>
-            ) : null}
-            {coffee.origin ? (
-              <Text style={baseStyles.coffeeOrigin}>{coffee.origin}</Text>
-            ) : null}
-            {coffee.process ? (
-              <Text style={baseStyles.coffeeOrigin}>Proces: {coffee.process}</Text>
-            ) : null}
-            {coffee.variety ? (
-              <Text style={baseStyles.coffeeOrigin}>Odroda: {coffee.variety}</Text>
-            ) : null}
-            {coffee.flavorNotes && coffee.flavorNotes.length > 0 ? (
-              <Text style={baseStyles.coffeeOrigin}>
-                Chuťové tóny: {coffee.flavorNotes.join(', ')}
-              </Text>
-            ) : null}
-            {(coffee.roastLevel !== undefined || coffee.intensity !== undefined) ? (
-              <Text style={baseStyles.coffeeOrigin}>
-                {coffee.roastLevel !== undefined ? `Praženie: ${coffee.roastLevel}` : ''}
-                {coffee.roastLevel !== undefined && coffee.intensity !== undefined ? ' • ' : ''}
-                {coffee.intensity !== undefined ? `Intenzita: ${coffee.intensity}` : ''}
-              </Text>
-            ) : null}
-            {(coffee.match !== undefined || coffee.rating !== undefined) ? (
-              <View style={baseStyles.coffeeMatch}>
-                {coffee.match !== undefined ? (
-                  <Text style={baseStyles.matchScore}>{coffee.match}% zhoda</Text>
-                ) : null}
-                {coffee.rating !== undefined ? (
-                  <Text style={styles.rating}>⭐ {coffee.rating.toFixed(1)}</Text>
-                ) : null}
+            <TouchableOpacity
+              key={coffee.id}
+              style={[baseStyles.coffeeCard, styles.coffeeCard]}
+              activeOpacity={0.85}
+            >
+              <View style={baseStyles.coffeeImage}>
+                <Text style={baseStyles.coffeeEmoji}>☕</Text>
               </View>
-            ) : null}
-          </TouchableOpacity>
+              <View style={styles.cardHeader}>
+                <Text style={baseStyles.coffeeName}>{coffee.name}</Text>
+                {coffee.isFavorite ? <Text style={styles.favoriteBadge}>❤️</Text> : null}
+              </View>
+              {coffee.brand ? (
+                <Text style={baseStyles.coffeeOrigin}>{coffee.brand}</Text>
+              ) : null}
+              {coffee.origin ? (
+                <Text style={baseStyles.coffeeOrigin}>{coffee.origin}</Text>
+              ) : null}
+              {coffee.process ? (
+                <Text style={baseStyles.coffeeOrigin}>Proces: {coffee.process}</Text>
+              ) : null}
+              {coffee.variety ? (
+                <Text style={baseStyles.coffeeOrigin}>Odroda: {coffee.variety}</Text>
+              ) : null}
+              {coffee.flavorNotes && coffee.flavorNotes.length > 0 ? (
+                <Text style={baseStyles.coffeeOrigin}>
+                  Chuťové tóny: {coffee.flavorNotes.join(', ')}
+                </Text>
+              ) : null}
+              {coffee.roastLevel !== undefined || coffee.intensity !== undefined ? (
+                <Text style={baseStyles.coffeeOrigin}>
+                  {coffee.roastLevel !== undefined ? `Praženie: ${coffee.roastLevel}` : ''}
+                  {coffee.roastLevel !== undefined && coffee.intensity !== undefined ? ' • ' : ''}
+                  {coffee.intensity !== undefined ? `Intenzita: ${coffee.intensity}` : ''}
+                </Text>
+              ) : null}
+              {coffee.match !== undefined || coffee.rating !== undefined ? (
+                <View style={baseStyles.coffeeMatch}>
+                  {coffee.match !== undefined ? (
+                    <Text style={baseStyles.matchScore}>{coffee.match}% zhoda</Text>
+                  ) : null}
+                  {coffee.rating !== undefined ? (
+                    <Text style={styles.rating}>⭐ {coffee.rating.toFixed(1)}</Text>
+                  ) : null}
+                </View>
+              ) : null}
+            </TouchableOpacity>
           ))}
       </ScrollView>
-      <BottomNav
-        active={activeNav}
-        onHomePress={onHomePress}
-        onDiscoverPress={onDiscoverPress}
-        onRecipesPress={onRecipesPress}
-        onFavoritesPress={onFavoritesPress}
-        onProfilePress={onProfilePress}
-      />
-
-      <Modal visible={!!selectedCoffee} transparent animationType="slide">
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{selectedCoffee?.name}</Text>
-            {selectedCoffee?.brand ? (
-              <Text style={styles.modalSubtitle}>{selectedCoffee.brand}</Text>
-            ) : null}
-            <View style={styles.modalBody}>
-              {selectedCoffee?.origin ? (
-                <Text style={styles.modalRow}>Pôvod: {selectedCoffee.origin}</Text>
-              ) : null}
-              {selectedCoffee?.process ? (
-                <Text style={styles.modalRow}>Proces: {selectedCoffee.process}</Text>
-              ) : null}
-              {selectedCoffee?.variety ? (
-                <Text style={styles.modalRow}>Odroda: {selectedCoffee.variety}</Text>
-              ) : null}
-              {selectedCoffee?.flavorNotes && selectedCoffee.flavorNotes.length > 0 ? (
-                <Text style={styles.modalRow}>
-                  Chuťové tóny: {selectedCoffee.flavorNotes.join(', ')}
-                </Text>
-              ) : null}
-              {selectedCoffee?.roastLevel !== undefined ? (
-                <Text style={styles.modalRow}>
-                  Praženie: {selectedCoffee.roastLevel}
-                </Text>
-              ) : null}
-              {selectedCoffee?.intensity !== undefined ? (
-                <Text style={styles.modalRow}>
-                  Intenzita: {selectedCoffee.intensity}
-                </Text>
-              ) : null}
-              {selectedCoffee?.rating !== undefined ? (
-                <Text style={styles.modalRow}>
-                  Hodnotenie: {selectedCoffee.rating.toFixed(1)} / 5
-                </Text>
-              ) : null}
-              {selectedCoffee?.match !== undefined ? (
-                <Text style={styles.modalRow}>
-                  Zhoda s profilom: {selectedCoffee.match}%
-                </Text>
-              ) : null}
-            </View>
-            <TouchableOpacity style={styles.closeButton} onPress={closeModal}>
-              <Text style={styles.closeButtonText}>Zavrieť</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    </View>
+    <BottomNav
+      active={activeNav}
+      onHomePress={onHomePress}
+      onDiscoverPress={onDiscoverPress}
+      onRecipesPress={onRecipesPress}
+      onFavoritesPress={onFavoritesPress}
+      onProfilePress={onProfilePress}
+    />
+  </View>
   );
 };
 
@@ -416,7 +308,7 @@ export const DiscoverCoffeesScreen: React.FC<CoffeeLibraryScreenProps> = (props)
   <CoffeeLibraryScreen
     {...props}
     mode="all"
-    title="Objaviť kávy"
+    title="Moje kávy"
     activeNav="discover"
     allowFavoriteToggle
   />
@@ -528,47 +420,80 @@ const libraryStyles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFA000',
   },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  modalContent: {
-    width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 24,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#2C1810',
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: '#5D4E37',
-    marginTop: 4,
-    marginBottom: 12,
-  },
-  modalBody: {
-    marginBottom: 24,
-    gap: 6,
-  },
-  modalRow: {
-    fontSize: 14,
-    color: '#3F2B21',
-  },
-  closeButton: {
-    backgroundColor: '#6B4423',
-    borderRadius: 16,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  closeButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 15,
-  },
 });
+
+/**
+ * Filters the user's coffees based on the current in-memory criteria.
+ *
+ * @param {Coffee[]} coffees - Complete set of coffees fetched from the API/offline cache.
+ * @param {object} options - Current filter values used to narrow the list.
+ * @param {boolean} options.favoritesOnly - When true, hides all non-favorite coffees.
+ * @param {string} options.searchQuery - Free-text search term matched against name, brand, origin, process, variety and flavor notes.
+ * @param {string} options.selectedBrand - Selected roastery/brand identifier or the ALL_OPTION sentinel.
+ * @param {string} options.selectedProcess - Selected processing method or the ALL_OPTION sentinel.
+ * @param {string} options.selectedVariety - Selected bean variety or the ALL_OPTION sentinel.
+ * @returns {Coffee[]} Coffees that satisfy all active filters.
+ */
+const applyCoffeeFilter = (
+  coffees: Coffee[],
+  {
+    favoritesOnly,
+    searchQuery,
+    selectedBrand,
+    selectedProcess,
+    selectedVariety,
+  }: {
+    favoritesOnly: boolean;
+    searchQuery: string;
+    selectedBrand: string;
+    selectedProcess: string;
+    selectedVariety: string;
+  },
+): Coffee[] => {
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+
+  return coffees.filter((coffee) => {
+    if (favoritesOnly && !coffee.isFavorite) {
+      return false;
+    }
+
+    if (
+      selectedBrand !== ALL_OPTION_VALUE &&
+      (coffee.brand ?? '').toLowerCase() !== selectedBrand.toLowerCase()
+    ) {
+      return false;
+    }
+
+    if (
+      selectedProcess !== ALL_OPTION_VALUE &&
+      (coffee.process ?? '').toLowerCase() !== selectedProcess.toLowerCase()
+    ) {
+      return false;
+    }
+
+    if (
+      selectedVariety !== ALL_OPTION_VALUE &&
+      (coffee.variety ?? '').toLowerCase() !== selectedVariety.toLowerCase()
+    ) {
+      return false;
+    }
+
+    if (!normalizedQuery) {
+      return true;
+    }
+
+    const haystack = [
+      coffee.name,
+      coffee.brand,
+      coffee.origin,
+      coffee.process,
+      coffee.variety,
+      ...(coffee.flavorNotes ?? []),
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    return haystack.includes(normalizedQuery);
+  });
+};

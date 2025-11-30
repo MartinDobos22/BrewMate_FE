@@ -99,72 +99,11 @@ export class CoffeeDiary {
     this.onInsightsUpdated = config.onInsightsUpdated;
   }
 
-  /**
-   * Aktivuje detekciu prípravy na základe zvuku mlynčeka a extrakcie.
-   */
-  public enableAutoTracking(): void {
-    if (!this.audioAdapter || this.autoTrackingActive) {
-      return;
-    }
-    this.autoTrackingActive = true;
-    this.audioAdapter.onGrinderDetected(async () => {
-      const entry = await this.createQuickEntry('grinder');
-      await this.persistAndLearn(entry, {
-        id: `auto-${Date.now()}`,
-        userId: entry.userId,
-        eventType: 'repeated',
-        eventWeight: 0.7,
-        createdAt: entry.createdAt,
-      } as LearningEvent);
-    });
 
-    this.audioAdapter.onExtractionDetected(async () => {
-      const entry = await this.createQuickEntry('brew');
-      await this.persistAndLearn(entry, {
-        id: `auto-${Date.now()}-extraction`,
-        userId: entry.userId,
-        eventType: 'liked',
-        eventWeight: 0.9,
-        createdAt: entry.createdAt,
-      } as LearningEvent);
-    });
-  }
 
-  /**
-   * Vypne senzory auto-trackingu.
-   */
-  public disableAutoTracking(): void {
-    this.audioAdapter?.stop();
-    this.autoTrackingActive = false;
-  }
 
-  /**
-   * Pripraví predvyplnené údaje pre rýchly zápis.
-   */
-  public async createQuickEntry(trigger: 'manual' | 'grinder' | 'brew'): Promise<BrewHistoryEntry> {
-    const now = new Date();
-    const location = await this.locationProvider?.getCurrentLocation();
-    const moodBefore = await this.moodEstimator?.inferMood();
 
-    const quickPayload: QuickEntryPayload = {
-      context: {
-        timeOfDay: this.resolveTimeOfDay(now),
-        weekday: this.getIsoWeekday(now),
-        location,
-        moodBefore,
-      },
-      brewTimeSeconds: trigger === 'grinder' ? 30 : trigger === 'brew' ? 180 : undefined,
-    };
 
-    return {
-      id: `diary-${Date.now()}`,
-      userId: this.learningEngine.getProfile()?.userId ?? 'local-user',
-      createdAt: formatISO(now),
-      updatedAt: formatISO(now),
-      rating: 0,
-      ...quickPayload,
-    };
-  }
 
   public async addManualEntry(payload: {
     recipe: string;
@@ -224,20 +163,7 @@ export class CoffeeDiary {
     return entry;
   }
 
-  /**
-   * Spracuje fotografiu pomocou OCR a doplní nastavenia kávovaru.
-   */
-  public async processPhotoForEntry(imageUri: string): Promise<Partial<BrewHistoryEntry>> {
-    if (!this.ocrAnalyzer) {
-      throw new Error('OCR analyzátor nie je nakonfigurovaný');
-    }
-    try {
-      return await this.ocrAnalyzer.analyzeBrewSettings(imageUri);
-    } catch (error) {
-      console.error('OCR zlyhalo', error);
-      throw error;
-    }
-  }
+
 
   /**
    * Uloží zápis a notifikuje learning engine pre adaptáciu.

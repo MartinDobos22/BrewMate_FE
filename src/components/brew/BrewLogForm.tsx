@@ -5,13 +5,27 @@ import { BrewLog } from '../../types/BrewLog';
 import { BrewDevice, BREW_DEVICES } from '../../types/Recipe';
 import { saveBrewLog } from '../../services/brewLogService';
 
+/**
+ * Props for the brew log form used to capture manual brew session details.
+ */
 interface Props {
+  /** Identifier of the recipe this log is associated with. */
   recipeId?: string;
+  /** Initial brew device selection to prefill the picker. */
   initialDevice?: BrewDevice;
+  /** Callback fired when the log is successfully persisted. */
   onSaved?: (log: BrewLog) => void;
+  /** Callback fired when saving fails, allowing parent components to react. */
   onError?: (error: unknown) => void;
 }
 
+/**
+ * Form component that validates brew parameters, saves a BrewLog entry, and provides error/success
+ * feedback via callbacks.
+ *
+ * @param {Props} props - Configuration for initial values and result callbacks.
+ * @returns {JSX.Element} The rendered brew log form UI.
+ */
 const BrewLogForm: React.FC<Props> = ({ recipeId, initialDevice, onSaved, onError }) => {
   const [waterTemp, setWaterTemp] = useState('');
   const [coffeeDose, setCoffeeDose] = useState('');
@@ -22,6 +36,11 @@ const BrewLogForm: React.FC<Props> = ({ recipeId, initialDevice, onSaved, onErro
   const [notes, setNotes] = useState('');
   const [errors, setErrors] = useState<{ waterTemp?: string; coffeeDose?: string; ratio?: string }>({});
 
+  /**
+   * Validates the current form values for numerical constraints and presence.
+   *
+   * @returns {boolean} True when all fields meet required ranges and formats.
+   */
   const validate = () => {
     const err: { waterTemp?: string; coffeeDose?: string; ratio?: string } = {};
     const t = parseFloat(waterTemp);
@@ -33,6 +52,13 @@ const BrewLogForm: React.FC<Props> = ({ recipeId, initialDevice, onSaved, onErro
     return Object.keys(err).length === 0;
   };
 
+  /**
+   * Persists the brew log after validation, resets the form, and notifies listeners of success or
+   * failure.
+   *
+   * @returns {Promise<void>} Promise resolved after save attempt finishes.
+   * @throws {Error} When persistence through saveBrewLog fails.
+   */
   const handleSave = async () => {
     if (!validate()) return;
     const ratioNum = parseInt(ratio, 10);

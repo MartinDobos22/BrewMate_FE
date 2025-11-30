@@ -43,6 +43,9 @@ import type { Coffee } from '../../types/Coffee';
 
 type CoffeeItem = Coffee & { hasCheckmark?: boolean };
 
+/**
+ * Navigation callbacks and personalization props for the Home screen.
+ */
 interface HomeScreenProps {
   onHomePress: () => void;
   onScanPress: () => void;
@@ -65,6 +68,25 @@ const ACTION_GRADIENTS = {
 const DAILY_INSIGHT_COPY =
   '"Vedeli ste, že správne namletá káva by mala mať konzistenciu hrubej morskej soli pre French Press a jemného prášku pre espresso? Mletie je kľúčové pre extrakciu."';
 
+/**
+ * Renders the primary dashboard with recommendations, tips, and quick actions.
+ *
+ * The screen orchestrates multiple data sources including personalization,
+ * daily tips, brew statistics, and recent scans. It also exposes navigation
+ * callbacks for the main app surfaces.
+ *
+ * @param onHomePress - Handler for switching to the Home tab.
+ * @param onScanPress - Handler for launching the scan experience.
+ * @param onBrewPress - Handler for starting the brew flow.
+ * @param onProfilePress - Handler for opening the profile view.
+ * @param onDiscoverPress - Handler for navigating to discovery content.
+ * @param onRecipesPress - Handler for navigating to recipes.
+ * @param onFavoritesPress - Handler for navigating to favorites.
+ * @param onInventoryPress - Handler for navigating to inventory.
+ * @param onPersonalizationPress - Handler for opening personalization.
+ * @param userName - Name used for the greeting and avatar initial.
+ * @returns Fully composed home dashboard.
+ */
 const HomeScreen: React.FC<HomeScreenProps> = ({
   onHomePress,
   onScanPress,
@@ -99,6 +121,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   const { morningRitualManager, profile: personalizationProfile } =
     usePersonalization();
 
+  /**
+   * Loads home statistics, handling authentication and Supabase error cases
+   * with user-friendly messaging.
+   */
   const loadStats = useCallback(async () => {
     setStatsLoading(true);
     setStatsError(null);
@@ -125,6 +151,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     }
   }, []);
 
+  /**
+   * Fetches recommended coffees and updates count state.
+   */
   const loadCoffees = useCallback(async () => {
     try {
       const coffees = await fetchCoffees();
@@ -135,6 +164,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     }
   }, []);
 
+  /**
+   * Retrieves the user's taste profile from the backend and normalizes it for
+   * visualization.
+   */
   const loadTasteProfile = useCallback(async () => {
     setTasteProfileLoading(true);
     setTasteProfileError(null);
@@ -219,6 +252,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     };
   }, [morningRitualManager]);
 
+  /**
+   * Loads the daily tip from content services, falling back to cached tips when network calls fail.
+   *
+   * @returns {Promise<void>} Resolves after tip state is updated with fetched or cached data.
+   */
   const loadTip = useCallback(async () => {
     setTipLoading(true);
     setTipError(null);
@@ -258,6 +296,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     loadScans();
   }, []);
 
+  /**
+   * Computes a localized greeting based on the current hour of day.
+   *
+   * @returns {string} Greeting string for the header.
+   */
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Dobré ráno';
@@ -265,6 +308,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     return 'Dobrý večer';
   };
 
+  /**
+   * Provides a contextual coffee suggestion based on time of day.
+   *
+   * @returns {string} Recommendation text describing what to drink.
+   */
   const getTimeBasedMessage = () => {
     const hour = new Date().getHours();
     if (hour < 11) return 'Ranná káva je ideálna';
@@ -272,6 +320,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     return 'Pozor na spánok';
   };
 
+  /**
+   * Supplies educational advice about coffee timing tailored to morning/afternoon/evening.
+   *
+   * @returns {string} Informational copy used in the daily insight card.
+   */
   const getCoffeeAdvice = () => {
     const hour = new Date().getHours();
     if (hour < 11)
@@ -281,6 +334,9 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     return 'Pitie kávy po 16:00 môže negatívne ovplyvniť spánok.';
   };
 
+  /**
+   * Refresh handler invoked by pull-to-refresh to reload all dashboard data.
+   */
   const onRefresh = async () => {
     setRefreshing(true);
     await loadStats();
@@ -296,6 +352,12 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     setRefreshing(false);
   };
 
+  /**
+   * Displays a detail alert for a coffee carousel item and offers a shortcut to brew.
+   *
+   * @param {CoffeeItem} coffee - Coffee item selected by the user.
+   * @returns {void}
+   */
   const handleCoffeeCardPress = (coffee: CoffeeItem) => {
     const details = [
       coffee.brand,

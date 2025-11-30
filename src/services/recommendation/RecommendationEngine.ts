@@ -26,6 +26,12 @@ interface CachedRecommendation {
 
 const CACHE_KEY = 'brewmate:recommendations:cache_v2';
 
+/**
+ * Produces a deterministic hash string representing the contextual inputs used for recommendations.
+ *
+ * @param {PredictionContext} context - Prediction context including time, weather, mood, and weekday signals.
+ * @returns {string} JSON-encoded hash string suitable for cache key comparisons.
+ */
 function hashContext(context: PredictionContext): string {
   return JSON.stringify({
     t: context.timeOfDay,
@@ -36,13 +42,31 @@ function hashContext(context: PredictionContext): string {
   });
 }
 
+/**
+ * Core engine responsible for generating context-aware coffee recipe predictions using user taste profiles,
+ * weather data, travel mode preferences, and cached responses to reduce computation.
+ */
 export class RecommendationEngine {
   private readonly cacheTtlMinutes: number;
 
+  /**
+   * Creates a new recommendation engine instance with all dependencies provided via configuration.
+   *
+   * @param {RecommendationEngineConfig} config - Dependencies including learning engine, weather provider, telemetry, and fetchers.
+   */
   constructor(private readonly config: RecommendationEngineConfig) {
     this.cacheTtlMinutes = config.cacheTtlMinutes ?? 15;
   }
 
+  /**
+   * Retrieves top recipe predictions for a user, preferring cached results when context matches and cache is fresh.
+   *
+   * @param {object} params - Parameters for prediction retrieval.
+   * @param {string} params.userId - Identifier of the user requesting recommendations.
+   * @param {PredictionContext & { location?: BrewContext['location'] }} params.context - Context describing time, weather, and optional location.
+   * @param {number} [params.limit=3] - Maximum number of predictions to return.
+   * @returns {Promise<{ predictions: PredictionResult[]; context: PredictionContext }>} Predictions paired with the enriched context used.
+   */
   public async getTopPredictions({
     userId,
     context,
@@ -87,6 +111,12 @@ export class RecommendationEngine {
     return { predictions: sorted, context: enrichedContext };
   }
 
+  /**
+   * Populates missing contextual attributes such as time of day, weekday, mood, and weather.
+   *
+   * @param {PredictionContext & { location?: BrewContext['location'] }} context - Partial context collected from the UI.
+   * @returns {Promise<PredictionContext>} Fully enriched context object used for scoring and caching.
+   */
   private async enrichContext(context: PredictionContext & { location?: BrewContext['location'] }): Promise<PredictionContext> {
     const now = new Date();
     const timeOfDay = context.timeOfDay ?? this.resolveTimeOfDay(now);
@@ -107,6 +137,12 @@ export class RecommendationEngine {
     };
   }
 
+  /**
+   * Maps a Date instance to a semantic time-of-day bucket for scoring adjustments.
+   *
+   * @param {Date} date - Date representing the desired time reference.
+   * @returns {BrewContext['timeOfDay']} One of the supported time-of-day labels.
+   */
   private resolveTimeOfDay(date: Date): BrewContext['timeOfDay'] {
     const hours = date.getHours();
     if (hours < 6) {
@@ -124,11 +160,27 @@ export class RecommendationEngine {
     return 'night';
   }
 
+  /**
+   * Fetches candidate recipes from Supabase using the provided taste preference vector.
+   *
+   * @param {TasteProfileVector} vector - User taste vector used to filter and rank recipes server-side.
+   * @param {number} limit - Maximum number of recipes to fetch for local scoring.
+   * @returns {Promise<RecipeProfile[]>} List of recipe profiles ready for scoring.
+   */
   private async fetchCandidateRecipes(vector: TasteProfileVector, limit: number): Promise<RecipeProfile[]> {
     // Query Supabase edge function to keep computation close to data
     return this.config.supabaseFetcher('get_personalized_recipes', { vector, limit });
   }
 
+  /**
+   * Applies contextual scoring to candidate recipes, adjusting taste similarity with weather, time, mood, and travel mode signals.
+   *
+   * @param {RecipeProfile[]} recipes - Candidate recipes returned from the backend.
+   * @param {PredictionContext} context - Enriched prediction context including weather and mood data.
+   * @param {TasteProfileVector} vector - User taste profile vector used for base similarity calculations.
+   * @param {boolean} simplify - Whether travel mode simplification should penalize complex recipes.
+   * @returns {PredictionResult[]} Array of scored predictions including metadata for explanations.
+   */
   private scoreRecipes(
     recipes: RecipeProfile[],
     context: PredictionContext,
@@ -152,6 +204,13 @@ export class RecommendationEngine {
     });
   }
 
+  /**
+   * Calculates a scoring adjustment based on current weather and recipe tags.
+   *
+   * @param {RecipeProfile} recipe - Recipe being evaluated for context fit.
+   * @param {BrewContext['weather']} [weather] - Weather context including temperature and humidity.
+   * @returns {number} Positive or negative adjustment applied to the predicted rating.
+   */
   private weatherAdjustment(recipe: RecipeProfile, weather?: BrewContext['weather']): number {
     if (!weather?.temperatureC) {
       return 0;
@@ -172,6 +231,13 @@ export class RecommendationEngine {
     return 0;
   }
 
+  /**
+   * Adjusts scores for recipes that align with the current time of day.
+   *
+   * @param {RecipeProfile} recipe - Recipe under evaluation.
+   * @param {BrewContext['timeOfDay']} [timeOfDay] - Time-of-day bucket such as morning or evening.
+   * @returns {number} Adjustment boosting or leaving the base score unchanged.
+   */
   private timeOfDayAdjustment(recipe: RecipeProfile, timeOfDay?: BrewContext['timeOfDay']): number {
     if (!timeOfDay) {
       return 0;
@@ -188,6 +254,13 @@ export class RecommendationEngine {
     return 0;
   }
 
+  /**
+   * Adjusts prediction scores based on the user's anticipated mood and recipe tags.
+   *
+   * @param {RecipeProfile} recipe - Candidate recipe being scored.
+   * @param {string} [mood] - Mood label predicted by the learning engine.
+   * @returns {number} Positive adjustment when recipe supports the mood; otherwise zero.
+   */
   private moodAdjustment(recipe: RecipeProfile, mood?: string): number {
     if (!mood) {
       return 0;
@@ -204,6 +277,15 @@ export class RecommendationEngine {
     return 0;
   }
 
+  /**
+   * Aggregates human-readable explanation tokens describing contextual bonuses or penalties applied during scoring.
+   *
+   * @param {number} weatherBoost - Adjustment originating from weather alignment.
+   * @param {number} timeBoost - Adjustment from time-of-day alignment.
+   * @param {number} moodBoost - Adjustment from mood alignment.
+   * @param {number} travelPenalty - Penalty applied when travel mode simplifies recipes.
+   * @returns {string[]} Array of explanation strings used in UI evidence display.
+   */
   private collectContextBonuses(
     weatherBoost: number,
     timeBoost: number,
@@ -226,10 +308,22 @@ export class RecommendationEngine {
     return messages;
   }
 
+  /**
+   * Determines whether a recipe is tagged as quick to prepare.
+   *
+   * @param {RecipeProfile} recipe - Recipe profile whose tags will be inspected.
+   * @returns {boolean} True when the recipe contains the `quick` tag.
+   */
   private isQuickRecipe(recipe: RecipeProfile): boolean {
     return recipe.tags?.includes('quick') ?? false;
   }
 
+  /**
+   * Attempts to retrieve a cached recommendation matching the provided context and still within the TTL.
+   *
+   * @param {PredictionContext} context - Full context used to compute the cache hash.
+   * @returns {Promise<CachedRecommendation | undefined>} Cached entry when valid; otherwise undefined.
+   */
   private async getCachedRecommendation(context: PredictionContext): Promise<CachedRecommendation | undefined> {
     try {
       const raw = await EncryptedStorage.getItem(CACHE_KEY);
@@ -251,6 +345,13 @@ export class RecommendationEngine {
     }
   }
 
+  /**
+   * Stores the latest recommendation payload keyed by the hashed context for quick reuse.
+   *
+   * @param {PredictionContext} context - Context used to derive the cache key.
+   * @param {RecommendationPayload} payload - Recommendation data to cache including prediction and alternatives.
+   * @returns {Promise<void>} Promise resolving once the cache entry is written or logging warning on failure.
+   */
   private async persistCache(context: PredictionContext, payload: RecommendationPayload): Promise<void> {
     try {
       const entry: CachedRecommendation = {
@@ -264,6 +365,13 @@ export class RecommendationEngine {
     }
   }
 
+  /**
+   * Builds user-facing explanation strings from prediction metadata and context signals.
+   *
+   * @param {PredictionResult} prediction - Selected prediction containing context bonuses.
+   * @param {PredictionContext} context - Context applied when generating the prediction.
+   * @returns {string[]} Evidence strings suitable for displaying alongside recommendation details.
+   */
   private buildEvidence(prediction: PredictionResult, context: PredictionContext): string[] {
     const evidence: string[] = [];
     if (context.weather?.temperatureC) {

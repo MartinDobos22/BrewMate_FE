@@ -30,7 +30,6 @@ DROP TABLE IF EXISTS public.user_onboarding_responses CASCADE;
 DROP TABLE IF EXISTS public.user_taste_profile CASCADE;
 DROP TABLE IF EXISTS public.brew_history CASCADE;
 DROP TABLE IF EXISTS public.user_profiles CASCADE;
-DROP TABLE IF EXISTS public.app_users CASCADE;
 -- Drop current tables so the script is idempotent when re-run
 DROP TABLE IF EXISTS public.user_taste_profiles CASCADE;
 DROP TABLE IF EXISTS public.learning_events CASCADE;
@@ -88,15 +87,8 @@ DROP FUNCTION IF EXISTS public.handle_user_coffee_delete() CASCADE;
 -- =====================
 
 -- Core taste profile maintained by personalization engine
-CREATE TABLE public.app_users (
-  id text PRIMARY KEY,
-  email text UNIQUE,
-  name text,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-
 CREATE TABLE public.user_taste_profiles (
-  user_id text PRIMARY KEY REFERENCES public.app_users(id) ON DELETE CASCADE,
+  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   sweetness numeric(4,2) NOT NULL DEFAULT 5 CHECK (sweetness BETWEEN 0 AND 10),
   acidity numeric(4,2) NOT NULL DEFAULT 5 CHECK (acidity BETWEEN 0 AND 10),
   bitterness numeric(4,2) NOT NULL DEFAULT 5 CHECK (bitterness BETWEEN 0 AND 10),
@@ -115,7 +107,7 @@ CREATE TABLE public.user_taste_profiles (
 -- User brew diary entries
 CREATE TABLE public.brew_history (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id text NOT NULL REFERENCES public.app_users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   recipe_id uuid,
   beans jsonb NOT NULL DEFAULT '{}'::jsonb,
   grind_size text,
@@ -136,7 +128,7 @@ CREATE TABLE public.brew_history (
 -- Learning signals tied to brews
 CREATE TABLE public.learning_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id text NOT NULL REFERENCES public.app_users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   brew_history_id uuid REFERENCES public.brew_history(id) ON DELETE CASCADE,
   event_type text NOT NULL CHECK (event_type IN ('liked','disliked','favorited','repeated','shared')),
   event_weight numeric(6,3) NOT NULL DEFAULT 1.0,
@@ -147,7 +139,7 @@ CREATE TABLE public.learning_events (
 -- Persisted answers from personalization onboarding
 CREATE TABLE public.user_onboarding_responses (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id text NOT NULL REFERENCES public.app_users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   answers jsonb NOT NULL,
   analyzed_profile jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
@@ -169,7 +161,7 @@ CREATE TABLE public.recipe_profiles (
 -- User-authored recipes for sharing or history
 CREATE TABLE public.user_recipes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id text NOT NULL REFERENCES public.app_users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   title text NOT NULL,
   method text NOT NULL,
   instructions text NOT NULL,
@@ -183,7 +175,7 @@ CREATE TABLE public.user_recipes (
 -- Saved coffees in user library/inventory
 CREATE TABLE public.user_coffees (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id text NOT NULL REFERENCES public.app_users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name text NOT NULL,
   brand text,
   origin text,
@@ -197,7 +189,7 @@ CREATE TABLE public.user_coffees (
 -- OCR/scan events to build lightweight history
 CREATE TABLE public.scan_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id text NOT NULL REFERENCES public.app_users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   coffee_name text,
   brand text,
   barcode text,
@@ -210,7 +202,7 @@ CREATE TABLE public.scan_events (
 
 -- Aggregated counters to avoid heavy COUNT(*) calls
 CREATE TABLE public.user_statistics (
-  user_id text PRIMARY KEY REFERENCES public.app_users(id) ON DELETE CASCADE,
+  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   brew_count integer NOT NULL DEFAULT 0,
   recipe_count integer NOT NULL DEFAULT 0,
   scan_count integer NOT NULL DEFAULT 0,
@@ -232,7 +224,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Ensure stats row exists
-CREATE OR REPLACE FUNCTION public.ensure_user_stats(u_id text)
+CREATE OR REPLACE FUNCTION public.ensure_user_stats(u_id uuid)
 RETURNS void AS $$
 BEGIN
   INSERT INTO public.user_statistics(user_id)
@@ -243,7 +235,7 @@ $$ LANGUAGE plpgsql;
 
 -- Generic counter updater
 CREATE OR REPLACE FUNCTION public.update_user_stats_delta(
-  u_id text,
+  u_id uuid,
   brew_delta int,
   recipe_delta int,
   scan_delta int,
@@ -393,43 +385,43 @@ ALTER TABLE public.scan_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_statistics ENABLE ROW LEVEL SECURITY;
 
 -- Ownership based policies
-CREATE POLICY select_own_user_taste_profiles ON public.user_taste_profiles FOR SELECT USING ((auth.uid())::text = user_id);
-CREATE POLICY insert_own_user_taste_profiles ON public.user_taste_profiles FOR INSERT WITH CHECK ((auth.uid())::text = user_id);
-CREATE POLICY update_own_user_taste_profiles ON public.user_taste_profiles FOR UPDATE USING ((auth.uid())::text = user_id) WITH CHECK ((auth.uid())::text = user_id);
-CREATE POLICY delete_own_user_taste_profiles ON public.user_taste_profiles FOR DELETE USING ((auth.uid())::text = user_id);
+CREATE POLICY select_own_user_taste_profiles ON public.user_taste_profiles FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY insert_own_user_taste_profiles ON public.user_taste_profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY update_own_user_taste_profiles ON public.user_taste_profiles FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY delete_own_user_taste_profiles ON public.user_taste_profiles FOR DELETE USING (auth.uid() = user_id);
 
-CREATE POLICY select_own_brew_history ON public.brew_history FOR SELECT USING ((auth.uid())::text = user_id);
-CREATE POLICY insert_own_brew_history ON public.brew_history FOR INSERT WITH CHECK ((auth.uid())::text = user_id);
-CREATE POLICY update_own_brew_history ON public.brew_history FOR UPDATE USING ((auth.uid())::text = user_id) WITH CHECK ((auth.uid())::text = user_id);
-CREATE POLICY delete_own_brew_history ON public.brew_history FOR DELETE USING ((auth.uid())::text = user_id);
+CREATE POLICY select_own_brew_history ON public.brew_history FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY insert_own_brew_history ON public.brew_history FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY update_own_brew_history ON public.brew_history FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY delete_own_brew_history ON public.brew_history FOR DELETE USING (auth.uid() = user_id);
 
-CREATE POLICY select_own_learning_events ON public.learning_events FOR SELECT USING ((auth.uid())::text = user_id);
-CREATE POLICY insert_own_learning_events ON public.learning_events FOR INSERT WITH CHECK ((auth.uid())::text = user_id);
-CREATE POLICY update_own_learning_events ON public.learning_events FOR UPDATE USING ((auth.uid())::text = user_id) WITH CHECK ((auth.uid())::text = user_id);
-CREATE POLICY delete_own_learning_events ON public.learning_events FOR DELETE USING ((auth.uid())::text = user_id);
+CREATE POLICY select_own_learning_events ON public.learning_events FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY insert_own_learning_events ON public.learning_events FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY update_own_learning_events ON public.learning_events FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY delete_own_learning_events ON public.learning_events FOR DELETE USING (auth.uid() = user_id);
 
-CREATE POLICY select_own_onboarding ON public.user_onboarding_responses FOR SELECT USING ((auth.uid())::text = user_id);
-CREATE POLICY insert_own_onboarding ON public.user_onboarding_responses FOR INSERT WITH CHECK ((auth.uid())::text = user_id);
-CREATE POLICY update_own_onboarding ON public.user_onboarding_responses FOR UPDATE USING ((auth.uid())::text = user_id) WITH CHECK ((auth.uid())::text = user_id);
-CREATE POLICY delete_own_onboarding ON public.user_onboarding_responses FOR DELETE USING ((auth.uid())::text = user_id);
+CREATE POLICY select_own_onboarding ON public.user_onboarding_responses FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY insert_own_onboarding ON public.user_onboarding_responses FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY update_own_onboarding ON public.user_onboarding_responses FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY delete_own_onboarding ON public.user_onboarding_responses FOR DELETE USING (auth.uid() = user_id);
 
-CREATE POLICY select_own_user_recipes ON public.user_recipes FOR SELECT USING ((auth.uid())::text = user_id);
-CREATE POLICY insert_own_user_recipes ON public.user_recipes FOR INSERT WITH CHECK ((auth.uid())::text = user_id);
-CREATE POLICY update_own_user_recipes ON public.user_recipes FOR UPDATE USING ((auth.uid())::text = user_id) WITH CHECK ((auth.uid())::text = user_id);
-CREATE POLICY delete_own_user_recipes ON public.user_recipes FOR DELETE USING ((auth.uid())::text = user_id);
+CREATE POLICY select_own_user_recipes ON public.user_recipes FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY insert_own_user_recipes ON public.user_recipes FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY update_own_user_recipes ON public.user_recipes FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY delete_own_user_recipes ON public.user_recipes FOR DELETE USING (auth.uid() = user_id);
 
-CREATE POLICY select_own_user_coffees ON public.user_coffees FOR SELECT USING ((auth.uid())::text = user_id);
-CREATE POLICY insert_own_user_coffees ON public.user_coffees FOR INSERT WITH CHECK ((auth.uid())::text = user_id);
-CREATE POLICY update_own_user_coffees ON public.user_coffees FOR UPDATE USING ((auth.uid())::text = user_id) WITH CHECK ((auth.uid())::text = user_id);
-CREATE POLICY delete_own_user_coffees ON public.user_coffees FOR DELETE USING ((auth.uid())::text = user_id);
+CREATE POLICY select_own_user_coffees ON public.user_coffees FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY insert_own_user_coffees ON public.user_coffees FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY update_own_user_coffees ON public.user_coffees FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY delete_own_user_coffees ON public.user_coffees FOR DELETE USING (auth.uid() = user_id);
 
-CREATE POLICY select_own_scan_events ON public.scan_events FOR SELECT USING ((auth.uid())::text = user_id);
-CREATE POLICY insert_own_scan_events ON public.scan_events FOR INSERT WITH CHECK ((auth.uid())::text = user_id);
-CREATE POLICY update_own_scan_events ON public.scan_events FOR UPDATE USING ((auth.uid())::text = user_id) WITH CHECK ((auth.uid())::text = user_id);
-CREATE POLICY delete_own_scan_events ON public.scan_events FOR DELETE USING ((auth.uid())::text = user_id);
+CREATE POLICY select_own_scan_events ON public.scan_events FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY insert_own_scan_events ON public.scan_events FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY update_own_scan_events ON public.scan_events FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY delete_own_scan_events ON public.scan_events FOR DELETE USING (auth.uid() = user_id);
 
-CREATE POLICY select_own_statistics ON public.user_statistics FOR SELECT USING ((auth.uid())::text = user_id);
-CREATE POLICY update_own_statistics ON public.user_statistics FOR UPDATE USING ((auth.uid())::text = user_id) WITH CHECK ((auth.uid())::text = user_id);
+CREATE POLICY select_own_statistics ON public.user_statistics FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY update_own_statistics ON public.user_statistics FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 -- =====================
 -- INDEXES

@@ -13,6 +13,15 @@ const STORAGE_KEY = 'recentScans';
 const MAX_RECENT_SCANS = 20;
 const MAX_IMAGE_URL_LENGTH = 1000;
 
+/**
+ * Normalizes loose scan payloads coming from network or storage into a consistent shape.
+ *
+ * Converts mixed id/name/image fields while dropping oversized data URIs to prevent
+ * AsyncStorage cursor errors.
+ *
+ * @param {RecentScan | Record<string, any>} scan - Partial scan object from API or local cache that may use varying keys.
+ * @returns {RecentScan} A sanitized scan object with guaranteed `id`, `name`, and optional `imageUrl` fields.
+ */
 const sanitizeRecentScan = (scan: RecentScan | Record<string, any>): RecentScan => {
   const idSource =
     (typeof scan.id === 'string' && scan.id) ||
@@ -46,7 +55,10 @@ const sanitizeRecentScan = (scan: RecentScan | Record<string, any>): RecentScan 
 };
 
 /**
- * Uloží nový scan do lokálneho úložiska.
+ * Stores a new recent scan entry, deduplicating by id and trimming the list size.
+ *
+ * @param {RecentScan} scan - Scan metadata to persist including id, name, and optional image URL.
+ * @returns {Promise<void>} Promise resolving when the updated list is written to AsyncStorage.
  */
 export const addRecentScan = async (scan: RecentScan): Promise<void> => {
   try {
@@ -64,6 +76,12 @@ export const addRecentScan = async (scan: RecentScan): Promise<void> => {
 
 const ROW_TOO_BIG_MESSAGE = 'Row too big to fit into CursorWindow';
 
+/**
+ * Reads and normalizes cached scans from AsyncStorage, clearing corrupted entries.
+ *
+ * @returns {Promise<RecentScan[]>} Array of sanitized scans; empty when no cache is present.
+ * @throws {Error} Re-throws unexpected storage errors except for oversized row issues which are handled gracefully.
+ */
 const readCachedScans = async (): Promise<RecentScan[]> => {
   try {
     const cachedRaw = await AsyncStorage.getItem(STORAGE_KEY);
@@ -92,8 +110,13 @@ const readCachedScans = async (): Promise<RecentScan[]> => {
 };
 
 /**
- * Načíta posledné skeny. Najprv sa pokúsi načítať z cache,
- * následne osvieži dáta z API. Pri offline stave vráti len cache.
+ * Fetches the most recent coffee scans with offline and caching support.
+ *
+ * Attempts to return cached results immediately, then refreshes from the API when
+ * online and authenticated. Falls back to cached data on network errors.
+ *
+ * @param {number} limit - Maximum number of scans to return to the caller.
+ * @returns {Promise<RecentScan[]>} Promise resolving to recent scans limited by the requested size.
  */
 export const fetchRecentScans = async (limit: number): Promise<RecentScan[]> => {
   try {

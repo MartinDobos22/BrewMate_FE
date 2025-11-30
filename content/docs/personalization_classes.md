@@ -6,7 +6,7 @@ Tento dokument sumarizuje TypeScript a JavaScript triedy, ktoré v aplikácii Br
 1. [Úložiská a fasády](#uloziska-a-fasady)
 2. [Jadro učenia](#jadro-ucenia)
 3. [Odporúčací stack](#odporucaci-stack)
-4. [Kvíz, embeddingy a chuťová cesta](#kviz-embeddingy-a-chutova-cesta)
+4. [Kvíz](#kviz)
 5. [Denník a insight služby](#dennik-a-insight-sluzby)
 6. [Ranný rituál](#ranny-ritual)
 7. [Súkromie a onboarding](#sukromie-a-onboarding)
@@ -85,22 +85,14 @@ Tento dokument sumarizuje TypeScript a JavaScript triedy, ktoré v aplikácii Br
 
 ---
 
-## Kvíz, embeddingy a chuťová cesta
+## Kvíz
 
 ### TasteProfileQuizEngine (`TasteProfileQuizEngine.ts`)
 - **Úloha:** Riadi adaptívny onboardingový kvíz, persistuje odpovede v šifrovanom úložisku, aktualizuje profil v engine a vracia personalizované odporúčania na záver.【F:src/services/TasteProfileQuizEngine.ts†L1-L316】
 - **Mechanizmy:**
   - Ukladá priebežné odpovede s 24-hodinovou expiráciou a vie pokračovať v rozpracovanom kvíze.【F:src/services/TasteProfileQuizEngine.ts†L60-L146】
-  - `completeQuiz` prepojí výsledky s profilom, spustí generovanie odporúčaní, uloží embeddingy a resetuje dočasné dáta.【F:src/services/TasteProfileQuizEngine.ts†L134-L222】
+  - `completeQuiz` prepojí výsledky s profilom, spustí generovanie odporúčaní a resetuje dočasné dáta.【F:src/services/TasteProfileQuizEngine.ts†L134-L222】
   - Poskytuje vysvetlenia odporúčaní (`buildSuggestionPayload`, `explainPrediction`) a tvorí “learning path” pre UI komponenty.【F:src/services/TasteProfileQuizEngine.ts†L192-L316】
-
-### FlavorEmbeddingService (`flavor/FlavorEmbeddingService.ts`)
-- **Úloha:** Konvertuje odpovede kvízu aj denníkové záznamy na 128-dimenzionálne embeddingy, uchováva ich v repozitári a vyhodnocuje podobnosti pre objavovanie nových chutí.【F:src/services/flavor/FlavorEmbeddingService.ts†L1-L126】
-- **Detaily:** Používa deterministické hashovanie kategórií, normalizáciu vektora a umožňuje `recommendMilestones` pre “flavor journey” timeline.
-
-### FlavorJourneyRepository (`flavor/FlavorJourneyRepository.ts`)
-- **Úloha:** Uchováva míľniky chuťovej cesty v šifrovanom úložisku, poskytuje append operácie a bezpečne číta JSON dáta so spätným fallbackom.【F:src/services/flavor/FlavorJourneyRepository.ts†L1-L60】
-- **Detaily:** Udržuje maximálne 100 míľnikov, aby zostala cache ľahká, a generuje unikátne ID pre každý nový záznam.【F:src/services/flavor/FlavorJourneyRepository.ts†L12-L44】
 
 ---
 
@@ -114,10 +106,9 @@ Tento dokument sumarizuje TypeScript a JavaScript triedy, ktoré v aplikácii Br
   - Analytika ráta najlepšie kávy, týždenné/mesačné štatistiky, trend zručností a pripravuje dáta pre `SmartDiaryService`.【F:src/services/CoffeeDiary.ts†L240-L381】
 
 ### SmartDiaryService (`SmartDiaryService.ts`)
-- **Úloha:** Spája dáta z denníka, embeddingov a engine do zoznamu insightov pre dashboard (trendy chutí, míľniky, pripomienky zásob).【F:src/services/SmartDiaryService.ts†L1-L118】
+- **Úloha:** Spája dáta z denníka a engine do zoznamu insightov pre dashboard (trendy chutí, pripomienky zásob).【F:src/services/SmartDiaryService.ts†L1-L116】
 - **Detaily:**
-  - `refresh` produkuje insighty na základe trendov preferencií, upozornení na fazuľky či návrhov na studenú kávu podľa dňa.【F:src/services/SmartDiaryService.ts†L25-L118】
-  - Zabráni duplicitnému zápisu embeddingov a drží len posledný set insightov pre rýchle načítanie.【F:src/services/SmartDiaryService.ts†L21-L44】
+  - `refresh` produkuje insighty na základe trendov preferencií, upozornení na fazuľky či návrhov na studenú kávu podľa dňa.【F:src/services/SmartDiaryService.ts†L25-L107】
 
 ---
 
@@ -207,7 +198,7 @@ Tento dokument sumarizuje TypeScript a JavaScript triedy, ktoré v aplikácii Br
 ### Textová schéma tokov dát
 ```
 [TasteProfileQuizEngine]
-      │ odpovede + embeddingy
+      │ odpovede
       ▼
 [PreferenceLearningEngine] ⇄ [PreferenceEngineFacade] ⇄ [Async/Supabase Storage]
       │ predikcie / aktualizácie
@@ -215,9 +206,8 @@ Tento dokument sumarizuje TypeScript a JavaScript triedy, ktoré v aplikácii Br
 [RecommendationEngine] ⇄ [TravelModeManager] ⇄ [WeatherAwareProvider]
       │                   │
       ▼                   └─ informuje rozhodovanie v travel režime
-[CoffeeDiary] ⇄ [SmartDiaryService] ⇄ [FlavorEmbeddingService]
-      │                               │
-      ▼                               └─ využíva [FlavorJourneyRepository]
+[CoffeeDiary] ⇄ [SmartDiaryService]
+      │
 [MorningRitualManager] ──► plánuje notifikácie cez [NotificationService]
       │ spätná väzba
       ▼
@@ -229,9 +219,9 @@ Tento dokument sumarizuje TypeScript a JavaScript triedy, ktoré v aplikácii Br
 ## Onboardingové tipy pre nového vývojára
 
 1. **Preštudujte kontext:** Pozrite `PersonalizationContext` v `App.tsx`, aby ste pochopili memoizáciu služieb a to, ako sa injektujú do obrazoviek.【F:App.tsx†L42-L173】
-2. **Typové kontrakty:** Naštudujte `types/Personalization.ts` a `types/PersonalizationAI.ts`, keďže definujú štruktúry využívané naprieč modulmi (profil, learning event, kontexty, embeddingy).
+2. **Typové kontrakty:** Naštudujte `types/Personalization.ts` a `types/PersonalizationAI.ts`, keďže definujú štruktúry využívané naprieč modulmi (profil, learning event, kontexty).
 3. **Sledujte tri kľúčové scenáre:**
-   - **Onboarding:** `TasteProfileQuizEngine` → `PreferenceLearningEngine` → `FlavorEmbeddingService` → `SmartDiaryService`.
+   - **Onboarding:** `TasteProfileQuizEngine` → `PreferenceLearningEngine` → `SmartDiaryService`.
    - **Ranný rituál:** `MorningRitualManager` → `NotificationService` → reakcia používateľa → `CoffeeDiary` + `OfflineSync`.
    - **Offline zápis:** `PreferenceEngineFacade.recordBrew` → AsyncStorage → `OfflineSync.processQueue` → Supabase REST.
 4. **Nastavenia a tajomstvá:** Skontrolujte `.env` pre `EXPO_PUBLIC_SUPABASE_URL/ANON_KEY` a uistite sa, že lokálne buildy majú prístup k týmto hodnotám, inak neprebehne synchronizácia offline fronty.

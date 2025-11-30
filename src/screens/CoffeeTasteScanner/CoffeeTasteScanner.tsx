@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   useColorScheme,
   TextInput,
-  Share,
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
@@ -34,7 +33,6 @@ import {
   confirmStructuredScan,
   extractCoffeeName,
   rateOCRResult,
-  incrementProgress,
   saveOCRResult,
   loadOCRResult,
   addRecentScan,
@@ -43,25 +41,11 @@ import {
   toggleFavorite,
   isCoffeeRelatedText,
 } from './services';
-import type { StructuredCoffeeMetadata, ConfirmStructuredPayload } from './services';
+import type { OCRHistory, StructuredCoffeeMetadata, ConfirmStructuredPayload } from './services';
 import { BrewContext } from '../../types/Personalization';
 import { usePersonalization } from '../../hooks/usePersonalization';
-import { recognizeCoffee } from '../../offline/VisionService';
-import { coffeeOfflineManager, offlineSync } from '../../offline';
 import { showToast } from '../../utils/toast';
-
-interface OCRHistory {
-  id: string;
-  coffee_name: string;
-  original_text: string;
-  corrected_text: string;
-  created_at: Date;
-  rating?: number;
-  match_percentage?: number;
-  is_recommended?: boolean;
-  is_purchased?: boolean;
-  is_favorite?: boolean;
-}
+import { recognizeCoffee } from 'services/VisionService.ts';
 
 interface ScanResult {
   original: string;
@@ -90,6 +74,7 @@ type StructuredConfirmPayload = ConfirmStructuredPayload & {
 
 interface ProfessionalOCRScannerProps {
   onBack?: () => void;
+  onHistoryPress?: () => void;
 }
 
 const resolveTimeOfDay = (date: Date): BrewContext['timeOfDay'] => {
@@ -451,9 +436,9 @@ const clampTasteValue = (value: number): number => {
   return Math.min(10, Math.max(0, value));
 };
 
-const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) => {
+const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onHistoryPress }) => {
   const { coffeeDiary: personalizationDiary, refreshInsights } = usePersonalization();
-  const diary = personalizationDiary ?? fallbackCoffeeDiary;
+  const diary = personalizationDiary ;
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [editedText, setEditedText] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -508,6 +493,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
     return Number.isNaN(bounded) ? null : bounded;
   }, [nonCoffeeDetails.confidence]);
 
+  // Structured metadata is populated from AI/DB (scan response or history) and editable by the user.
   const structuredMetadata = useMemo(
     () => structuredFieldsToMetadata(structuredFields),
     [structuredFields],
@@ -719,6 +705,34 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
     showToast('Skús prosím naskenovať etiketu kávy.');
   };
 
+  const buildMetadataFromHistory = useCallback((item: OCRHistory): StructuredCoffeeMetadata | null => {
+    const roaster = normalizeStructuredStringValue(item.brand);
+    const origin = normalizeStructuredStringValue(item.origin);
+    const roastLevel = normalizeStructuredStringValue(item.roast_level);
+    const processing = normalizeStructuredStringValue(item.processing);
+    const roastDate = normalizeStructuredStringValue(item.roast_date);
+    const flavorNotes = normalizeStructuredStringArrayValue(item.flavor_notes);
+    const varietals = normalizeStructuredStringArrayValue(item.varietals);
+
+    const metadata: StructuredCoffeeMetadata = {
+      roaster,
+      origin,
+      roastLevel,
+      processing,
+      flavorNotes,
+      roastDate,
+      varietals,
+      confidenceFlags: null,
+    };
+
+    const hasAnyLabelValue =
+      [metadata.roaster, metadata.origin, metadata.roastLevel, metadata.processing, metadata.roastDate].some(Boolean) ||
+      (metadata.flavorNotes?.length ?? 0) > 0 ||
+      (metadata.varietals?.length ?? 0) > 0;
+
+    return hasAnyLabelValue ? metadata : null;
+  }, []);
+
   /**
    * Načíta nedávne OCR skeny pre používateľa.
    */
@@ -881,13 +895,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
         setOverlayVisible(false);
         setOverlayText('Analyzujem...');
 
-        // Update user progress for successful scan
-        try {
-          await incrementProgress('scan');
-        } catch (e) {
-          console.error('Failed to update progress', e);
-        }
-
         // Ulož do zoznamu posledných skenov
         const name = extractCoffeeName(normalizedResult.corrected || normalizedResult.original);
         const scanIdentifier = normalizedResult.scanId || Date.now().toString();
@@ -1006,12 +1013,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
         const payload = imagePath
           ? { ...offlineResult, imagePath, createdAt: timestamp }
           : { ...offlineResult, createdAt: timestamp };
-        await coffeeOfflineManager.setItem(
-          'taste:last-offline',
-          payload,
-          24 * 30,
-          5
-        );
       } catch (cacheError) {
         console.error('Failed to cache offline scan', cacheError);
       }
@@ -1081,6 +1082,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
    * Načíta záznam z histórie do editora.
    */
   const loadFromHistory = (item: OCRHistory) => {
+    const historyMetadata = buildMetadataFromHistory(item);
     const historyResult: ScanResultLike = {
       original: item.original_text,
       corrected: item.corrected_text,
@@ -1088,9 +1090,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
       matchPercentage: item.match_percentage,
       isRecommended: item.is_recommended,
       isFavorite: item.is_favorite,
-      structuredMetadata: null,
+      structuredMetadata: historyMetadata,
       structuredConfidence: null,
-      structuredRaw: null,
+      structuredRaw: historyMetadata,
     };
 
     applyScanResult(historyResult);
@@ -1176,7 +1178,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
             const payload = notes
               ? { coffeeId: scanResult.scanId, rating, notes }
               : { coffeeId: scanResult.scanId, rating };
-            await offlineSync.enqueue('coffee:rate', payload);
             queuedOffline = true;
           } catch (queueError) {
             console.error('Failed to enqueue rating for offline sync', queueError);
@@ -1262,6 +1263,14 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
         return;
       }
 
+      setScanResult(prev => (prev ? { ...prev, isFavorite: nextValue } : prev));
+
+      try {
+        await loadHistory();
+      } catch (historyError) {
+        console.warn('CoffeeTasteScanner: failed to refresh history after favorite toggle', historyError);
+      }
+
       if (isConnected === false) {
         showToast('Zmena obľúbených uložená offline.');
       }
@@ -1270,6 +1279,13 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
       setIsFavorite(!nextValue);
       Alert.alert('Chyba', 'Nepodarilo sa aktualizovať obľúbenú kávu');
     }
+  };
+
+  const handleFlavorPress = (tag: string) => {
+    if (tag === 'N/A') {
+      return;
+    }
+    showToast(`Pripravujeme tipy pre ${tag}.`);
   };
 
   const handlePurchaseSelect = (answer: boolean) => {
@@ -1402,17 +1418,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
     }
   };
 
-  const exportText = async () => {
-    try {
-      await Share.share({
-        message: editedText,
-        title: 'Exportovaný text kávy',
-      });
-    } catch (error) {
-      Alert.alert('Chyba', 'Nepodarilo sa exportovať text');
-    }
-  };
-
   /**
    * Vymaže aktuálny výsledok skenovania.
    */
@@ -1443,16 +1448,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
     }
   };
 
-  const ratedHistory = ocrHistory.filter(
-    (item) => typeof item.rating === 'number' && (item.rating ?? 0) > 0
-  );
-  const averageRating = ratedHistory.length
-    ? (
-        ratedHistory.reduce((acc, item) => acc + (item.rating ?? 0), 0) /
-        ratedHistory.length
-      ).toFixed(1)
-    : '0.0';
-  const favoritesCount = ocrHistory.filter((item) => item.is_favorite).length;
   const showBackButton = currentView !== 'home';
   const matchLabel = scanResult?.matchPercentage
     ? `${scanResult.matchPercentage}% zhoda`
@@ -1494,6 +1489,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
     return scanResult.corrected?.length ? 'Rozpoznaná etiketa' : 'Pripravené na úpravy';
   }, [recognizedText, scanResult]);
 
+  // AI recommendation sentences coming from the scan response; reused for the insight section.
   const recommendationSentences = useMemo(() => {
     if (!scanResult?.recommendation) {
       return [];
@@ -1585,14 +1581,19 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
   }, [combinedLowerText, styles.tasteFillAcidity, styles.tasteFillSweetness, styles.tasteFillBitterness, styles.tasteFillBody]);
 
   const flavorTags = useMemo(() => {
+    const structuredNotes = structuredFields.flavorNotes.value;
+    if (structuredNotes?.length) {
+      return structuredNotes;
+    }
+
     const detected = FLAVOR_KEYWORDS.filter(item => combinedLowerText.includes(item.keyword)).map(
       item => item.label
     );
     if (detected.length) {
       return detected;
     }
-    return ['🌺 Kvetinová', '🍋 Citrón', '🍯 Jemne sladká'];
-  }, [combinedLowerText]);
+    return ['N/A'];
+  }, [combinedLowerText, structuredFields.flavorNotes.value]);
 
   const verdictLabel = scanResult?.isRecommended === false ? 'Skôr NIE' : 'Skôr ÁNO';
   const verdictExplanation =
@@ -1840,17 +1841,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
         >
           <View style={styles.contentWrapper}>
             <View style={styles.phoneContainer}>
-              <View style={styles.statusBar}>
-                <Text style={styles.statusTime}>9:41</Text>
-                <View style={styles.statusIcons}>
-                  <Text style={styles.statusIcon}>📶</Text>
-                  <Text style={styles.statusIcon}>
-                    {isConnected === false ? '⚠️' : '📶'}
-                  </Text>
-                  <Text style={styles.statusIcon}>🔋</Text>
-                </View>
-              </View>
-
               <View style={styles.appHeader}>
                 <TouchableOpacity
                   style={[styles.backButton, showBackButton ? styles.backButtonVisible : null]}
@@ -1913,30 +1903,13 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
                       </View>
                     </View>
 
-                    <View style={styles.statsContainer}>
-                      <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>{ocrHistory.length}</Text>
-                        <Text style={styles.statLabel}>Skenov</Text>
-                      </View>
-                      <View style={styles.statDivider} />
-                      <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>{favoritesCount}</Text>
-                        <Text style={styles.statLabel}>Obľúbené</Text>
-                      </View>
-                      <View style={styles.statDivider} />
-                      <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>{averageRating}</Text>
-                        <Text style={styles.statLabel}>Priemer ⭐</Text>
-                      </View>
-                    </View>
-
                     <View style={styles.historySection}>
                       <View style={styles.historyHeader}>
                         <Text style={styles.historyTitle}>📚 História skenovaní</Text>
                         {ocrHistory.length > 0 && (
                           <TouchableOpacity
                             style={styles.historySeeAll}
-                            onPress={() => showToast('Pripravujeme prehľad histórie.')}
+                            onPress={onHistoryPress}
                           >
                             <Text style={styles.historySeeAllText}>Zobraziť všetky →</Text>
                           </TouchableOpacity>
@@ -2099,44 +2072,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
                         </View>
                       </View>
 
-                      <View style={styles.compatibilityCardModern}>
-                        <View style={styles.compatibilityHeaderRow}>
-                          <View style={styles.compatibilityIconWrapper}>
-                            <Text style={styles.compatibilityIcon}>🤖</Text>
-                          </View>
-                          <Text style={styles.sectionTitle}>AI vysvetlenie</Text>
-                        </View>
-                        <Text style={styles.compatibilityIntro}>
-                          {insightText}
-                        </Text>
-                        {positiveReasons.length > 0 && (
-                          <View style={styles.reasonBlock}>
-                            <Text style={styles.reasonTitle}>Prečo áno</Text>
-                            {positiveReasons.map(reason => (
-                              <View key={reason} style={styles.reasonRow}>
-                                <View style={[styles.reasonBadge, styles.reasonBadgePositive]}>
-                                  <Text style={styles.reasonBadgeText}>✓</Text>
-                                </View>
-                                <Text style={styles.reasonText}>{reason}</Text>
-                              </View>
-                            ))}
-                          </View>
-                        )}
-                        {cautionReasons.length > 0 && (
-                          <View style={styles.reasonBlock}>
-                            <Text style={styles.reasonTitle}>Na čo si dať pozor</Text>
-                            {cautionReasons.map(reason => (
-                              <View key={reason} style={styles.reasonRow}>
-                                <View style={[styles.reasonBadge, styles.reasonBadgeNegative]}>
-                                  <Text style={styles.reasonBadgeText}>✗</Text>
-                                </View>
-                                <Text style={styles.reasonText}>{reason}</Text>
-                              </View>
-                            ))}
-                          </View>
-                        )}
-                      </View>
-
                       <View style={styles.tasteProfileCard}>
                         <View style={styles.profileHeaderRow}>
                           <Text style={styles.sectionTitle}>Chuťový profil</Text>
@@ -2166,16 +2101,20 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
                           ))}
                         </View>
                         <View style={styles.flavorTagsRow}>
-                          {flavorTags.map(tag => (
-                            <TouchableOpacity
-                              key={tag}
-                              style={styles.flavorTag}
-                              onPress={() => showToast(`Pripravujeme tipy pre ${tag}.`)}
-                              activeOpacity={0.85}
-                            >
-                              <Text style={styles.flavorTagText}>{tag}</Text>
-                            </TouchableOpacity>
-                          ))}
+                          {flavorTags.map(tag => {
+                            const isPlaceholder = tag === 'N/A';
+                            return (
+                              <TouchableOpacity
+                                key={tag}
+                                style={styles.flavorTag}
+                                onPress={() => handleFlavorPress(tag)}
+                                activeOpacity={0.85}
+                                disabled={isPlaceholder}
+                              >
+                                <Text style={styles.flavorTagText}>{tag}</Text>
+                              </TouchableOpacity>
+                            );
+                          })}
                         </View>
                       </View>
 
@@ -2184,9 +2123,39 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
                           <View style={styles.insightIconWrapper}>
                             <Text style={styles.insightIcon}>🤖</Text>
                           </View>
-                          <Text style={styles.insightTitle}>AI Insight</Text>
+                          <Text style={styles.insightTitle}>AI insight</Text>
                         </View>
                         <Text style={styles.insightText}>{insightText}</Text>
+                        {(positiveReasons.length > 0 || cautionReasons.length > 0) && (
+                          <View style={styles.reasonBlocksWrapper}>
+                            {positiveReasons.length > 0 && (
+                              <View style={styles.reasonBlock}>
+                                <Text style={styles.reasonTitle}>Prečo áno</Text>
+                                {positiveReasons.map(reason => (
+                                  <View key={reason} style={styles.reasonRow}>
+                                    <View style={[styles.reasonBadge, styles.reasonBadgePositive]}>
+                                      <Text style={styles.reasonBadgeText}>✓</Text>
+                                    </View>
+                                    <Text style={styles.reasonText}>{reason}</Text>
+                                  </View>
+                                ))}
+                              </View>
+                            )}
+                            {cautionReasons.length > 0 && (
+                              <View style={styles.reasonBlock}>
+                                <Text style={styles.reasonTitle}>Na čo si dať pozor</Text>
+                                {cautionReasons.map(reason => (
+                                  <View key={reason} style={styles.reasonRow}>
+                                    <View style={[styles.reasonBadge, styles.reasonBadgeNegative]}>
+                                      <Text style={styles.reasonBadgeText}>✗</Text>
+                                    </View>
+                                    <Text style={styles.reasonText}>{reason}</Text>
+                                  </View>
+                                ))}
+                              </View>
+                            )}
+                          </View>
+                        )}
                       </LinearGradient>
 
                       <View style={styles.structuredCard}>
@@ -2343,40 +2312,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack }) =
             </View>
           </View>
         </ScrollView>
-
-        {currentView === 'scan' && (
-          <View style={styles.bottomActionBar}>
-            <TouchableOpacity
-              style={[styles.bottomActionButton, styles.bottomActionSecondary]}
-              onPress={exportText}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.bottomActionIcon}>📤</Text>
-              <Text style={styles.bottomActionText}>Zdieľať poznámky</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.bottomActionButton, styles.bottomActionPrimary]}
-              onPress={() => {
-                clearAll();
-                openCamera();
-              }}
-              activeOpacity={0.9}
-            >
-              <Text style={[styles.bottomActionIcon, styles.bottomActionIconPrimary]}>📷</Text>
-              <Text style={[styles.bottomActionText, styles.bottomActionTextPrimary]}>
-                Nový scan
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        <TouchableOpacity
-          style={[styles.fab, currentView === 'home' ? styles.fabVisible : null]}
-          onPress={openCamera}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.fabIcon}>📷</Text>
-        </TouchableOpacity>
 
         {(overlayVisible || isLoading) && (
           <View style={styles.loadingOverlay}>

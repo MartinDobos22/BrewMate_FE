@@ -18,14 +18,12 @@ import {
 } from '../types/PersonalizationAI';
 import { PreferenceLearningEngine } from './PreferenceLearningEngine';
 import { RecommendationEngine } from './recommendation/RecommendationEngine';
-import { FlavorEmbeddingService } from './flavor/FlavorEmbeddingService';
 
 const QUIZ_CACHE_KEY = 'brewmate:taste_quiz:cache_v1';
 
 export interface TasteProfileQuizEngineConfig {
   learningEngine: PreferenceLearningEngine;
   recommendationEngine: RecommendationEngine;
-  flavorEmbeddingService: FlavorEmbeddingService;
   userId: string;
   weather?: BrewContext['weather'];
   timeOfDay?: BrewContext['timeOfDay'];
@@ -170,12 +168,26 @@ const BASE_QUESTIONS: TasteQuizQuestion[] = [
   },
 ];
 
+/**
+ * Orchestrates the adaptive taste profile quiz flow, managing cached answers, profile updates,
+ * recommendation generation, and learning paths based on user responses.
+ */
 export class TasteProfileQuizEngine {
   private readonly questions = BASE_QUESTIONS;
   private answers: TasteQuizAnswer[] = [];
 
+  /**
+   * Initializes the quiz engine with dependencies required for personalization and recommendation generation.
+   *
+   * @param {TasteProfileQuizEngineConfig} config - Configuration containing learning engine, recommendation engine, embedding service, and optional context defaults.
+   */
   constructor(private readonly config: TasteProfileQuizEngineConfig) {}
 
+  /**
+   * Restores previously answered questions from encrypted storage when cache is fresh.
+   *
+   * @returns {Promise<void>} Resolves after cache has been loaded or cleared when stale.
+   */
   public async hydrateFromCache(): Promise<void> {
     try {
       const raw = await EncryptedStorage.getItem(QUIZ_CACHE_KEY);
@@ -195,28 +207,64 @@ export class TasteProfileQuizEngine {
     }
   }
 
+  /**
+   * Retrieves the question at the specified index from the base quiz sequence.
+   *
+   * @param {number} index - Zero-based position of the question to retrieve.
+   * @returns {TasteQuizQuestion | undefined} Question definition when present; otherwise undefined for out-of-range indices.
+   */
   public getCurrentQuestion(index: number): TasteQuizQuestion | undefined {
     return this.questions[index];
   }
 
+  /**
+   * Returns the cached answer for a given question identifier.
+   *
+   * @param {string} questionId - Identifier of the question whose answer is requested.
+   * @returns {TasteQuizAnswer | undefined} Stored answer payload or undefined when unanswered.
+   */
   public getAnswer(questionId: string): TasteQuizAnswer | undefined {
     return this.answers.find((answer) => answer.questionId === questionId);
   }
 
+  /**
+   * Persists an answer for a question, stamping it with the current timestamp and updating cache.
+   *
+   * @param {Omit<TasteQuizAnswer, 'timestamp'>} answer - Answer payload excluding timestamp, containing question id and value.
+   * @returns {Promise<void>} Resolves once answer state and cache are updated.
+   */
   public async submitAnswer(answer: Omit<TasteQuizAnswer, 'timestamp'>): Promise<void> {
     const payload: TasteQuizAnswer = { ...answer, timestamp: new Date().toISOString() };
     this.answers = [...this.answers.filter((existing) => existing.questionId !== answer.questionId), payload];
     await this.persistCache();
   }
 
+  /**
+   * Marks a question as skipped and records an empty value while persisting cache state.
+   *
+   * @param {string} questionId - Identifier of the question being skipped.
+   * @returns {Promise<void>} Resolves after the skip is recorded and cached.
+   */
   public async skipQuestion(questionId: string): Promise<void> {
     await this.submitAnswer({ questionId, value: '', skipped: true });
   }
 
+  /**
+   * Computes quiz completion progress based on answered questions.
+   *
+   * @returns {number} Fraction between 0 and 1 representing completion percentage.
+   */
   public getProgress(): number {
     return this.answers.length / this.questions.length;
   }
 
+  /**
+   * Produces an adaptive follow-up question based on the current question's adaptive logic and prior answers.
+   *
+   * @param {TasteQuizQuestion} current - The current question that may define adaptive logic.
+   * @param {TasteQuizRuntimeContext} runtimeContext - Runtime context such as device state and user selections.
+   * @returns {Promise<TasteQuizQuestion | undefined>} Next adaptive question or undefined when no adaptation is needed.
+   */
   public async buildAdaptiveQuestion(
     current: TasteQuizQuestion,
     runtimeContext: TasteQuizRuntimeContext,
@@ -233,6 +281,12 @@ export class TasteProfileQuizEngine {
     return current.adaptiveLogic(answer, runtimeContext);
   }
 
+  /**
+   * Finalizes the quiz by updating the user's taste profile, generating recommendations, and clearing cache.
+   *
+   * @param {TasteQuizRuntimeContext} context - Context captured during quiz completion such as time of day and weather.
+   * @returns {Promise<TasteQuizResult>} Comprehensive result including updated profile, confidence scores, and suggestions.
+   */
   public async completeQuiz(context: TasteQuizRuntimeContext): Promise<TasteQuizResult> {
     const baseProfile = await this.config.learningEngine.getUserTasteProfile(this.config.userId);
     const updatedProfile = this.mergeAnswersIntoProfile(baseProfile, context);
@@ -246,8 +300,6 @@ export class TasteProfileQuizEngine {
 
     const learningPath = this.buildLearningPath(updatedProfile, predictions.predictions);
 
-    await this.config.flavorEmbeddingService.recordQuizEmbeddings(this.config.userId, this.answers);
-
     await EncryptedStorage.removeItem(QUIZ_CACHE_KEY);
     this.answers = [];
 
@@ -259,6 +311,12 @@ export class TasteProfileQuizEngine {
     };
   }
 
+  /**
+   * Converts a prediction into a human-readable explanation payload used in UI surfaces.
+   *
+   * @param {PredictionResult} prediction - Prediction result containing context bonuses and contributing recipes.
+   * @returns {RecommendationExplanation} Explanation with reasons, evidence, and confidence score.
+   */
   public explainPrediction(prediction: PredictionResult): RecommendationExplanation {
     const reasons: string[] = [];
     if (prediction.contextBonuses?.length) {
@@ -280,6 +338,13 @@ export class TasteProfileQuizEngine {
     };
   }
 
+  /**
+   * Assembles a structured suggestion payload combining the top prediction, alternatives, and explanation.
+   *
+   * @param {PredictionResult} prediction - Primary prediction to present to the user.
+   * @param {PredictionResult[]} alternatives - Secondary predictions offered as alternatives.
+   * @returns {RecommendationPayload} Payload with explanation and timestamp for downstream consumers.
+   */
   public buildSuggestionPayload(prediction: PredictionResult, alternatives: PredictionResult[]): RecommendationPayload {
     return {
       prediction,
@@ -289,6 +354,13 @@ export class TasteProfileQuizEngine {
     };
   }
 
+  /**
+   * Integrates quiz answers into an existing taste profile, updating preferences, flavor notes, and confidence.
+   *
+   * @param {UserTasteProfile} profile - Current persisted taste profile to be augmented.
+   * @param {TasteQuizRuntimeContext} context - Runtime context used for potential future adjustments.
+   * @returns {UserTasteProfile} Updated profile reflecting quiz insights.
+   */
   private mergeAnswersIntoProfile(
     profile: UserTasteProfile,
     context: TasteQuizRuntimeContext,
@@ -337,6 +409,12 @@ export class TasteProfileQuizEngine {
     };
   }
 
+  /**
+   * Derives confidence scores for different taste dimensions based on the updated profile.
+   *
+   * @param {UserTasteProfile} profile - Profile whose confidence values will be mapped to quiz dimensions.
+   * @returns {TasteQuizResult['confidenceScores']} Array of confidence descriptors for display.
+   */
   private buildConfidenceScores(profile: UserTasteProfile): TasteQuizResult['confidenceScores'] {
     return [
       { dimension: 'sweetness', confidence: profile.preferenceConfidence },
@@ -349,6 +427,13 @@ export class TasteProfileQuizEngine {
     ];
   }
 
+  /**
+   * Constructs a personalized learning path with modules and actions informed by the updated profile and predictions.
+   *
+   * @param {UserTasteProfile} profile - Updated taste profile guiding module selection.
+   * @param {PredictionResult[]} predictions - Predictions used to tailor actions and recommendations.
+   * @returns {PersonalizedLearningModule[]} Ordered modules representing the suggested learning journey.
+   */
   private buildLearningPath(
     profile: UserTasteProfile,
     predictions: PredictionResult[],
@@ -403,6 +488,11 @@ export class TasteProfileQuizEngine {
     return modules;
   }
 
+  /**
+   * Writes current quiz answers to encrypted storage for recovery after interruptions.
+   *
+   * @returns {Promise<void>} Resolves after cache write completes or logs a warning on failure.
+   */
   private async persistCache(): Promise<void> {
     try {
       const payload: CachedQuizState = {

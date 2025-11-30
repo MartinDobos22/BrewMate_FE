@@ -29,6 +29,12 @@ const DEFAULT_STATS: HomeStatistics = {
   recipeGenerationCount: 0,
 };
 
+/**
+ * Ensures the current user is authenticated and returns their bearer token.
+ *
+ * @returns {Promise<string>} Firebase ID token for the signed-in user.
+ * @throws {Error} Throws when the user is not authenticated or token retrieval fails.
+ */
 const ensureAuthenticated = async (): Promise<string> => {
   const user = auth().currentUser;
   if (!user) {
@@ -43,6 +49,13 @@ const ensureAuthenticated = async (): Promise<string> => {
   return token;
 };
 
+/**
+ * Coerces an unknown value to a finite number, falling back to a default when parsing fails.
+ *
+ * @param {unknown} value - Raw value received from the API payload.
+ * @param {number} [fallback=0] - Value returned when parsing fails or input is invalid.
+ * @returns {number} Parsed numeric value or the fallback.
+ */
 const coerceNumber = (value: unknown, fallback = 0): number => {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
@@ -58,6 +71,12 @@ const coerceNumber = (value: unknown, fallback = 0): number => {
   return fallback;
 };
 
+/**
+ * Normalizes raw top recipe payloads into the strongly typed `TopRecipeStat` structure.
+ *
+ * @param {unknown} raw - Arbitrary object returned by the API representing the top recipe.
+ * @returns {TopRecipeStat | null} Sanitized recipe data or null when required fields are missing.
+ */
 const sanitizeTopRecipe = (raw: unknown): TopRecipeStat | null => {
   if (!raw || typeof raw !== 'object') {
     return null;
@@ -92,6 +111,12 @@ const sanitizeTopRecipe = (raw: unknown): TopRecipeStat | null => {
   };
 };
 
+/**
+ * Normalizes raw tasting note stats into the expected format while discarding invalid entries.
+ *
+ * @param {unknown} raw - Array-like payload representing tasting note statistics.
+ * @returns {TastingNoteStat[]} Cleaned list of tasting notes with occurrence counts.
+ */
 const sanitizeTopTastingNotes = (raw: unknown): TastingNoteStat[] => {
   if (!Array.isArray(raw)) {
     return [];
@@ -130,6 +155,12 @@ const sanitizeTopTastingNotes = (raw: unknown): TastingNoteStat[] => {
     .filter((value): value is TastingNoteStat => Boolean(value));
 };
 
+/**
+ * Fetches aggregated statistics for the home dashboard including brews, scans, and tasting insights.
+ *
+ * @returns {Promise<HomeStatistics>} Normalized statistics ready for rendering in the home screen UI.
+ * @throws {Error} Propagates network or parsing errors when the request fails.
+ */
 export const fetchHomeStatistics = async (): Promise<HomeStatistics> => {
   const token = await ensureAuthenticated();
 
@@ -163,4 +194,9 @@ export const fetchHomeStatistics = async (): Promise<HomeStatistics> => {
   }
 };
 
+/**
+ * Provides an empty statistics object used for initial or fallback rendering states.
+ *
+ * @returns {HomeStatistics} Default statistics with zeroed metrics.
+ */
 export const getEmptyStatistics = (): HomeStatistics => ({ ...DEFAULT_STATS });

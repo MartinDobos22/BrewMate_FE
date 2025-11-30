@@ -9,6 +9,15 @@ interface SmartSuggestionCardProps {
   onFeedback: (signal: 'like' | 'dislike' | 'save') => void;
 }
 
+/**
+ * Kartička so smart odporúčaním a spätnou väzbou na personalizačné predikcie.
+ *
+ * @param {object} props - Vstupné vlastnosti kartičky.
+ * @param {PredictionResult} props.prediction - Predikovaný recept alebo nápoj s očakávaným hodnotením.
+ * @param {RecommendationExplanation} [props.explanation] - Voliteľné vysvetlenie dôvodov odporúčania a dôkazové body.
+ * @param {(signal: 'like' | 'dislike' | 'save') => void} props.onFeedback - Handler pre reakcie používateľa, ktoré ovplyvnia model.
+ * @returns {JSX.Element} Vykreslená kartička s textom, dôkazmi a akčnými tlačidlami.
+ */
 export const SmartSuggestionCard: React.FC<SmartSuggestionCardProps> = ({ prediction, explanation, onFeedback }) => {
   return (
     <View style={styles.card}>

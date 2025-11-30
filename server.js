@@ -103,8 +103,6 @@ app.get('/api/profile', async (req, res) => {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
 
-    await ensureAppUser(db, decoded);
-
     const tasteResult = await db.query(
       `SELECT * FROM user_taste_profiles WHERE user_id = $1`,
       [uid]
@@ -403,18 +401,15 @@ app.put('/api/profile', async (req, res) => {
         updated_at = now()`
       , [
         uid,
-        toNumberOrFallback(sweetness ?? prefs.sweetness, 5),
-        toNumberOrFallback(acidity ?? prefs.acidity, 5),
-        toNumberOrFallback(bitterness ?? prefs.bitterness, 5),
-        toNumberOrFallback(body ?? prefs.body, 5),
+        sweetness ?? prefs.sweetness ?? 5,
+        acidity ?? prefs.acidity ?? 5,
+        bitterness ?? prefs.bitterness ?? 5,
+        body ?? prefs.body ?? 5,
         flavorNotes,
         milkPrefs,
         caffeine_sensitivity ?? prefs.caffeine_sensitivity,
         preferred_strength ?? prefs.preferred_strength,
-        toNumberOrFallback(
-          preference_confidence ?? prefs.preference_confidence,
-          0.35
-        ),
+        preference_confidence ?? 0.35,
       ]
     );
 
@@ -465,8 +460,6 @@ app.post('/api/auth', async (req, res) => {
     const email = decoded.email;
     const timestamp = new Date().toISOString();
     const userAgent = req.headers['user-agent'] || 'unknown';
-
-    await ensureAppUser(db, decoded);
 
     const logEntry = `[${timestamp}] LOGIN ${provider}: ${email} (${uid}) — ${userAgent}\n`;
     fs.appendFileSync(path.join(LOG_DIR, 'auth.log'), logEntry);
@@ -647,8 +640,6 @@ app.get('/api/dashboard', async (req, res) => {
   try {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
-
-    await ensureAppUser(db, decoded);
 
     const tasteResult = await db.query(
       'SELECT * FROM user_taste_profiles WHERE user_id = $1',
@@ -1015,8 +1006,6 @@ app.post('/api/coffee/rate', async (req, res) => {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
 
-    await ensureAppUser(db, decoded);
-
     const { coffee_id, rating, name, brand } = req.body;
 
     await db.query(
@@ -1081,8 +1070,6 @@ app.get('/api/coffees', async (req, res) => {
   try {
     const decoded = await admin.auth().verifyIdToken(idToken);
 
-    await ensureAppUser(db, decoded);
-
     const result = await db.query(
       `SELECT id, name, brand, origin, roast_level, flavor_notes, rating, is_favorite, added_at
        FROM user_coffees
@@ -1121,7 +1108,6 @@ app.post('/api/recipes', async (req, res) => {
   try {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
-    await ensureAppUser(db, decoded);
     const { method, taste, recipe, title } = req.body;
     const result = await db.query(
       `INSERT INTO user_recipes (user_id, title, method, instructions, created_at, updated_at)

@@ -15,12 +15,7 @@ import { useTheme } from '../../theme/ThemeProvider';
 import { formatRecipeSteps, RecipeStep } from '../../components/utils/AITextFormatter';
 import { BrewDevice } from '../../types/Recipe';
 import Timer from '../../components/recipes/Timer';
-import { incrementProgress } from '../../services/profileServices';
 import {
-  colors,
-  componentStyles,
-  spacing,
-  typography,
   unifiedStyles,
 } from 'theme/unifiedStyles.ts';
 import type { ViewToken, FlatListProps } from 'react-native';
@@ -111,13 +106,8 @@ const RecipeStepsScreen: React.FC<RecipeStepsScreenProps> = ({ recipe, brewDevic
   }, [steps]);
 
   const handleComplete = useCallback(async () => {
-    try {
-      await incrementProgress('recipe', brewDevice || 'generic');
-    } catch (e) {
-      console.error('Failed to update progress', e);
-    }
     onBack();
-  }, [brewDevice, onBack]);
+  }, [onBack]);
 
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
