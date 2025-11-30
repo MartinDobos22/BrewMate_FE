@@ -252,9 +252,19 @@ export const TasteProfileQuizScreen: React.FC<TasteProfileQuizScreenProps> = ({ 
         setCurrentIndex((prev) => prev + 1);
       } else {
         setIsLoading(true);
+        const validatedUserId =
+          typeof personalization?.userId === 'string' && personalization.userId.trim().length > 0
+            ? personalization.userId
+            : undefined;
+
+        if (personalization?.userId !== undefined && validatedUserId === undefined) {
+          setIsLoading(false);
+          return;
+        }
+
         const context = {
           answers: [],
-          userId: personalization?.userId,
+          userId: validatedUserId,
         };
         const quizResult = await engine.completeQuiz(context);
         setResult(quizResult);
