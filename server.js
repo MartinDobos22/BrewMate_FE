@@ -123,6 +123,12 @@ app.get('/api/profile', async (req, res) => {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
 
+    // Pre-create app_users záznam, aby sme predišli FK porušeniam pri neskorších zápisoch.
+    await ensureAppUserExists(decoded.uid, decoded.email || decoded.user?.email, {
+      client: db,
+      name: decoded.name || decoded.user?.name,
+    });
+
     const tasteResult = await db.query(
       `SELECT * FROM user_taste_profiles WHERE user_id = $1`,
       [uid]
@@ -677,6 +683,12 @@ app.get('/api/dashboard', async (req, res) => {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
 
+    // Pre-create app_users záznam, aby sme predišli FK porušeniam pri neskorších zápisoch.
+    await ensureAppUserExists(decoded.uid, decoded.email || decoded.user?.email, {
+      client: db,
+      name: decoded.name || decoded.user?.name,
+    });
+
     const tasteResult = await db.query(
       'SELECT * FROM user_taste_profiles WHERE user_id = $1',
       [uid]
@@ -744,6 +756,12 @@ app.get('/api/preference-history', async (req, res) => {
   try {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
+
+    // Pre-create app_users záznam, aby sme predišli FK porušeniam pri neskorších zápisoch.
+    await ensureAppUserExists(decoded.uid, decoded.email || decoded.user?.email, {
+      client: db,
+      name: decoded.name || decoded.user?.name,
+    });
 
     const result = await db.query(
       `SELECT user_id, sweetness, acidity, bitterness, body, flavor_notes, milk_preferences, caffeine_sensitivity, preferred_strength, updated_at
