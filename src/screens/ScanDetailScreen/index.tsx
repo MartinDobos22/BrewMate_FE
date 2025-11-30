@@ -26,31 +26,31 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({ scan }) => {
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>{scan.coffee_name || 'Neznáma káva'}</Text>
         {scan.created_at ? (
-          <Text style={[styles.subtitle, { color: colors.mutedText }]}>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             {new Date(scan.created_at).toLocaleString('sk-SK')}
           </Text>
         ) : null}
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
+      <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Detaily skenu</Text>
         {detailRows
           .filter((row) => row.value)
           .map((row) => (
             <View key={row.label} style={styles.row}>
-              <Text style={[styles.label, { color: colors.mutedText }]}>{row.label}</Text>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>{row.label}</Text>
               <Text style={[styles.value, { color: colors.text }]}>{row.value}</Text>
             </View>
           ))}
         {scan.flavor_notes && scan.flavor_notes.length ? (
           <View style={styles.row}>
-            <Text style={[styles.label, { color: colors.mutedText }]}>Chuťové poznámky</Text>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Chuťové poznámky</Text>
             <Text style={[styles.value, { color: colors.text }]}>{scan.flavor_notes.join(', ')}</Text>
           </View>
         ) : null}
       </View>
 
-      <View style={[styles.card, { backgroundColor: colors.card }]}>
+      <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Rozpoznaný text</Text>
         <Text style={[styles.body, { color: colors.text }]}>{scan.corrected_text || scan.original_text}</Text>
       </View>
