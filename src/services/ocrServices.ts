@@ -141,27 +141,6 @@ interface OCRResult {
   rawStructuredResponse?: unknown;
 }
 
-interface OCRHistory {
-  id: string;
-  coffee_name: string;
-  original_text: string;
-  corrected_text: string;
-  created_at: Date;
-  rating?: number;
-  match_percentage?: number;
-  is_recommended?: boolean;
-  is_purchased?: boolean;
-  is_favorite?: boolean;
-  brand?: string | null;
-  origin?: string | null;
-  roast_level?: string | null;
-  flavor_notes?: string[] | string | null;
-  processing?: string | null;
-  roast_date?: string | null;
-  varietals?: string[] | string | null;
-  thumbnail_url?: string | null;
-}
-
 /**
  * Retrieves the current Firebase authentication token if the user is signed in.
  *
@@ -789,7 +768,10 @@ export interface OCRHistory {
   brand?: string | null;
   origin?: string | null;
   roast_level?: string | null;
-  flavor_notes?: string[] | null;
+  flavor_notes?: string[] | string | null;
+  processing?: string | null;
+  roast_date?: string | null;
+  varietals?: string[] | string | null;
   thumbnail_url?: string | null;
 }
 
