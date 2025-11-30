@@ -121,13 +121,12 @@ app.get('/api/profile', async (req, res) => {
 
   try {
     const decoded = await admin.auth().verifyIdToken(idToken);
-    const uid = decoded.uid;
-
-    // Pre-create app_users záznam, aby sme predišli FK porušeniam pri neskorších zápisoch.
+    // Pre-create app_users záznam, aby sme predišli pádu na FK pri neskorších zápisoch.
     await ensureAppUserExists(decoded.uid, decoded.email || decoded.user?.email, {
       client: db,
       name: decoded.name || decoded.user?.name,
     });
+    const uid = decoded.uid;
 
     const tasteResult = await db.query(
       `SELECT * FROM user_taste_profiles WHERE user_id = $1`,
@@ -681,13 +680,12 @@ app.get('/api/dashboard', async (req, res) => {
 
   try {
     const decoded = await admin.auth().verifyIdToken(idToken);
-    const uid = decoded.uid;
-
-    // Pre-create app_users záznam, aby sme predišli FK porušeniam pri neskorších zápisoch.
+    // Pre-create app_users záznam, aby sme predišli pádu na FK pri neskorších zápisoch.
     await ensureAppUserExists(decoded.uid, decoded.email || decoded.user?.email, {
       client: db,
       name: decoded.name || decoded.user?.name,
     });
+    const uid = decoded.uid;
 
     const tasteResult = await db.query(
       'SELECT * FROM user_taste_profiles WHERE user_id = $1',
