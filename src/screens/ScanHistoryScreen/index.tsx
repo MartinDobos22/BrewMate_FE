@@ -56,7 +56,7 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ onSelectScan }) =
       {item.thumbnail_url ? (
         <Image source={{ uri: item.thumbnail_url }} style={styles.thumbnail} />
       ) : (
-        <View style={[styles.thumbnailPlaceholder, { backgroundColor: colors.card }]}>
+        <View style={[styles.thumbnailPlaceholder, { backgroundColor: colors.cardBackground  }]}>
           <Text style={styles.thumbnailEmoji}>☕</Text>
         </View>
       )}
@@ -74,17 +74,17 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ onSelectScan }) =
             {item.origin}
           </Text>
         ) : null}
-        <Text style={[styles.date, { color: colors.mutedText }]}>
+        <Text style={[styles.date, { color: colors.textSecondary  }]}>
           {new Date(item.created_at).toLocaleString('sk-SK')}
         </Text>
         <View style={styles.metaRow}>
           {typeof item.rating === 'number' ? (
-            <Text style={[styles.chip, { backgroundColor: colors.card, color: colors.text }]}>
+            <Text style={[styles.chip, { backgroundColor: colors.cardBackground , color: colors.text }]}>
               ⭐ {item.rating}
             </Text>
           ) : null}
           {typeof item.match_percentage === 'number' ? (
-            <Text style={[styles.chip, { backgroundColor: colors.card, color: colors.text }]}>
+            <Text style={[styles.chip, { backgroundColor: colors.cardBackground , color: colors.text }]}>
               🎯 {item.match_percentage}%
             </Text>
           ) : null}
@@ -116,7 +116,7 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ onSelectScan }) =
           <View style={styles.emptyState}>
             <Text style={[styles.emptyIcon, { color: colors.primary }]}>📷</Text>
             <Text style={[styles.emptyTitle, { color: colors.text }]}>Žiadne skeny</Text>
-            <Text style={[styles.emptySubtitle, { color: colors.mutedText }]}>
+            <Text style={[styles.emptySubtitle, { color: colors.textSecondary  }]}>
               Začni skenovať a uvidíš tu svoje výsledky.
             </Text>
           </View>

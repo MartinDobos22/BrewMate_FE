@@ -189,7 +189,7 @@ export class MorningRitualManager {
       const weekday = this.getIsoWeekday(wakeTime);
       const { prediction, recommendation } = await this.resolvePrediction(
         context,
-        weekday
+        weekday,
       );
 
       const message = this.composeMessage(
@@ -242,9 +242,7 @@ export class MorningRitualManager {
     await AsyncStorage.setItem(key, `${sent}|${acceptedCount}`);
   }
 
-  public async getRecommendationForCard(
-    context: MorningRitualContext,
-  ): Promise<
+  public async getRecommendationForCard(context: MorningRitualContext): Promise<
     | (PredictionResult & {
         message: string;
         strengthHint: RitualRecommendation['strengthHint'];
@@ -256,7 +254,7 @@ export class MorningRitualManager {
     const weekday = this.getIsoWeekday(wakeTime);
     const { prediction, recommendation } = await this.resolvePrediction(
       context,
-      weekday
+      weekday,
     );
     if (!recommendation) {
       return null;
@@ -264,7 +262,8 @@ export class MorningRitualManager {
     return {
       ...prediction,
       message: recommendation.message,
-      strengthHint: recommendation.strengthHint};
+      strengthHint: recommendation.strengthHint,
+    };
   }
 
   private async resolvePrediction(

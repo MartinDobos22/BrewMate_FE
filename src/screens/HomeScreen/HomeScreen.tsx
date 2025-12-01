@@ -25,7 +25,6 @@ import {
   fetchHomeStatistics,
   fetchRecentScans,
   getEmptyStatistics,
-  getTipFromCache,
 } from './services';
 import type { HomeStatistics, RecentScan, Tip } from './services';
 import DailyTipCard from './components/DailyTipCard';
@@ -266,15 +265,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     } catch (e) {
       console.warn('HomeScreen: failed to fetch daily tip', e);
       setTipError('Nepodarilo sa načítať tip. Skúste to znova.');
-      try {
-        const cached = await getTipFromCache(new Date().toISOString().slice(0, 10));
-        if (cached) {
-          setDailyTip(cached);
-          setTipError(null);
-        }
-      } catch (cacheError) {
-        console.warn('HomeScreen: failed to read cached tip', cacheError);
-      }
     } finally {
       setTipLoading(false);
     }

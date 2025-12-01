@@ -37,9 +37,10 @@ type SlideData =
       id: 'summary';
     };
 
-const AnimatedFlatList = Animated.createAnimatedComponent(FlatList) as React.ComponentType<
-  FlatListProps<SlideData>
->;
+const AnimatedFlatList =
+  Animated.createAnimatedComponent(FlatList) as React.ForwardRefExoticComponent<
+    FlatListProps<SlideData> & React.RefAttributes<FlatList<SlideData>>
+  >;
 
 const RecipeStepsScreen: React.FC<RecipeStepsScreenProps> = ({ recipe, brewDevice, onBack }) => {
   const { colors: themeColors } = useTheme();

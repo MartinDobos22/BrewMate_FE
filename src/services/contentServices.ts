@@ -5,14 +5,14 @@
  * content modules to be added in one place.
  */
 export {
-  Tip,
-  TIP_CACHE_TTL_HOURS,
-  TIP_OFFLINE_CACHE_KEY_PREFIX,
-  TIP_STORAGE_KEY,
-  clearScheduledDailyTipRefresh,
-  fetchDailyTip,
-  getNextRefreshDelay,
-  getScheduledDailyTipRefreshHandle,
-  pickTipForDate,
-  scheduleDailyTipRefresh,
-} from './dailyTipService';
+    TIP_CACHE_TTL_HOURS,
+    TIP_OFFLINE_CACHE_KEY_PREFIX,
+    TIP_STORAGE_KEY,
+    clearScheduledDailyTipRefresh,
+    fetchDailyTip,
+    getNextRefreshDelay,
+    getScheduledDailyTipRefreshHandle,
+    pickTipForDate,
+    scheduleDailyTipRefresh
+} from './dailyTipService';export type { Tip } from './dailyTipService';
+

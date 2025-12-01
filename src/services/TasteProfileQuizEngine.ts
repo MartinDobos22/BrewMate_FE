@@ -225,7 +225,7 @@ export class TasteProfileQuizEngine {
    * @returns {TasteQuizAnswer | undefined} Stored answer payload or undefined when unanswered.
    */
   public getAnswer(questionId: string): TasteQuizAnswer | undefined {
-    return this.answers.find((answer) => answer.questionId === questionId);
+    return this.answers.find(answer => answer.questionId === questionId);
   }
 
   /**
@@ -234,9 +234,19 @@ export class TasteProfileQuizEngine {
    * @param {Omit<TasteQuizAnswer, 'timestamp'>} answer - Answer payload excluding timestamp, containing question id and value.
    * @returns {Promise<void>} Resolves once answer state and cache are updated.
    */
-  public async submitAnswer(answer: Omit<TasteQuizAnswer, 'timestamp'>): Promise<void> {
-    const payload: TasteQuizAnswer = { ...answer, timestamp: new Date().toISOString() };
-    this.answers = [...this.answers.filter((existing) => existing.questionId !== answer.questionId), payload];
+  public async submitAnswer(
+    answer: Omit<TasteQuizAnswer, 'timestamp'>,
+  ): Promise<void> {
+    const payload: TasteQuizAnswer = {
+      ...answer,
+      timestamp: new Date().toISOString(),
+    };
+    this.answers = [
+      ...this.answers.filter(
+        existing => existing.questionId !== answer.questionId,
+      ),
+      payload,
+    ];
     await this.persistCache();
   }
 
@@ -288,24 +298,40 @@ export class TasteProfileQuizEngine {
    * @param {TasteQuizRuntimeContext} context - Context captured during quiz completion such as time of day and weather.
    * @returns {Promise<TasteQuizResult>} Comprehensive result including updated profile, confidence scores, and suggestions.
    */
-  public async completeQuiz(context: TasteQuizRuntimeContext): Promise<TasteQuizResult> {
-    const baseProfile = await this.config.learningEngine.getUserTasteProfile(this.config.userId);
+  public async completeQuiz(context: {
+    timeOfDay: any;
+    answers: any[];
+    userId: string | null | undefined;
+  }): Promise<TasteQuizResult> {
+    const baseProfile = await this.config.learningEngine.getUserTasteProfile(
+      this.config.userId,
+    );
     const updatedProfile = this.mergeAnswersIntoProfile(baseProfile, context);
     await this.config.learningEngine.updateProfile(updatedProfile);
 
-    const predictionContext: PredictionContext & { location?: BrewContext['location'] } = {
+    const predictionContext: PredictionContext & {
+      location?: BrewContext['location'];
+    } = {
       ...(context.timeOfDay ? { timeOfDay: context.timeOfDay } : {}),
-      ...(context.weather ? { weather: context.weather } : {}),
-      ...('location' in context ? { location: (context as { location?: BrewContext['location'] }).location } : {}),
+      ...('location' in context
+        ? {
+            location: (context as { location?: BrewContext['location'] })
+              .location,
+          }
+        : {}),
     };
 
-    const predictions = await this.config.recommendationEngine.getTopPredictions({
-      userId: this.config.userId,
-      context: predictionContext,
-      limit: 3,
-    });
+    const predictions =
+      await this.config.recommendationEngine.getTopPredictions({
+        userId: this.config.userId,
+        context: predictionContext,
+        limit: 3,
+      });
 
-    const learningPath = this.buildLearningPath(updatedProfile, predictions.predictions);
+    const learningPath = this.buildLearningPath(
+      updatedProfile,
+      predictions.predictions,
+    );
 
     await EncryptedStorage.removeItem(QUIZ_CACHE_KEY);
     this.answers = [];
@@ -324,7 +350,9 @@ export class TasteProfileQuizEngine {
    * @param {PredictionResult} prediction - Prediction result containing context bonuses and contributing recipes.
    * @returns {RecommendationExplanation} Explanation with reasons, evidence, and confidence score.
    */
-  public explainPrediction(prediction: PredictionResult): RecommendationExplanation {
+  public explainPrediction(
+    prediction: PredictionResult,
+  ): RecommendationExplanation {
     const reasons: string[] = [];
     if (prediction.contextBonuses?.length) {
       reasons.push(...prediction.contextBonuses);
@@ -332,14 +360,17 @@ export class TasteProfileQuizEngine {
 
     if (prediction.contributingRecipes?.length) {
       reasons.push(
-        `Podobá sa na ${prediction.contributingRecipes.length} obľúbené recepty: ${prediction.contributingRecipes
+        `Podobá sa na ${
+          prediction.contributingRecipes.length
+        } obľúbené recepty: ${prediction.contributingRecipes
           .slice(0, 3)
           .join(', ')}`,
       );
     }
 
     return {
-      reason: 'Personalizované odporúčanie na základe tvojho profilu a kontextu.',
+      reason:
+        'Personalizované odporúčanie na základe tvojho profilu a kontextu.',
       evidence: reasons,
       confidence: Math.round(prediction.confidence * 100) / 100,
     };
@@ -352,7 +383,10 @@ export class TasteProfileQuizEngine {
    * @param {PredictionResult[]} alternatives - Secondary predictions offered as alternatives.
    * @returns {RecommendationPayload} Payload with explanation and timestamp for downstream consumers.
    */
-  public buildSuggestionPayload(prediction: PredictionResult, alternatives: PredictionResult[]): RecommendationPayload {
+  public buildSuggestionPayload(
+    prediction: PredictionResult,
+    alternatives: PredictionResult[],
+  ): RecommendationPayload {
     return {
       prediction,
       alternatives,
@@ -370,21 +404,26 @@ export class TasteProfileQuizEngine {
    */
   private mergeAnswersIntoProfile(
     profile: UserTasteProfile,
-    context: TasteQuizRuntimeContext,
+    context: { answers: any[]; userId: string | null | undefined },
   ): UserTasteProfile {
-    const answersById = new Map(this.answers.map((answer) => [answer.questionId, answer] as const));
+    const answersById = new Map(
+      this.answers.map(answer => [answer.questionId, answer] as const),
+    );
     const vector: TasteProfileVector = { ...profile.preferences };
     const flavorNotes = { ...profile.flavorNotes };
 
     const strength = answersById.get('strength-slider');
     if (strength && typeof strength.value === 'number') {
       const normalized = Number(strength.value) / 10;
-      vector.body = Math.min(1, Math.max(0, vector.body * 0.6 + normalized * 0.4));
+      vector.body = Math.min(
+        1,
+        Math.max(0, vector.body * 0.6 + normalized * 0.4),
+      );
     }
 
     const flavor = answersById.get('flavor-wheel');
     if (flavor && Array.isArray(flavor.value)) {
-      flavor.value.forEach((note) => {
+      flavor.value.forEach(note => {
         const key = String(note);
         flavorNotes[key] = (flavorNotes[key] ?? 0) + 1;
       });
@@ -402,8 +441,8 @@ export class TasteProfileQuizEngine {
           ? preferredStrength.value > 7
             ? 'strong'
             : preferredStrength.value > 3
-              ? 'balanced'
-              : 'light'
+            ? 'balanced'
+            : 'light'
           : profile.preferredStrength,
       milkPreferences:
         milkPreference?.value === 'milk'
@@ -422,7 +461,9 @@ export class TasteProfileQuizEngine {
    * @param {UserTasteProfile} profile - Profile whose confidence values will be mapped to quiz dimensions.
    * @returns {TasteQuizResult['confidenceScores']} Array of confidence descriptors for display.
    */
-  private buildConfidenceScores(profile: UserTasteProfile): TasteQuizResult['confidenceScores'] {
+  private buildConfidenceScores(
+    profile: UserTasteProfile,
+  ): TasteQuizResult['confidenceScores'] {
     return [
       { dimension: 'sweetness', confidence: profile.preferenceConfidence },
       { dimension: 'acidity', confidence: profile.preferenceConfidence },
@@ -449,7 +490,8 @@ export class TasteProfileQuizEngine {
       {
         id: uuid(),
         title: 'Objavuj filter metódy',
-        description: 'Na základe tvojich preferencií odporúčame prehĺbiť filter techniky.',
+        description:
+          'Na základe tvojich preferencií odporúčame prehĺbiť filter techniky.',
         estimatedDurationMinutes: 8,
         actions: [
           {
@@ -487,7 +529,11 @@ export class TasteProfileQuizEngine {
         description: 'Rozšír chuťové horizonty s cold brew challenge.',
         estimatedDurationMinutes: 15,
         actions: [
-          { id: 'prep-cold-brew', label: 'Nastav studené lúhovanie na noc', type: 'brew' },
+          {
+            id: 'prep-cold-brew',
+            label: 'Nastav studené lúhovanie na noc',
+            type: 'brew',
+          },
         ],
       });
     }

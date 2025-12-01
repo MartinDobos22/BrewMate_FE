@@ -7,7 +7,6 @@ export {
   clearScheduledDailyTipRefresh,
   fetchDailyTip,
   getScheduledDailyTipRefreshHandle,
-  getTipFromCache,
   scheduleDailyTipRefresh,
 } from '../../../services/contentServices';
 export type { Tip } from '../../../services/dailyTipService';

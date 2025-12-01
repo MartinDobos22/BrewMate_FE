@@ -7,7 +7,6 @@ import {
   DefaultRecommendationTelemetry,
   RecommendationEngine,
   TravelModeManager,
-  WeatherAwareProvider,
 } from './services';
 import { SmartSuggestionCard } from '../../components/personalization/SmartSuggestionCard';
 import {
@@ -217,10 +216,8 @@ export const TasteProfileQuizScreen: React.FC<TasteProfileQuizScreenProps> = ({ 
       }
       const telemetry = new DefaultRecommendationTelemetry();
       const travelMode = new TravelModeManager();
-      const weatherProvider = new WeatherAwareProvider();
       const recommendationEngine = new RecommendationEngine({
         learningEngine: personalization.learningEngine,
-        weatherProvider,
         supabaseFetcher: async () => [],
         telemetry,
         travelModeManager: travelMode,

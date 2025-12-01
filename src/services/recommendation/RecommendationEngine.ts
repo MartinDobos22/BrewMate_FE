@@ -10,7 +10,6 @@ import { TravelModeManager } from './TravelModeManager';
 
 export interface RecommendationEngineConfig {
   learningEngine: PreferenceLearningEngine;
-  weatherProvider: WeatherProvider;
   supabaseFetcher: (query: string, params?: Record<string, unknown>) => Promise<RecipeProfile[]>;
   telemetry: RecommendationTelemetry;
   travelModeManager: TravelModeManager;
@@ -122,7 +121,6 @@ export class RecommendationEngine {
     const timeOfDay = context.timeOfDay ?? this.resolveTimeOfDay(now);
     const weekday = context.weekday ?? now.getDay();
     const location = context.location ?? this.config.defaultLocation;
-    const weather = context.weather ?? (await this.config.weatherProvider.getWeather(location));
     const anticipatedMood = context.anticipatedMood ?? (await this.config.learningEngine.predictMood({ weekday, timeOfDay }));
 
     if (await this.config.travelModeManager.isTravelModeActive()) {
@@ -131,7 +129,6 @@ export class RecommendationEngine {
 
     return {
       timeOfDay,
-      weather,
       weekday,
       anticipatedMood,
     };
