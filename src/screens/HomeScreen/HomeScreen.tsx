@@ -39,6 +39,7 @@ import {
   TasteRadarScores,
 } from '../../utils/tasteProfile';
 import type { Coffee } from '../../types/Coffee';
+import { API_URL } from '../../services/api';
 
 type CoffeeItem = Coffee & { hasCheckmark?: boolean };
 
@@ -178,7 +179,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
       }
 
       const token = await user.getIdToken();
-      const response = await fetch('http://10.0.2.2:3001/api/profile', {
+      const response = await fetch(`${API_URL}/profile`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

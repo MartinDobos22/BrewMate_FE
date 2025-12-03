@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert, useColorScheme } from 
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import auth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_URL } from '../../services/api';
 
 // Inicializácia konfigurácie Google Sign-In (vykoná sa raz pri importe)
 import '../../config/googleSignin';
@@ -37,7 +38,7 @@ const GoogleLogin = () => {
       const firebaseIdToken = await userCredential.user.getIdToken();
       await AsyncStorage.setItem('@AuthToken', firebaseIdToken);
 
-      await fetch('http://10.0.2.2:3001/api/auth', {
+      await fetch(`${API_URL}/auth`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${firebaseIdToken}`,

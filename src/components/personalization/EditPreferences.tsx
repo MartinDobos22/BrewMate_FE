@@ -17,6 +17,7 @@ import { getColors, Colors } from '../../theme/colors';
 import { getSafeAreaTop, getSafeAreaBottom, scale, verticalScale } from '../utils/safeArea';
 import { AIResponseDisplay } from './AIResponseDisplay';
 import { CONFIG } from '../../config/config';
+import { API_URL } from '../../services/api';
 
 const OPENAI_API_KEY = CONFIG.OPENAI_API_KEY;
 
@@ -56,7 +57,7 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
       try {
         const user = auth().currentUser;
         const token = await user?.getIdToken();
-        const res = await loggedFetch('http://10.0.2.2:3001/api/profile', {
+        const res = await loggedFetch(`${API_URL}/profile`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error('Nepodarilo sa načítať profil');
@@ -150,7 +151,7 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
 
       const user = auth().currentUser;
       const token = await user?.getIdToken();
-      const res = await loggedFetch('http://10.0.2.2:3001/api/profile', {
+      const res = await loggedFetch(`${API_URL}/profile`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -218,7 +219,7 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
 
               const user = auth().currentUser;
               const token = await user?.getIdToken();
-              const res = await loggedFetch('http://10.0.2.2:3001/api/profile', {
+              const res = await loggedFetch(`${API_URL}/profile`, {
                 method: 'PUT',
                 headers: {
                   Authorization: `Bearer ${token}`,
