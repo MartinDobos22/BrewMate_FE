@@ -1301,10 +1301,19 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
   };
 
   const submitPurchaseAnswer = () => {
-    if (purchaseSelection === null || isHistoryReadOnly) return;
+    if (isHistoryReadOnly) {
+      showToast('Záznam z histórie nie je možné upraviť.');
+      return;
+    }
+
+    if (purchaseSelection === null) {
+      showToast('Najprv vyber, či si kávu kúpil alebo nie.');
+      return;
+    }
 
     if (!scanResult?.scanId) {
       setPurchased(purchaseSelection);
+      showToast('Odpoveď uložená.');
       return;
     }
 
@@ -1365,6 +1374,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
         });
       }
 
+      let purchaseRecorded = false;
+
       if (currentSelection) {
         const baseName = extractCoffeeName(recognizedText || scanResult.corrected);
         const preferredName = structuredRoasterName
@@ -1380,12 +1391,14 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
             structuredRoasterName ?? undefined,
             metadataForPurchase,
           );
+          purchaseRecorded = true;
         } catch (error) {
           console.error('Error marking purchase:', error);
+          showToast('Kávu sa nepodarilo uložiť do databázy. Skús to znova.');
         }
       }
 
-      showToast('Údaje skenu potvrdené.');
+      showToast(purchaseRecorded ? 'Káva bola uložená do databázy.' : 'Údaje skenu potvrdené.');
     } catch (error) {
       console.error('Error confirming structured scan:', error);
       if (error instanceof Error && isOfflineError(error)) {
