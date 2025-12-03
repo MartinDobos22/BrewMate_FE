@@ -14,14 +14,54 @@ admin.initializeApp({
   credential: admin.credential.cert({
     project_id: process.env.FIREBASE_PROJECT_ID,
     client_email: process.env.FIREBASE_CLIENT_EMAIL,
-    private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
   }),
 });
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+// Use Render-provided PORT when available; fall back to local dev port.
+const PORT = process.env.PORT || 3000;
 app.use(express.json({ limit: '20mb' }));
-app.use(cors());
+
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const configuredOrigins = process.env.ALLOWED_ORIGINS?.split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean) || [];
+
+const renderExternalUrl = process.env.RENDER_EXTERNAL_URL?.trim();
+const mergedConfiguredOrigins = renderExternalUrl
+  ? [...configuredOrigins, renderExternalUrl]
+  : configuredOrigins;
+
+const defaultDevOrigins = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://10.0.2.2:3000',
+  'http://localhost:3001',
+  'http://10.0.2.2:3001',
+];
+
+const allowedOrigins = mergedConfiguredOrigins.length > 0
+  ? mergedConfiguredOrigins
+  : NODE_ENV === 'production'
+    ? []
+    : defaultDevOrigins;
+
+const allowAnyOrigin = NODE_ENV !== 'production' && allowedOrigins.length === 0;
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin || allowAnyOrigin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    console.warn(`🚫 CORS blocked origin: ${origin}`);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
 
 // Global request logger to capture communication from frontend
 app.use((req, _res, next) => {
@@ -40,8 +80,18 @@ app.get("/", (req, res) => {
   res.send("Google Vision OCR backend beží.");
 });
 
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
+const connectionString = process.env.DATABASE_URL || process.env.SUPABASE_DB_URL;
+
+if (!connectionString) {
+  console.warn('⚠️  Missing DATABASE_URL/SUPABASE_DB_URL environment variable.');
+}
+
 const db = new Pool({
-  connectionString: process.env.SUPABASE_DB_URL,
+  connectionString,
 });
 
 /**
@@ -1440,7 +1490,16 @@ async function generateRecommendations(preferences) {
   }));
 }
 
-app.listen(PORT, () => {
+// Central error handler to surface issues in logs and return coherent JSON.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use((err, _req, res, _next) => {
+  console.error('❌ Unhandled server error:', err);
+  const status = err?.status || 500;
+  const message = err?.message || 'Internal server error';
+  res.status(status).json({ error: message });
+});
+
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`OCR server beží na porte ${PORT}`);
 });
 
