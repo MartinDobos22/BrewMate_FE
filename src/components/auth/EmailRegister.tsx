@@ -14,6 +14,7 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import auth from '@react-native-firebase/auth';
 import { getColors, Colors } from '../../theme/colors';
+import { API_URL } from '../../services/api';
 import {
   CTA_GRADIENT_DARK,
   CTA_GRADIENT_LIGHT,
@@ -148,7 +149,7 @@ const EmailRegister: React.FC<EmailRegisterProps> = ({ onBack, initialEmail, onS
       void (async () => {
         try {
           const idToken = await firebaseUser.getIdToken();
-          await fetch('http://10.0.2.2:3001/api/auth', {
+          await fetch(`${API_URL}/auth`, {
             method: 'POST',
             headers: {
               Authorization: `Bearer ${idToken}`,

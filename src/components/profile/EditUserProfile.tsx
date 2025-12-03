@@ -15,6 +15,7 @@ import {
 import auth from '@react-native-firebase/auth';
 import { getColors, Colors } from '../../theme/colors';
 import { getSafeAreaTop, getSafeAreaBottom, scale } from '../utils/safeArea';
+import { API_URL } from '../../services/api';
 
 
 /**
@@ -45,7 +46,7 @@ const EditUserProfile = ({ onBack }: { onBack: () => void }) => {
       try {
         const user = auth().currentUser;
         const token = await user?.getIdToken();
-        const res = await fetch('http://10.0.2.2:3001/api/profile', {
+        const res = await fetch(`${API_URL}/profile`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -76,7 +77,7 @@ const EditUserProfile = ({ onBack }: { onBack: () => void }) => {
       const user = auth().currentUser;
       const token = await user?.getIdToken();
 
-      const res = await fetch('http://10.0.2.2:3001/api/profile', {
+      const res = await fetch(`${API_URL}/profile`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,

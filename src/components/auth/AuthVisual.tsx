@@ -17,6 +17,7 @@ import EmailRegister from './EmailRegister';
 import { getColors, Colors } from '../../theme/colors';
 import auth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_URL } from '../../services/api';
 
 /**
  * Props accepted by the authentication landing screen that aggregates multiple login options.
@@ -139,7 +140,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ notice }) => {
 
       const idToken = await user.getIdToken();
       await AsyncStorage.setItem('@AuthToken', idToken);
-      await fetch('http://10.0.2.2:3001/api/auth', {
+      await fetch(`${API_URL}/auth`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${idToken}`,

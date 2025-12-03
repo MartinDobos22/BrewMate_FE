@@ -28,6 +28,7 @@ import {
 } from './services';
 import type { TrackingPreferences, TasteProfileVector } from '../../types/Personalization';
 import { palette, styles } from './styles';
+import { API_URL } from '../../services/api';
 
 const PRIMARY_GRADIENT = [palette.espresso, palette.medium];
 
@@ -221,7 +222,7 @@ const UserProfile = ({
 
       const idToken = await user.getIdToken();
 
-      const res = await fetch('http://10.0.2.2:3001/api/profile', {
+      const res = await fetch(`${API_URL}/profile`, {
         headers: {
           Authorization: `Bearer ${idToken}`,
         },
@@ -299,7 +300,7 @@ const UserProfile = ({
     try {
       const token = await AsyncStorage.getItem('@AuthToken');
       if (token) {
-        await fetch('http://10.0.2.2:3001/api/logout', {
+        await fetch(`${API_URL}/logout`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
         });

@@ -4,6 +4,7 @@ import { appleAuth } from '@invertase/react-native-apple-authentication';
 import auth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LinearGradient from 'react-native-linear-gradient';
+import { API_URL } from '../../services/api';
 
 /**
  * Props for the Apple authentication bottom sheet component.
@@ -49,7 +50,7 @@ const AppleAuth: React.FC<AppleAuthProps> = ({ onBack }) => {
       const idToken = await userCredential.user.getIdToken();
       await AsyncStorage.setItem('@AuthToken', idToken);
 
-      await fetch('http://10.0.2.2:3001/api/auth', {
+      await fetch(`${API_URL}/auth`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${idToken}`,
