@@ -11,7 +11,7 @@ import { Platform } from 'react-native';
 const DEV_API_HOST = Platform.OS === 'ios' ? 'http://localhost:3000' : 'http://10.0.2.2:3000';
 const PROD_API_HOST =
   // Allows overriding via Expo public envs if configured.
-  process.env.EXPO_PUBLIC_API_HOST || 'https://my-brewmate-backend.onrender.com';
+  process.env.EXPO_PUBLIC_API_HOST || 'https://brewmate-fe.onrender.com';
 
 export const API_HOST = __DEV__ ? DEV_API_HOST : PROD_API_HOST;
 
