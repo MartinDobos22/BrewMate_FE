@@ -6,8 +6,7 @@
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "lint": "eslint .",
-    "mobile:start": "react-native start",
-    "start": "node index.js",
+    "start": "react-native start",
     "test": "jest"
   },
   "dependencies": {
@@ -84,7 +83,6 @@
     "node": ">=18"
   },
   "description": "This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).",
-  "type": "module",
   "main": "index.js",
   "keywords": [],
   "author": "",
