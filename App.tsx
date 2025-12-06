@@ -532,7 +532,9 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
       return;
     }
 
-    if (!supabaseClient) {
+    const client = supabaseClient;
+
+    if (!client) {
       console.warn('App: Supabase client is not configured');
       return;
     }
@@ -555,9 +557,9 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
 
     const initializeServices = async () => {
       try {
-        const learningStorage = new SupabaseLearningStorageAdapter(supabaseClient);
-        const diaryStorage = new SupabaseDiaryStorageAdapter(supabaseClient);
-        const eventProvider = new SupabaseLearningEventAdapter(supabaseClient);
+        const learningStorage = new SupabaseLearningStorageAdapter(client);
+        const diaryStorage = new SupabaseDiaryStorageAdapter(client);
+        const eventProvider = new SupabaseLearningEventAdapter(client);
 
         const engine = new PreferenceLearningEngine(activeUserId, { storage: learningStorage });
         await engine.initialize();
