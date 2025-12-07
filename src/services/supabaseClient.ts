@@ -45,5 +45,15 @@ const isSupabaseConfigValid = (): boolean => {
  * @type {SupabaseClient | null}
  */
 export const supabaseClient: SupabaseClient | null = isSupabaseConfigValid()
-  ? createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!)
+  ? (() => {
+      try {
+        return createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!);
+      } catch (error) {
+        console.error(
+          'Supabase configuration error: SUPABASE_URL or SUPABASE_ANON_KEY has an invalid format (e.g., non-http/https scheme or empty key).',
+          error
+        );
+        return null;
+      }
+    })()
   : null;
