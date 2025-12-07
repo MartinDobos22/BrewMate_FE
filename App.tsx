@@ -418,6 +418,16 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     userId,
   } = personalization;
 
+  const missingEnvVars = useMemo(
+    () =>
+      [
+        SUPABASE_URL ? null : 'SUPABASE_URL',
+        SUPABASE_ANON_KEY ? null : 'SUPABASE_ANON_KEY',
+      ].filter(Boolean) as string[],
+    [],
+  );
+  const supabaseConfigured = missingEnvVars.length === 0 && Boolean(supabaseClient);
+
   const handleExperimentToggle = useCallback(
     async (enabled: boolean) => {
       if (!privacyManager || !userId) {
@@ -535,13 +545,9 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
 
     const client = supabaseClient;
 
-    const missingEnvVars = [
-      SUPABASE_URL ? null : 'SUPABASE_URL',
-      SUPABASE_ANON_KEY ? null : 'SUPABASE_ANON_KEY',
-    ].filter(Boolean) as string[];
-
     if (missingEnvVars.length > 0) {
       console.warn('App: Missing Supabase environment variables', missingEnvVars);
+      return;
     }
 
     if (!client) {
@@ -1108,6 +1114,37 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     setSelectedCoffeeId(null);
     setCurrentScreen('home');
   };
+
+  if (!supabaseConfigured) {
+    const envSummary =
+      missingEnvVars.length > 0
+        ? `Missing env vars: ${missingEnvVars.join(', ')}`
+        : 'Supabase client is not initialized.';
+
+    return (
+      <ResponsiveWrapper
+        backgroundColor={colors.background}
+        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+        statusBarBackground={colors.background}
+      >
+        <View style={styles.alertWrapper}>
+          <View
+            style={[
+              styles.alertCard,
+              {
+                borderColor: colors.primary,
+                backgroundColor: colors.cardBackground,
+              },
+            ]}
+          >
+            <Text style={[styles.alertTitle, { color: colors.primary }]}>Supabase configuration needed</Text>
+            <Text style={[styles.alertMessage, { color: colors.text }]}>{envSummary}</Text>
+            <Text style={[styles.alertMessage, { color: colors.text }]}>Check EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in your environment.</Text>
+          </View>
+        </View>
+      </ResponsiveWrapper>
+    );
+  }
 
 
   if (!isAuthenticated) {
@@ -1764,6 +1801,29 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '600',
     fontSize: scale(14),
+  },
+  alertWrapper: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: scale(24),
+  },
+  alertCard: {
+    width: '100%',
+    maxWidth: 520,
+    padding: scale(20),
+    borderRadius: scale(16),
+    borderWidth: 1,
+  },
+  alertTitle: {
+    fontSize: scale(18),
+    fontWeight: '700',
+    marginBottom: scale(8),
+  },
+  alertMessage: {
+    fontSize: scale(14),
+    lineHeight: scale(20),
+    marginBottom: scale(8),
   },
   backButton: {
     paddingHorizontal: scale(15),
