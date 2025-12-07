@@ -2,44 +2,56 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../config/env';
 
-const trimmedSupabaseUrl = SUPABASE_URL?.trim();
-const trimmedSupabaseAnonKey = SUPABASE_ANON_KEY?.trim();
+const SUPABASE_URL_PATTERN = /^https?:\/\/\S+$/;
+
+const normalizeEnvValue = (
+  value: string | undefined,
+  variableName: 'SUPABASE_URL' | 'SUPABASE_ANON_KEY'
+): string | null => {
+  if (value == null) {
+    console.error(`Supabase configuration error: ${variableName} is missing.`);
+    return null;
+  }
+
+  const normalizedValue = value.trim();
+
+  if (normalizedValue.length === 0) {
+    console.error(
+      `Supabase configuration error: ${variableName} is empty after trimming whitespace/newlines. Update your environment file with a non-empty value.`
+    );
+    return null;
+  }
+
+  if (normalizedValue !== value) {
+    console.warn(
+      `Supabase configuration warning: ${variableName} contains surrounding whitespace/newlines and was trimmed. Update your environment file to remove the extra characters.`
+    );
+  }
+
+  if (/\s/.test(normalizedValue)) {
+    console.error(
+      `Supabase configuration error: ${variableName} must not include internal whitespace.`
+    );
+    return null;
+  }
+
+  return normalizedValue;
+};
+
+const trimmedSupabaseUrl = normalizeEnvValue(SUPABASE_URL, 'SUPABASE_URL');
+const trimmedSupabaseAnonKey = normalizeEnvValue(
+  SUPABASE_ANON_KEY,
+  'SUPABASE_ANON_KEY'
+);
 
 const isSupabaseConfigValid = (): boolean => {
-  if (!trimmedSupabaseUrl) {
-    console.error('Supabase configuration error: SUPABASE_URL is missing.');
+  if (!trimmedSupabaseUrl || !trimmedSupabaseAnonKey) {
     return false;
   }
 
-  if (/\s/.test(trimmedSupabaseUrl)) {
+  if (!SUPABASE_URL_PATTERN.test(trimmedSupabaseUrl)) {
     console.error(
-      'Supabase configuration error: SUPABASE_URL must not contain whitespace.'
-    );
-    return false;
-  }
-
-  try {
-    const parsedUrl = new URL(trimmedSupabaseUrl);
-
-    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-      console.error(
-        'Supabase configuration error: SUPABASE_URL must use http or https scheme.'
-      );
-      return false;
-    }
-  } catch (error) {
-    console.error('Supabase configuration error: SUPABASE_URL is not a valid URL.');
-    return false;
-  }
-
-  if (!trimmedSupabaseAnonKey) {
-    console.error('Supabase configuration error: SUPABASE_ANON_KEY is missing.');
-    return false;
-  }
-
-  if (/\s/.test(trimmedSupabaseAnonKey)) {
-    console.error(
-      'Supabase configuration error: SUPABASE_ANON_KEY must not contain whitespace.'
+      'Supabase configuration error: SUPABASE_URL must start with http:// or https:// and contain no spaces.'
     );
     return false;
   }
