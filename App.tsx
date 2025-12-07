@@ -69,6 +69,7 @@ import type { MoodSignal, TasteQuizResult } from './src/types/PersonalizationAI'
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { LearningEventProvider } from './src/services/PrivacyManager';
 import { supabaseClient } from './src/services/supabaseClient';
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from './src/config/env';
 import type { BrewLog } from './src/types/BrewLog';
 import type { BrewDevice, Recipe } from './src/types/Recipe';
 import type { OCRHistory } from './src/services/ocrServices';
@@ -533,6 +534,15 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     }
 
     const client = supabaseClient;
+
+    const missingEnvVars = [
+      SUPABASE_URL ? null : 'SUPABASE_URL',
+      SUPABASE_ANON_KEY ? null : 'SUPABASE_ANON_KEY',
+    ].filter(Boolean) as string[];
+
+    if (missingEnvVars.length > 0) {
+      console.warn('App: Missing Supabase environment variables', missingEnvVars);
+    }
 
     if (!client) {
       console.warn('App: Supabase client is not configured');
