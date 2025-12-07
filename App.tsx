@@ -1,12 +1,6 @@
 // App.tsx
-import React, { useState, useEffect, useMemo, createContext, useCallback } from 'react';
-import {
-  Alert,
-  StyleSheet,
-  Text,
-  View,
-  TouchableOpacity,
-} from 'react-native';
+import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, StyleSheet, Text, TouchableOpacity, View, } from 'react-native';
 import PushNotification from 'react-native-push-notification';
 import auth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,9 +9,7 @@ import HomeScreen from './src/screens/HomeScreen';
 import CoffeeTasteScanner from './src/screens/CoffeeTasteScanner';
 import CoffeeReceipeScanner from './src/screens/CoffeeReceipeScanner';
 import RecipeHistoryDetailScreen from './src/screens/CoffeeReceipeScanner/RecipeHistoryDetailScreen';
-import {
-  DiscoverCoffeesScreen,
-} from './src/screens/AllCoffeesScreen';
+import { DiscoverCoffeesScreen, } from './src/screens/AllCoffeesScreen';
 import UserProfile from './src/screens/UserProfile';
 import EditUserProfile from './src/components/profile/EditUserProfile';
 import CoffeePreferenceForm from './src/components/personalization/CoffeePreferenceForm';
@@ -41,33 +33,30 @@ import SavedTipsScreen from './src/screens/SavedTipsScreen';
 import ScannedCoffeeDetailScreen from './src/screens/ScannedCoffeeDetailScreen';
 import TipsScreen from './src/screens/TipsScreen';
 
-import { fetchRecipes, fetchRecipeHistory } from './src/services/recipeServices';
 import type { RecipeHistory } from './src/services/recipeServices';
+import { fetchRecipeHistory, fetchRecipes } from './src/services/recipeServices';
 import { fetchCoffees, fetchScanHistory } from './src/services/homePagesService';
 import { fetchRecentScans } from './src/services/coffeeServices';
 import EncryptedStorage from 'react-native-encrypted-storage';
-import Animated, {FadeInRight, FadeOutLeft, Layout as ReanimatedLayout} from 'react-native-reanimated';
 import { MorningRitualManager } from './src/services/MorningRitualManager';
 import { PreferenceLearningEngine } from './src/services/PreferenceLearningEngine';
 import { CoffeeDiary } from './src/services/CoffeeDiary';
+import type { LearningEventProvider } from './src/services/PrivacyManager';
 import { PrivacyManager } from './src/services/PrivacyManager';
 import { SmartDiaryInsight, SmartDiaryService } from './src/services/SmartDiaryService';
 import {
+  BrewHistoryEntry,
   CalendarProvider,
+  CommunityFlavorStats,
   DiaryStorageAdapter,
   LearningEvent,
   LearningStorageAdapter,
   NotificationChannel,
-  WeatherProvider,
-  BrewHistoryEntry,
   RecipeProfile,
-  CommunityFlavorStats,
-  TasteDimension,
   UserTasteProfile,
 } from './src/types/Personalization';
 import type { MoodSignal, TasteQuizResult } from './src/types/PersonalizationAI';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { LearningEventProvider } from './src/services/PrivacyManager';
 import { supabaseClient } from './src/services/supabaseClient';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from './src/config/env';
 import type { BrewLog } from './src/types/BrewLog';
@@ -317,17 +306,20 @@ class SupabaseDiaryStorageAdapter implements DiaryStorageAdapter {
       return [];
     }
 
-    return (data ?? []).map((row) => ({
+    return (data ?? []).map(row => ({
       id: String(row.id ?? `remote-${Date.now()}`),
       userId: row.user_id ?? userId,
       recipeId: row.recipe_id ?? undefined,
       beans: (row.beans as BrewHistoryEntry['beans']) ?? undefined,
       grindSize: row.grind_size ?? undefined,
-      waterTemp: typeof row.water_temp === 'number' ? row.water_temp : undefined,
+      waterTemp:
+        typeof row.water_temp === 'number' ? row.water_temp : undefined,
       brewTimeSeconds: undefined,
       rating: typeof row.rating === 'number' ? row.rating : 0,
-      tasteFeedback: (row.taste_feedback as BrewHistoryEntry['tasteFeedback']) ?? undefined,
-      flavorNotes: (row.flavor_notes as BrewHistoryEntry['flavorNotes']) ?? undefined,
+      tasteFeedback:
+        (row.taste_feedback as BrewHistoryEntry['tasteFeedback']) ?? undefined,
+      flavorNotes:
+        (row.flavor_notes as BrewHistoryEntry['flavorNotes']) ?? undefined,
       // context: {
       //   timeOfDay: row.context_time_of_day ?? undefined,
       //   weather: (row.context_weather as BrewHistoryEntry['context']?.weather) ?? undefined,
@@ -341,7 +333,10 @@ class SupabaseDiaryStorageAdapter implements DiaryStorageAdapter {
   }
 
   public async deleteEntries(userId: string): Promise<void> {
-    const { error } = await this.client.from('brew_history').delete().eq('user_id', userId);
+    const { error } = await this.client
+      .from('brew_history')
+      .delete()
+      .eq('user_id', userId);
     if (error) {
       console.warn('SupabaseDiaryStorageAdapter: deleteEntries failed', error);
     }
@@ -557,7 +552,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
 
     let cancelled = false;
 
-    setPersonalization((prev) => ({
+    setPersonalization(prev => ({
       ...prev,
       ready: false,
       learningEngine: null,
@@ -577,7 +572,9 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         const diaryStorage = new SupabaseDiaryStorageAdapter(client);
         const eventProvider = new SupabaseLearningEventAdapter(client);
 
-        const engine = new PreferenceLearningEngine(activeUserId, { storage: learningStorage });
+        const engine = new PreferenceLearningEngine(activeUserId, {
+          storage: learningStorage,
+        });
         await engine.initialize();
 
         const smartDiaryService = new SmartDiaryService(engine);
@@ -585,12 +582,14 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           storage: diaryStorage,
           learningEngine: engine,
           smartDiary: smartDiaryService,
-          onInsightsUpdated: (insights) => {
+          onInsightsUpdated: insights => {
             if (!cancelled) {
-              setPersonalization((prev) => {
+              setPersonalization(prev => {
                 const identical =
                   prev.insights.length === insights.length &&
-                  prev.insights.every((item, index) => item.id === insights[index]?.id);
+                  prev.insights.every(
+                    (item, index) => item.id === insights[index]?.id,
+                  );
                 if (identical) {
                   return prev;
                 }
@@ -610,7 +609,10 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         }
 
         const existingEntries = await diaryStorage.getEntries(activeUserId);
-        const initialInsights = await smartDiaryService.generateInsights(activeUserId, existingEntries);
+        const initialInsights = await smartDiaryService.generateInsights(
+          activeUserId,
+          existingEntries,
+        );
         if (cancelled) {
           return;
         }
@@ -621,9 +623,12 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           }
           try {
             const entries = await diaryStorage.getEntries(activeUserId);
-            const nextInsights = await smartDiaryService.generateInsights(activeUserId, entries);
+            const nextInsights = await smartDiaryService.generateInsights(
+              activeUserId,
+              entries,
+            );
             if (!cancelled) {
-              setPersonalization((prev) => ({
+              setPersonalization(prev => ({
                 ...prev,
                 insights: nextInsights,
               }));
@@ -633,7 +638,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           }
         };
 
-        setPersonalization((prev) => ({
+        setPersonalization(prev => ({
           ...prev,
           userId: activeUserId,
           learningEngine: engine,
@@ -646,9 +651,12 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           insights: initialInsights,
         }));
       } catch (error) {
-        console.warn('App: failed to initialize personalization services', error);
+        console.warn(
+          'App: failed to initialize personalization services',
+          error,
+        );
         if (!cancelled) {
-          setPersonalization((prev) => ({
+          setPersonalization(prev => ({
             ...prev,
             ready: false,
             insights: [],
