@@ -73,6 +73,18 @@ When you want to forcefully reload, for example to reset the state of your app, 
 - **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
 - **iOS**: Press <kbd>R</kbd> in iOS Simulator.
 
+## Environment configuration
+
+The React Native bundler now inlines environment variables from `.env` via a Babel plugin (`scripts/babel-inline-env.js`).
+Mobile builds must provide the following values in the root `.env` file (or injected via CI variables):
+
+```
+EXPO_PUBLIC_SUPABASE_URL
+EXPO_PUBLIC_SUPABASE_ANON_KEY
+```
+
+These values are exposed to the JavaScript runtime through `src/config/env.ts` and are required for the Supabase client to initialise correctly.
+
 ## Congratulations! :tada:
 
 You've successfully run and modified your React Native App. :partying_face:

@@ -1,6 +1,7 @@
 module.exports = {
   presets: ['module:@react-native/babel-preset'],
   plugins: [
+    './scripts/babel-inline-env',
     [
       'module-resolver',
       {
