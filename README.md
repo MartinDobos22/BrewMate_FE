@@ -98,8 +98,6 @@ EXPO_PUBLIC_API_HOST=https://example.com
 
 These values are exposed to the JavaScript runtime through `src/config/env.ts` and are required for the Supabase client to initialise correctly.
 
-React Native builds also need a writable `URL` implementation for Supabase to work reliably. Add `react-native-url-polyfill/auto` near the top of your entry file (for example, `index.js` or `App.tsx`) so Hermes exposes a `URL` object with a `protocol` setter.
-
 ## Congratulations! :tada:
 
 You've successfully run and modified your React Native App. :partying_face:

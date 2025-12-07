@@ -44,38 +44,6 @@ const trimmedSupabaseAnonKey = normalizeEnvValue(
   'SUPABASE_ANON_KEY'
 );
 
-const hasWritableUrlProtocol = (): boolean => {
-  if (typeof URL === 'undefined') {
-    console.error(
-      'Supabase configuration error: URL global is missing. Add react-native-url-polyfill/auto before initializing Supabase.',
-    );
-    return false;
-  }
-
-  const descriptor = Object.getOwnPropertyDescriptor(URL.prototype, 'protocol');
-
-  if (descriptor?.set) {
-    return true;
-  }
-
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { URL: NodeUrl } = require('url');
-
-    if (NodeUrl && Object.getOwnPropertyDescriptor(NodeUrl.prototype, 'protocol')?.set) {
-      globalThis.URL = NodeUrl;
-      return true;
-    }
-  } catch (error) {
-    console.error('Supabase configuration error: failed to install URL polyfill.', error);
-  }
-
-  console.error(
-    'Supabase configuration error: URL polyfill is missing a protocol setter. Add react-native-url-polyfill/auto before initializing Supabase.',
-  );
-  return false;
-};
-
 const isSupabaseConfigValid = (): boolean => {
   if (!trimmedSupabaseUrl || !trimmedSupabaseAnonKey) {
     return false;
@@ -100,7 +68,7 @@ const isSupabaseConfigValid = (): boolean => {
  *
  * @type {SupabaseClient | null}
  */
-export const supabaseClient: SupabaseClient | null = isSupabaseConfigValid() && hasWritableUrlProtocol()
+export const supabaseClient: SupabaseClient | null = isSupabaseConfigValid()
   ? (() => {
       try {
         return createClient(trimmedSupabaseUrl!, trimmedSupabaseAnonKey!);
