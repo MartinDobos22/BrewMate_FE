@@ -2,14 +2,24 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../config/env';
 
+const trimmedSupabaseUrl = SUPABASE_URL?.trim();
+const trimmedSupabaseAnonKey = SUPABASE_ANON_KEY?.trim();
+
 const isSupabaseConfigValid = (): boolean => {
-  if (!SUPABASE_URL) {
+  if (!trimmedSupabaseUrl) {
     console.error('Supabase configuration error: SUPABASE_URL is missing.');
     return false;
   }
 
+  if (/\s/.test(trimmedSupabaseUrl)) {
+    console.error(
+      'Supabase configuration error: SUPABASE_URL must not contain whitespace.'
+    );
+    return false;
+  }
+
   try {
-    const parsedUrl = new URL(SUPABASE_URL);
+    const parsedUrl = new URL(trimmedSupabaseUrl);
 
     if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
       console.error(
@@ -22,13 +32,15 @@ const isSupabaseConfigValid = (): boolean => {
     return false;
   }
 
-  if (!SUPABASE_ANON_KEY) {
+  if (!trimmedSupabaseAnonKey) {
     console.error('Supabase configuration error: SUPABASE_ANON_KEY is missing.');
     return false;
   }
 
-  if (typeof SUPABASE_ANON_KEY === 'string' && SUPABASE_ANON_KEY.trim().length === 0) {
-    console.error('Supabase configuration error: SUPABASE_ANON_KEY cannot be empty.');
+  if (/\s/.test(trimmedSupabaseAnonKey)) {
+    console.error(
+      'Supabase configuration error: SUPABASE_ANON_KEY must not contain whitespace.'
+    );
     return false;
   }
 
@@ -47,10 +59,10 @@ const isSupabaseConfigValid = (): boolean => {
 export const supabaseClient: SupabaseClient | null = isSupabaseConfigValid()
   ? (() => {
       try {
-        return createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!);
+        return createClient(trimmedSupabaseUrl!, trimmedSupabaseAnonKey!);
       } catch (error) {
         console.error(
-          'Supabase configuration error: SUPABASE_URL or SUPABASE_ANON_KEY has an invalid format (e.g., non-http/https scheme or empty key).',
+          'Supabase configuration error: SUPABASE_URL or SUPABASE_ANON_KEY has an invalid format (e.g., contains whitespace, uses a non-http/https scheme, or is empty).',
           error
         );
         return null;
