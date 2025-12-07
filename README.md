@@ -83,6 +83,19 @@ EXPO_PUBLIC_SUPABASE_URL
 EXPO_PUBLIC_SUPABASE_ANON_KEY
 ```
 
+API calls default to the hosted Render backend even in development so emulators can connect without a local server. To point the
+app at a local API instead, set the following flag to `true` in `.env`:
+
+```
+EXPO_PUBLIC_USE_LOCAL_API=true
+```
+
+You can also override the API host entirely (for example, a staging deployment) using:
+
+```
+EXPO_PUBLIC_API_HOST=https://example.com
+```
+
 These values are exposed to the JavaScript runtime through `src/config/env.ts` and are required for the Supabase client to initialise correctly.
 
 ## Congratulations! :tada:
