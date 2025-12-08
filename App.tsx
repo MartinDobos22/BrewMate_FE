@@ -1,6 +1,7 @@
 // App.tsx
 import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View, } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import PushNotification from 'react-native-push-notification';
 import auth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -1847,10 +1848,12 @@ export default function App(): React.JSX.Element {
   const contextValue = useMemo(() => personalization, [personalization]);
 
   return (
-    <ThemeProvider>
-      <PersonalizationContext.Provider value={contextValue}>
-        <AppContent personalization={personalization} setPersonalization={setPersonalization} />
-      </PersonalizationContext.Provider>
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider>
+        <PersonalizationContext.Provider value={contextValue}>
+          <AppContent personalization={personalization} setPersonalization={setPersonalization} />
+        </PersonalizationContext.Provider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
