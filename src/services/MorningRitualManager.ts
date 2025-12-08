@@ -176,7 +176,7 @@ export class MorningRitualManager {
   }
 
   /**
-   * Naplánuje rannú notifikáciu podľa predpokladaného času vstávania a aktuálneho kontextu.
+   * Naplánuje rannú notifikáciu s predvoleným časom bez potreby vstupov o budíku.
    */
   public async scheduleMorningNotification(
     userId: string,
@@ -184,9 +184,9 @@ export class MorningRitualManager {
   ): Promise<void> {
     try {
       await this.learningEngine.initialize();
-      const wakeTime = await this.resolveWakeTime();
       const variant = await this.resolveABVariant();
-      const weekday = this.getIsoWeekday(wakeTime);
+      const weekday = this.getIsoWeekday(new Date());
+      const scheduledTime = this.getFallbackNotificationTime();
       const { prediction, recommendation } = await this.resolvePrediction(
         context,
         weekday,
@@ -196,6 +196,7 @@ export class MorningRitualManager {
         prediction,
         variant,
         weekday,
+        recommendation?.context?.weather?.condition,
         recommendation?.message,
       );
       const title =
@@ -207,11 +208,12 @@ export class MorningRitualManager {
         id: `morning-ritual-${userId}`,
         title,
         message,
-        date: wakeTime,
+        date: scheduledTime,
         payload: {
           recipeId: prediction.recipeId,
           variant,
           context,
+          weekday,
         },
       });
     } catch (error) {
@@ -250,8 +252,7 @@ export class MorningRitualManager {
       })
     | null
   > {
-    const wakeTime = await this.resolveWakeTime();
-    const weekday = this.getIsoWeekday(wakeTime);
+    const weekday = this.getIsoWeekday(new Date());
     const { prediction, recommendation } = await this.resolvePrediction(
       context,
       weekday,
@@ -316,15 +317,16 @@ export class MorningRitualManager {
     };
   }
 
-  private async resolveWakeTime(): Promise<Date> {
-    try {
-      return await this.calendarProvider.getNextWakeUpTime();
-    } catch (error) {
-      console.warn('Nepodarilo sa získať čas budenia, použije sa 07:00', error);
-      const now = new Date();
-      now.setHours(7, 0, 0, 0);
-      return now;
+  private getFallbackNotificationTime(): Date {
+    const now = new Date();
+    const scheduled = new Date(now);
+    scheduled.setHours(7, 0, 0, 0);
+
+    if (scheduled <= now) {
+      scheduled.setDate(scheduled.getDate() + 1);
     }
+
+    return scheduled;
   }
 
   private async resolveABVariant(): Promise<'A' | 'B'> {
@@ -339,9 +341,9 @@ export class MorningRitualManager {
 
   private composeMessage(
     prediction: PredictionResult,
-    weatherCondition: string | undefined,
     variant: 'A' | 'B',
     weekday: number,
+    weatherCondition?: string,
     recommendationMessage?: string,
   ): string {
     const ratingText =
