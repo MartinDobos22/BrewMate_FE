@@ -435,9 +435,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     [privacyManager, setPersonalization, userId],
   );
 
-  useEffect(() => {
-    setHasAppliedPersonalizationOnboarding(false);
-  }, [learningEngine]);
+  
 
   useEffect(() => {
     const init = async () => {
@@ -669,7 +667,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, setPersonalization, userId]);
+  }, [isAuthenticated, missingEnvVars, setPersonalization, userId]);
 
   useEffect(() => {
     if (!personalizationReady || !learningEngine || morningRitualManager) {
@@ -1166,32 +1164,32 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
 
 
 
-  if (!isTasteQuizComplete && personalizationReady) {
-    return (
-      <ResponsiveWrapper
-        backgroundColor={colors.background}
-        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
-        statusBarBackground={colors.background}
-      >
-
-        <TasteProfileQuizScreen
-          onComplete={async (quizResult) => {
-            try {
-              await EncryptedStorage.setItem(TASTE_QUIZ_STORAGE_KEY, 'true');
-            } catch (error) {
-              console.warn('App: failed to persist taste quiz status', error);
-            }
-            setPersonalization((prev) => ({
-              ...prev,
-              quizResult,
-            }));
-            setIsTasteQuizComplete(true);
-          }}
-        />
-      </ResponsiveWrapper>
-    );
-  }
-
+  // if (!isTasteQuizComplete && personalizationReady) {
+  //   return (
+  //     <ResponsiveWrapper
+  //       backgroundColor={colors.background}
+  //       statusBarStyle={isDark ? 'light-content' : 'dark-content'}
+  //       statusBarBackground={colors.background}
+  //     >
+  //
+  //       <TasteProfileQuizScreen
+  //         onComplete={async (quizResult) => {
+  //           try {
+  //             await EncryptedStorage.setItem(TASTE_QUIZ_STORAGE_KEY, 'true');
+  //           } catch (error) {
+  //             console.warn('App: failed to persist taste quiz status', error);
+  //           }
+  //           setPersonalization((prev) => ({
+  //             ...prev,
+  //             quizResult,
+  //           }));
+  //           setIsTasteQuizComplete(true);
+  //         }}
+  //       />
+  //     </ResponsiveWrapper>
+  //   );
+  // }
+  //
   if (currentScreen === 'scanner') {
     return (
       <ResponsiveWrapper
