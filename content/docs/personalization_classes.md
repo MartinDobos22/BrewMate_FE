@@ -1,6 +1,6 @@
 # Referenčný sprievodca personalizačnými a offline triedami BrewMate
 
-Tento dokument sumarizuje TypeScript a JavaScript triedy, ktoré v aplikácii BrewMate zabezpečujú personalizáciu, denník, onboarding, odporúčania a offline správanie. Každá sekcia opisuje zodpovednosti, kľúčové metódy, závislosti a väzby na ostatné moduly, aby sa nový vývojár rýchlo zorientoval.
+Tento dokument sumarizuje TypeScript a JavaScript triedy, ktoré v aplikácii BrewMate zabezpečujú personalizáciu, denník, odporúčania a offline správanie. Každá sekcia opisuje zodpovednosti, kľúčové metódy, závislosti a väzby na ostatné moduly, aby sa nový vývojár rýchlo zorientoval.
 
 ## Obsah
 1. [Úložiská a fasády](#uloziska-a-fasady)
@@ -9,12 +9,11 @@ Tento dokument sumarizuje TypeScript a JavaScript triedy, ktoré v aplikácii Br
 4. [Kvíz](#kviz)
 5. [Denník a insight služby](#dennik-a-insight-sluzby)
 6. [Ranný rituál](#ranny-ritual)
-7. [Súkromie a onboarding](#sukromie-a-onboarding)
+7. [Súkromie](#sukromie)
 8. [Počasie a kontext](#pocasie-a-kontext)
 9. [Offline vrstva](#offline-vrstva)
 10. [Podporné služby](#podporne-sluzby)
 11. [Zdieľané singletons a prepojenia](#zdielane-singletons-a-prepojenia)
-12. [Onboardingové tipy pre nového vývojára](#onboardingove-tipy-pre-noveho-vyvojara)
 
 ---
 
@@ -88,7 +87,7 @@ Tento dokument sumarizuje TypeScript a JavaScript triedy, ktoré v aplikácii Br
 ## Kvíz
 
 ### TasteProfileQuizEngine (`TasteProfileQuizEngine.ts`)
-- **Úloha:** Riadi adaptívny onboardingový kvíz, persistuje odpovede v šifrovanom úložisku, aktualizuje profil v engine a vracia personalizované odporúčania na záver.【F:src/services/TasteProfileQuizEngine.ts†L1-L316】
+- **Úloha:** Riadi adaptívny chuťový kvíz, persistuje odpovede v šifrovanom úložisku, aktualizuje profil v engine a vracia personalizované odporúčania na záver.【F:src/services/TasteProfileQuizEngine.ts†L1-L316】
 - **Mechanizmy:**
   - Ukladá priebežné odpovede s 24-hodinovou expiráciou a vie pokračovať v rozpracovanom kvíze.【F:src/services/TasteProfileQuizEngine.ts†L60-L146】
   - `completeQuiz` prepojí výsledky s profilom, spustí generovanie odporúčaní a resetuje dočasné dáta.【F:src/services/TasteProfileQuizEngine.ts†L134-L222】
@@ -123,7 +122,7 @@ Tento dokument sumarizuje TypeScript a JavaScript triedy, ktoré v aplikácii Br
 
 ---
 
-## Súkromie a onboarding
+## Súkromie
 
 ### PrivacyManager (`PrivacyManager.ts`)
 - **Úloha:** Správa súhlasov, exportu a mazania dát, vrátane generovania anonymizovaných štatistík komunity.【F:src/services/PrivacyManager.ts†L1-L161】
@@ -132,12 +131,6 @@ Tento dokument sumarizuje TypeScript a JavaScript triedy, ktoré v aplikácii Br
   - `exportUserData` spája profil, históriu, denník a learning events do jedného JSON payloadu pre GDPR download.【F:src/services/PrivacyManager.ts†L75-L112】
   - `deleteUserData` čistí profil, denník, históriu aj udalosti a resetuje lokálne cache, pričom informuje `LearningEventProvider` o mazaniach.【F:src/services/PrivacyManager.ts†L114-L139】
   - `buildCommunityStats` agreguje chuťové trendy, ak to súhlasy dovolia.【F:src/services/PrivacyManager.ts†L141-L161】
-
-### OnboardingResponseService (`OnboardingResponseService.ts`)
-- **Úloha:** Jednoduchý Supabase servis, ktorý ukladá odpovede onboardingového formulára (vrátane AI analýzy) a načítava poslednú odozvu.【F:src/services/OnboardingResponseService.ts†L1-L55】
-- **Detaily:** Pri chybách wrapuje `PostgrestError` do čitateľnej správy pre UI, čím zlepšuje debugging.【F:src/services/OnboardingResponseService.ts†L45-L55】
-
----
 
 ## Počasie a kontext
 
@@ -214,16 +207,4 @@ Tento dokument sumarizuje TypeScript a JavaScript triedy, ktoré v aplikácii Br
 [OfflineSync] & [CoffeeOfflineManager] ⇄ [AIFallback/VisionService]
 ```
 
----
-
-## Onboardingové tipy pre nového vývojára
-
-1. **Preštudujte kontext:** Pozrite `PersonalizationContext` v `App.tsx`, aby ste pochopili memoizáciu služieb a to, ako sa injektujú do obrazoviek.【F:App.tsx†L42-L173】
-2. **Typové kontrakty:** Naštudujte `types/Personalization.ts` a `types/PersonalizationAI.ts`, keďže definujú štruktúry využívané naprieč modulmi (profil, learning event, kontexty).
-3. **Sledujte tri kľúčové scenáre:**
-   - **Onboarding:** `TasteProfileQuizEngine` → `PreferenceLearningEngine` → `SmartDiaryService`.
-   - **Ranný rituál:** `MorningRitualManager` → `NotificationService` → reakcia používateľa → `CoffeeDiary` + `OfflineSync`.
-   - **Offline zápis:** `PreferenceEngineFacade.recordBrew` → AsyncStorage → `OfflineSync.processQueue` → Supabase REST.
-4. **Nastavenia a tajomstvá:** Skontrolujte `.env` pre `EXPO_PUBLIC_SUPABASE_URL/ANON_KEY` a uistite sa, že lokálne buildy majú prístup k týmto hodnotám, inak neprebehne synchronizácia offline fronty.
-5. **Monitoring a debugging:** Pri vyšetrovaní problémov sledujte logy `OfflineSync` (konflikty/retries), `PreferenceLearningEngine` (výpočty preferencií) a `MorningRitualManager` (A/B experimenty). Tieto logy sú priamo viazané na metódy popísané vyššie a často odhalia nekonzistencie dát.
 

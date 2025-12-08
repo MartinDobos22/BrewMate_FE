@@ -23,7 +23,7 @@ import {
 } from './constants';
 
 /**
- * Props for the email registration form displayed during onboarding or account creation flows.
+ * Props for the email registration form displayed during account creation flows.
  */
 interface EmailRegisterProps {
   /** Optional callback to navigate back to the previous screen. */

@@ -26,7 +26,6 @@ DROP TABLE IF EXISTS public.brew_recipes CASCADE;
 DROP TABLE IF EXISTS public.analytics_events CASCADE;
 DROP TABLE IF EXISTS public.achievements CASCADE;
 DROP TABLE IF EXISTS public.achievement_definitions CASCADE;
-DROP TABLE IF EXISTS public.user_onboarding_responses CASCADE;
 DROP TABLE IF EXISTS public.user_taste_profile CASCADE;
 DROP TABLE IF EXISTS public.brew_history CASCADE;
 DROP TABLE IF EXISTS public.user_profiles CASCADE;
@@ -133,15 +132,6 @@ CREATE TABLE public.learning_events (
   event_type text NOT NULL CHECK (event_type IN ('liked','disliked','favorited','repeated','shared')),
   event_weight numeric(6,3) NOT NULL DEFAULT 1.0,
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-
--- Persisted answers from personalization onboarding
-CREATE TABLE public.user_onboarding_responses (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  answers jsonb NOT NULL,
-  analyzed_profile jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -378,7 +368,6 @@ CREATE TRIGGER trg_user_coffees_delete
 ALTER TABLE public.user_taste_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.brew_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.learning_events ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.user_onboarding_responses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_recipes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_coffees ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.scan_events ENABLE ROW LEVEL SECURITY;
@@ -399,11 +388,6 @@ CREATE POLICY select_own_learning_events ON public.learning_events FOR SELECT US
 CREATE POLICY insert_own_learning_events ON public.learning_events FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY update_own_learning_events ON public.learning_events FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 CREATE POLICY delete_own_learning_events ON public.learning_events FOR DELETE USING (auth.uid() = user_id);
-
-CREATE POLICY select_own_onboarding ON public.user_onboarding_responses FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY insert_own_onboarding ON public.user_onboarding_responses FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY update_own_onboarding ON public.user_onboarding_responses FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-CREATE POLICY delete_own_onboarding ON public.user_onboarding_responses FOR DELETE USING (auth.uid() = user_id);
 
 CREATE POLICY select_own_user_recipes ON public.user_recipes FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY insert_own_user_recipes ON public.user_recipes FOR INSERT WITH CHECK (auth.uid() = user_id);
@@ -433,8 +417,6 @@ CREATE INDEX idx_brew_history_flavor_notes ON public.brew_history USING gin (fla
 
 CREATE INDEX idx_learning_events_user_created_at ON public.learning_events(user_id, created_at DESC);
 CREATE INDEX idx_learning_events_event_type ON public.learning_events(event_type);
-
-CREATE INDEX idx_onboarding_user_created_at ON public.user_onboarding_responses(user_id, created_at DESC);
 
 CREATE INDEX idx_recipe_profiles_tags ON public.recipe_profiles USING gin (tags);
 

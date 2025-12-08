@@ -36,13 +36,6 @@ DO $$ BEGIN
     DROP POLICY IF EXISTS delete_own_learning_events ON public.learning_events;
   END IF;
 
-  IF to_regclass('public.user_onboarding_responses') IS NOT NULL THEN
-    DROP POLICY IF EXISTS select_own_onboarding ON public.user_onboarding_responses;
-    DROP POLICY IF EXISTS insert_own_onboarding ON public.user_onboarding_responses;
-    DROP POLICY IF EXISTS update_own_onboarding ON public.user_onboarding_responses;
-    DROP POLICY IF EXISTS delete_own_onboarding ON public.user_onboarding_responses;
-  END IF;
-
   IF to_regclass('public.user_recipes') IS NOT NULL THEN
     DROP POLICY IF EXISTS select_own_user_recipes ON public.user_recipes;
     DROP POLICY IF EXISTS insert_own_user_recipes ON public.user_recipes;
@@ -88,12 +81,6 @@ DO $$ BEGIN
     ALTER TABLE public.learning_events DROP CONSTRAINT IF EXISTS learning_events_user_id_fkey;
     ALTER TABLE public.learning_events ALTER COLUMN user_id TYPE text USING user_id::text;
     ALTER TABLE public.learning_events ADD CONSTRAINT learning_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.app_users(id) ON DELETE CASCADE;
-  END IF;
-
-  IF to_regclass('public.user_onboarding_responses') IS NOT NULL THEN
-    ALTER TABLE public.user_onboarding_responses DROP CONSTRAINT IF EXISTS user_onboarding_responses_user_id_fkey;
-    ALTER TABLE public.user_onboarding_responses ALTER COLUMN user_id TYPE text USING user_id::text;
-    ALTER TABLE public.user_onboarding_responses ADD CONSTRAINT user_onboarding_responses_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.app_users(id) ON DELETE CASCADE;
   END IF;
 
   IF to_regclass('public.user_recipes') IS NOT NULL THEN
@@ -284,9 +271,6 @@ DO $$ BEGIN
   IF to_regclass('public.learning_events') IS NOT NULL THEN
     ALTER TABLE public.learning_events ENABLE ROW LEVEL SECURITY;
   END IF;
-  IF to_regclass('public.user_onboarding_responses') IS NOT NULL THEN
-    ALTER TABLE public.user_onboarding_responses ENABLE ROW LEVEL SECURITY;
-  END IF;
   IF to_regclass('public.user_recipes') IS NOT NULL THEN
     ALTER TABLE public.user_recipes ENABLE ROW LEVEL SECURITY;
   END IF;
@@ -322,13 +306,6 @@ DO $$ BEGIN
     CREATE POLICY insert_own_learning_events ON public.learning_events FOR INSERT WITH CHECK ((auth.uid())::text = user_id);
     CREATE POLICY update_own_learning_events ON public.learning_events FOR UPDATE USING ((auth.uid())::text = user_id) WITH CHECK ((auth.uid())::text = user_id);
     CREATE POLICY delete_own_learning_events ON public.learning_events FOR DELETE USING ((auth.uid())::text = user_id);
-  END IF;
-
-  IF to_regclass('public.user_onboarding_responses') IS NOT NULL THEN
-    CREATE POLICY select_own_onboarding ON public.user_onboarding_responses FOR SELECT USING ((auth.uid())::text = user_id);
-    CREATE POLICY insert_own_onboarding ON public.user_onboarding_responses FOR INSERT WITH CHECK ((auth.uid())::text = user_id);
-    CREATE POLICY update_own_onboarding ON public.user_onboarding_responses FOR UPDATE USING ((auth.uid())::text = user_id) WITH CHECK ((auth.uid())::text = user_id);
-    CREATE POLICY delete_own_onboarding ON public.user_onboarding_responses FOR DELETE USING ((auth.uid())::text = user_id);
   END IF;
 
   IF to_regclass('public.user_recipes') IS NOT NULL THEN
