@@ -146,7 +146,7 @@ function parseBoolean(value: unknown): boolean | null {
 /**
  * Converts loosely structured personalization responses into a normalized preference snapshot.
  *
- * @param {any} raw - Arbitrary object returned from onboarding or offline storage.
+ * @param {any} raw - Arbitrary object returned from preference forms or offline storage.
  * @returns {CoffeePreferenceSnapshot|null} Structured snapshot with normalized fields or null when input is invalid.
  */
 export function normalizeCoffeePreferenceSnapshot(raw: any): CoffeePreferenceSnapshot | null {

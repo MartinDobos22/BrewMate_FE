@@ -120,7 +120,6 @@ interface PersonalizationContextValue {
   profile: UserTasteProfile | null;
   confidenceScores: ConfidenceDatum[];
   insights: SmartDiaryInsight[];
-  onboardingResult:  null;
 }
 
 export const PersonalizationContext = createContext<PersonalizationContextValue | undefined>(undefined);
@@ -141,7 +140,6 @@ const emptyPersonalizationState: PersonalizationContextValue = {
   profile: null,
   confidenceScores: [],
   insights: [],
-  onboardingResult: null,
 };
 
 class SupabaseLearningStorageAdapter implements LearningStorageAdapter {
@@ -395,8 +393,6 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     useState<'profile' | 'home'>('profile');
   const [isTasteQuizComplete, setIsTasteQuizComplete] = useState(false);
   const [checkingTasteQuiz, setCheckingTasteQuiz] = useState(true);
-  const [hasAppliedPersonalizationOnboarding, setHasAppliedPersonalizationOnboarding] =
-    useState(false);
 
   const [selectedBrewLog, setSelectedBrewLog] = useState<BrewLog | null>(null);
   const [selectedRecipeHistory, setSelectedRecipeHistory] = useState<RecipeHistory | null>(null);
