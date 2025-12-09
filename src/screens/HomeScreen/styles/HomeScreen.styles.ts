@@ -107,10 +107,6 @@ export const homeStyles = () =>
       paddingBottom: BOTTOM_NAV_CONTENT_OFFSET + verticalScale(16),
       paddingHorizontal: scale(20),
     },
-    ritualWrapper: {
-      marginTop: verticalScale(8),
-      marginBottom: verticalScale(16),
-    },
 
     // Welcome Card
     welcomeCard: {
