@@ -3,6 +3,7 @@ import React, { createContext, useCallback, useEffect, useMemo, useState } from 
 import { Alert, StyleSheet, Text, TouchableOpacity, View, } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import PushNotification from 'react-native-push-notification';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import auth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AuthScreen from './src/components/auth/AuthVisual';
@@ -1849,11 +1850,13 @@ export default function App(): React.JSX.Element {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider>
-        <PersonalizationContext.Provider value={contextValue}>
-          <AppContent personalization={personalization} setPersonalization={setPersonalization} />
-        </PersonalizationContext.Provider>
-      </ThemeProvider>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <PersonalizationContext.Provider value={contextValue}>
+            <AppContent personalization={personalization} setPersonalization={setPersonalization} />
+          </PersonalizationContext.Provider>
+        </ThemeProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

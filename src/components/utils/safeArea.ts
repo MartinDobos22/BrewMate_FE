@@ -1,6 +1,11 @@
 // utils/safeArea.ts
 import { Platform, StatusBar } from 'react-native';
 import type { ScaledSize } from 'react-native';
+import {
+  EdgeInsets,
+  initialWindowMetrics,
+  initialWindowSafeAreaInsets,
+} from 'react-native-safe-area-context';
 
 const fallbackDimensions: ScaledSize = {
   width: 390,
@@ -46,6 +51,21 @@ const resolveDimensions = (): ScaledSize => {
 };
 
 /**
+ * Resolves the best-available safe area metrics from react-native-safe-area-context.
+ */
+const resolveInitialSafeAreaInsets = (): EdgeInsets | null => {
+  if (initialWindowMetrics?.insets) {
+    return initialWindowMetrics.insets;
+  }
+
+  if (initialWindowSafeAreaInsets) {
+    return initialWindowSafeAreaInsets;
+  }
+
+  return null;
+};
+
+/**
  * Retrieves the current screen height using safe dimension resolution.
  *
  * @returns {number} Screen height in pixels.
@@ -78,6 +98,11 @@ export const getSafeAreaTop = () => {
  * @returns {number} Bottom inset in pixels appropriate for the device type.
  */
 export const getSafeAreaBottom = () => {
+  const safeAreaInsets = resolveInitialSafeAreaInsets();
+  if (safeAreaInsets) {
+    return Math.max(0, safeAreaInsets.bottom);
+  }
+
   const screenHeight = getScreenHeight();
   if (Platform.OS === 'ios') {
     // iPhone X a novšie (s home indicator)
@@ -86,8 +111,8 @@ export const getSafeAreaBottom = () => {
     }
     return 0;
   }
-  // Android - navigačný bar
-  return 20;
+  // Android - use runtime value when available, otherwise assume no inset
+  return 0;
 };
 
 // Detekcia malých zariadení

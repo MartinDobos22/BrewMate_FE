@@ -1,7 +1,8 @@
 import React, { JSX } from 'react';
 import { View, TouchableOpacity, Text } from 'react-native';
 import { useTheme } from 'src/theme/ThemeProvider';
-import { bottomNavStyles } from '../styles/BottomNav.styles';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { bottomNavStyles, getBottomNavMetrics } from '../styles/BottomNav.styles';
 
 export type NavItem = 'home' | 'discover' | 'recipes' | 'favorites' | 'profile';
 
@@ -34,8 +35,10 @@ const BottomNav: React.FC<BottomNavProps> = ({
   onFavoritesPress,
   onProfilePress,
 }: BottomNavProps): JSX.Element => {
+  const { bottom } = useSafeAreaInsets();
+  const { inset } = getBottomNavMetrics(bottom);
   const { colors } = useTheme();
-  const styles = bottomNavStyles(colors);
+  const styles = bottomNavStyles(colors, inset);
 
   return (
     <View style={styles.bottomNav}>
