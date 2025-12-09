@@ -28,7 +28,6 @@ import {
 } from './services';
 import type { HomeStatistics, RecentScan, Tip } from './services';
 import DailyTipCard from './components/DailyTipCard';
-import DailyRitualCard, { DailyRitualCardProps } from './components/DailyRitualCard';
 import BottomNav from '../../components/navigation/BottomNav';
 import { usePersonalization } from '../../hooks/usePersonalization';
 import TasteProfileRadarCard from './components/TasteProfileRadarCard';
@@ -106,8 +105,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   const [tipLoading, setTipLoading] = useState(true);
   const [tipError, setTipError] = useState<string | null>(null);
   const [recentScans, setRecentScans] = useState<RecentScan[]>([]);
-  const [ritualRecommendation, setRitualRecommendation] =
-    useState<DailyRitualCardProps['recommendation'] | null>(null);
   const [stats, setStats] = useState<HomeStatistics>(getEmptyStatistics());
   const [statsLoading, setStatsLoading] = useState(true);
   const [statsError, setStatsError] = useState<string | null>(null);
@@ -118,8 +115,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   const [tasteProfileLoading, setTasteProfileLoading] = useState(false);
   const [tasteProfileError, setTasteProfileError] = useState<string | null>(null);
   const styles = homeStyles();
-  const { morningRitualManager, profile: personalizationProfile } =
-    usePersonalization();
+  const { profile: personalizationProfile } = usePersonalization();
 
   /**
    * Loads home statistics, handling authentication and Supabase error cases
@@ -221,36 +217,6 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
     });
     setTasteRadarScores(computed);
   }, [personalizationProfile, tastePreferenceSnapshot]);
-
-  useEffect(() => {
-    if (!morningRitualManager) {
-      setRitualRecommendation(null);
-      return;
-    }
-
-    let active = true;
-
-    morningRitualManager.scheduleNotifications().catch((error) => {
-      console.warn('HomeScreen: failed to schedule ritual notifications', error);
-    });
-
-    const resolveRecommendation = async () => {
-      try {
-        const rec = await morningRitualManager.getRecommendation();
-        if (active) {
-          setRitualRecommendation(rec);
-        }
-      } catch (error) {
-        console.warn('HomeScreen: failed to fetch ritual recommendation', error);
-      }
-    };
-
-    resolveRecommendation();
-
-    return () => {
-      active = false;
-    };
-  }, [morningRitualManager]);
 
   /**
    * Loads the daily tip from content services, falling back to cached tips when network calls fail.
@@ -420,17 +386,11 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
         <ScrollView
           style={styles.mainContent}
           contentContainerStyle={styles.scrollContent}
-          refreshControl={
+        refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
           showsVerticalScrollIndicator={false}
         >
-            {ritualRecommendation ? (
-              <View style={styles.ritualWrapper}>
-                <DailyRitualCard recommendation={ritualRecommendation} />
-              </View>
-            ) : null}
-
             <LinearGradient
               colors={WELCOME_CARD_GRADIENT}
               style={styles.welcomeCard}
