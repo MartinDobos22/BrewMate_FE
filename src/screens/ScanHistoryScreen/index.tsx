@@ -83,9 +83,9 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ onSelectScan }) =
               ⭐ {item.rating}
             </Text>
           ) : null}
-          {typeof item.match_percentage === 'number' ? (
+          {item.is_recommended !== undefined || typeof item.match_percentage === 'number' ? (
             <Text style={[styles.chip, { backgroundColor: colors.cardBackground , color: colors.text }]}>
-              🎯 {item.match_percentage}%
+              🎯 {item.is_recommended === false ? 'Mimo preferencií' : 'Sedí k profilu'}
             </Text>
           ) : null}
         </View>

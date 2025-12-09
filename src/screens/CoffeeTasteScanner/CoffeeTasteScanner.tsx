@@ -908,11 +908,16 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
         await loadHistory();
 
         // Zobraz výsledok
+        const alertReason = (normalizedResult.recommendation || '')
+          .split(/[\.\n]/)
+          .map(sentence => sentence.trim())
+          .filter(Boolean)[0];
+
         Alert.alert(
           '✅ Skenovanie dokončené',
           normalizedResult.isRecommended
-            ? `Táto káva má ${normalizedResult.matchPercentage}% zhodu s tvojimi preferenciami!`
-            : `Zhoda s preferenciami: ${normalizedResult.matchPercentage}%`,
+            ? alertReason || 'Podľa tvojho profilu by ti mohla chutiť.'
+            : alertReason || 'Vyzerá to, že nesedí na tvoje preferencie.',
           [
             { text: 'OK', style: 'default' }
           ]
@@ -1467,8 +1472,10 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
   };
 
   const showBackButton = currentView !== 'home';
-  const matchLabel = scanResult?.matchPercentage
-    ? `${scanResult.matchPercentage}% zhoda`
+  const matchLabel = scanResult
+    ? scanResult.isRecommended === false
+      ? 'Mimo preferencií'
+      : 'Sedí k profilu'
     : undefined;
   const refreshControl =
     currentView === 'home'
@@ -1614,9 +1621,29 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
   }, [combinedLowerText, structuredFields.flavorNotes.value]);
 
   const verdictLabel = scanResult?.isRecommended === false ? 'Skôr NIE' : 'Skôr ÁNO';
-  const verdictExplanation =
-    scanResult?.recommendation ??
-    'Na základe tvojich posledných hodnotení to vyzerá, že táto káva zapadne do tvojho chuťového profilu.';
+  const verdictExplanation = useMemo(() => {
+    if (!scanResult) {
+      return 'Najprv naskenuj etiketu kávy a ukážeme ti, ako ti sadne.';
+    }
+
+    if (scanResult.isRecommended === false) {
+      if (cautionReasons.length) {
+        return cautionReasons[0];
+      }
+      if (reasonSentences.length) {
+        return reasonSentences[0];
+      }
+      return 'Podľa tvojich posledných hodnotení táto chuť nemusí byť pre teba.';
+    }
+
+    if (positiveReasons.length) {
+      return positiveReasons[0];
+    }
+    if (reasonSentences.length) {
+      return reasonSentences[0];
+    }
+    return insightText;
+  }, [cautionReasons, insightText, positiveReasons, reasonSentences, scanResult]);
 
   const ratingDisplay =
     userRating > 0
