@@ -1,8 +1,8 @@
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Colors } from '../../theme/colors';
 import { getSafeAreaBottom } from '../utils/safeArea';
 
-const SAFE_BOTTOM = Platform.OS === 'ios' ? getSafeAreaBottom() : 0;
+const SAFE_BOTTOM = getSafeAreaBottom();
 const BASE_NAV_HEIGHT = 60;
 const CONTENT_GAP = 12;
 
