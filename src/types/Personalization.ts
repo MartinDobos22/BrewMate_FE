@@ -132,24 +132,8 @@ export interface PredictionResult {
   contextBonuses: string[];
 }
 
-export interface NotificationChannel {
-  scheduleNotification: (options: {
-    id: string;
-    title: string;
-    message: string;
-    date: Date;
-    payload?: Record<string, unknown>;
-  }) => Promise<void>;
-  cancelNotification: (id: string) => Promise<void>;
-}
-
 export interface WeatherProvider {
   getWeather: (location?: BrewContext['location']) => Promise<WeatherContext | undefined>;
-}
-
-export interface CalendarProvider {
-  getNextWakeUpTime: () => Promise<Date>;
-  getWeekdayPlan: (weekday: number) => Promise<'light' | 'balanced' | 'strong' | undefined>;
 }
 
 export interface DiaryStorageAdapter {

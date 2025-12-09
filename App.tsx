@@ -2,7 +2,6 @@
 import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View, } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import PushNotification from 'react-native-push-notification';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import auth from '@react-native-firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -39,7 +38,6 @@ import { fetchRecipeHistory, fetchRecipes } from './src/services/recipeServices'
 import { fetchCoffees, fetchScanHistory } from './src/services/homePagesService';
 import { fetchRecentScans } from './src/services/coffeeServices';
 import EncryptedStorage from 'react-native-encrypted-storage';
-import { MorningRitualManager } from './src/services/MorningRitualManager';
 import { PreferenceLearningEngine } from './src/services/PreferenceLearningEngine';
 import { CoffeeDiary } from './src/services/CoffeeDiary';
 import type { LearningEventProvider } from './src/services/PrivacyManager';
@@ -47,12 +45,10 @@ import { PrivacyManager } from './src/services/PrivacyManager';
 import { SmartDiaryInsight, SmartDiaryService } from './src/services/SmartDiaryService';
 import {
   BrewHistoryEntry,
-  CalendarProvider,
   CommunityFlavorStats,
   DiaryStorageAdapter,
   LearningEvent,
   LearningStorageAdapter,
-  NotificationChannel,
   RecipeProfile,
   UserTasteProfile,
 } from './src/types/Personalization';
@@ -94,9 +90,6 @@ type AuthNotice = {
   id: number;
 };
 
-const MORNING_RITUAL_CHANNEL_ID = 'brewmate-morning-ritual';
-const WAKE_TIME_STORAGE_KEY = 'brewmate:ritual:wake_time';
-const WEEKDAY_PLAN_STORAGE_KEY = 'brewmate:ritual:weekday_plan';
 const TASTE_QUIZ_STORAGE_KEY = 'brewmate:taste_quiz:complete';
 
 
@@ -110,7 +103,6 @@ interface PersonalizationContextValue {
   userId: string | null;
   learningEngine: PreferenceLearningEngine | null;
   coffeeDiary: CoffeeDiary | null;
-  morningRitualManager: MorningRitualManager | null;
   privacyManager: PrivacyManager | null;
   smartDiary: SmartDiaryService | null;
   refreshInsights: (() => Promise<void>) | null;
@@ -130,7 +122,6 @@ const emptyPersonalizationState: PersonalizationContextValue = {
   userId: null,
   learningEngine: null,
   coffeeDiary: null,
-  morningRitualManager: null,
   privacyManager: null,
   smartDiary: null,
   refreshInsights: null,
@@ -403,7 +394,6 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   const { isDark, colors } = useTheme();
   const {
     ready: personalizationReady,
-    morningRitualManager,
     learningEngine,
     coffeeDiary,
     privacyManager,
@@ -553,7 +543,6 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
       learningEngine: null,
       coffeeDiary: null,
       privacyManager: null,
-      morningRitualManager: null,
       smartDiary: null,
       refreshInsights: null,
       profile: null,
@@ -669,128 +658,6 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
       cancelled = true;
     };
   }, [isAuthenticated, missingEnvVars, setPersonalization, userId]);
-
-  useEffect(() => {
-    if (!personalizationReady || !learningEngine || morningRitualManager) {
-      return;
-    }
-
-    PushNotification.createChannel(
-      {
-        channelId: MORNING_RITUAL_CHANNEL_ID,
-        channelName: 'Ranný rituál BrewMate',
-        channelDescription: 'Personalizované ranné pripomienky a odporúčania',
-        importance: 4,
-      },
-      () => {},
-    );
-
-    const notificationChannel: NotificationChannel = {
-      async scheduleNotification({ id, title, message, date, payload }) {
-        PushNotification.localNotificationSchedule({
-          channelId: MORNING_RITUAL_CHANNEL_ID,
-          id,
-          title,
-          message,
-          date,
-          allowWhileIdle: true,
-          userInfo: payload,
-        });
-      },
-      async cancelNotification(id: string) {
-        PushNotification.cancelLocalNotifications({ id });
-      },
-    };
-
-
-
-    const calendarProvider: CalendarProvider = {
-      async getNextWakeUpTime() {
-        const fallback = () => {
-          const next = new Date();
-          next.setHours(7, 0, 0, 0);
-          if (next.getTime() <= Date.now()) {
-            next.setDate(next.getDate() + 1);
-          }
-          return next;
-        };
-
-        try {
-          const stored = await AsyncStorage.getItem(WAKE_TIME_STORAGE_KEY);
-          if (!stored) {
-            return fallback();
-          }
-
-          try {
-            const parsed = JSON.parse(stored) as unknown;
-
-            if (typeof parsed === 'string') {
-              const candidate = new Date(parsed);
-              if (!Number.isNaN(candidate.getTime())) {
-                if (candidate.getTime() <= Date.now()) {
-                  candidate.setDate(candidate.getDate() + 1);
-                }
-                return candidate;
-              }
-            }
-
-            if (parsed && typeof parsed === 'object') {
-              const { hour, minute } = parsed as { hour?: number; minute?: number };
-              if (typeof hour === 'number') {
-                const candidate = new Date();
-                candidate.setHours(hour, typeof minute === 'number' ? minute : 0, 0, 0);
-                if (candidate.getTime() <= Date.now()) {
-                  candidate.setDate(candidate.getDate() + 1);
-                }
-                return candidate;
-              }
-            }
-          } catch (parseError) {
-            const candidate = new Date(stored);
-            if (!Number.isNaN(candidate.getTime())) {
-              if (candidate.getTime() <= Date.now()) {
-                candidate.setDate(candidate.getDate() + 1);
-              }
-              return candidate;
-            }
-            console.warn('App: failed to parse stored wake time', parseError);
-          }
-        } catch (error) {
-          console.warn('App: failed to read wake time preference', error);
-        }
-
-        return fallback();
-      },
-      async getWeekdayPlan(weekday: number) {
-        try {
-          const stored = await AsyncStorage.getItem(WEEKDAY_PLAN_STORAGE_KEY);
-          if (!stored) {
-            return undefined;
-          }
-          const parsed = JSON.parse(stored) as Record<string, unknown>;
-          const value = parsed[String(weekday)];
-          if (value === 'light' || value === 'balanced' || value === 'strong') {
-            return value;
-          }
-        } catch (error) {
-          console.warn('App: failed to read weekday ritual plan', error);
-        }
-        return undefined;
-      },
-    };
-
-    const manager = new MorningRitualManager({
-      notificationChannel,
-      calendarProvider,
-      learningEngine,
-      userId: userId ?? 'local-user',
-    });
-
-    setPersonalization((prev) => ({
-      ...prev,
-      morningRitualManager: manager,
-    }));
-  }, [personalizationReady, learningEngine, morningRitualManager, setPersonalization, userId]);
 
   useEffect(() => {
     if (!userId || !privacyManager) {
