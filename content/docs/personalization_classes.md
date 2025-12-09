@@ -8,12 +8,11 @@ Tento dokument sumarizuje TypeScript a JavaScript triedy, ktoré v aplikácii Br
 3. [Odporúčací stack](#odporucaci-stack)
 4. [Kvíz](#kviz)
 5. [Denník a insight služby](#dennik-a-insight-sluzby)
-6. [Ranný rituál](#ranny-ritual)
-7. [Súkromie](#sukromie)
-8. [Počasie a kontext](#pocasie-a-kontext)
-9. [Offline vrstva](#offline-vrstva)
-10. [Podporné služby](#podporne-sluzby)
-11. [Zdieľané singletons a prepojenia](#zdielane-singletons-a-prepojenia)
+6. [Súkromie](#sukromie)
+7. [Počasie a kontext](#pocasie-a-kontext)
+8. [Offline vrstva](#offline-vrstva)
+9. [Podporné služby](#podporne-sluzby)
+10. [Zdieľané singletons a prepojenia](#zdielane-singletons-a-prepojenia)
 
 ---
 
@@ -111,17 +110,6 @@ Tento dokument sumarizuje TypeScript a JavaScript triedy, ktoré v aplikácii Br
 
 ---
 
-## Ranný rituál
-
-### MorningRitualManager (`MorningRitualManager.ts`)
-- **Úloha:** Riadi ranné notifikácie – plánovanie, výber odporúčaní a zber spätnej väzby pre učenie a A/B testy.【F:src/services/MorningRitualManager.ts†L1-L389】
-- **Hlavné časti:**
-  - **Plánovanie:** získa čas budenia z kalendára, načíta posledné počasie z cache (alebo API), vyberie variant notifikácie a naplánuje push správu.【F:src/services/MorningRitualManager.ts†L132-L206】
-  - **Odporúčania:** stavia rozhodovací strom podľa dňa v týždni, cestovného režimu, nálady a počasia, následne volá `PreferenceLearningEngine` na scoring kariet aj notifikácie.【F:src/services/MorningRitualManager.ts†L221-L330】
-  - **Spätná väzba:** zaznamená interakciu používateľa, vytvorí denníkový záznam, generuje `LearningEvent` a zapisuje výsledky A/B testu do lokálnej cache.【F:src/services/MorningRitualManager.ts†L59-L130】【F:src/services/MorningRitualManager.ts†L208-L219】
-
----
-
 ## Súkromie
 
 ### PrivacyManager (`PrivacyManager.ts`)
@@ -135,7 +123,7 @@ Tento dokument sumarizuje TypeScript a JavaScript triedy, ktoré v aplikácii Br
 ## Počasie a kontext
 
 ### WeatherAwareProvider (`weather/WeatherAwareProvider.ts`)
-- **Úloha:** Implementuje `WeatherProvider`, volá Open-Meteo API, cache-uje odpoveď na 10 minút a vracia normalizovaný `WeatherContext` pre odporúčania a rituál.【F:src/services/weather/WeatherAwareProvider.ts†L1-L36】
+- **Úloha:** Implementuje `WeatherProvider`, volá Open-Meteo API, cache-uje odpoveď na 10 minút a vracia normalizovaný `WeatherContext` pre odporúčania.【F:src/services/weather/WeatherAwareProvider.ts†L1-L36】
 - **Detaily:** Rešpektuje absenciu lokácie (vracia `null`), loguje varovania namiesto pádu a ukladá raw odpoveď pre debug.
 
 ---
@@ -201,9 +189,6 @@ Tento dokument sumarizuje TypeScript a JavaScript triedy, ktoré v aplikácii Br
       ▼                   └─ informuje rozhodovanie v travel režime
 [CoffeeDiary] ⇄ [SmartDiaryService]
       │
-[MorningRitualManager] ──► plánuje notifikácie cez [NotificationService]
-      │ spätná väzba
-      ▼
 [OfflineSync] & [CoffeeOfflineManager] ⇄ [AIFallback/VisionService]
 ```
 
