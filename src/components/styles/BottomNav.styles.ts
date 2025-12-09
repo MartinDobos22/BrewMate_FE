@@ -2,20 +2,27 @@ import { StyleSheet } from 'react-native';
 import { Colors } from '../../theme/colors';
 import { getSafeAreaBottom } from '../utils/safeArea';
 
-const SAFE_BOTTOM = getSafeAreaBottom();
 const BASE_NAV_HEIGHT = 60;
 const CONTENT_GAP = 12;
 
+const createMetrics = (safeBottom: number) => {
+  const inset = Math.max(0, safeBottom);
+  const height = BASE_NAV_HEIGHT + inset;
+  const contentOffset = Math.max(height - CONTENT_GAP, 0);
+
+  return { inset, height, contentOffset };
+};
+
 // Estimated height of the bottom navigation bar used to offset scrollable
 // content so it isn't hidden behind the menu.
-export const BOTTOM_NAV_HEIGHT = BASE_NAV_HEIGHT + SAFE_BOTTOM;
+export const BOTTOM_NAV_HEIGHT = createMetrics(getSafeAreaBottom()).height;
 
 // Recommended padding value for scrollable screens so content sits just above
 // the bottom navigation while keeping a small visual gap.
-export const BOTTOM_NAV_CONTENT_OFFSET = Math.max(
-  BOTTOM_NAV_HEIGHT - CONTENT_GAP,
-  0,
-);
+export const BOTTOM_NAV_CONTENT_OFFSET = createMetrics(getSafeAreaBottom()).contentOffset;
+
+export const getBottomNavMetrics = (safeBottom: number = getSafeAreaBottom()) =>
+  createMetrics(safeBottom);
 
 /**
  * Creates styled definitions for the bottom navigation bar with safe-area awareness.
@@ -25,19 +32,22 @@ export const BOTTOM_NAV_CONTENT_OFFSET = Math.max(
  */
 export const bottomNavStyles = (
   colors: Colors,
-): ReturnType<typeof StyleSheet.create> =>
-  StyleSheet.create({
+  safeBottom: number = getSafeAreaBottom(),
+): ReturnType<typeof StyleSheet.create> => {
+  const metrics = createMetrics(safeBottom);
+
+  return StyleSheet.create({
     bottomNav: {
       position: 'absolute',
       bottom: 0,
       left: 0,
       right: 0,
-      height: BOTTOM_NAV_HEIGHT,
+      height: metrics.height,
       backgroundColor: colors.cardBackground,
       borderTopWidth: 1,
       borderTopColor: colors.border,
       paddingVertical: 12,
-      paddingBottom: SAFE_BOTTOM,
+      paddingBottom: metrics.inset,
       flexDirection: 'row',
       justifyContent: 'space-around',
       shadowColor: '#000',
@@ -66,3 +76,4 @@ export const bottomNavStyles = (
       color: colors.primary,
     },
   });
+};
