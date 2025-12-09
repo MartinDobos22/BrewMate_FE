@@ -29,4 +29,3 @@ export const API_HOST = process.env.EXPO_PUBLIC_API_HOST || (__DEV__ ? DEV_API_H
  * Express server.
  */
 export const API_URL = `${API_HOST}/api`;
-export { API_HOST };

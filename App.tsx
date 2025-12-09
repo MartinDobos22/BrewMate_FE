@@ -27,7 +27,6 @@ import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 import { scale } from './src/theme/responsive';
 import ResponsiveWrapper from './src/components/layout/ResponsiveWrapper';
 import RecipesScreen from './src/screens/RecipesScreen';
-import TasteProfileQuizScreen from './src/screens/TasteProfileQuizScreen';
 import BottomNav from './src/components/navigation/BottomNav';
 import { scheduleLowStockCheck } from './src/utils/reminders';
 import InventoryScreen from './src/screens/InventoryScreen';
