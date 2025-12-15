@@ -303,6 +303,12 @@ export class PreferenceLearningEngine {
         return base * 0.9;
       case 'disliked':
         return base * 1.3;
+      case 'ignored':
+        return base * 0.7;
+      case 'consumed':
+        return base * 1.15;
+      case 'scanned':
+        return base * 0.85;
       default:
         return base;
     }

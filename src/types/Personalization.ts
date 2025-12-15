@@ -89,7 +89,15 @@ export interface BrewHistoryEntry {
   updatedAt: string;
 }
 
-export type LearningEventType = 'liked' | 'disliked' | 'favorited' | 'repeated' | 'shared';
+export type LearningEventType =
+  | 'liked'
+  | 'disliked'
+  | 'favorited'
+  | 'repeated'
+  | 'shared'
+  | 'ignored'
+  | 'consumed'
+  | 'scanned';
 
 export interface LearningEvent {
   id: string;

@@ -432,6 +432,40 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       color: palette.textTertiary,
       fontWeight: '600',
     },
+    compatibilityBanner: {
+      marginTop: 14,
+      borderRadius: 18,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderWidth: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      columnGap: 10,
+    },
+    compatibilitySafe: {
+      backgroundColor: 'rgba(127,176,105,0.15)',
+      borderColor: 'rgba(127,176,105,0.45)',
+    },
+    compatibilityRisky: {
+      backgroundColor: 'rgba(255,189,107,0.18)',
+      borderColor: 'rgba(255,189,107,0.45)',
+    },
+    compatibilityNogo: {
+      backgroundColor: 'rgba(255,107,107,0.16)',
+      borderColor: 'rgba(255,107,107,0.45)',
+    },
+    compatibilityBadgeText: {
+      fontSize: 13,
+      fontWeight: '800',
+      color: palette.textPrimary,
+      letterSpacing: 0.6,
+    },
+    compatibilityCopy: {
+      flex: 1,
+      fontSize: 13,
+      color: palette.textSecondary,
+      lineHeight: 18,
+    },
     verdictCard: {
       backgroundColor: palette.surface,
       borderRadius: 24,
@@ -462,6 +496,10 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       backgroundColor: 'rgba(127,176,105,0.16)',
       borderColor: 'rgba(127,176,105,0.35)',
     },
+    verdictBadgeRisky: {
+      backgroundColor: 'rgba(255,189,107,0.2)',
+      borderColor: 'rgba(255,189,107,0.45)',
+    },
     verdictBadgeNo: {
       backgroundColor: 'rgba(255,107,107,0.14)',
       borderColor: 'rgba(255,107,107,0.35)',
@@ -473,6 +511,9 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
     },
     verdictBadgeTextYes: {
       color: palette.success,
+    },
+    verdictBadgeTextRisky: {
+      color: palette.warning,
     },
     verdictBadgeTextNo: {
       color: palette.coral,
@@ -1771,6 +1812,105 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       shadowOpacity: 0.18,
       shadowRadius: 28,
       elevation: 10,
+    },
+    feedbackOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.35)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 24,
+    },
+    feedbackCard: {
+      width: '100%',
+      maxWidth: 420,
+      backgroundColor: palette.surface,
+      borderRadius: 22,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: palette.borderLight,
+      ...baseShadow,
+    },
+    feedbackTitle: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: palette.textPrimary,
+      marginBottom: 6,
+    },
+    feedbackSubtitle: {
+      fontSize: 13,
+      color: palette.textSecondary,
+      marginBottom: 12,
+      lineHeight: 18,
+    },
+    feedbackOptionsRow: {
+      flexDirection: 'row',
+      columnGap: 10,
+      marginBottom: 10,
+    },
+    feedbackOption: {
+      flex: 1,
+      borderRadius: 14,
+      paddingVertical: 12,
+      paddingHorizontal: 10,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: palette.borderLight,
+      backgroundColor: palette.surfaceElevated,
+    },
+    feedbackOptionDanger: {
+      borderColor: 'rgba(255,107,107,0.45)',
+      backgroundColor: 'rgba(255,107,107,0.12)',
+    },
+    feedbackEmoji: {
+      fontSize: 22,
+      marginBottom: 6,
+    },
+    feedbackOptionText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: palette.textPrimary,
+      textAlign: 'center',
+    },
+    feedbackFollowup: {
+      marginTop: 6,
+      backgroundColor: palette.surfaceElevated,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: palette.borderLight,
+      padding: 10,
+      rowGap: 8,
+    },
+    feedbackFollowupTitle: {
+      fontSize: 12,
+      color: palette.textSecondary,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
+    },
+    feedbackFollowupOption: {
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderRadius: 12,
+      backgroundColor: '#FFFFFF',
+      borderWidth: 1,
+      borderColor: palette.borderLight,
+    },
+    feedbackFollowupOptionActive: {
+      borderColor: palette.primary,
+      backgroundColor: 'rgba(255,153,102,0.12)',
+    },
+    feedbackFollowupText: {
+      fontSize: 13,
+      color: palette.textPrimary,
+    },
+    feedbackSkip: {
+      marginTop: 12,
+      alignItems: 'center',
+    },
+    feedbackSkipText: {
+      color: palette.textSecondary,
+      fontSize: 13,
+      textDecorationLine: 'underline',
     },
   });
 };
