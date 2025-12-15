@@ -5,7 +5,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Switch,
   ScrollView,
   Alert,
   Modal,
@@ -20,49 +19,6 @@ import { API_URL } from '../../services/api';
 
 const OPENAI_API_KEY = CONFIG.OPENAI_API_KEY;
 
-const SWEETNESS_OPTIONS = ['none', 'little', 'medium', 'sweet'] as const;
-type SweetnessOption = typeof SWEETNESS_OPTIONS[number];
-
-const normalizeSweetness = (value: unknown): SweetnessOption => {
-  if (typeof value === 'string') {
-    const normalized = value.trim().toLowerCase();
-    if (['true', 'false', '1', '0', 'yes', 'no', 'áno', 'ano', 'nie'].includes(normalized)) {
-      return ['true', '1', 'yes', 'áno', 'ano'].includes(normalized) ? 'little' : 'none';
-    }
-    if (SWEETNESS_OPTIONS.includes(normalized as SweetnessOption)) {
-      return normalized as SweetnessOption;
-    }
-  }
-
-  if (typeof value === 'boolean') {
-    return value ? 'little' : 'none';
-  }
-
-  return 'little';
-};
-
-const parseBoolean = (value: unknown): boolean => {
-  if (typeof value === 'boolean') {
-    return value;
-  }
-
-  if (typeof value === 'string') {
-    const normalized = value.trim().toLowerCase();
-    if (['true', '1', 'yes', 'áno', 'ano'].includes(normalized)) {
-      return true;
-    }
-    if (['false', '0', 'no', 'nie'].includes(normalized)) {
-      return false;
-    }
-  }
-
-  if (typeof value === 'number') {
-    return value !== 0;
-  }
-
-  return Boolean(value);
-};
-
 /**
  * Wrapper pre fetch s logovaním komunikácie FE ↔ BE.
  */
@@ -73,13 +29,27 @@ const loggedFetch = async (url: string, options: RequestInit) => {
   return res;
 };
 
+type TasteVector = {
+  acidity: number;
+  bitterness: number;
+  sweetness: number;
+  body: number;
+  intensity: number;
+  experimentalism: number;
+};
+
+interface QuestionOption {
+  value: string;
+  label: string;
+  description?: string;
+  weights: Partial<TasteVector>;
+}
+
 interface Question {
   id: string;
   title: string;
   subtitle: string;
-  type: 'single' | 'multiple' | 'switch';
-  options?: { value: string; label: string; emoji?: string; description?: string }[];
-  section: 'basic' | 'intermediate' | 'expert';
+  options: QuestionOption[];
 }
 
 /**
@@ -93,253 +63,132 @@ const CoffeePreferenceForm = ({ onBack }: { onBack: () => void }) => {
   const styles = createStyles(isDarkMode);
   const [showRecommendation, setShowRecommendation] = useState(false);
   const [recommendation, setRecommendation] = useState('');
-  // Odpovede používateľa
-  const [experienceLevel, setExperienceLevel] = useState<'beginner' | 'intermediate' | 'expert'>('beginner');
-  const [intensity, setIntensity] = useState<'light' | 'medium' | 'strong'>('medium');
-  const [sweetness, setSweetness] = useState<SweetnessOption>('little');
-  const [milk, setMilk] = useState(false);
-  const [temperature, setTemperature] = useState<'hot' | 'iced' | 'both'>('hot');
-  const [roast, setRoast] = useState<'light' | 'medium' | 'dark'>('medium');
-  const [preferredDrinks, setPreferredDrinks] = useState<string[]>([]);
-  const [brewMethod, setBrewMethod] = useState<string[]>([]);
-  const [grind, setGrind] = useState<'coarse' | 'medium' | 'fine'>('medium');
-  const [flavorNotes, setFlavorNotes] = useState<string[]>([]);
-  const [acidity, setAcidity] = useState<'low' | 'medium' | 'high'>('medium');
-  const [body, setBody] = useState<'light' | 'medium' | 'full'>('medium');
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+
+  const SAFE_MODE_VECTOR: TasteVector = {
+    acidity: 0.45,
+    bitterness: 0.55,
+    sweetness: 0.5,
+    body: 0.55,
+    intensity: 0.5,
+    experimentalism: 0.35,
+  };
 
   // Všetky otázky
   const allQuestions: Question[] = [
     {
-      id: 'experience',
-      title: '👋 Aká je tvoja skúsenosť s kávou?',
-      subtitle: 'Pomôže nám to prispôsobiť otázky',
-      type: 'single',
-      section: 'basic',
+      id: 'dealbreaker',
+      title: '1️⃣ Čo ti na káve vadí najviac?',
+      subtitle: 'Vždy len jedna odpoveď – žiadne „záleží“',
       options: [
-        {
-          value: 'beginner',
-          label: 'Začiatočník',
-          emoji: '🌱',
-          description: 'Pijem kávu občas, nerozumiem pojmom'
-        },
-        {
-          value: 'intermediate',
-          label: 'Milovník kávy',
-          emoji: '☕',
-          description: 'Mám obľúbené druhy, poznám rozdiely'
-        },
-        {
-          value: 'expert',
-          label: 'Kávový nadšenec',
-          emoji: '🎯',
-          description: 'Rozumiem detailom, mám vlastný mlynček'
-        },
+        { value: 'A', label: 'A) kyslá chuť', weights: { acidity: 0.1, sweetness: 0.55 } },
+        { value: 'B', label: 'B) silná horkosť', weights: { bitterness: 0.15, sweetness: 0.5 } },
+        { value: 'C', label: 'C) vodová / prázdna chuť', weights: { body: 0.75, intensity: 0.55 } },
+        { value: 'D', label: 'D) príliš silný nápoj', weights: { intensity: 0.2, bitterness: 0.3 } },
       ],
     },
     {
-      id: 'intensity',
-      title: '💪 Ako silnú kávu preferuješ?',
-      subtitle: 'Ovplyvňuje to chuť a obsah kofeínu',
-      type: 'single',
-      section: 'basic',
+      id: 'go_to_drink',
+      title: '2️⃣ Ktorý nápoj si vyberáš najčastejšie?',
+      subtitle: 'Vzťah k intenzite a mlieku',
       options: [
-        {
-          value: 'light',
-          label: 'Jemnú',
-          emoji: '🌤️',
-          description: 'Ľahká, osviežujúca'
-        },
-        {
-          value: 'medium',
-          label: 'Strednú',
-          emoji: '⚖️',
-          description: 'Vyvážená chuť'
-        },
-        {
-          value: 'strong',
-          label: 'Silnú',
-          emoji: '💥',
-          description: 'Výrazná, intenzívna'
-        },
+        { value: 'A', label: 'A) espresso / ristretto', weights: { intensity: 0.8, bitterness: 0.65, body: 0.6, sweetness: 0.35 } },
+        { value: 'B', label: 'B) cappuccino / flat white', weights: { intensity: 0.45, body: 0.65, sweetness: 0.55 } },
+        { value: 'C', label: 'C) filtrovaná káva', weights: { acidity: 0.55, body: 0.35, intensity: 0.4, bitterness: 0.4 } },
+        { value: 'D', label: 'D) sladké alebo ľadové kávové nápoje', weights: { sweetness: 0.75, intensity: 0.35, bitterness: 0.25 } },
       ],
     },
     {
-      id: 'sweetness',
-      title: '🍯 Máš rád sladkú kávu?',
-      subtitle: 'Niektoré kávy majú prirodzenú sladkosť',
-      type: 'single',
-      section: 'basic',
+      id: 'chocolate',
+      title: '3️⃣ Ak by si mal vybrať jednu čokoládu:',
+      subtitle: 'Horkosť × sladkosť',
       options: [
-        { value: 'none', label: 'Bez sladkosti', emoji: '🚫' },
-        { value: 'little', label: 'Mierne sladká', emoji: '🤏' },
-        { value: 'medium', label: 'Stredne sladká', emoji: '👌' },
-        { value: 'sweet', label: 'Sladká', emoji: '🬸' },
+        { value: 'A', label: 'A) horká (70–85 %)', weights: { bitterness: 0.8, sweetness: 0.2 } },
+        { value: 'B', label: 'B) mliečna', weights: { bitterness: 0.45, sweetness: 0.55 } },
+        { value: 'C', label: 'C) biela', weights: { sweetness: 0.8, bitterness: 0.1 } },
+        { value: 'D', label: 'D) čokoládu veľmi nemusím', weights: { sweetness: 0.4, bitterness: 0.35 } },
       ],
     },
     {
-      id: 'milk',
-      title: '🥛 Piješ kávu s mliekom?',
-      subtitle: 'Mlieko zjemňuje chuť a znižuje horkosť',
-      type: 'switch',
-      section: 'basic',
-    },
-    {
-      id: 'temperature',
-      title: '🌡️ Aká teplota kávy ti vyhovuje?',
-      subtitle: 'Teplota ovplyvňuje chuť',
-      type: 'single',
-      section: 'basic',
+      id: 'fruit_notes',
+      title: '4️⃣ Ovocné tóny v káve sú pre teba:',
+      subtitle: 'Acidita',
       options: [
-        { value: 'hot', label: 'Horúca', emoji: '🔥' },
-        { value: 'iced', label: 'Ľadová', emoji: '🧊' },
-        { value: 'both', label: 'Oboje', emoji: '🔄' },
+        { value: 'A', label: 'A) rušivé', weights: { acidity: 0.15 } },
+        { value: 'B', label: 'B) v poriadku, ak sú jemné', weights: { acidity: 0.35 } },
+        { value: 'C', label: 'C) zaujímavé', weights: { acidity: 0.6, experimentalism: 0.55 } },
+        { value: 'D', label: 'D) presne to, čo hľadám', weights: { acidity: 0.85, experimentalism: 0.8 } },
       ],
     },
     {
-      id: 'roast',
-      title: '🔥 Aké praženie preferuješ?',
-      subtitle: 'Ovplyvňuje chuť a arómu',
-      type: 'single',
-      section: 'intermediate',
+      id: 'mouthfeel',
+      title: '5️⃣ Ako má káva pôsobiť v ústach?',
+      subtitle: 'Telo (mouthfeel)',
       options: [
-        {
-          value: 'light',
-          label: 'Svetlé',
-          emoji: '🌅',
-          description: 'Ovocné, kyslé tóny'
-        },
-        {
-          value: 'medium',
-          label: 'Stredné',
-          emoji: '🌤️',
-          description: 'Vyvážené, karamelové'
-        },
-        {
-          value: 'dark',
-          label: 'Tmavé',
-          emoji: '🌑',
-          description: 'Čokoládové, dymové'
-        },
+        { value: 'A', label: 'A) ľahká a svieža', weights: { body: 0.25 } },
+        { value: 'B', label: 'B) vyvážená', weights: { body: 0.5 } },
+        { value: 'C', label: 'C) plná a krémová', weights: { body: 0.7, sweetness: 0.55 } },
+        { value: 'D', label: 'D) hustá a výrazná', weights: { body: 0.9, intensity: 0.65 } },
       ],
     },
     {
-      id: 'drinks',
-      title: '☕ Aké kávové nápoje máš rád?',
-      subtitle: 'Môžeš vybrať viacero',
-      type: 'multiple',
-      section: 'intermediate',
+      id: 'reason',
+      title: '6️⃣ Prečo piješ kávu?',
+      subtitle: 'Intenzita × rituál',
       options: [
-        { value: 'espresso', label: 'Espresso', emoji: '🔵' },
-        { value: 'americano', label: 'Americano', emoji: '💧' },
-        { value: 'cappuccino', label: 'Cappuccino', emoji: '☁️' },
-        { value: 'latte', label: 'Latte', emoji: '🥛' },
-        { value: 'flatwhite', label: 'Flat White', emoji: '⚪' },
-        { value: 'filtercoffee', label: 'Prekvapkávaná', emoji: '📌' },
+        { value: 'A', label: 'A) chcem energiu', weights: { intensity: 0.85, bitterness: 0.55 } },
+        { value: 'B', label: 'B) chcem si ju vychutnať', weights: { intensity: 0.5, sweetness: 0.55 } },
+        { value: 'C', label: 'C) chcem ju piť dlhšie', weights: { intensity: 0.35, sweetness: 0.5, body: 0.55 } },
+        { value: 'D', label: 'D) je to zvyk', weights: { intensity: 0.45 } },
       ],
     },
     {
-      id: 'brewing',
-      title: '⚙️ Ako pripravuješ kávu?',
-      subtitle: 'Aké metódy používaš alebo by si chcel skúsiť',
-      type: 'multiple',
-      section: 'intermediate',
+      id: 'closest_flavor',
+      title: '7️⃣ Ktorá chuť je ti najbližšia?',
+      subtitle: 'Chuťové jadro',
       options: [
-        { value: 'espresso_machine', label: 'Kávovar', emoji: '🔧' },
-        { value: 'french_press', label: 'French Press', emoji: '🍺' },
-        { value: 'moka', label: 'Moka kanvička', emoji: '🫖' },
-        { value: 'v60', label: 'V60/Chemex', emoji: '📻' },
-        { value: 'aeropress', label: 'Aeropress', emoji: '💉' },
-        { value: 'instant', label: 'Instantná', emoji: '⚡' },
+        { value: 'A', label: 'A) oriešky', weights: { body: 0.6, sweetness: 0.55, bitterness: 0.45 } },
+        { value: 'B', label: 'B) čokoláda', weights: { bitterness: 0.6, body: 0.55, sweetness: 0.45 } },
+        { value: 'C', label: 'C) karamel', weights: { sweetness: 0.7, body: 0.6 } },
+        { value: 'D', label: 'D) ovocie', weights: { acidity: 0.7, sweetness: 0.45, experimentalism: 0.55 } },
       ],
     },
     {
-      id: 'grind',
-      title: '⚙️ Aká hrúbka mletia ti vyhovuje?',
-      subtitle: 'Pre tvoju preferovanú metódu',
-      type: 'single',
-      section: 'expert',
+      id: 'experimentation',
+      title: '8️⃣ Ako reaguješ na nové chute?',
+      subtitle: 'Experimentálnosť',
       options: [
-        {
-          value: 'coarse',
-          label: 'Hrubé',
-          emoji: '🪨',
-          description: 'Pre French Press'
-        },
-        {
-          value: 'medium',
-          label: 'Stredné',
-          emoji: '🎯',
-          description: 'Pre prekvapkávanú'
-        },
-        {
-          value: 'fine',
-          label: 'Jemné',
-          emoji: '✨',
-          description: 'Pre espresso'
-        },
+        { value: 'A', label: 'A) nemám ich rád', weights: { experimentalism: 0.1 } },
+        { value: 'B', label: 'B) skúsim, ak sú podobné tomu, čo poznám', weights: { experimentalism: 0.35 } },
+        { value: 'C', label: 'C) rád experimentujem', weights: { experimentalism: 0.7 } },
+        { value: 'D', label: 'D) cielene hľadám niečo netradičné', weights: { experimentalism: 0.9, acidity: 0.65 } },
       ],
     },
     {
-      id: 'flavors',
-      title: '🎨 Aké chutové profily vyhľadávaš?',
-      subtitle: 'Pomôže nám odporučiť správne odrody',
-      type: 'multiple',
-      section: 'expert',
+      id: 'frequency',
+      title: '9️⃣ Ako často piješ kávu?',
+      subtitle: 'Tolerancia intenzity',
       options: [
-        { value: 'chocolate', label: 'Čokoládové', emoji: '🫘' },
-        { value: 'fruity', label: 'Ovocné', emoji: '🍓' },
-        { value: 'nutty', label: 'Oriešky', emoji: '🥜' },
-        { value: 'floral', label: 'Kvetinové', emoji: '🌸' },
-        { value: 'caramel', label: 'Karamelové', emoji: '🍮' },
-        { value: 'spicy', label: 'Korenisté', emoji: '🌶️' },
-        { value: 'wine', label: 'Vínové', emoji: '🍷' },
-        { value: 'citrus', label: 'Citrusové', emoji: '🍋' },
+        { value: 'A', label: 'A) príležitostne', weights: { intensity: 0.35 } },
+        { value: 'B', label: 'B) 1–2 denne', weights: { intensity: 0.45 } },
+        { value: 'C', label: 'C) 3–4 denne', weights: { intensity: 0.65 } },
+        { value: 'D', label: 'D) viac ako 4 denne', weights: { intensity: 0.85, bitterness: 0.55 } },
       ],
     },
     {
-      id: 'acidity',
-      title: '🍋 Aká kyslosť ti vyhovuje?',
-      subtitle: 'Prirodzená vlastnosť kávy',
-      type: 'single',
-      section: 'expert',
+      id: 'control',
+      title: '🔟 KONTROLNÁ OTÁZKA (povinná)',
+      subtitle: 'Vyber kávu bez rozmýšľania – validácia konzistencie',
       options: [
-        { value: 'low', label: 'Nízka', description: 'Hladká, jemná' },
-        { value: 'medium', label: 'Stredná', description: 'Vyvážená' },
-        { value: 'high', label: 'Vysoká', description: 'Jasná, ovocná' },
-      ],
-    },
-    {
-      id: 'body',
-      title: '💫 Aké telo kávy preferuješ?',
-      subtitle: 'Pocit v ústach',
-      type: 'single',
-      section: 'expert',
-      options: [
-        { value: 'light', label: 'Ľahké', description: 'Ako čaj' },
-        { value: 'medium', label: 'Stredné', description: 'Vyvážené' },
-        { value: 'full', label: 'Plné', description: 'Krémové, husté' },
+        { value: 'A', label: 'A) tmavé espresso', weights: { intensity: 0.8, bitterness: 0.7, body: 0.6 } },
+        { value: 'B', label: 'B) cappuccino', weights: { intensity: 0.45, sweetness: 0.55, body: 0.6 } },
+        { value: 'C', label: 'C) filtrovaná káva', weights: { acidity: 0.55, body: 0.35, intensity: 0.45 } },
+        { value: 'D', label: 'D) sladká ľadová káva', weights: { sweetness: 0.75, intensity: 0.35, bitterness: 0.25 } },
       ],
     },
   ];
 
-  /**
-   * Vráti zoznam otázok zodpovedajúcich aktuálnej úrovni skúseností.
-   */
-  const getVisibleQuestions = () => {
-    let visibleQuestions = allQuestions.filter(q => q.section === 'basic');
-
-    if (experienceLevel === 'intermediate' || experienceLevel === 'expert') {
-      visibleQuestions = [...visibleQuestions, ...allQuestions.filter(q => q.section === 'intermediate')];
-    }
-
-    if (experienceLevel === 'expert') {
-      visibleQuestions = [...visibleQuestions, ...allQuestions.filter(q => q.section === 'expert')];
-    }
-
-    return visibleQuestions;
-  };
-
-  const visibleQuestions = getVisibleQuestions();
+  const visibleQuestions = allQuestions;
 
   useEffect(() => {
     loadPreferences();
@@ -359,22 +208,8 @@ const CoffeePreferenceForm = ({ onBack }: { onBack: () => void }) => {
       if (res.ok) {
         const data = await res.json();
         console.log('📥 [BE] Loaded preferences:', data);
-        if (data.coffee_preferences) {
-          const prefs = data.coffee_preferences;
-          setIntensity(prefs.intensity || 'medium');
-          setSweetness(normalizeSweetness(prefs.sweetness ?? prefs.sugar));
-          setMilk(parseBoolean(prefs.milk));
-          setTemperature(prefs.temperature || 'hot');
-          setRoast(prefs.roast || 'medium');
-          setPreferredDrinks(prefs.preferred_drinks || []);
-          setBrewMethod(prefs.brew_method || []);
-          setGrind(prefs.grind || 'medium');
-          setFlavorNotes(prefs.flavor_notes || []);
-          setAcidity(prefs.acidity || 'medium');
-          setBody(prefs.body || 'medium');
-        }
-        if (data.experience_level) {
-          setExperienceLevel(data.experience_level);
+        if (data.coffee_preferences?.quiz_answers) {
+          setAnswers(data.coffee_preferences.quiz_answers);
         }
       }
     } catch (err) {
@@ -385,104 +220,89 @@ const CoffeePreferenceForm = ({ onBack }: { onBack: () => void }) => {
   /**
    * Spracuje odpoveď používateľa pre danú otázku.
    */
-  const handleAnswer = (questionId: string, value: any) => {
-    switch (questionId) {
-      case 'experience':
-        setExperienceLevel(value);
-        break;
-      case 'intensity':
-        setIntensity(value);
-        break;
-      case 'sweetness':
-        setSweetness(value);
-        break;
-      case 'milk':
-        setMilk(value);
-        break;
-      case 'temperature':
-        setTemperature(value);
-        break;
-      case 'roast':
-        setRoast(value);
-        break;
-      case 'drinks':
-        toggleArrayValue(value, preferredDrinks, setPreferredDrinks);
-        break;
-      case 'brewing':
-        toggleArrayValue(value, brewMethod, setBrewMethod);
-        break;
-      case 'grind':
-        setGrind(value);
-        break;
-      case 'flavors':
-        toggleArrayValue(value, flavorNotes, setFlavorNotes);
-        break;
-      case 'acidity':
-        setAcidity(value);
-        break;
-      case 'body':
-        setBody(value);
-        break;
-    }
-  };
-
-  /**
-   * Pridá alebo odstráni hodnotu z poľa možností.
-   */
-  const toggleArrayValue = (value: string, array: string[], setter: (v: string[]) => void) => {
-    if (array.includes(value)) {
-      setter(array.filter(v => v !== value));
-    } else {
-      setter([...array, value]);
-    }
+  const handleAnswer = (questionId: string, value: string) => {
+    setAnswers(prev => ({ ...prev, [questionId]: value }));
   };
 
   /**
    * Získa aktuálnu hodnotu pre danú otázku.
    */
-  const getValue = (questionId: string) => {
-    switch (questionId) {
-      case 'experience': return experienceLevel;
-      case 'intensity': return intensity;
-      case 'sweetness': return sweetness;
-      case 'milk': return milk;
-      case 'temperature': return temperature;
-      case 'roast': return roast;
-      case 'drinks': return preferredDrinks;
-      case 'brewing': return brewMethod;
-      case 'grind': return grind;
-      case 'flavors': return flavorNotes;
-      case 'acidity': return acidity;
-      case 'body': return body;
-      default: return null;
-    }
+  const getValue = (questionId: string) => answers[questionId];
+
+  const TASTE_DIMENSIONS: Array<keyof TasteVector> = ['acidity', 'bitterness', 'sweetness', 'body', 'intensity', 'experimentalism'];
+
+  const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
+
+  const calculateTasteVector = (quizAnswers: Record<string, string>): TasteVector => {
+    const totals: Record<keyof TasteVector, { sum: number; count: number }> = {
+      acidity: { sum: 0, count: 0 },
+      bitterness: { sum: 0, count: 0 },
+      sweetness: { sum: 0, count: 0 },
+      body: { sum: 0, count: 0 },
+      intensity: { sum: 0, count: 0 },
+      experimentalism: { sum: 0, count: 0 },
+    };
+
+    allQuestions.forEach(question => {
+      const choice = quizAnswers[question.id];
+      if (!choice) return;
+      const option = question.options.find(opt => opt.value === choice);
+      if (!option) return;
+
+      Object.entries(option.weights).forEach(([dimension, value]) => {
+        totals[dimension as keyof TasteVector].sum += value as number;
+        totals[dimension as keyof TasteVector].count += 1;
+      });
+    });
+
+    const result: TasteVector = { ...SAFE_MODE_VECTOR };
+
+    TASTE_DIMENSIONS.forEach(dimension => {
+      const { sum, count } = totals[dimension];
+      if (count > 0) {
+        result[dimension] = clamp01((SAFE_MODE_VECTOR[dimension] + sum) / (count + 1));
+      } else {
+        result[dimension] = clamp01(result[dimension]);
+      }
+    });
+
+    return result;
   };
 
   /**
-   * Zavolá OpenAI a vygeneruje odporúčanie podľa preferencií.
+   * Zavolá OpenAI a vygeneruje odporúčanie podľa nového chuťového vektora.
    */
-  const generateAIRecommendation = async (prefs: any, level: string): Promise<string> => {
+  const generateAIRecommendation = async (vector: TasteVector, quizAnswers: Record<string, string>): Promise<string> => {
     if (!OPENAI_API_KEY) {
       console.error('Chýba OpenAI API key. Odporúčanie sa nevygeneruje.');
       return 'Nastala chyba pri generovaní odporúčania.';
     }
 
     const prompt = `
-Ako profesionálny barista vytvor personalizované odporúčanie pre používateľa.
-Úroveň skúseností: ${level}
+Si barista, ktorý pracuje so SAFE MODE východiskom (čokoláda / oriešky / stredné telo, utlmené extrémy).
 
-Preferencie používateľa:
-${JSON.stringify(prefs, null, 2)}
+Chuťový vektor (0-1):
+acidita: ${vector.acidity}
+horkosť: ${vector.bitterness}
+sladkosť: ${vector.sweetness}
+telo: ${vector.body}
+intenzita: ${vector.intensity}
+experimentálnosť: ${vector.experimentalism}
 
-Vytvor odporúčanie ktoré obsahuje:
-1. 🎯 Perfektná káva pre teba
-2. ☕ Odporúčané odrody a značky
-3. 🔥 Ideálne praženie a príprava
-4. 💡 Tip pre lepší zážitok
-5. ⚠️ Čomu sa vyhnúť
+Odpovede používateľa (nútený výber, žiadne "záleží"):
+${JSON.stringify(quizAnswers, null, 2)}
 
-Píš jednoducho, zrozumiteľne a priateľsky v slovenčine.
-    `;
+Pravidlá:
+- Nikdy nesľubuj, že káva "bude chutiť". Používaj formulácie ako "vysoká zhoda" alebo "pravdepodobne nesadne".
+- Prvá predikcia zostáva v SAFE MODE, ak sú dáta slabé, zníž extrémy, preferuj čokoláda/oriešky/stredné telo.
+- Buď stručný a konkrétny v slovenčine.
+
+Vráť:
+1) 🎯 Chuťový profil (slovný popis)
+2) ☕ Štýl kávy a príprava, ktorá má vysokú zhodu
+3) 💡 Tip na doladenie doma
+4) ⚠️ Čo môže pravdepodobne nesadnúť
+`;
 
     try {
       console.log('📤 [OpenAI] prefs prompt:', prompt);
@@ -518,34 +338,26 @@ Píš jednoducho, zrozumiteľne a priateľsky v slovenčine.
    * Uloží vyplnené preferencie a zobrazí odporúčanie.
    */
   const handleSubmit = async () => {
+    const unanswered = allQuestions.filter(question => !answers[question.id]);
+    if (unanswered.length) {
+      Alert.alert('Chýbajú odpovede', `Vyber odpoveď pre otázku: ${unanswered[0].title}`);
+      return;
+    }
+
     setIsLoading(true);
+    const tasteVector = calculateTasteVector(answers);
 
-    const preferences: any = {
-      intensity,
-      sweetness,
-      sugar: sweetness !== 'none',
-      milk: parseBoolean(milk),
-      temperature,
+    const preferences = {
+      quiz_version: 'taste-2024-10',
+      quiz_answers: answers,
+      taste_vector: tasteVector,
     };
-
-    if (experienceLevel !== 'beginner') {
-      preferences.roast = roast;
-      preferences.preferred_drinks = preferredDrinks;
-      preferences.brew_method = brewMethod;
-    }
-
-    if (experienceLevel === 'expert') {
-      preferences.grind = grind;
-      preferences.flavor_notes = flavorNotes;
-      preferences.acidity = acidity;
-      preferences.body = body;
-    }
 
     try {
       const user = auth().currentUser;
       const token = await user?.getIdToken();
 
-      const aiRecommendation = await generateAIRecommendation(preferences, experienceLevel);
+      const aiRecommendation = await generateAIRecommendation(tasteVector, answers);
 
       const res = await loggedFetch(`${API_URL}/profile`, {
         method: 'PUT',
@@ -555,7 +367,7 @@ Píš jednoducho, zrozumiteľne a priateľsky v slovenčine.
         },
         body: JSON.stringify({
           coffee_preferences: preferences,
-          experience_level: experienceLevel,
+          taste_vector: tasteVector,
           ai_recommendation: aiRecommendation,
         }),
       });
@@ -578,66 +390,46 @@ Píš jednoducho, zrozumiteľne a priateľsky v slovenčine.
     const currentValue = getValue(question.id);
 
     return (
-        <View key={question.id} style={styles.questionContainer}>
-          <Text style={styles.questionTitle}>{question.title}</Text>
-          <Text style={styles.questionSubtitle}>{question.subtitle}</Text>
+      <View key={question.id} style={styles.questionContainer}>
+        <Text style={styles.questionTitle}>{question.title}</Text>
+        <Text style={styles.questionSubtitle}>{question.subtitle}</Text>
 
-          <View style={styles.optionsContainer}>
-            {question.type === 'switch' ? (
-                <View style={styles.switchContainer}>
-                  <Text style={styles.switchLabel}>Nie</Text>
-                  <Switch
-                      value={currentValue as boolean}
-                      onValueChange={(value) => handleAnswer(question.id, value)}
-                      trackColor={{ false: '#767577', true: colors.primary }}
-                      thumbColor={currentValue ? colors.primaryLight : '#f4f3f4'}
-                  />
-                  <Text style={styles.switchLabel}>Áno</Text>
+        <View style={styles.optionsContainer}>
+          {question.options?.map(option => {
+            const isSelected = currentValue === option.value;
+
+            return (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.optionCard,
+                  isSelected && styles.optionCardSelected
+                ]}
+                onPress={() => handleAnswer(question.id, option.value)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.optionTextContainer}>
+                  <Text style={[
+                    styles.optionLabel,
+                    isSelected && styles.optionLabelSelected
+                  ]}>
+                    {option.label}
+                  </Text>
+                  {option.description && (
+                    <Text style={[
+                      styles.optionDescription,
+                      isSelected && styles.optionDescriptionSelected
+                    ]}>
+                      {option.description}
+                    </Text>
+                  )}
                 </View>
-            ) : (
-                question.options?.map((option) => {
-                  const isSelected = question.type === 'multiple'
-                      ? (currentValue as string[])?.includes(option.value)
-                      : currentValue === option.value;
-
-                  return (
-                      <TouchableOpacity
-                          key={option.value}
-                          style={[
-                            styles.optionCard,
-                            isSelected && styles.optionCardSelected
-                          ]}
-                          onPress={() => handleAnswer(question.id, option.value)}
-                          activeOpacity={0.7}
-                      >
-                        {option.emoji && (
-                            <Text style={styles.optionEmoji}>{option.emoji}</Text>
-                        )}
-                        <View style={styles.optionTextContainer}>
-                          <Text style={[
-                            styles.optionLabel,
-                            isSelected && styles.optionLabelSelected
-                          ]}>
-                            {option.label}
-                          </Text>
-                          {option.description && (
-                              <Text style={[
-                                styles.optionDescription,
-                                isSelected && styles.optionDescriptionSelected
-                              ]}>
-                                {option.description}
-                              </Text>
-                          )}
-                        </View>
-                        {isSelected && (
-                            <Text style={styles.checkmark}>✓</Text>
-                        )}
-                      </TouchableOpacity>
-                  );
-                })
-            )}
-          </View>
+                {isSelected && <Text style={styles.checkmark}>✓</Text>}
+              </TouchableOpacity>
+            );
+          })}
         </View>
+      </View>
     );
   };
 
@@ -648,12 +440,18 @@ Píš jednoducho, zrozumiteľne a priateľsky v slovenčine.
           <TouchableOpacity onPress={onBack} style={styles.closeButton}>
             <Text style={styles.closeText}>✕</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Kávový profil</Text>
+          <Text style={styles.headerTitle}>Chuťový dotazník</Text>
           <View style={styles.placeholder} />
         </View>
 
         {/* Content */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.introCard}>
+          <Text style={styles.introTitle}>Pravidlá</Text>
+          <Text style={styles.introText}>• Vždy 1 odpoveď, žiadne „záleží“.</Text>
+          <Text style={styles.introText}>• Nútený výber, odpovede sa mapujú na váhy 0–1.</Text>
+          <Text style={styles.introText}>• Prvá predikcia je SAFE MODE: utlmené extrémy, čokoláda/oriešky/stredné telo.</Text>
+        </View>
         {visibleQuestions.map(question => renderQuestion(question))}
 
         {/* Submit Button */}
@@ -753,6 +551,26 @@ const createStyles = (isDarkMode: boolean) => {
       flex: 1,
       paddingHorizontal: 20,
     },
+    introCard: {
+      backgroundColor: colors.cardBackground,
+      borderRadius: 12,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginTop: 16,
+      marginBottom: 8,
+    },
+    introTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 6,
+    },
+    introText: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      marginBottom: 4,
+    },
     questionContainer: {
       paddingVertical: 25,
       borderBottomWidth: 1,
@@ -786,10 +604,6 @@ const createStyles = (isDarkMode: boolean) => {
       borderColor: colors.primary,
       backgroundColor: isDarkMode ? 'rgba(139,69,19,0.2)' : 'rgba(139,69,19,0.1)',
     },
-    optionEmoji: {
-      fontSize: 24,
-      marginRight: 12,
-    },
     optionTextContainer: {
       flex: 1,
     },
@@ -813,17 +627,6 @@ const createStyles = (isDarkMode: boolean) => {
       fontSize: 18,
       color: colors.primary,
       fontWeight: 'bold',
-    },
-    switchContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 20,
-      paddingVertical: 15,
-    },
-    switchLabel: {
-      fontSize: 16,
-      color: colors.text,
     },
     submitButton: {
       backgroundColor: colors.primary,
