@@ -41,6 +41,17 @@ import {
   toggleFavorite,
   isCoffeeRelatedText,
 } from './services';
+import {
+  computeSignalWeight,
+  CoffeeSignalRecord,
+  loadCoffeeSignal,
+  QuickFeedback,
+  recordConsumptionSignal,
+  recordFavoriteSignal,
+  recordIgnoreSignal,
+  recordQuickFeedbackSignal,
+  recordScanSignal,
+} from '../../services/userSignals';
 import type { OCRHistory, StructuredCoffeeMetadata, ConfirmStructuredPayload } from './services';
 import { BrewContext } from '../../types/Personalization';
 import { usePersonalization } from '../../hooks/usePersonalization';
@@ -436,8 +447,26 @@ const clampTasteValue = (value: number): number => {
   return Math.min(10, Math.max(0, value));
 };
 
+type RoastCategory = 'light' | 'medium' | 'dark' | 'unknown';
+type CompatibilityBucket = 'SAFE' | 'RISKY' | 'NO-GO';
+
+const normalizeRoastLevel = (value?: string | null): RoastCategory => {
+  if (!value) return 'unknown';
+  const normalized = value.toLowerCase();
+  if (normalized.includes('light') || normalized.includes('svetl')) {
+    return 'light';
+  }
+  if (normalized.includes('medium') || normalized.includes('stred')) {
+    return 'medium';
+  }
+  if (normalized.includes('dark') || normalized.includes('tmav')) {
+    return 'dark';
+  }
+  return 'unknown';
+};
+
 const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onHistoryPress }) => {
-  const { coffeeDiary: personalizationDiary, refreshInsights } = usePersonalization();
+  const { coffeeDiary: personalizationDiary, refreshInsights, profile } = usePersonalization();
   const diary = personalizationDiary ;
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [editedText, setEditedText] = useState<string>('');
@@ -468,6 +497,11 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
   const [confirmPayload, setConfirmPayload] = useState<StructuredConfirmPayload | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
+  const [implicitSignals, setImplicitSignals] = useState<CoffeeSignalRecord | null>(null);
+  const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
+  const [pendingFeedbackReason, setPendingFeedbackReason] = useState<string | null>(null);
+  const [pendingFeedbackChoice, setPendingFeedbackChoice] = useState<QuickFeedback | null>(null);
+  const [pendingCoffee, setPendingCoffee] = useState<{ id: string; name: string } | null>(null);
 
   const camera = useRef<Camera>(null);
   const device = useCameraDevice('back');
@@ -705,6 +739,15 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
     showToast('Skús prosím naskenovať etiketu kávy.');
   };
 
+  const resolveCoffeeIdentity = (result: ScanResult | null, nameHint: string): { id: string; name: string } | null => {
+    if (!result && !nameHint) {
+      return null;
+    }
+    const id = result?.scanId ?? `coffee-${nameHint.toLowerCase().replace(/\s+/g, '-') || Date.now()}`;
+    const name = nameHint || extractCoffeeName(result?.corrected || result?.original || '');
+    return { id, name };
+  };
+
   const buildMetadataFromHistory = useCallback((item: OCRHistory): StructuredCoffeeMetadata | null => {
     const roaster = normalizeStructuredStringValue(item.brand);
     const origin = normalizeStructuredStringValue(item.origin);
@@ -904,6 +947,20 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
           imageUrl: `data:image/jpeg;base64,${base64image}`,
         });
 
+        const identity = resolveCoffeeIdentity(normalizedResult as ScanResult, name);
+        if (identity) {
+          try {
+            const updatedSignals = await recordScanSignal(identity.id, identity.name);
+            setImplicitSignals(updatedSignals);
+            setPendingCoffee(identity);
+            setPendingFeedbackChoice(null);
+            setPendingFeedbackReason(null);
+            setFeedbackModalVisible(true);
+          } catch (signalError) {
+            console.warn('CoffeeTasteScanner: failed to record scan signal', signalError);
+          }
+        }
+
         // Načítaj aktualizovanú históriu
         await loadHistory();
 
@@ -1035,6 +1092,20 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
           name,
           imageUrl: `data:image/jpeg;base64,${base64image}`,
         });
+
+        const identity = resolveCoffeeIdentity(offlineResult as ScanResult, name);
+        if (identity) {
+          try {
+            const updatedSignals = await recordScanSignal(identity.id, identity.name);
+            setImplicitSignals(updatedSignals);
+            setPendingCoffee(identity);
+            setPendingFeedbackChoice(null);
+            setPendingFeedbackReason(null);
+            setFeedbackModalVisible(true);
+          } catch (signalError) {
+            console.warn('CoffeeTasteScanner: failed to record offline scan signal', signalError);
+          }
+        }
       } catch (recentError) {
         console.error('Failed to store offline recent scan', recentError);
       }
@@ -1242,6 +1313,13 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
       const learningEvent = await preferenceEngine.recordBrew(recordId, rating, context);
       await preferenceEngine.saveEvents(learningEvent);
 
+      const identity = resolveCoffeeIdentity(scanResult, recipeLabel);
+      if (identity) {
+        recordConsumptionSignal(identity.id, identity.name)
+          .then(setImplicitSignals)
+          .catch(error => console.warn('CoffeeTasteScanner: failed to record consumption', error));
+      }
+
       await loadHistory();
 
       Alert.alert('Hodnotenie uložené', `Ohodnotil si kávu na ${rating}/5 ⭐`);
@@ -1281,6 +1359,13 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
         console.warn('CoffeeTasteScanner: failed to refresh history after favorite toggle', historyError);
       }
 
+      const identity = resolveCoffeeIdentity(scanResult, coffeeName);
+      if (identity) {
+        recordFavoriteSignal(identity.id, identity.name, nextValue)
+          .then(setImplicitSignals)
+          .catch(error => console.warn('CoffeeTasteScanner: failed to record favorite signal', error));
+      }
+
       if (isConnected === false) {
         showToast('Zmena obľúbených uložená offline.');
       }
@@ -1288,6 +1373,42 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
       console.error('Error toggling favorite:', error);
       setIsFavorite(!nextValue);
       Alert.alert('Chyba', 'Nepodarilo sa aktualizovať obľúbenú kávu');
+    }
+  };
+
+  const persistQuickFeedback = async (feedback: QuickFeedback, reason?: string) => {
+    if (!pendingCoffee && !scanResult) {
+      return;
+    }
+    const identity = pendingCoffee ?? resolveCoffeeIdentity(scanResult, coffeeName);
+    if (!identity) {
+      return;
+    }
+    try {
+      const updatedSignals = await recordQuickFeedbackSignal(identity.id, identity.name, feedback, reason);
+      setImplicitSignals(updatedSignals);
+    } catch (error) {
+      console.warn('CoffeeTasteScanner: failed to persist quick feedback', error);
+    } finally {
+      setFeedbackModalVisible(false);
+      setPendingFeedbackChoice(null);
+      setPendingFeedbackReason(null);
+    }
+  };
+
+  const handleFeedbackSelect = (feedback: QuickFeedback) => {
+    setPendingFeedbackChoice(feedback);
+    if (feedback === 'bad') {
+      setPendingFeedbackReason(null);
+      return;
+    }
+    void persistQuickFeedback(feedback);
+  };
+
+  const handleFeedbackReasonSelect = (reason: string) => {
+    setPendingFeedbackReason(reason);
+    if (pendingFeedbackChoice === 'bad') {
+      void persistQuickFeedback('bad', reason);
     }
   };
 
@@ -1445,6 +1566,14 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
    * Vymaže aktuálny výsledok skenovania.
    */
   const clearAll = () => {
+    if (scanResult && userRating === 0) {
+      const identity = resolveCoffeeIdentity(scanResult, coffeeName);
+      if (identity) {
+        recordIgnoreSignal(identity.id, identity.name)
+          .then(setImplicitSignals)
+          .catch(error => console.warn('CoffeeTasteScanner: failed to record ignore', error));
+      }
+    }
     applyScanResult(null);
     setEditedText('');
     setUserRating(0);
@@ -1472,11 +1601,13 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
   };
 
   const showBackButton = currentView !== 'home';
-  const matchLabel = scanResult
-    ? scanResult.isRecommended === false
-      ? 'Mimo preferencií'
-      : 'Sedí k profilu'
-    : undefined;
+  const matchLabel = compatibility
+    ? `${compatibility.score}%`
+    : scanResult
+      ? scanResult.isRecommended === false
+        ? 'Mimo preferencií'
+        : 'Sedí k profilu'
+      : undefined;
   const refreshControl =
     currentView === 'home'
       ? (
@@ -1513,6 +1644,74 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
     }
     return scanResult.corrected?.length ? 'Rozpoznaná etiketa' : 'Pripravené na úpravy';
   }, [recognizedText, scanResult]);
+
+  useEffect(() => {
+    if (!scanResult) {
+      setImplicitSignals(null);
+      return;
+    }
+    const identity = resolveCoffeeIdentity(scanResult, coffeeName);
+    if (!identity) {
+      return;
+    }
+    loadCoffeeSignal(identity.id, identity.name)
+      .then(setImplicitSignals)
+      .catch(error => console.warn('CoffeeTasteScanner: failed to load implicit signals', error));
+  }, [coffeeName, scanResult]);
+
+  const roastCategory = useMemo(() => {
+    const roastValue = structuredFields.roastLevel.value || recognizedText;
+    return normalizeRoastLevel(roastValue);
+  }, [recognizedText, structuredFields.roastLevel.value]);
+
+  const compatibility = useMemo(() => {
+    if (!scanResult) {
+      return null;
+    }
+
+    const baseMatch =
+      typeof scanResult.matchPercentage === 'number'
+        ? scanResult.matchPercentage
+        : scanResult.isRecommended === false
+          ? 55
+          : 78;
+
+    let adjusted = baseMatch;
+
+    if (implicitSignals) {
+      adjusted += computeSignalWeight(implicitSignals);
+    }
+
+    if (roastCategory === 'light' && profile?.preferences?.acidity !== undefined) {
+      if (profile.preferences.acidity <= 3) {
+        adjusted -= 12;
+      } else if (profile.preferences.acidity <= 4) {
+        adjusted -= 8;
+      }
+    }
+
+    if (roastCategory === 'dark' && profile?.preferences?.bitterness !== undefined) {
+      if (profile.preferences.bitterness >= 6) {
+        adjusted += 6;
+      }
+    }
+
+    const clamped = Math.max(0, Math.min(100, Math.round(adjusted)));
+    const bucket: CompatibilityBucket = clamped < 70 ? 'NO-GO' : clamped < 82 ? 'RISKY' : 'SAFE';
+
+    const descriptionMap: Record<CompatibilityBucket, string> = {
+      SAFE: 'Veľmi dobrá zhoda s tvojím profilom',
+      RISKY: 'Chuťovo blízke, ale výraznejšie – nemusí sadnúť každému',
+      'NO-GO': 'Nízka zhoda – vysoké riziko, že ti nesadne',
+    } as const;
+
+    return {
+      score: clamped,
+      bucket,
+      badge: `${bucket} · ${clamped}%`,
+      description: descriptionMap[bucket],
+    } as const;
+  }, [implicitSignals, profile?.preferences?.acidity, profile?.preferences?.bitterness, roastCategory, scanResult]);
 
   // AI recommendation sentences coming from the scan response; reused for the insight section.
   const recommendationSentences = useMemo(() => {
@@ -1620,8 +1819,11 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
     return ['N/A'];
   }, [combinedLowerText, structuredFields.flavorNotes.value]);
 
-  const verdictLabel = scanResult?.isRecommended === false ? 'Skôr NIE' : 'Skôr ÁNO';
+  const verdictLabel = compatibility?.bucket ?? (scanResult?.isRecommended === false ? 'NO-GO' : 'SAFE');
   const verdictExplanation = useMemo(() => {
+    if (compatibility) {
+      return compatibility.description;
+    }
     if (!scanResult) {
       return 'Najprv naskenuj etiketu kávy a ukážeme ti, ako ti sadne.';
     }
@@ -1643,7 +1845,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
       return reasonSentences[0];
     }
     return insightText;
-  }, [cautionReasons, insightText, positiveReasons, reasonSentences, scanResult]);
+  }, [cautionReasons, compatibility, insightText, positiveReasons, reasonSentences, scanResult]);
 
   const ratingDisplay =
     userRating > 0
@@ -1658,6 +1860,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
   const metrics = useMemo(
     () => [
       { icon: '🎯', value: matchLabel ?? '—', label: 'Zhoda' },
+      { icon: '🛡️', value: compatibility?.bucket ?? '—', label: 'Režim' },
       { icon: '⭐', value: ratingDisplay, label: 'Tvoje skóre' },
       {
         icon: '📡',
@@ -1665,7 +1868,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
         label: 'Zdroj',
       },
     ],
-    [matchLabel, ratingDisplay, scanResult?.source]
+    [compatibility?.bucket, matchLabel, ratingDisplay, scanResult?.source]
   );
 
   // Camera View
@@ -1878,6 +2081,83 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
         </View>
       </Modal>
 
+      <Modal
+        visible={feedbackModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setFeedbackModalVisible(false)}
+      >
+        <View style={styles.feedbackOverlay}>
+          <View style={styles.feedbackCard}>
+            <Text style={styles.feedbackTitle}>Ako ti táto káva chutila?</Text>
+            <Text style={styles.feedbackSubtitle}>Rýchly checkpoint po skene – žiadne dlhé dotazníky.</Text>
+            <View style={styles.feedbackOptionsRow}>
+              <TouchableOpacity
+                style={styles.feedbackOption}
+                onPress={() => handleFeedbackSelect('perfect')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.feedbackEmoji}>👍</Text>
+                <Text style={styles.feedbackOptionText}>Sadla perfektne</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.feedbackOption}
+                onPress={() => handleFeedbackSelect('ok')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.feedbackEmoji}>🙂</Text>
+                <Text style={styles.feedbackOptionText}>Bola OK</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.feedbackOptionsRow}>
+              <TouchableOpacity
+                style={styles.feedbackOption}
+                onPress={() => handleFeedbackSelect('neutral')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.feedbackEmoji}>😐</Text>
+                <Text style={styles.feedbackOptionText}>Neutrál</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.feedbackOption, styles.feedbackOptionDanger]}
+                onPress={() => handleFeedbackSelect('bad')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.feedbackEmoji}>👎</Text>
+                <Text style={styles.feedbackOptionText}>Nesadla</Text>
+              </TouchableOpacity>
+            </View>
+
+            {pendingFeedbackChoice === 'bad' ? (
+              <View style={styles.feedbackFollowup}>
+                <Text style={styles.feedbackFollowupTitle}>Čo nesedelo?</Text>
+                {['príliš kyslá', 'príliš horká', 'slabá / vodová', 'príliš silná'].map(reason => (
+                  <TouchableOpacity
+                    key={reason}
+                    style={[
+                      styles.feedbackFollowupOption,
+                      pendingFeedbackReason === reason && styles.feedbackFollowupOptionActive,
+                    ]}
+                    onPress={() => handleFeedbackReasonSelect(reason)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.feedbackFollowupText}>{reason}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : null}
+
+            <TouchableOpacity
+              style={styles.feedbackSkip}
+              onPress={() => setFeedbackModalVisible(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.feedbackSkipText}>Preskočiť teraz</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -2024,29 +2304,48 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
                             </View>
                           ))}
                         </View>
-                      </LinearGradient>
-
-                      <View style={styles.verdictCard}>
-                        <View style={styles.sectionHeaderRow}>
-                          <Text style={styles.sectionTitle}>Verdikt</Text>
+                        {compatibility ? (
                           <View
                             style={[
-                              styles.verdictBadge,
-                              scanResult.isRecommended === false
-                                ? styles.verdictBadgeNo
-                                : styles.verdictBadgeYes,
+                              styles.compatibilityBanner,
+                              compatibility.bucket === 'SAFE'
+                                ? styles.compatibilitySafe
+                                : compatibility.bucket === 'RISKY'
+                                  ? styles.compatibilityRisky
+                                  : styles.compatibilityNogo,
                             ]}
                           >
-                            <Text
+                            <Text style={styles.compatibilityBadgeText}>{compatibility.badge}</Text>
+                            <Text style={styles.compatibilityCopy}>{compatibility.description}</Text>
+                          </View>
+                        ) : null}
+                      </LinearGradient>
+
+                        <View style={styles.verdictCard}>
+                          <View style={styles.sectionHeaderRow}>
+                            <Text style={styles.sectionTitle}>Verdikt</Text>
+                            <View
                               style={[
-                                styles.verdictBadgeText,
-                                scanResult.isRecommended === false
-                                  ? styles.verdictBadgeTextNo
-                                  : styles.verdictBadgeTextYes,
+                                styles.verdictBadge,
+                              compatibility?.bucket === 'NO-GO'
+                                ? styles.verdictBadgeNo
+                                : compatibility?.bucket === 'RISKY'
+                                  ? styles.verdictBadgeRisky
+                                  : styles.verdictBadgeYes,
                               ]}
                             >
-                              {verdictLabel}
-                            </Text>
+                              <Text
+                                style={[
+                                  styles.verdictBadgeText,
+                                compatibility?.bucket === 'NO-GO'
+                                  ? styles.verdictBadgeTextNo
+                                  : compatibility?.bucket === 'RISKY'
+                                    ? styles.verdictBadgeTextRisky
+                                    : styles.verdictBadgeTextYes,
+                                ]}
+                              >
+                                {verdictLabel}
+                              </Text>
                           </View>
                         </View>
                         <Text style={styles.verdictDescription}>{verdictExplanation}</Text>
