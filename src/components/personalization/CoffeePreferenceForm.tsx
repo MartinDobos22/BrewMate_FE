@@ -269,68 +269,191 @@ const CoffeePreferenceForm = ({ onBack }: { onBack: () => void }) => {
     return result;
   };
 
+  const getAnswerLabel = (questionId: string, quizAnswers: Record<string, string>) => {
+    const question = allQuestions.find(q => q.id === questionId);
+    const selectedValue = quizAnswers[questionId];
+    const option = question?.options.find(opt => opt.value === selectedValue);
+    return option?.label || 'neodpovedané';
+  };
+
+  const callOpenAI = async (
+    systemPrompt: string,
+    userPrompt: string,
+    temperature = 0.2,
+  ): Promise<string | undefined> => {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature,
+      }),
+    });
+
+    const data = await response.json();
+    console.log('📥 [OpenAI] prefs response:', data);
+    return data?.choices?.[0]?.message?.content?.trim();
+  };
+
   /**
    * Zavolá OpenAI a vygeneruje odporúčanie podľa nového chuťového vektora.
    */
-  const generateAIRecommendation = async (vector: TasteVector, quizAnswers: Record<string, string>): Promise<string> => {
+  const generateAIRecommendation = async (
+    fallbackVector: TasteVector,
+    quizAnswers: Record<string, string>,
+  ): Promise<{ tasteVector: TasteVector; consistencyScore: number; profileText: string }> => {
     if (!OPENAI_API_KEY) {
       console.error('Chýba OpenAI API key. Odporúčanie sa nevygeneruje.');
-      return 'Nastala chyba pri generovaní odporúčania.';
+      return {
+        tasteVector: fallbackVector,
+        consistencyScore: 1,
+        profileText: 'Nastala chyba pri generovaní odporúčania.',
+      };
     }
 
-    const prompt = `
-Si barista, ktorý pracuje so SAFE MODE východiskom (čokoláda / oriešky / stredné telo, utlmené extrémy).
-
-Chuťový vektor (0-1):
-acidita: ${vector.acidity}
-horkosť: ${vector.bitterness}
-sladkosť: ${vector.sweetness}
-telo: ${vector.body}
-intenzita: ${vector.intensity}
-experimentálnosť: ${vector.experimentalism}
-
-Odpovede používateľa (nútený výber, žiadne "záleží"):
-${JSON.stringify(quizAnswers, null, 2)}
-
-Pravidlá:
-- Nikdy nesľubuj, že káva "bude chutiť". Používaj formulácie ako "vysoká zhoda" alebo "pravdepodobne nesadne".
-- Prvá predikcia zostáva v SAFE MODE, ak sú dáta slabé, zníž extrémy, preferuj čokoláda/oriešky/stredné telo.
-- Buď stručný a konkrétny v slovenčine.
-
-Vráť:
-1) 🎯 Chuťový profil (slovný popis)
-2) ☕ Štýl kávy a príprava, ktorá má vysokú zhodu
-3) 💡 Tip na doladenie doma
-4) ⚠️ Čo môže pravdepodobne nesadnúť
-`;
-
     try {
-      console.log('📤 [OpenAI] prefs prompt:', prompt);
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [
-            {
-              role: 'system',
-              content: 'Si skúsený barista a coffee expert. Vytváraš personalizované odporúčania pre milovníkov kávy.'
-            },
-            { role: 'user', content: prompt },
-          ],
-          temperature: 0.4,
-        }),
+      const orderedQuestions = [
+        'dealbreaker',
+        'go_to_drink',
+        'chocolate',
+        'fruit_notes',
+        'mouthfeel',
+        'reason',
+        'closest_flavor',
+        'experimentation',
+        'frequency',
+        'control',
+      ];
+
+      const answerMap: Record<string, string> = {};
+      orderedQuestions.forEach((id, idx) => {
+        answerMap[`Q${idx + 1}`] = getAnswerLabel(id, quizAnswers);
       });
 
-      const data = await response.json();
-      console.log('📥 [OpenAI] prefs response:', data);
-      return data?.choices?.[0]?.message?.content?.trim() || 'Nepodarilo sa získať odporúčanie.';
+      const parsingSystemPrompt = `You are a deterministic coffee preference evaluation engine.
+You do not give opinions.
+You do not explain your reasoning.
+You only transform structured input into structured output.
+All outputs must strictly follow the defined JSON schema.`;
+
+      const parsingUserPrompt = `Based on the user's questionnaire answers, generate a normalized coffee taste preference vector.
+
+Questionnaire answers:
+Q1: ${answerMap.Q1}
+Q2: ${answerMap.Q2}
+Q3: ${answerMap.Q3}
+Q4: ${answerMap.Q4}
+Q5: ${answerMap.Q5}
+Q6: ${answerMap.Q6}
+Q7: ${answerMap.Q7}
+Q8: ${answerMap.Q8}
+Q9: ${answerMap.Q9}
+Q10: ${answerMap.Q10}
+
+Rules:
+- Output values must be floats between 0.0 and 1.0
+- Higher value = stronger preference or tolerance
+- Do NOT invent preferences
+- If an answer indicates dislike, reduce the related dimension
+
+Taste dimensions:
+- acidity
+- bitterness
+- sweetness
+- body
+- intensity
+- experimentalism
+
+Output only valid JSON.`;
+
+      console.log('📤 [OpenAI] prefs parsing prompt:', parsingUserPrompt);
+      const parsingResponse = await callOpenAI(parsingSystemPrompt, parsingUserPrompt, 0.1);
+
+      let tasteVector = fallbackVector;
+      try {
+        tasteVector = { ...fallbackVector, ...(parsingResponse ? JSON.parse(parsingResponse) : {}) };
+      } catch (err) {
+        console.warn('⚠️  Parsing taste vector failed, using fallback.', err);
+      }
+
+      const validationSystemPrompt = `You are a consistency validation engine.
+Your task is to detect contradictions between declared preferences and behavioral choices.
+You do not judge the user.
+You output confidence modifiers only.`;
+
+      const validationUserPrompt = `Analyze the following questionnaire answers and detect inconsistencies.
+
+Questionnaire answers:
+Q1: ${answerMap.Q1}
+Q2: ${answerMap.Q2}
+Q4: ${answerMap.Q4}
+Q7: ${answerMap.Q7}
+Q10: ${answerMap.Q10}
+
+Rules:
+- Identify logical conflicts (e.g. low acidity tolerance + filter preference)
+- Do not assume user intent
+- Output a confidence modifier between 0.6 and 1.0
+- 1.0 = fully consistent
+- Below 0.75 means high inconsistency
+
+Output only valid JSON.`;
+
+      console.log('📤 [OpenAI] prefs validation prompt:', validationUserPrompt);
+      const validationResponse = await callOpenAI(validationSystemPrompt, validationUserPrompt, 0.1);
+
+      let consistencyScore = 1;
+      try {
+        const parsed = validationResponse ? JSON.parse(validationResponse) : null;
+        consistencyScore = parsed?.consistency_score ?? 1;
+      } catch (err) {
+        console.warn('⚠️  Parsing consistency failed, defaulting to 1.', err);
+      }
+
+      const finalSystemPrompt = `You are a professional coffee profiling assistant.
+You describe taste preferences clearly and conservatively.
+You avoid absolute claims.
+You never guarantee liking or disliking.`;
+
+      const finalUserPrompt = `Create a concise coffee taste profile based on the following data.
+
+Taste vector:
+${JSON.stringify(tasteVector, null, 2)}
+
+Consistency score:
+${consistencyScore}
+
+Rules:
+- Describe preferences in neutral, professional language
+- Mention limitations or uncertainty if consistency score < 0.85
+- Do NOT recommend specific coffees
+- Output in Slovak language
+- Max 3 sentences
+
+Output plain text only.`;
+
+      console.log('📤 [OpenAI] prefs final prompt:', finalUserPrompt);
+      const finalResponse = await callOpenAI(finalSystemPrompt, finalUserPrompt, 0.2);
+
+      return {
+        tasteVector,
+        consistencyScore,
+        profileText: finalResponse || 'Nepodarilo sa získať odporúčanie.',
+      };
     } catch (err) {
       console.error('AI error:', err);
-      return 'Nastala chyba pri generovaní odporúčania.';
+      return {
+        tasteVector: fallbackVector,
+        consistencyScore: 1,
+        profileText: 'Nastala chyba pri generovaní odporúčania.',
+      };
     }
   };
 
@@ -345,19 +468,23 @@ Vráť:
     }
 
     setIsLoading(true);
-    const tasteVector = calculateTasteVector(answers);
+    const fallbackTasteVector = calculateTasteVector(answers);
+
+    const { tasteVector, consistencyScore, profileText } = await generateAIRecommendation(
+      fallbackTasteVector,
+      answers,
+    );
 
     const preferences = {
       quiz_version: 'taste-2024-10',
       quiz_answers: answers,
       taste_vector: tasteVector,
+      consistency_score: consistencyScore,
     };
 
     try {
       const user = auth().currentUser;
       const token = await user?.getIdToken();
-
-      const aiRecommendation = await generateAIRecommendation(tasteVector, answers);
 
       const res = await loggedFetch(`${API_URL}/profile`, {
         method: 'PUT',
@@ -368,13 +495,13 @@ Vráť:
         body: JSON.stringify({
           coffee_preferences: preferences,
           taste_vector: tasteVector,
-          ai_recommendation: aiRecommendation,
+          ai_recommendation: profileText,
         }),
       });
       const resData = await res.json().catch(() => null);
       console.log('📥 [BE] Save response:', resData);
       if (!res.ok) throw new Error('Failed to save preferences');
-      setRecommendation(aiRecommendation);
+      setRecommendation(profileText);
       setShowRecommendation(true);
     } catch (err) {
       Alert.alert('Chyba', 'Nepodarilo sa uložiť preferencie');
