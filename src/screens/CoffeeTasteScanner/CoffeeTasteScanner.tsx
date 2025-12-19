@@ -51,6 +51,7 @@ import {
   recordIgnoreSignal,
   recordQuickFeedbackSignal,
   recordScanSignal,
+  SignalUpdateResult,
 } from '../../services/userSignals';
 import type { OCRHistory, StructuredCoffeeMetadata, ConfirmStructuredPayload } from './services';
 import { BrewContext } from '../../types/Personalization';
@@ -466,7 +467,8 @@ const normalizeRoastLevel = (value?: string | null): RoastCategory => {
 };
 
 const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onHistoryPress }) => {
-  const { coffeeDiary: personalizationDiary, refreshInsights, profile } = usePersonalization();
+  const { coffeeDiary: personalizationDiary, refreshInsights, profile, userId } =
+    usePersonalization();
   const diary = personalizationDiary ;
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [editedText, setEditedText] = useState<string>('');
@@ -502,6 +504,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
   const [pendingFeedbackReason, setPendingFeedbackReason] = useState<string | null>(null);
   const [pendingFeedbackChoice, setPendingFeedbackChoice] = useState<QuickFeedback | null>(null);
   const [pendingCoffee, setPendingCoffee] = useState<{ id: string; name: string } | null>(null);
+  const [signalWarning, setSignalWarning] = useState<string | null>(null);
 
   const camera = useRef<Camera>(null);
   const device = useCameraDevice('back');
@@ -515,6 +518,26 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
       locations: [0, 0.28, 0.7],
     }),
     [],
+  );
+
+  const handleSignalOutcome = useCallback(
+    (result: SignalUpdateResult, context: string) => {
+      setImplicitSignals(result.record);
+      if (!result.synced) {
+        const message =
+          result.error && result.error.length > 0
+            ? `Signály čakajú na synchronizáciu (${result.error})`
+            : 'Signály čakajú na synchronizáciu. Uložené offline.';
+        if (!signalWarning) {
+          showToast('Signály uložené offline, synchronizujeme neskôr.');
+        }
+        setSignalWarning(message);
+        console.warn(`CoffeeTasteScanner: ${context} signal queued`, result.error);
+      } else if (signalWarning) {
+        setSignalWarning(null);
+      }
+    },
+    [signalWarning],
   );
 
   const nonCoffeeConfidence = useMemo(() => {
@@ -950,8 +973,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
         const identity = resolveCoffeeIdentity(normalizedResult as ScanResult, name);
         if (identity) {
           try {
-            const updatedSignals = await recordScanSignal(identity.id, identity.name);
-            setImplicitSignals(updatedSignals);
+            const signalResult = await recordScanSignal(userId ?? null, identity.id, identity.name);
+            handleSignalOutcome(signalResult, 'scan');
             setPendingCoffee(identity);
             setPendingFeedbackChoice(null);
             setPendingFeedbackReason(null);
@@ -1096,8 +1119,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
         const identity = resolveCoffeeIdentity(offlineResult as ScanResult, name);
         if (identity) {
           try {
-            const updatedSignals = await recordScanSignal(identity.id, identity.name);
-            setImplicitSignals(updatedSignals);
+            const signalResult = await recordScanSignal(userId ?? null, identity.id, identity.name);
+            handleSignalOutcome(signalResult, 'offline-scan');
             setPendingCoffee(identity);
             setPendingFeedbackChoice(null);
             setPendingFeedbackReason(null);
@@ -1315,9 +1338,16 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
 
       const identity = resolveCoffeeIdentity(scanResult, recipeLabel);
       if (identity) {
-        recordConsumptionSignal(identity.id, identity.name)
-          .then(setImplicitSignals)
-          .catch(error => console.warn('CoffeeTasteScanner: failed to record consumption', error));
+        try {
+          const signalResult = await recordConsumptionSignal(
+            userId ?? null,
+            identity.id,
+            identity.name,
+          );
+          handleSignalOutcome(signalResult, 'consumption');
+        } catch (error) {
+          console.warn('CoffeeTasteScanner: failed to record consumption', error);
+        }
       }
 
       await loadHistory();
@@ -1361,9 +1391,17 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
 
       const identity = resolveCoffeeIdentity(scanResult, coffeeName);
       if (identity) {
-        recordFavoriteSignal(identity.id, identity.name, nextValue)
-          .then(setImplicitSignals)
-          .catch(error => console.warn('CoffeeTasteScanner: failed to record favorite signal', error));
+        try {
+          const signalResult = await recordFavoriteSignal(
+            userId ?? null,
+            identity.id,
+            identity.name,
+            nextValue,
+          );
+          handleSignalOutcome(signalResult, 'favorite');
+        } catch (error) {
+          console.warn('CoffeeTasteScanner: failed to record favorite signal', error);
+        }
       }
 
       if (isConnected === false) {
@@ -1385,8 +1423,14 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
       return;
     }
     try {
-      const updatedSignals = await recordQuickFeedbackSignal(identity.id, identity.name, feedback, reason);
-      setImplicitSignals(updatedSignals);
+      const signalResult = await recordQuickFeedbackSignal(
+        userId ?? null,
+        identity.id,
+        identity.name,
+        feedback,
+        reason,
+      );
+      handleSignalOutcome(signalResult, 'feedback');
     } catch (error) {
       console.warn('CoffeeTasteScanner: failed to persist quick feedback', error);
     } finally {
@@ -1569,8 +1613,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
     if (scanResult && userRating === 0) {
       const identity = resolveCoffeeIdentity(scanResult, coffeeName);
       if (identity) {
-        recordIgnoreSignal(identity.id, identity.name)
-          .then(setImplicitSignals)
+        recordIgnoreSignal(userId ?? null, identity.id, identity.name)
+          .then(result => handleSignalOutcome(result, 'ignore'))
           .catch(error => console.warn('CoffeeTasteScanner: failed to record ignore', error));
       }
     }
@@ -1654,10 +1698,15 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
     if (!identity) {
       return;
     }
-    loadCoffeeSignal(identity.id, identity.name)
-      .then(setImplicitSignals)
+    loadCoffeeSignal(userId ?? null, identity.id, identity.name)
+      .then(record => {
+        setImplicitSignals(record);
+        if (signalWarning && record?.lastSyncedAt) {
+          setSignalWarning(null);
+        }
+      })
       .catch(error => console.warn('CoffeeTasteScanner: failed to load implicit signals', error));
-  }, [coffeeName, scanResult]);
+  }, [coffeeName, scanResult, signalWarning, userId]);
 
   const roastCategory = useMemo(() => {
     const roastValue = structuredFields.roastLevel.value || recognizedText;
@@ -2286,6 +2335,15 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
                 {currentView === 'scan' && scanResult && (
                   <>
                     <View style={styles.scanResultContainer}>
+                      {signalWarning ? (
+                        <View style={styles.signalWarningBanner}>
+                          <Text style={styles.signalWarningIcon}>⚠️</Text>
+                          <View style={styles.signalWarningCopy}>
+                            <Text style={styles.signalWarningTitle}>Synchronizácia čaká</Text>
+                            <Text style={styles.signalWarningText}>{signalWarning}</Text>
+                          </View>
+                        </View>
+                      ) : null}
                       <LinearGradient colors={['#FFFFFF', '#F5E9E0']} style={styles.scanHeroCard}>
                         <View style={styles.scanHeroBadge}>
                           <Text style={styles.scanHeroBadgeIcon}>✓</Text>

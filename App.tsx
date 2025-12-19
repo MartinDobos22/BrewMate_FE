@@ -59,6 +59,7 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL } from './src/config/env';
 import type { BrewLog } from './src/types/BrewLog';
 import type { BrewDevice, Recipe } from './src/types/Recipe';
 import type { OCRHistory } from './src/services/ocrServices';
+import { hydrateUserSignals } from './src/services/userSignals';
 
 type ScreenName =
   | 'home'
@@ -512,6 +513,35 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
 
     prefetchPriorityContent();
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    const activeUserId = userId ?? auth().currentUser?.uid ?? null;
+    if (!activeUserId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const hydrateSignals = async () => {
+      try {
+        await hydrateUserSignals(activeUserId);
+      } catch (error) {
+        if (!cancelled) {
+          console.warn('App: failed to hydrate user signals', error);
+        }
+      }
+    };
+
+    hydrateSignals();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, userId]);
 
   useEffect(() => {
     if (!isAuthenticated) {
