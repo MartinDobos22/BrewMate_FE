@@ -353,6 +353,34 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       textAlign: 'center',
       lineHeight: 20,
     },
+    signalWarningBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(255,160,0,0.1)',
+      borderColor: 'rgba(255,160,0,0.35)',
+      borderWidth: 1,
+      borderRadius: 16,
+      padding: 12,
+      marginBottom: 12,
+      gap: 10,
+    },
+    signalWarningIcon: {
+      fontSize: 18,
+    },
+    signalWarningCopy: {
+      flex: 1,
+    },
+    signalWarningTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: palette.warning,
+      marginBottom: 4,
+    },
+    signalWarningText: {
+      fontSize: 12,
+      color: palette.textSecondary,
+      lineHeight: 18,
+    },
     scanResultContainer: {
       paddingBottom: 16,
     },
