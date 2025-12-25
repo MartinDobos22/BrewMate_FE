@@ -37,6 +37,7 @@ DROP TABLE IF EXISTS public.user_recipes CASCADE;
 DROP TABLE IF EXISTS public.user_coffees CASCADE;
 DROP TABLE IF EXISTS public.scan_events CASCADE;
 DROP TABLE IF EXISTS public.user_statistics CASCADE;
+DROP TABLE IF EXISTS public.app_users CASCADE;
 
 -- Safely remove old trigger helpers if present
 DO $$ BEGIN
