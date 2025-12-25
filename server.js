@@ -245,8 +245,8 @@ app.get('/api/profile', async (req, res) => {
       bio: null,
       avatar_url: null,
       experience_level: null,
-      ai_recommendation: taste?.ai_recommendation ?? {},
-      manual_input: taste?.manual_input ?? {},
+      ai_recommendation: taste?.ai_recommendation ?? null,
+      manual_input: taste?.manual_input ?? null,
       taste_vector: taste?.taste_vector ?? null,
       coffee_preferences: taste
         ? {
