@@ -187,14 +187,17 @@ app.get('/api/profile', async (req, res) => {
     );
 
     const taste = tasteResult.rows[0];
-    const onboardingResult = await db.query(
-      `SELECT answers FROM user_onboarding_responses WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
-      [uid]
-    );
-    const onboardingAnswers = onboardingResult.rows[0]?.answers || null;
 
-    const coffeePreferences = {
-      ...(taste
+    const response = {
+      id: uid,
+      email: decoded.email,
+      name: decoded.name || decoded.email?.split('@')[0] || 'Kávoš',
+      bio: null,
+      avatar_url: null,
+      experience_level: null,
+      ai_recommendation: null,
+      manual_input: null,
+      coffee_preferences: taste
         ? {
             sweetness: Number(taste.sweetness),
             acidity: Number(taste.acidity),
@@ -205,31 +208,7 @@ app.get('/api/profile', async (req, res) => {
             caffeine_sensitivity: taste.caffeine_sensitivity,
             preferred_strength: taste.preferred_strength,
           }
-        : {}),
-      ...(onboardingAnswers
-        ? {
-            intensity: onboardingAnswers.intensity ?? null,
-            temperature: onboardingAnswers.temperature ?? null,
-            roast: onboardingAnswers.roast ?? null,
-            preferred_drinks: onboardingAnswers.preferred_drinks ?? null,
-            brew_method: onboardingAnswers.brew_method ?? null,
-            grind: onboardingAnswers.grind ?? null,
-            milk: onboardingAnswers.milk ?? null,
-            sugar: onboardingAnswers.sugar ?? null,
-          }
-        : {}),
-    };
-
-    const response = {
-      id: uid,
-      email: decoded.email,
-      name: decoded.name || decoded.email?.split('@')[0] || 'Kávoš',
-      bio: null,
-      avatar_url: null,
-      experience_level: onboardingAnswers?.experience_level ?? null,
-      ai_recommendation: onboardingAnswers?.ai_recommendation ?? null,
-      manual_input: null,
-      coffee_preferences: Object.keys(coffeePreferences).length > 0 ? coffeePreferences : null,
+        : null,
     };
 
     fs.appendFileSync(path.join(LOG_DIR, 'profile.log'), `[${new Date().toISOString()}] GET profile ${uid}\n`);
@@ -470,16 +449,6 @@ app.put('/api/profile', async (req, res) => {
       caffeine_sensitivity,
       preferred_strength,
       preference_confidence,
-      intensity,
-      temperature,
-      roast,
-      preferred_drinks,
-      brew_method,
-      grind,
-      milk,
-      sugar,
-      experience_level,
-      ai_recommendation,
     } = req.body;
 
     const prefs = coffee_preferences || {};
@@ -557,33 +526,6 @@ app.put('/api/profile', async (req, res) => {
         preference_confidence ?? 0.35,
       ]
     );
-
-    const onboardingAnswers = {
-      intensity: intensity ?? prefs.intensity ?? null,
-      temperature: temperature ?? prefs.temperature ?? null,
-      roast: roast ?? prefs.roast ?? null,
-      preferred_drinks: preferred_drinks ?? prefs.preferred_drinks ?? null,
-      brew_method: brew_method ?? prefs.brew_method ?? null,
-      grind: grind ?? prefs.grind ?? null,
-      milk: milk ?? prefs.milk ?? null,
-      sugar: sugar ?? prefs.sugar ?? null,
-      experience_level: experience_level ?? null,
-      ai_recommendation: ai_recommendation ?? null,
-    };
-    const hasOnboardingValues = Object.values(onboardingAnswers).some((value) => {
-      if (value === null || value === undefined) return false;
-      if (Array.isArray(value)) return value.length > 0;
-      if (typeof value === 'string') return value.trim().length > 0;
-      return true;
-    });
-
-    if (hasOnboardingValues) {
-      await client.query(
-        `INSERT INTO user_onboarding_responses (user_id, answers)
-         VALUES ($1, $2)`,
-        [uid, onboardingAnswers]
-      );
-    }
 
     await client.query('COMMIT');
 
