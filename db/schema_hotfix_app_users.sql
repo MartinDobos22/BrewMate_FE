@@ -13,6 +13,14 @@ CREATE TABLE IF NOT EXISTS public.app_users (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Ensure app_users.id is text before adding FK constraints
+DO $$ BEGIN
+  IF to_regclass('public.app_users') IS NOT NULL THEN
+    ALTER TABLE public.app_users
+      ALTER COLUMN id TYPE text USING id::text;
+  END IF;
+END $$;
+
 -- Drop RLS policies that reference the old uuid-typed user_id so type changes succeed
 DO $$ BEGIN
   IF to_regclass('public.user_taste_profiles') IS NOT NULL THEN
@@ -105,6 +113,18 @@ DO $$ BEGIN
     ALTER TABLE public.user_statistics DROP CONSTRAINT IF EXISTS user_statistics_user_id_fkey;
     ALTER TABLE public.user_statistics ALTER COLUMN user_id TYPE text USING user_id::text;
     ALTER TABLE public.user_statistics ADD CONSTRAINT user_statistics_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.app_users(id) ON DELETE CASCADE;
+  END IF;
+END $$;
+
+-- 2b) Add new taste profile metadata columns (if missing)
+DO $$ BEGIN
+  IF to_regclass('public.user_taste_profiles') IS NOT NULL THEN
+    ALTER TABLE public.user_taste_profiles ADD COLUMN IF NOT EXISTS quiz_version text;
+    ALTER TABLE public.user_taste_profiles ADD COLUMN IF NOT EXISTS quiz_answers jsonb NOT NULL DEFAULT '{}'::jsonb;
+    ALTER TABLE public.user_taste_profiles ADD COLUMN IF NOT EXISTS taste_vector jsonb NOT NULL DEFAULT '{}'::jsonb;
+    ALTER TABLE public.user_taste_profiles ADD COLUMN IF NOT EXISTS consistency_score numeric(4,3) NOT NULL DEFAULT 1;
+    ALTER TABLE public.user_taste_profiles ADD COLUMN IF NOT EXISTS ai_recommendation text;
+    ALTER TABLE public.user_taste_profiles ADD COLUMN IF NOT EXISTS manual_input text;
   END IF;
 END $$;
 
