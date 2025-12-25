@@ -247,6 +247,7 @@ app.get('/api/profile', async (req, res) => {
       experience_level: null,
       ai_recommendation: taste?.ai_recommendation ?? {},
       manual_input: taste?.manual_input ?? {},
+      taste_vector: taste?.taste_vector ?? null,
       coffee_preferences: taste
         ? {
             sweetness: Number(taste.sweetness),
@@ -259,7 +260,6 @@ app.get('/api/profile', async (req, res) => {
             preferred_strength: taste.preferred_strength,
             quiz_version: taste.quiz_version ?? null,
             quiz_answers: taste.quiz_answers ?? {},
-            taste_vector: taste.taste_vector ?? {},
             consistency_score: taste.consistency_score ?? null,
           }
         : null,
