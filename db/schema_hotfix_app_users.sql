@@ -15,14 +15,7 @@ CREATE TABLE IF NOT EXISTS public.app_users (
 
 -- Ensure app_users.id is text before adding FK constraints
 DO $$ BEGIN
-  IF EXISTS (
-    SELECT 1
-    FROM information_schema.columns
-    WHERE table_schema = 'public'
-      AND table_name = 'app_users'
-      AND column_name = 'id'
-      AND data_type <> 'text'
-  ) THEN
+  IF to_regclass('public.app_users') IS NOT NULL THEN
     ALTER TABLE public.app_users
       ALTER COLUMN id TYPE text USING id::text;
   END IF;
