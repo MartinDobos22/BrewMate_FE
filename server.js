@@ -494,6 +494,9 @@ app.put('/api/profile', async (req, res) => {
       acidity,
       bitterness,
       body,
+      taste_vector,
+      ai_recommendation,
+      manual_input,
       flavor_notes,
       milk_preferences,
       caffeine_sensitivity,
@@ -505,6 +508,33 @@ app.put('/api/profile', async (req, res) => {
     const flavorNotes = flavor_notes ?? prefs.flavor_notes ?? {};
     const milkPrefs = milk_preferences ?? prefs.milk_preferences ?? {};
 
+    const hasExplicitTasteInputs = [sweetness, acidity, bitterness, body].some(
+      (value) => value !== undefined && value !== null
+    );
+    const mappedTasteVector =
+      !hasExplicitTasteInputs && taste_vector
+        ? {
+            sweetness:
+              taste_vector.sweetness !== undefined &&
+              taste_vector.sweetness !== null
+                ? taste_vector.sweetness * 10
+                : undefined,
+            acidity:
+              taste_vector.acidity !== undefined && taste_vector.acidity !== null
+                ? taste_vector.acidity * 10
+                : undefined,
+            bitterness:
+              taste_vector.bitterness !== undefined &&
+              taste_vector.bitterness !== null
+                ? taste_vector.bitterness * 10
+                : undefined,
+            body:
+              taste_vector.body !== undefined && taste_vector.body !== null
+                ? taste_vector.body * 10
+                : undefined,
+          }
+        : {};
+
     let normalizedSweetness;
     let normalizedAcidity;
     let normalizedBitterness;
@@ -512,21 +542,25 @@ app.put('/api/profile', async (req, res) => {
 
     try {
       normalizedSweetness = normalizeTasteInput(
-        sweetness,
+        sweetness ?? mappedTasteVector.sweetness,
         prefs.sweetness ?? 5,
         'sweetness'
       );
       normalizedAcidity = normalizeTasteInput(
-        acidity,
+        acidity ?? mappedTasteVector.acidity,
         prefs.acidity ?? 5,
         'acidity'
       );
       normalizedBitterness = normalizeTasteInput(
-        bitterness,
+        bitterness ?? mappedTasteVector.bitterness,
         prefs.bitterness ?? 5,
         'bitterness'
       );
-      normalizedBody = normalizeTasteInput(body, prefs.body ?? 5, 'body');
+      normalizedBody = normalizeTasteInput(
+        body ?? mappedTasteVector.body,
+        prefs.body ?? 5,
+        'body'
+      );
     } catch (validationError) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: validationError.message });
@@ -548,9 +582,15 @@ app.put('/api/profile', async (req, res) => {
         preferred_strength,
         seasonal_adjustments,
         preference_confidence,
+        quiz_version,
+        quiz_answers,
+        taste_vector,
+        consistency_score,
+        ai_recommendation,
+        manual_input,
         last_recalculated_at,
         updated_at
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,'medium'),COALESCE($9,'balanced'),'[]',$10,now(),now())
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,'medium'),COALESCE($9,'balanced'),'[]',$10,$11,$12,$13,$14,$15,$16,now(),now())
       ON CONFLICT (user_id) DO UPDATE SET
         sweetness = EXCLUDED.sweetness,
         acidity = EXCLUDED.acidity,
@@ -561,6 +601,12 @@ app.put('/api/profile', async (req, res) => {
         caffeine_sensitivity = EXCLUDED.caffeine_sensitivity,
         preferred_strength = EXCLUDED.preferred_strength,
         preference_confidence = EXCLUDED.preference_confidence,
+        quiz_version = EXCLUDED.quiz_version,
+        quiz_answers = EXCLUDED.quiz_answers,
+        taste_vector = EXCLUDED.taste_vector,
+        consistency_score = EXCLUDED.consistency_score,
+        ai_recommendation = EXCLUDED.ai_recommendation,
+        manual_input = EXCLUDED.manual_input,
         last_recalculated_at = now(),
         updated_at = now()`
       , [
@@ -574,6 +620,12 @@ app.put('/api/profile', async (req, res) => {
         caffeine_sensitivity ?? prefs.caffeine_sensitivity,
         preferred_strength ?? prefs.preferred_strength,
         preference_confidence ?? 0.35,
+        prefs.quiz_version,
+        prefs.quiz_answers,
+        taste_vector,
+        prefs.consistency_score,
+        ai_recommendation,
+        manual_input,
       ]
     );
 
