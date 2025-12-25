@@ -10,8 +10,20 @@ CREATE TABLE IF NOT EXISTS public.app_users (
   id text PRIMARY KEY,
   email text UNIQUE,
   name text,
+  experience_level text,
+  ai_recommendation text,
+  manual_input text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+DO $$ BEGIN
+  IF to_regclass('public.app_users') IS NOT NULL THEN
+    ALTER TABLE public.app_users
+      ADD COLUMN IF NOT EXISTS experience_level text,
+      ADD COLUMN IF NOT EXISTS ai_recommendation text,
+      ADD COLUMN IF NOT EXISTS manual_input text;
+  END IF;
+END $$;
 
 -- Drop RLS policies that reference the old uuid-typed user_id so type changes succeed
 DO $$ BEGIN
@@ -76,6 +88,8 @@ DO $$ BEGIN
     ALTER TABLE public.user_taste_profiles DROP CONSTRAINT IF EXISTS user_taste_profiles_user_id_fkey;
     ALTER TABLE public.user_taste_profiles ALTER COLUMN user_id TYPE text USING user_id::text;
     ALTER TABLE public.user_taste_profiles ADD CONSTRAINT user_taste_profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.app_users(id) ON DELETE CASCADE;
+    ALTER TABLE public.user_taste_profiles
+      ADD COLUMN IF NOT EXISTS coffee_preferences jsonb NOT NULL DEFAULT '{}'::jsonb;
   END IF;
 
   IF to_regclass('public.brew_history') IS NOT NULL THEN

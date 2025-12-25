@@ -91,6 +91,43 @@ const toNumberOrFallback = (value, fallback) => {
   return Number.isFinite(num) ? num : fallback;
 };
 
+const parseOptionalBoolean = (value) => {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'áno', 'ano'].includes(normalized)) {
+      return true;
+    }
+    if (['false', '0', 'no', 'nie'].includes(normalized)) {
+      return false;
+    }
+  }
+
+  if (typeof value === 'number') {
+    return value !== 0;
+  }
+
+  return null;
+};
+
+const mapSweetnessLabel = (value) => {
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    if (value <= 1) return 'none';
+    if (value <= 4) return 'little';
+    if (value <= 7) return 'medium';
+    return 'sweet';
+  }
+
+  return 'little';
+};
+
 const normalizeTasteInput = (raw, fallback, fieldName = 'taste') => {
   const clamp = (val) => Math.max(0, Math.min(10, val));
   const mappings = {
@@ -187,6 +224,43 @@ app.get('/api/profile', async (req, res) => {
     );
 
     const taste = tasteResult.rows[0];
+    const userResult = await db.query(
+      `SELECT experience_level, ai_recommendation, manual_input FROM app_users WHERE id = $1`,
+      [uid]
+    );
+    const userProfile = userResult.rows[0] || {};
+    const storedPreferences = taste?.coffee_preferences || {};
+    const fallbackSugar =
+      typeof storedPreferences.sugar === 'boolean'
+        ? storedPreferences.sugar
+        : typeof storedPreferences.sweetness === 'string'
+          ? storedPreferences.sweetness !== 'none'
+          : taste
+            ? Number(taste.sweetness) > 0
+            : false;
+    const fallbackMilk =
+      parseOptionalBoolean(storedPreferences.milk) ??
+      parseOptionalBoolean(taste?.milk_preferences?.has_milk) ??
+      parseOptionalBoolean(taste?.milk_preferences?.milk);
+
+    const coffeePreferences = taste
+      ? {
+          intensity: storedPreferences.intensity ?? null,
+          temperature: storedPreferences.temperature ?? null,
+          roast: storedPreferences.roast ?? null,
+          preferred_drinks: storedPreferences.preferred_drinks ?? [],
+          brew_method: storedPreferences.brew_method ?? [],
+          grind: storedPreferences.grind ?? null,
+          sugar: fallbackSugar,
+          milk: fallbackMilk ?? false,
+          sweetness:
+            storedPreferences.sweetness ??
+            mapSweetnessLabel(Number(taste.sweetness)),
+          acidity: storedPreferences.acidity ?? taste.acidity,
+          body: storedPreferences.body ?? taste.body,
+          flavor_notes: storedPreferences.flavor_notes ?? taste.flavor_notes,
+        }
+      : null;
 
     const response = {
       id: uid,
@@ -194,21 +268,10 @@ app.get('/api/profile', async (req, res) => {
       name: decoded.name || decoded.email?.split('@')[0] || 'Kávoš',
       bio: null,
       avatar_url: null,
-      experience_level: null,
-      ai_recommendation: null,
-      manual_input: null,
-      coffee_preferences: taste
-        ? {
-            sweetness: Number(taste.sweetness),
-            acidity: Number(taste.acidity),
-            bitterness: Number(taste.bitterness),
-            body: Number(taste.body),
-            flavor_notes: taste.flavor_notes,
-            milk_preferences: taste.milk_preferences,
-            caffeine_sensitivity: taste.caffeine_sensitivity,
-            preferred_strength: taste.preferred_strength,
-          }
-        : null,
+      experience_level: userProfile.experience_level ?? null,
+      ai_recommendation: userProfile.ai_recommendation ?? null,
+      manual_input: userProfile.manual_input ?? null,
+      coffee_preferences: coffeePreferences,
     };
 
     fs.appendFileSync(path.join(LOG_DIR, 'profile.log'), `[${new Date().toISOString()}] GET profile ${uid}\n`);
@@ -449,83 +512,179 @@ app.put('/api/profile', async (req, res) => {
       caffeine_sensitivity,
       preferred_strength,
       preference_confidence,
+      experience_level,
+      ai_recommendation,
+      manual_input,
+      intensity,
+      temperature,
+      roast,
+      preferred_drinks,
+      brew_method,
+      grind,
+      sugar,
+      milk,
     } = req.body;
 
-    const prefs = coffee_preferences || {};
+    const prefs =
+      coffee_preferences && typeof coffee_preferences === 'object'
+        ? coffee_preferences
+        : {};
     const flavorNotes = flavor_notes ?? prefs.flavor_notes ?? {};
-    const milkPrefs = milk_preferences ?? prefs.milk_preferences ?? {};
+    const baseMilkPrefs =
+      milk_preferences && typeof milk_preferences === 'object'
+        ? milk_preferences
+        : prefs.milk_preferences ?? {};
+    const mappedMilk = parseOptionalBoolean(
+      prefs.milk ?? milk ?? baseMilkPrefs?.has_milk ?? baseMilkPrefs?.milk
+    );
+    const milkPrefs = {
+      ...baseMilkPrefs,
+      ...(mappedMilk !== null ? { has_milk: mappedMilk } : {}),
+    };
+    const mappedPreferences = {
+      ...prefs,
+      intensity: prefs.intensity ?? intensity,
+      temperature: prefs.temperature ?? temperature,
+      roast: prefs.roast ?? roast,
+      preferred_drinks: prefs.preferred_drinks ?? preferred_drinks,
+      brew_method: prefs.brew_method ?? brew_method,
+      grind: prefs.grind ?? grind,
+      sugar: prefs.sugar ?? sugar,
+      milk: prefs.milk ?? milk,
+      sweetness: prefs.sweetness ?? sweetness,
+      acidity: prefs.acidity ?? acidity,
+      body: prefs.body ?? body,
+      flavor_notes: prefs.flavor_notes ?? flavor_notes,
+    };
 
-    let normalizedSweetness;
-    let normalizedAcidity;
-    let normalizedBitterness;
-    let normalizedBody;
+    const hasPreferenceUpdate =
+      coffee_preferences !== undefined ||
+      [
+        'sweetness',
+        'acidity',
+        'bitterness',
+        'body',
+        'flavor_notes',
+        'milk_preferences',
+        'caffeine_sensitivity',
+        'preferred_strength',
+        'preference_confidence',
+        'intensity',
+        'temperature',
+        'roast',
+        'preferred_drinks',
+        'brew_method',
+        'grind',
+        'sugar',
+        'milk',
+      ].some((key) => Object.prototype.hasOwnProperty.call(req.body, key));
 
-    try {
-      normalizedSweetness = normalizeTasteInput(
-        sweetness,
-        prefs.sweetness ?? 5,
-        'sweetness'
+    if (hasPreferenceUpdate) {
+      let normalizedSweetness;
+      let normalizedAcidity;
+      let normalizedBitterness;
+      let normalizedBody;
+
+      try {
+        normalizedSweetness = normalizeTasteInput(
+          sweetness,
+          prefs.sweetness ?? 5,
+          'sweetness'
+        );
+        normalizedAcidity = normalizeTasteInput(
+          acidity,
+          prefs.acidity ?? 5,
+          'acidity'
+        );
+        normalizedBitterness = normalizeTasteInput(
+          bitterness,
+          prefs.bitterness ?? 5,
+          'bitterness'
+        );
+        normalizedBody = normalizeTasteInput(body, prefs.body ?? 5, 'body');
+      } catch (validationError) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: validationError.message });
+      }
+
+      // Normalizácia chutí, aby sme pri ukladaní dotazníka nepadali na 22P02
+      // (invalid_text_representation) chybách, keď frontend pošle textové štítky
+      // ako "little", "medium", "high" namiesto čísiel.
+      await client.query(
+        `INSERT INTO user_taste_profiles (
+          user_id,
+          sweetness,
+          acidity,
+          bitterness,
+          body,
+          flavor_notes,
+          milk_preferences,
+          caffeine_sensitivity,
+          preferred_strength,
+          seasonal_adjustments,
+          preference_confidence,
+          coffee_preferences,
+          last_recalculated_at,
+          updated_at
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,'medium'),COALESCE($9,'balanced'),'[]',$10,$11,now(),now())
+        ON CONFLICT (user_id) DO UPDATE SET
+          sweetness = EXCLUDED.sweetness,
+          acidity = EXCLUDED.acidity,
+          bitterness = EXCLUDED.bitterness,
+          body = EXCLUDED.body,
+          flavor_notes = EXCLUDED.flavor_notes,
+          milk_preferences = EXCLUDED.milk_preferences,
+          caffeine_sensitivity = EXCLUDED.caffeine_sensitivity,
+          preferred_strength = EXCLUDED.preferred_strength,
+          preference_confidence = EXCLUDED.preference_confidence,
+          coffee_preferences = EXCLUDED.coffee_preferences,
+          last_recalculated_at = now(),
+          updated_at = now()`
+        , [
+          uid,
+          normalizedSweetness,
+          normalizedAcidity,
+          normalizedBitterness,
+          normalizedBody,
+          flavorNotes,
+          milkPrefs,
+          caffeine_sensitivity ?? prefs.caffeine_sensitivity,
+          preferred_strength ?? prefs.preferred_strength,
+          preference_confidence ?? 0.35,
+          mappedPreferences,
+        ]
       );
-      normalizedAcidity = normalizeTasteInput(
-        acidity,
-        prefs.acidity ?? 5,
-        'acidity'
-      );
-      normalizedBitterness = normalizeTasteInput(
-        bitterness,
-        prefs.bitterness ?? 5,
-        'bitterness'
-      );
-      normalizedBody = normalizeTasteInput(body, prefs.body ?? 5, 'body');
-    } catch (validationError) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: validationError.message });
     }
 
-    // Normalizácia chutí, aby sme pri ukladaní dotazníka nepadali na 22P02
-    // (invalid_text_representation) chybách, keď frontend pošle textové štítky
-    // ako "little", "medium", "high" namiesto čísiel.
-    await client.query(
-      `INSERT INTO user_taste_profiles (
-        user_id,
-        sweetness,
-        acidity,
-        bitterness,
-        body,
-        flavor_notes,
-        milk_preferences,
-        caffeine_sensitivity,
-        preferred_strength,
-        seasonal_adjustments,
-        preference_confidence,
-        last_recalculated_at,
-        updated_at
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,'medium'),COALESCE($9,'balanced'),'[]',$10,now(),now())
-      ON CONFLICT (user_id) DO UPDATE SET
-        sweetness = EXCLUDED.sweetness,
-        acidity = EXCLUDED.acidity,
-        bitterness = EXCLUDED.bitterness,
-        body = EXCLUDED.body,
-        flavor_notes = EXCLUDED.flavor_notes,
-        milk_preferences = EXCLUDED.milk_preferences,
-        caffeine_sensitivity = EXCLUDED.caffeine_sensitivity,
-        preferred_strength = EXCLUDED.preferred_strength,
-        preference_confidence = EXCLUDED.preference_confidence,
-        last_recalculated_at = now(),
-        updated_at = now()`
-      , [
-        uid,
-        normalizedSweetness,
-        normalizedAcidity,
-        normalizedBitterness,
-        normalizedBody,
-        flavorNotes,
-        milkPrefs,
-        caffeine_sensitivity ?? prefs.caffeine_sensitivity,
-        preferred_strength ?? prefs.preferred_strength,
-        preference_confidence ?? 0.35,
-      ]
-    );
+    const hasUserProfileUpdate =
+      ['experience_level', 'ai_recommendation', 'manual_input'].some((key) =>
+        Object.prototype.hasOwnProperty.call(req.body, key)
+      );
+
+    if (hasUserProfileUpdate) {
+      const fields = [];
+      const values = [];
+      if (Object.prototype.hasOwnProperty.call(req.body, 'experience_level')) {
+        values.push(experience_level ?? null);
+        fields.push(`experience_level = $${values.length}`);
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body, 'ai_recommendation')) {
+        values.push(ai_recommendation ?? null);
+        fields.push(`ai_recommendation = $${values.length}`);
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body, 'manual_input')) {
+        values.push(manual_input ?? null);
+        fields.push(`manual_input = $${values.length}`);
+      }
+
+      values.push(uid);
+      await client.query(
+        `UPDATE app_users SET ${fields.join(', ')} WHERE id = $${
+          values.length
+        }`,
+        values
+      );
+    }
 
     await client.query('COMMIT');
 
