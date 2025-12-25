@@ -34,7 +34,7 @@ const PRIMARY_GRADIENT = [palette.espresso, palette.medium];
 
 type RadarAxisKey = 'acidity' | 'sweetness' | 'body' | 'bitterness' | 'aroma' | 'fruitiness';
 
-type RadarScores = Record<RadarAxisKey, number>;
+type RadarScores = Record<RadarAxisKey, number | null>;
 
 const RADAR_AXES: { key: RadarAxisKey; label: string }[] = [
   { key: 'acidity', label: 'Kyslosť' },
@@ -56,9 +56,9 @@ const RADAR_SIZE = 240;
 const RADAR_CENTER = RADAR_SIZE / 2;
 const RADAR_RADIUS = RADAR_SIZE / 2 - 24;
 
-const clampTasteValue = (value: number | undefined, fallback: number): number => {
+const normalizeTasteValue = (value: number | undefined | null): number | null => {
   if (typeof value !== 'number' || Number.isNaN(value)) {
-    return fallback;
+    return null;
   }
   return Math.max(0, Math.min(10, value));
 };
@@ -70,30 +70,29 @@ const getExperienceLevelMeta = (level?: string | null) => {
   return EXPERIENCE_LEVEL_META[level] ?? EXPERIENCE_LEVEL_META.default;
 };
 
-const buildRadarScores = (profile?: TasteProfileVector | null, community?: TasteProfileVector | null): RadarScores | null => {
+const buildRadarScores = (profile?: TasteProfileVector | null): RadarScores | null => {
   if (!profile) {
     return null;
   }
 
-  const fallback = 5;
-  const communitySafe = community ?? DEFAULT_COMMUNITY_AVERAGE;
+  const aromaBase = normalizeTasteValue(profile.body);
+  const fruitinessBase = normalizeTasteValue(profile.acidity);
 
-  const aromaBase = (clampTasteValue(profile.body, fallback) + clampTasteValue(communitySafe.body, fallback)) / 2;
-  const fruitinessBase = (clampTasteValue(profile.acidity, fallback) + clampTasteValue(communitySafe.sweetness, fallback)) / 2;
-
-  return {
-    acidity: clampTasteValue(profile.acidity, fallback),
-    sweetness: clampTasteValue(profile.sweetness, fallback),
-    body: clampTasteValue(profile.body, fallback),
-    bitterness: clampTasteValue(profile.bitterness, fallback),
-    aroma: clampTasteValue(aromaBase, fallback),
-    fruitiness: clampTasteValue(fruitinessBase, fallback),
+  const scores = {
+    acidity: normalizeTasteValue(profile.acidity),
+    sweetness: normalizeTasteValue(profile.sweetness),
+    body: normalizeTasteValue(profile.body),
+    bitterness: normalizeTasteValue(profile.bitterness),
+    aroma: aromaBase,
+    fruitiness: fruitinessBase,
   };
+
+  const hasValue = Object.values(scores).some(value => value !== null);
+  return hasValue ? scores : null;
 };
 
 const radarPoint = (value: number, index: number, total: number, radius: number = RADAR_RADIUS) => {
-  const safeValue = clampTasteValue(value, 0);
-  const normalized = safeValue / 10;
+  const normalized = Math.max(0, Math.min(10, value)) / 10;
   const angle = (Math.PI * 2 * index) / total - Math.PI / 2;
   return {
     x: RADAR_CENTER + radius * normalized * Math.cos(angle),
@@ -110,12 +109,17 @@ const buildPolygonPoints = (values: number[], radius: number = RADAR_RADIUS) =>
     .join(' ');
 
 const ProfileRadarChart: React.FC<{ scores: RadarScores }> = React.memo(({ scores }) => {
-  const dataValues = useMemo(() => RADAR_AXES.map(axis => scores[axis.key]), [scores]);
+  const activeAxes = useMemo(() => RADAR_AXES.filter(axis => scores[axis.key] !== null), [scores]);
+  const dataValues = useMemo(() => activeAxes.map(axis => scores[axis.key] as number), [activeAxes, scores]);
   const dataPolygon = useMemo(() => buildPolygonPoints(dataValues), [dataValues]);
   const gridPolygons = useMemo(
-    () => [2, 4, 6, 8, 10].map(level => buildPolygonPoints(new Array(RADAR_AXES.length).fill(level))),
-    [],
+    () => [2, 4, 6, 8, 10].map(level => buildPolygonPoints(new Array(activeAxes.length).fill(level))),
+    [activeAxes.length],
   );
+
+  if (activeAxes.length === 0) {
+    return null;
+  }
 
   return (
     <Svg width={RADAR_SIZE} height={RADAR_SIZE}>
@@ -130,15 +134,15 @@ const ProfileRadarChart: React.FC<{ scores: RadarScores }> = React.memo(({ score
         </SvgLinearGradient>
       </Defs>
 
-      <Polygon points={buildPolygonPoints(new Array(RADAR_AXES.length).fill(10))} fill="url(#profile-radar-bg)" />
+      <Polygon points={buildPolygonPoints(new Array(activeAxes.length).fill(10))} fill="url(#profile-radar-bg)" />
 
       {gridPolygons.map((points, index) => (
         <Polygon key={`grid-${index}`} points={points} fill="none" stroke="rgba(217, 119, 6, 0.18)" strokeWidth={1} />
       ))}
 
-      {RADAR_AXES.map((axis, index) => {
-        const axisEnd = radarPoint(10, index, RADAR_AXES.length);
-        const labelPosition = radarPoint(11, index, RADAR_AXES.length);
+      {activeAxes.map((axis, index) => {
+        const axisEnd = radarPoint(10, index, activeAxes.length);
+        const labelPosition = radarPoint(11, index, activeAxes.length);
         return (
           <React.Fragment key={axis.key}>
             <Line x1={RADAR_CENTER} y1={RADAR_CENTER} x2={axisEnd.x} y2={axisEnd.y} stroke="rgba(217, 119, 6, 0.25)" strokeWidth={1} />
@@ -151,8 +155,8 @@ const ProfileRadarChart: React.FC<{ scores: RadarScores }> = React.memo(({ score
 
       <Polygon points={dataPolygon} fill="url(#profile-radar-fill)" stroke="rgba(234, 88, 12, 0.85)" strokeWidth={2.5} />
 
-      {RADAR_AXES.map((axis, index) => {
-        const { x, y } = radarPoint(dataValues[index], index, RADAR_AXES.length);
+      {activeAxes.map((axis, index) => {
+        const { x, y } = radarPoint(dataValues[index], index, activeAxes.length);
         return <Circle key={`dot-${axis.key}`} cx={x} cy={y} r={4.5} fill="#EA580C" stroke="#fff7ed" strokeWidth={2} />;
       })}
     </Svg>
@@ -472,7 +476,7 @@ const UserProfile = ({
 
   const ProfileContent = () => {
     const { label: levelLabel, gradient: levelGradient } = getExperienceLevelMeta(profile?.experience_level);
-    const radarScores = useMemo(() => buildRadarScores(tasteProfile, communityAverage), []);
+    const radarScores = useMemo(() => buildRadarScores(tasteProfile), [tasteProfile]);
 
     return (
       <>
