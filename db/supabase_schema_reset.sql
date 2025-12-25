@@ -71,9 +71,10 @@ END $$;
 DROP FUNCTION IF EXISTS public.touch_user_taste_profile() CASCADE;
 DROP FUNCTION IF EXISTS public.touch_brew_history() CASCADE;
 
-DROP FUNCTION IF EXISTS public.ensure_user_stats() CASCADE;
-DROP FUNCTION IF EXISTS public.update_user_stats_delta(uuid,int,int,int,int) CASCADE;
-DROP FUNCTION IF EXISTS public.update_user_stats_delta(text,int,int,int,int) CASCADE;
+DROP FUNCTION IF EXISTS public.ensure_user_stats(text) CASCADE;
+DROP FUNCTION IF EXISTS public.ensure_user_stats(uuid) CASCADE;
+DROP FUNCTION IF EXISTS public.update_user_stats_delta(uuid,integer,integer,integer,integer) CASCADE;
+DROP FUNCTION IF EXISTS public.update_user_stats_delta(text,integer,integer,integer,integer) CASCADE;
 DROP FUNCTION IF EXISTS public.handle_brew_history_insert() CASCADE;
 DROP FUNCTION IF EXISTS public.handle_brew_history_delete() CASCADE;
 DROP FUNCTION IF EXISTS public.handle_user_recipe_insert() CASCADE;
