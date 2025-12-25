@@ -245,8 +245,8 @@ app.get('/api/profile', async (req, res) => {
       bio: null,
       avatar_url: null,
       experience_level: null,
-      ai_recommendation: null,
-      manual_input: null,
+      ai_recommendation: taste?.ai_recommendation ?? {},
+      manual_input: taste?.manual_input ?? {},
       coffee_preferences: taste
         ? {
             sweetness: Number(taste.sweetness),
@@ -257,6 +257,10 @@ app.get('/api/profile', async (req, res) => {
             milk_preferences: taste.milk_preferences,
             caffeine_sensitivity: taste.caffeine_sensitivity,
             preferred_strength: taste.preferred_strength,
+            quiz_version: taste.quiz_version ?? null,
+            quiz_answers: taste.quiz_answers ?? {},
+            taste_vector: taste.taste_vector ?? {},
+            consistency_score: taste.consistency_score ?? null,
           }
         : null,
     };
