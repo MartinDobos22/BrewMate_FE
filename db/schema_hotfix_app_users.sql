@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS public.app_users (
 );
 
 -- Drop RLS policies that reference the old uuid-typed user_id so type changes succeed
-DO LANGUAGE plpgsql $do_drop_policies$
+DO $do_drop_policies$
 BEGIN
   IF to_regclass('public.user_taste_profiles') IS NOT NULL THEN
     DROP POLICY IF EXISTS select_own_user_taste_profiles ON public.user_taste_profiles;
@@ -69,11 +69,10 @@ BEGIN
     DROP POLICY IF EXISTS select_own_statistics ON public.user_statistics;
     DROP POLICY IF EXISTS update_own_statistics ON public.user_statistics;
   END IF;
-END;
-$do_drop_policies$;
+END; $do_drop_policies$ LANGUAGE plpgsql;
 
 -- 2) Retarget user_id foreign keys to app_users with text type
-DO LANGUAGE plpgsql $do_retarget_user_id$
+DO $do_retarget_user_id$
 BEGIN
   IF to_regclass('public.user_taste_profiles') IS NOT NULL THEN
     ALTER TABLE public.user_taste_profiles DROP CONSTRAINT IF EXISTS user_taste_profiles_user_id_fkey;
@@ -122,8 +121,7 @@ BEGIN
     ALTER TABLE public.user_statistics ALTER COLUMN user_id TYPE text USING user_id::text;
     ALTER TABLE public.user_statistics ADD CONSTRAINT user_statistics_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.app_users(id) ON DELETE CASCADE;
   END IF;
-END;
-$do_retarget_user_id$;
+END; $do_retarget_user_id$ LANGUAGE plpgsql;
 
 -- 3) Replace legacy UUID-based stats helpers with text-based variants
 DROP FUNCTION IF EXISTS public.update_user_stats_delta(uuid,int,int,int,int) CASCADE;
@@ -231,7 +229,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- 4) Refresh triggers to point at new handlers (only if the tables exist)
-DO LANGUAGE plpgsql $do_refresh_triggers$
+DO $do_refresh_triggers$
 BEGIN
   IF to_regclass('public.brew_history') IS NOT NULL THEN
     DROP TRIGGER IF EXISTS trg_brew_history_insert ON public.brew_history;
@@ -276,11 +274,10 @@ BEGIN
       AFTER DELETE ON public.user_coffees
       FOR EACH ROW EXECUTE FUNCTION public.handle_user_coffee_delete();
   END IF;
-END;
-$do_refresh_triggers$;
+END; $do_refresh_triggers$ LANGUAGE plpgsql;
 
 -- 5) Re-enable RLS before recreating ownership policies
-DO LANGUAGE plpgsql $do_enable_rls$
+DO $do_enable_rls$
 BEGIN
   IF to_regclass('public.user_taste_profiles') IS NOT NULL THEN
     ALTER TABLE public.user_taste_profiles ENABLE ROW LEVEL SECURITY;
@@ -306,11 +303,10 @@ BEGIN
   IF to_regclass('public.user_statistics') IS NOT NULL THEN
     ALTER TABLE public.user_statistics ENABLE ROW LEVEL SECURITY;
   END IF;
-END;
-$do_enable_rls$;
+END; $do_enable_rls$ LANGUAGE plpgsql;
 
 -- Recreate ownership policies with text-based auth.uid() matching
-DO LANGUAGE plpgsql $do_recreate_policies$
+DO $do_recreate_policies$
 BEGIN
   IF to_regclass('public.user_taste_profiles') IS NOT NULL THEN
     CREATE POLICY select_own_user_taste_profiles ON public.user_taste_profiles FOR SELECT USING ((auth.uid())::text = user_id);
@@ -365,5 +361,4 @@ BEGIN
     CREATE POLICY select_own_statistics ON public.user_statistics FOR SELECT USING ((auth.uid())::text = user_id);
     CREATE POLICY update_own_statistics ON public.user_statistics FOR UPDATE USING ((auth.uid())::text = user_id) WITH CHECK ((auth.uid())::text = user_id);
   END IF;
-END;
-$do_recreate_policies$;
+END; $do_recreate_policies$ LANGUAGE plpgsql;
