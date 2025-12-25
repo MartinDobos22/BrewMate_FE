@@ -98,6 +98,12 @@ CREATE TABLE public.user_taste_profiles (
   preferred_strength text NOT NULL DEFAULT 'balanced' CHECK (preferred_strength IN ('light','balanced','strong')),
   seasonal_adjustments jsonb NOT NULL DEFAULT '[]'::jsonb,
   preference_confidence numeric(4,3) NOT NULL DEFAULT 0.35 CHECK (preference_confidence BETWEEN 0 AND 1),
+  quiz_version text,
+  quiz_answers jsonb NOT NULL DEFAULT '{}'::jsonb,
+  taste_vector jsonb NOT NULL DEFAULT '{}'::jsonb,
+  consistency_score numeric(4,3) NOT NULL DEFAULT 1,
+  ai_recommendation text,
+  manual_input text,
   last_recalculated_at timestamptz NOT NULL DEFAULT now(),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()

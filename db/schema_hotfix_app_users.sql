@@ -108,6 +108,18 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- 2b) Add new taste profile metadata columns (if missing)
+DO $$ BEGIN
+  IF to_regclass('public.user_taste_profiles') IS NOT NULL THEN
+    ALTER TABLE public.user_taste_profiles ADD COLUMN IF NOT EXISTS quiz_version text;
+    ALTER TABLE public.user_taste_profiles ADD COLUMN IF NOT EXISTS quiz_answers jsonb NOT NULL DEFAULT '{}'::jsonb;
+    ALTER TABLE public.user_taste_profiles ADD COLUMN IF NOT EXISTS taste_vector jsonb NOT NULL DEFAULT '{}'::jsonb;
+    ALTER TABLE public.user_taste_profiles ADD COLUMN IF NOT EXISTS consistency_score numeric(4,3) NOT NULL DEFAULT 1;
+    ALTER TABLE public.user_taste_profiles ADD COLUMN IF NOT EXISTS ai_recommendation text;
+    ALTER TABLE public.user_taste_profiles ADD COLUMN IF NOT EXISTS manual_input text;
+  END IF;
+END $$;
+
 -- 3) Replace legacy UUID-based stats helpers with text-based variants
 DROP FUNCTION IF EXISTS public.update_user_stats_delta(uuid,int,int,int,int) CASCADE;
 DROP FUNCTION IF EXISTS public.handle_brew_history_insert() CASCADE;
