@@ -28,6 +28,7 @@ interface TasteRadarSources {
 }
 
 const DEFAULT_SCORE = 5;
+const DEFAULT_PROFILE_CONFIDENCE_THRESHOLD = 0.4;
 
 const fruitKeywords = ['fruit', 'fruity', 'berry', 'berries', 'citrus', 'orange', 'lemon', 'lime', 'apple', 'pear', 'peach', 'stone', 'wine'];
 const warmAromaKeywords = ['chocolate', 'cocoa', 'nut', 'nutty', 'caramel', 'spice', 'spicy', 'vanilla', 'floral', 'flower'];
@@ -141,6 +142,33 @@ function parseBoolean(value: unknown): boolean | null {
     }
   }
   return null;
+}
+
+function hasMeaningfulPreferences(preferences: CoffeePreferenceSnapshot | null | undefined): boolean {
+  if (!preferences) {
+    return false;
+  }
+
+  return Boolean(
+    preferences.intensity ||
+      preferences.roast ||
+      preferences.temperature ||
+      preferences.acidity ||
+      preferences.body ||
+      preferences.experienceLevel ||
+      preferences.preferredDrinks.length > 0 ||
+      preferences.flavorNotes.length > 0 ||
+      (preferences.sugar !== null && preferences.sugar !== undefined) ||
+      preferences.milk !== null,
+  );
+}
+
+function isDefaultProfile(profile: UserTasteProfile | null | undefined): boolean {
+  if (!profile) {
+    return false;
+  }
+
+  return profile.preferenceConfidence <= DEFAULT_PROFILE_CONFIDENCE_THRESHOLD;
 }
 
 /**
@@ -386,6 +414,10 @@ function mergeFruitiness(existing: number, incoming: number | null, notes: strin
  */
 export function buildTasteRadarScores({ profile, preferences }: TasteRadarSources): TasteRadarScores | null {
   if (!profile && !preferences) {
+    return null;
+  }
+
+  if (isDefaultProfile(profile) && !hasMeaningfulPreferences(preferences ?? null)) {
     return null;
   }
 
