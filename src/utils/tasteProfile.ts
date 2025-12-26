@@ -1,4 +1,4 @@
-import { UserTasteProfile } from '../types/Personalization';
+import { TasteProfileVector, UserTasteProfile } from '../types/Personalization';
 
 export interface CoffeePreferenceSnapshot {
   intensity?: string | null;
@@ -11,6 +11,7 @@ export interface CoffeePreferenceSnapshot {
   preferredDrinks: string[];
   flavorNotes: string[];
   experienceLevel?: string | null;
+  tasteVector?: TasteProfileVector | null;
 }
 
 export interface TasteRadarScores {
@@ -61,6 +62,54 @@ function safeNumber(value: unknown, fallback: number = DEFAULT_SCORE): number {
     return clamp(parsed);
   }
   return fallback;
+}
+
+/**
+ * Parses a numeric taste vector entry while guarding against invalid values.
+ *
+ * @param {unknown} value - Raw numeric input that may be null or stringified.
+ * @returns {number|null} Clamped number when valid, otherwise null.
+ */
+function parseVectorNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return clamp(value);
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return clamp(parsed);
+    }
+  }
+  return null;
+}
+
+/**
+ * Normalizes a raw taste vector into the expected profile shape.
+ *
+ * @param {unknown} value - Raw taste vector object from API responses.
+ * @returns {TasteProfileVector|null} Normalized vector or null when no values are present.
+ */
+function normalizeTasteVector(value: unknown): TasteProfileVector | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const vector = value as Record<string, unknown>;
+  const sweetness = parseVectorNumber(vector.sweetness);
+  const acidity = parseVectorNumber(vector.acidity);
+  const bitterness = parseVectorNumber(vector.bitterness);
+  const body = parseVectorNumber(vector.body);
+
+  if (![sweetness, acidity, bitterness, body].some(entry => entry !== null)) {
+    return null;
+  }
+
+  return {
+    sweetness: sweetness ?? DEFAULT_SCORE,
+    acidity: acidity ?? DEFAULT_SCORE,
+    bitterness: bitterness ?? DEFAULT_SCORE,
+    body: body ?? DEFAULT_SCORE,
+  };
 }
 
 /**
@@ -158,6 +207,7 @@ function hasMeaningfulPreferences(preferences: CoffeePreferenceSnapshot | null |
       preferences.experienceLevel ||
       preferences.preferredDrinks.length > 0 ||
       preferences.flavorNotes.length > 0 ||
+      preferences.tasteVector ||
       (preferences.sugar !== null && preferences.sugar !== undefined) ||
       preferences.milk !== null,
   );
@@ -193,6 +243,7 @@ export function normalizeCoffeePreferenceSnapshot(raw: any): CoffeePreferenceSna
     preferredDrinks: parseStringArray(raw.preferred_drinks ?? raw.preferredDrinks),
     flavorNotes: parseStringArray(raw.flavor_notes ?? raw.flavorNotes),
     experienceLevel: typeof raw.experience_level === 'string' ? raw.experience_level : typeof raw.experienceLevel === 'string' ? raw.experienceLevel : null,
+    tasteVector: normalizeTasteVector(raw.taste_vector ?? raw.tasteVector),
   };
 
   return snapshot;
@@ -448,6 +499,15 @@ export function buildTasteRadarScores({ profile, preferences }: TasteRadarSource
   }
 
   if (preferences) {
+    const hasDetailedPreferences = Boolean(preferences.roast || preferences.intensity || preferences.preferredDrinks.length > 0);
+
+    if (preferences.tasteVector && !hasDetailedPreferences) {
+      base.sweetness = blend(base.sweetness, preferences.tasteVector.sweetness, 2);
+      base.acidity = blend(base.acidity, preferences.tasteVector.acidity, 2);
+      base.body = blend(base.body, preferences.tasteVector.body, 2);
+      base.bitterness = blend(base.bitterness, preferences.tasteVector.bitterness, 2);
+    }
+
     const sweetnessScore = mapSweetness(preferences.sugar);
     base.sweetness = sweetnessScore === null ? base.sweetness : blend(base.sweetness, sweetnessScore, 2);
 
