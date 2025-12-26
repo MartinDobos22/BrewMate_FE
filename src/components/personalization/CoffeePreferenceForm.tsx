@@ -55,7 +55,13 @@ interface Question {
 /**
  * Dotazník preferencií na základe ktorého sa vygeneruje AI odporúčanie.
  */
-const CoffeePreferenceForm = ({ onBack }: { onBack: () => void }) => {
+const CoffeePreferenceForm = ({
+  onBack,
+  onPreferencesSaved,
+}: {
+  onBack: () => void;
+  onPreferencesSaved?: () => void;
+}) => {
   const isDarkMode = useColorScheme() === 'dark';
   const [isLoading, setIsLoading] = useState(false);
 
@@ -503,6 +509,7 @@ Output plain text only.`;
       if (!res.ok) throw new Error('Failed to save preferences');
       setRecommendation(profileText);
       setShowRecommendation(true);
+      onPreferencesSaved?.();
     } catch (err) {
       Alert.alert('Chyba', 'Nepodarilo sa uložiť preferencie');
     } finally {

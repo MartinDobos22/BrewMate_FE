@@ -55,6 +55,7 @@ interface HomeScreenProps {
   onFavoritesPress: () => void;
   onInventoryPress: () => void;
   onPersonalizationPress: () => void;
+  preferencesReloadKey?: number;
   userName?: string;
 }
 
@@ -96,6 +97,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
   onFavoritesPress,
   onInventoryPress,
   onPersonalizationPress,
+  preferencesReloadKey = 0,
   userName = 'Martin',
 }) => {
   const [refreshing, setRefreshing] = useState(false);
@@ -208,7 +210,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
 
   useEffect(() => {
     loadTasteProfile();
-  }, [loadTasteProfile]);
+  }, [loadTasteProfile, preferencesReloadKey]);
 
   useEffect(() => {
     const computed = buildTasteRadarScores({
