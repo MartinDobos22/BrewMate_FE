@@ -71,13 +71,18 @@ function safeNumber(value: unknown, fallback: number = DEFAULT_SCORE): number {
  * @returns {number|null} Clamped number when valid, otherwise null.
  */
 function parseVectorNumber(value: unknown): number | null {
+  const normalize = (input: number): number => {
+    const scaled = input <= 1 ? input * 10 : input;
+    return clamp(scaled);
+  };
+
   if (typeof value === 'number' && Number.isFinite(value)) {
-    return clamp(value);
+    return normalize(value);
   }
   if (typeof value === 'string') {
     const parsed = Number(value);
     if (Number.isFinite(parsed)) {
-      return clamp(parsed);
+      return normalize(parsed);
     }
   }
   return null;
@@ -502,20 +507,20 @@ export function buildTasteRadarScores({ profile, preferences }: TasteRadarSource
     const hasDetailedPreferences = Boolean(preferences.roast || preferences.intensity || preferences.preferredDrinks.length > 0);
 
     if (preferences.tasteVector && !hasDetailedPreferences) {
-      base.sweetness = blend(base.sweetness, preferences.tasteVector.sweetness, 2);
-      base.acidity = blend(base.acidity, preferences.tasteVector.acidity, 2);
-      base.body = blend(base.body, preferences.tasteVector.body, 2);
-      base.bitterness = blend(base.bitterness, preferences.tasteVector.bitterness, 2);
+      base.sweetness = blend(base.sweetness, preferences.tasteVector.sweetness, 0.6);
+      base.acidity = blend(base.acidity, preferences.tasteVector.acidity, 0.6);
+      base.body = blend(base.body, preferences.tasteVector.body, 0.6);
+      base.bitterness = blend(base.bitterness, preferences.tasteVector.bitterness, 0.6);
     }
 
     const sweetnessScore = mapSweetness(preferences.sugar);
-    base.sweetness = sweetnessScore === null ? base.sweetness : blend(base.sweetness, sweetnessScore, 2);
+    base.sweetness = sweetnessScore === null ? base.sweetness : blend(base.sweetness, sweetnessScore, 1);
 
     const acidityScore = mapAcidity(preferences);
-    base.acidity = acidityScore === null ? base.acidity : blend(base.acidity, acidityScore, 2);
+    base.acidity = acidityScore === null ? base.acidity : blend(base.acidity, acidityScore, 1);
 
     const bodyScore = mapBody(preferences);
-    base.body = bodyScore === null ? base.body : blend(base.body, bodyScore, 2);
+    base.body = bodyScore === null ? base.body : blend(base.body, bodyScore, 1);
 
     const bitternessScore = mapBitterness(preferences);
     base.bitterness = bitternessScore === null ? base.bitterness : blend(base.bitterness, bitternessScore, 1.5);
