@@ -96,6 +96,24 @@ CREATE TABLE public.app_users (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Core taste profile maintained by personalization engine (App.tsx payloads)
+CREATE TABLE public.user_taste_profile (
+  user_id text PRIMARY KEY REFERENCES public.app_users(id) ON DELETE CASCADE,
+  sweetness numeric(4,2) NOT NULL DEFAULT 5 CHECK (sweetness BETWEEN 0 AND 10),
+  acidity numeric(4,2) NOT NULL DEFAULT 5 CHECK (acidity BETWEEN 0 AND 10),
+  bitterness numeric(4,2) NOT NULL DEFAULT 5 CHECK (bitterness BETWEEN 0 AND 10),
+  body numeric(4,2) NOT NULL DEFAULT 5 CHECK (body BETWEEN 0 AND 10),
+  flavor_notes jsonb NOT NULL DEFAULT '{}'::jsonb,
+  milk_preferences jsonb NOT NULL DEFAULT jsonb_build_object('types', jsonb_build_array('plnotučné'), 'texture', 'krémová'),
+  caffeine_sensitivity text NOT NULL DEFAULT 'medium' CHECK (caffeine_sensitivity IN ('low','medium','high')),
+  preferred_strength text NOT NULL DEFAULT 'balanced' CHECK (preferred_strength IN ('light','balanced','strong')),
+  seasonal_adjustments jsonb NOT NULL DEFAULT '[]'::jsonb,
+  preference_confidence numeric(4,3) NOT NULL DEFAULT 0.35 CHECK (preference_confidence BETWEEN 0 AND 1),
+  last_recalculated_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
 -- Core taste profile maintained by personalization engine
 CREATE TABLE public.user_taste_profiles (
   user_id text PRIMARY KEY REFERENCES public.app_users(id) ON DELETE CASCADE,
@@ -146,7 +164,7 @@ CREATE TABLE public.learning_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id text NOT NULL REFERENCES public.app_users(id) ON DELETE CASCADE,
   brew_history_id uuid REFERENCES public.brew_history(id) ON DELETE CASCADE,
-  event_type text NOT NULL CHECK (event_type IN ('liked','disliked','favorited','repeated','shared')),
+  event_type text NOT NULL CHECK (event_type IN ('liked','disliked','favorited','repeated','shared','ignored','consumed','scanned')),
   event_weight numeric(6,3) NOT NULL DEFAULT 1.0,
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
@@ -334,6 +352,10 @@ CREATE TRIGGER trg_touch_user_taste_profiles
   BEFORE UPDATE ON public.user_taste_profiles
   FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
 
+CREATE TRIGGER trg_touch_user_taste_profile
+  BEFORE UPDATE ON public.user_taste_profile
+  FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
+
 CREATE TRIGGER trg_touch_brew_history
   BEFORE UPDATE ON public.brew_history
   FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
@@ -383,6 +405,7 @@ CREATE TRIGGER trg_user_coffees_delete
 -- =====================
 
 ALTER TABLE public.user_taste_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_taste_profile ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.brew_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.learning_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_recipes ENABLE ROW LEVEL SECURITY;
@@ -395,6 +418,11 @@ CREATE POLICY select_own_user_taste_profiles ON public.user_taste_profiles FOR S
 CREATE POLICY insert_own_user_taste_profiles ON public.user_taste_profiles FOR INSERT WITH CHECK ((auth.uid())::text = user_id);
 CREATE POLICY update_own_user_taste_profiles ON public.user_taste_profiles FOR UPDATE USING ((auth.uid())::text = user_id) WITH CHECK ((auth.uid())::text = user_id);
 CREATE POLICY delete_own_user_taste_profiles ON public.user_taste_profiles FOR DELETE USING ((auth.uid())::text = user_id);
+
+CREATE POLICY select_own_user_taste_profile ON public.user_taste_profile FOR SELECT USING ((auth.uid())::text = user_id);
+CREATE POLICY insert_own_user_taste_profile ON public.user_taste_profile FOR INSERT WITH CHECK ((auth.uid())::text = user_id);
+CREATE POLICY update_own_user_taste_profile ON public.user_taste_profile FOR UPDATE USING ((auth.uid())::text = user_id) WITH CHECK ((auth.uid())::text = user_id);
+CREATE POLICY delete_own_user_taste_profile ON public.user_taste_profile FOR DELETE USING ((auth.uid())::text = user_id);
 
 CREATE POLICY select_own_brew_history ON public.brew_history FOR SELECT USING ((auth.uid())::text = user_id);
 CREATE POLICY insert_own_brew_history ON public.brew_history FOR INSERT WITH CHECK ((auth.uid())::text = user_id);
@@ -431,9 +459,13 @@ CREATE POLICY update_own_statistics ON public.user_statistics FOR UPDATE USING (
 CREATE INDEX idx_brew_history_user_created_at ON public.brew_history(user_id, created_at DESC);
 CREATE INDEX idx_brew_history_recipe_id ON public.brew_history(recipe_id);
 CREATE INDEX idx_brew_history_flavor_notes ON public.brew_history USING gin (flavor_notes);
+CREATE INDEX idx_brew_history_user_id ON public.brew_history(user_id);
 
 CREATE INDEX idx_learning_events_user_created_at ON public.learning_events(user_id, created_at DESC);
 CREATE INDEX idx_learning_events_event_type ON public.learning_events(event_type);
+CREATE INDEX idx_learning_events_user_id ON public.learning_events(user_id);
+
+CREATE INDEX idx_user_taste_profile_user_id ON public.user_taste_profile(user_id);
 
 CREATE INDEX idx_recipe_profiles_tags ON public.recipe_profiles USING gin (tags);
 

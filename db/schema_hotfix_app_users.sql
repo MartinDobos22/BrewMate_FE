@@ -13,8 +13,33 @@ CREATE TABLE IF NOT EXISTS public.app_users (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- 1b) Create user_taste_profile table used by App.tsx adapters
+CREATE TABLE IF NOT EXISTS public.user_taste_profile (
+  user_id text PRIMARY KEY REFERENCES public.app_users(id) ON DELETE CASCADE,
+  sweetness numeric(4,2) NOT NULL DEFAULT 5 CHECK (sweetness BETWEEN 0 AND 10),
+  acidity numeric(4,2) NOT NULL DEFAULT 5 CHECK (acidity BETWEEN 0 AND 10),
+  bitterness numeric(4,2) NOT NULL DEFAULT 5 CHECK (bitterness BETWEEN 0 AND 10),
+  body numeric(4,2) NOT NULL DEFAULT 5 CHECK (body BETWEEN 0 AND 10),
+  flavor_notes jsonb NOT NULL DEFAULT '{}'::jsonb,
+  milk_preferences jsonb NOT NULL DEFAULT jsonb_build_object('types', jsonb_build_array('plnotučné'), 'texture', 'krémová'),
+  caffeine_sensitivity text NOT NULL DEFAULT 'medium' CHECK (caffeine_sensitivity IN ('low','medium','high')),
+  preferred_strength text NOT NULL DEFAULT 'balanced' CHECK (preferred_strength IN ('light','balanced','strong')),
+  seasonal_adjustments jsonb NOT NULL DEFAULT '[]'::jsonb,
+  preference_confidence numeric(4,3) NOT NULL DEFAULT 0.35 CHECK (preference_confidence BETWEEN 0 AND 1),
+  last_recalculated_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
 -- Drop RLS policies that reference the old uuid-typed user_id so type changes succeed
 DO $$ BEGIN
+  IF to_regclass('public.user_taste_profile') IS NOT NULL THEN
+    DROP POLICY IF EXISTS select_own_user_taste_profile ON public.user_taste_profile;
+    DROP POLICY IF EXISTS insert_own_user_taste_profile ON public.user_taste_profile;
+    DROP POLICY IF EXISTS update_own_user_taste_profile ON public.user_taste_profile;
+    DROP POLICY IF EXISTS delete_own_user_taste_profile ON public.user_taste_profile;
+  END IF;
+
   IF to_regclass('public.user_taste_profiles') IS NOT NULL THEN
     DROP POLICY IF EXISTS select_own_user_taste_profiles ON public.user_taste_profiles;
     DROP POLICY IF EXISTS insert_own_user_taste_profiles ON public.user_taste_profiles;
@@ -63,8 +88,19 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- 6) Add user_id indexes for faster .eq('user_id', userId) filters
+CREATE INDEX IF NOT EXISTS idx_user_taste_profile_user_id ON public.user_taste_profile(user_id);
+CREATE INDEX IF NOT EXISTS idx_brew_history_user_id ON public.brew_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_learning_events_user_id ON public.learning_events(user_id);
+
 -- 2) Retarget user_id foreign keys to app_users with text type
 DO $$ BEGIN
+  IF to_regclass('public.user_taste_profile') IS NOT NULL THEN
+    ALTER TABLE public.user_taste_profile DROP CONSTRAINT IF EXISTS user_taste_profile_user_id_fkey;
+    ALTER TABLE public.user_taste_profile ALTER COLUMN user_id TYPE text USING user_id::text;
+    ALTER TABLE public.user_taste_profile ADD CONSTRAINT user_taste_profile_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.app_users(id) ON DELETE CASCADE;
+  END IF;
+
   IF to_regclass('public.user_taste_profiles') IS NOT NULL THEN
     ALTER TABLE public.user_taste_profiles DROP CONSTRAINT IF EXISTS user_taste_profiles_user_id_fkey;
     ALTER TABLE public.user_taste_profiles ALTER COLUMN user_id TYPE text USING user_id::text;
@@ -275,6 +311,9 @@ END $$;
 
 -- 5) Re-enable RLS before recreating ownership policies
 DO $$ BEGIN
+  IF to_regclass('public.user_taste_profile') IS NOT NULL THEN
+    ALTER TABLE public.user_taste_profile ENABLE ROW LEVEL SECURITY;
+  END IF;
   IF to_regclass('public.user_taste_profiles') IS NOT NULL THEN
     ALTER TABLE public.user_taste_profiles ENABLE ROW LEVEL SECURITY;
   END IF;
@@ -300,6 +339,13 @@ END $$;
 
 -- Recreate ownership policies with text-based auth.uid() matching
 DO $$ BEGIN
+  IF to_regclass('public.user_taste_profile') IS NOT NULL THEN
+    CREATE POLICY select_own_user_taste_profile ON public.user_taste_profile FOR SELECT USING ((auth.uid())::text = user_id);
+    CREATE POLICY insert_own_user_taste_profile ON public.user_taste_profile FOR INSERT WITH CHECK ((auth.uid())::text = user_id);
+    CREATE POLICY update_own_user_taste_profile ON public.user_taste_profile FOR UPDATE USING ((auth.uid())::text = user_id) WITH CHECK ((auth.uid())::text = user_id);
+    CREATE POLICY delete_own_user_taste_profile ON public.user_taste_profile FOR DELETE USING ((auth.uid())::text = user_id);
+  END IF;
+
   IF to_regclass('public.user_taste_profiles') IS NOT NULL THEN
     CREATE POLICY select_own_user_taste_profiles ON public.user_taste_profiles FOR SELECT USING ((auth.uid())::text = user_id);
     CREATE POLICY insert_own_user_taste_profiles ON public.user_taste_profiles FOR INSERT WITH CHECK ((auth.uid())::text = user_id);
