@@ -384,6 +384,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     useState<ScreenName>('brew');
   const [preferencesReturnTo, setPreferencesReturnTo] =
     useState<'profile' | 'home'>('profile');
+  const [preferencesReloadKey, setPreferencesReloadKey] = useState(0);
   const [isTasteQuizComplete, setIsTasteQuizComplete] = useState(false);
   const [checkingTasteQuiz, setCheckingTasteQuiz] = useState(true);
 
@@ -948,6 +949,10 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     setPreferencesReturnTo('profile');
   };
 
+  const handlePreferencesSaved = () => {
+    setPreferencesReloadKey((prev) => prev + 1);
+  };
+
   const handleBrewHistoryPress = () => {
     setSelectedBrewLog(null);
     setCurrentScreen('brew-history');
@@ -1360,7 +1365,10 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
       >
         <View style={styles.header}>
         </View>
-        <CoffeePreferenceForm onBack={handlePreferencesBack} />
+        <CoffeePreferenceForm
+          onBack={handlePreferencesBack}
+          onPreferencesSaved={handlePreferencesSaved}
+        />
         <BottomNav
           active="profile"
           onHomePress={handleBackPress}
@@ -1674,6 +1682,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         onFavoritesPress={handleFavoritesPress}
         onInventoryPress={handleInventoryPress}
         onPersonalizationPress={handlePersonalizationPress}
+        preferencesReloadKey={preferencesReloadKey}
       />
     </ResponsiveWrapper>
   );
