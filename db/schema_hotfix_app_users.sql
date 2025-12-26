@@ -13,6 +13,15 @@ CREATE TABLE IF NOT EXISTS public.app_users (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Ensure app_users.id is text before adding FK constraints
+DO $$ BEGIN
+  IF to_regclass('public.app_users') IS NOT NULL THEN
+    ALTER TABLE public.app_users DROP CONSTRAINT IF EXISTS app_users_id_fkey;
+    ALTER TABLE public.app_users
+      ALTER COLUMN id TYPE text USING id::text;
+  END IF;
+END $$;
+
 -- Drop RLS policies that reference the old uuid-typed user_id so type changes succeed
 DO $$ BEGIN
   IF to_regclass('public.user_taste_profiles') IS NOT NULL THEN
