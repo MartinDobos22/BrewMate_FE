@@ -129,6 +129,10 @@ export const fetchUserSignalAggregates = async (
   });
 
   if (!response.ok) {
+    if (response.status === 404) {
+      console.warn('userSignalsApi: user signals not found, skipping hydration');
+      return [];
+    }
     throw new Error(`Failed to load user signals (${response.status})`);
   }
 
