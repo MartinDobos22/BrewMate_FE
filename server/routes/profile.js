@@ -4,62 +4,10 @@ import path from 'node:path';
 
 import { admin } from '../firebase.js';
 import { db, ensureAppUserExists } from '../db.js';
+import { normalizeTasteInput } from '../utils/coffee.js';
 import { LOG_DIR } from '../utils/logging.js';
 
 const router = express.Router();
-
-const normalizeTasteInput = (raw, fallback, fieldName = 'taste') => {
-  const clamp = (val) => Math.max(0, Math.min(10, val));
-  const mappings = {
-    none: 0,
-    low: 3,
-    little: 3,
-    mild: 4,
-    medium: 5,
-    balanced: 5,
-    'medium-high': 7,
-    medium_high: 7,
-    high: 8,
-    strong: 8,
-    'very-high': 10,
-    very_high: 10,
-  };
-
-  const coerce = (value) => {
-    if (value === undefined || value === null || value === '') return null;
-
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      return clamp(value);
-    }
-
-    if (typeof value === 'string') {
-      const trimmed = value.trim();
-      const numeric = Number(trimmed);
-      if (Number.isFinite(numeric)) {
-        return clamp(numeric);
-      }
-
-      const mapped = mappings[trimmed.toLowerCase()];
-      if (mapped !== undefined) {
-        return clamp(mapped);
-      }
-    }
-
-    return undefined;
-  };
-
-  const normalized = coerce(raw);
-  if (normalized !== null && normalized !== undefined) {
-    return normalized;
-  }
-
-  const fallbackNormalized = coerce(fallback);
-  if (fallbackNormalized !== null && fallbackNormalized !== undefined) {
-    return fallbackNormalized;
-  }
-
-  throw new Error(`Neplatná hodnota pre ${fieldName}`);
-};
 
 /**
  * Vráti profil prihláseného používateľa vrátane preferencií a odporúčaní.
