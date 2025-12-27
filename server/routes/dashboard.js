@@ -2,56 +2,10 @@ import express from 'express';
 
 import { admin } from '../firebase.js';
 import { db, ensureAppUserExists } from '../db.js';
+import { generateRecommendations } from '../services/recommendations.js';
+import { getDailyTip } from '../utils/coffee.js';
 
 const router = express.Router();
-
-/**
- * Vráti denný tip na prípravu kávy.
- * @returns {string} Krátky tip na daný deň.
- */
-const getDailyTip = () => {
-  const tips = [
-    'Espresso Lungo - perfektné pre produktívne ráno',
-    'Flat White - keď potrebuješ jemnú chuť s energiou',
-    'V60 - pre objavovanie nových chutí',
-    'Cold Brew - osvieženie na horúce dni',
-    'Cappuccino - klasika ktorá nikdy nesklame',
-    'Americano - pre tých čo majú radi jemnú kávu',
-    'Macchiato - malé potešenie s veľkou chuťou',
-  ];
-  const today = new Date().getDay();
-  return tips[today % tips.length];
-};
-
-/**
- * Generuje zoznam odporúčaných káv na základe preferencií používateľa.
- * @param {object} preferences - Preferencie používateľa.
- * @returns {Promise<Array>} Zoznam odporúčaní.
- */
-const generateRecommendations = async (preferences) => {
-  const coffees = [
-    { name: 'Colombia Geisha', rating: 4.8, match: 95, origin: 'Colombia' },
-    { name: 'Ethiopia Yirgacheffe', rating: 4.6, match: 88, origin: 'Ethiopia' },
-    { name: 'Brazil Santos', rating: 4.5, match: 82, origin: 'Brazil' },
-    { name: 'Guatemala Antigua', rating: 4.7, match: 90, origin: 'Guatemala' },
-    { name: 'Kenya AA', rating: 4.9, match: 93, origin: 'Kenya' },
-  ];
-
-  // Filtruj podľa preferencií ak existujú
-  let filtered = coffees;
-  if (preferences) {
-    // Tu môžete pridať logiku filtrovania
-  }
-
-  return filtered.slice(0, 3).map((coffee) => ({
-    id: Math.random().toString(),
-    name: coffee.name,
-    rating: coffee.rating,
-    match: coffee.match,
-    timestamp: new Date(),
-    isRecommended: true,
-  }));
-};
 
 // ========== DASHBOARD ENDPOINT ==========
 

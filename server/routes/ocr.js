@@ -5,66 +5,12 @@ import path from 'node:path';
 
 import { admin } from '../firebase.js';
 import { db, ensureAppUserExists } from '../db.js';
+import { calculateMatch, extractCoffeeName } from '../utils/coffee.js';
 import { LOG_DIR } from '../utils/logging.js';
 
 const router = express.Router();
 
 const GOOGLE_VISION_API_KEY = process.env.GOOGLE_VISION_API_KEY || ' ';
-
-/**
- * Vypočíta percentuálnu zhodu medzi opisom kávy a preferenciami používateľa.
- * @param {string} coffeeText - Textový opis kávy.
- * @param {object} preferences - Preferencie používateľa z databázy.
- * @returns {number} Hodnota zhody v percentách.
- */
-const calculateMatch = (coffeeText, preferences) => {
-  if (!preferences) return 70;
-
-  let score = 50;
-  const lower = (coffeeText || '').toLowerCase();
-
-  if (preferences.preferred_strength) {
-    if (lower.includes(preferences.preferred_strength.toLowerCase())) {
-      score += 10;
-    }
-  }
-
-  const flavorList = Array.isArray(preferences.flavor_notes)
-    ? preferences.flavor_notes
-    : Object.keys(preferences.flavor_notes || {});
-
-  flavorList.forEach((flavor) => {
-    if (typeof flavor === 'string' && lower.includes(flavor.toLowerCase())) {
-      score += 5;
-    }
-  });
-
-  if (preferences.sweetness && preferences.sweetness >= 7) score += 5;
-  if (preferences.acidity && preferences.acidity <= 3) score += 5;
-
-  return Math.min(score, 100);
-};
-
-/**
- * Extrahuje názov kávy z dodaného textu.
- * @param {string} text - Text z ktorého chceme získať názov.
- * @returns {string} Zistený názov kávy alebo generický text.
- */
-const extractCoffeeName = (text) => {
-  if (!text) return 'Neznáma káva';
-
-  const brands = ['Lavazza', 'Illy', 'Segafredo', 'Kimbo', 'Pellini', 'Bazzara'];
-  for (const brand of brands) {
-    if (text.includes(brand)) {
-      const regex = new RegExp(`${brand}\\s+\\w+`, 'i');
-      const match = text.match(regex);
-      if (match) return match[0];
-    }
-  }
-
-  const words = text.split(/\s+/).slice(0, 3).join(' ');
-  return words.substring(0, 50);
-};
 
 // ========== OCR ENDPOINTS ==========
 
