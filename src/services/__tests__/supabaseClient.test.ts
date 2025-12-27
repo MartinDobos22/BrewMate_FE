@@ -7,6 +7,13 @@ jest.mock('@supabase/supabase-js', () => {
   };
 });
 
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  __esModule: true,
+  default: {
+    getItem: jest.fn().mockResolvedValue(null),
+  },
+}));
+
 import { createClient } from '@supabase/supabase-js';
 
 describe('supabaseClient configuration', () => {
@@ -38,7 +45,10 @@ describe('supabaseClient configuration', () => {
 
     expect(createClient).toHaveBeenCalledWith(
       'https://example.supabase.co',
-      'anon-key'
+      'anon-key',
+      expect.objectContaining({
+        accessToken: expect.any(Function),
+      })
     );
     expect(console.warn).toHaveBeenCalled();
     expect(supabaseClient).not.toBeNull();
