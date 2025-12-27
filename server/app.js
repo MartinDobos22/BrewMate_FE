@@ -51,4 +51,4 @@ app.use((err, _req, res, _next) => {
   res.status(status).json({ error: message });
 });
 
-export { app };
+export default app;

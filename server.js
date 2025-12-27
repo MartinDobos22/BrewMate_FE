@@ -1,4 +1,4 @@
-import { app } from './server/app.js';
+import app from './server/app.js';
 
 // Use Render-provided PORT when available; fall back to local dev port.
 const PORT = process.env.PORT || 3000;
