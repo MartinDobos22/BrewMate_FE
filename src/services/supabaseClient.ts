@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from '../config/env';
 
@@ -44,6 +45,22 @@ const trimmedSupabaseAnonKey = normalizeEnvValue(
   'SUPABASE_ANON_KEY'
 );
 
+const getSupabaseAccessToken = async (): Promise<string | null> => {
+  try {
+    // Prefer a Supabase-issued JWT if the backend exchanges auth tokens.
+    const storedToken = await AsyncStorage.getItem('@SupabaseJwt');
+    if (storedToken) {
+      return storedToken;
+    }
+
+    // Fallback to the Firebase token only when Supabase is configured to trust it.
+    return await AsyncStorage.getItem('@AuthToken');
+  } catch (error) {
+    console.warn('Supabase configuration warning: failed to read auth token.', error);
+    return null;
+  }
+};
+
 const isSupabaseConfigValid = (): boolean => {
   if (!trimmedSupabaseUrl || !trimmedSupabaseAnonKey) {
     return false;
@@ -71,7 +88,9 @@ const isSupabaseConfigValid = (): boolean => {
 export const supabaseClient: SupabaseClient | null = isSupabaseConfigValid()
   ? (() => {
       try {
-        return createClient(trimmedSupabaseUrl!, trimmedSupabaseAnonKey!);
+        return createClient(trimmedSupabaseUrl!, trimmedSupabaseAnonKey!, {
+          accessToken: async () => (await getSupabaseAccessToken()) ?? undefined,
+        });
       } catch (error) {
         console.error(
           'Supabase configuration error: SUPABASE_URL or SUPABASE_ANON_KEY has an invalid format (e.g., contains whitespace, uses a non-http/https scheme, or is empty).',
