@@ -225,6 +225,24 @@ CREATE TABLE public.scan_events (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Aggregated implicit preference signals per coffee
+CREATE TABLE public.user_signals (
+  user_id text NOT NULL REFERENCES public.app_users(id) ON DELETE CASCADE,
+  coffee_id text NOT NULL,
+  coffee_name text NOT NULL,
+  scans integer NOT NULL DEFAULT 0,
+  repeats integer NOT NULL DEFAULT 0,
+  favorites integer NOT NULL DEFAULT 0,
+  ignores integer NOT NULL DEFAULT 0,
+  consumed integer NOT NULL DEFAULT 0,
+  last_feedback text,
+  last_feedback_reason text,
+  last_seen timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  version integer NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, coffee_id)
+);
+
 -- Aggregated counters to avoid heavy COUNT(*) calls
 CREATE TABLE public.user_statistics (
   user_id text PRIMARY KEY REFERENCES public.app_users(id) ON DELETE CASCADE,
