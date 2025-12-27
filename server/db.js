@@ -1,3 +1,4 @@
+import './config.js';
 import { Pool } from 'pg';
 
 const connectionString = process.env.DATABASE_URL || process.env.SUPABASE_DB_URL;
