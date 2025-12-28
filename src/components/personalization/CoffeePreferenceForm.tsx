@@ -38,6 +38,15 @@ type TasteVector = {
   experimentalism: number;
 };
 
+type TasteAIResponse = {
+  ai_recommendation: string;
+  taste_vector: TasteVector;
+  confidence: number;
+  explanations: string[];
+  next_steps: string[];
+  deltas: string[];
+};
+
 interface QuestionOption {
   value: string;
   label: string;
@@ -252,6 +261,125 @@ const CoffeePreferenceForm = ({
 
   const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
+  const coerceNumber = (value: unknown, fallback: number) => {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+    return fallback;
+  };
+
+  const coerceStringArray = (value: unknown, fallback: string[]) => {
+    if (Array.isArray(value)) {
+      return value.map(entry => String(entry)).filter(Boolean);
+    }
+    if (typeof value === 'string' && value.trim()) {
+      return value
+        .split(/\n|•|-|,/)
+        .map(entry => entry.trim())
+        .filter(Boolean);
+    }
+    return fallback;
+  };
+
+  const sanitizeTasteVector = (value: unknown, fallback: TasteVector): TasteVector => {
+    if (!value || typeof value !== 'object') {
+      return fallback;
+    }
+
+    const vector = value as Partial<Record<keyof TasteVector, unknown>>;
+    const sanitized: TasteVector = { ...fallback };
+    TASTE_DIMENSIONS.forEach(dimension => {
+      sanitized[dimension] = clamp01(coerceNumber(vector[dimension], fallback[dimension]));
+    });
+    return sanitized;
+  };
+
+  const buildFallbackAIResponse = (fallbackVector: TasteVector): TasteAIResponse => ({
+    ai_recommendation:
+      'Zatiaľ mám len základný obraz o tvojich preferenciách. Dotazník naznačuje vyvážený profil, takže odporúčam začať s klasickými chuťami a postupne dolaďovať.',
+    taste_vector: fallbackVector,
+    confidence: 0.6,
+    explanations: [
+      'Odpovede naznačujú strednú intenzitu a vyvážený profil bez extrémov.',
+      'Bez silných signálov pre jasnú aciditu alebo horkosť odporúčam postupné testovanie.',
+    ],
+    next_steps: [
+      'Skús jednu kávu s jemnejším pražením a sleduj, či ti vyhovuje acidita.',
+      'Zapíš si, či preferuješ krémovejšie telo alebo čistý, ľahký profil.',
+    ],
+    deltas: [],
+  });
+
+  const parseTasteAIResponse = (
+    aiResponse: string | undefined,
+    fallbackVector: TasteVector,
+  ): { response: TasteAIResponse; warnings: string[] } => {
+    const warnings: string[] = [];
+    const fallback = buildFallbackAIResponse(fallbackVector);
+
+    if (!aiResponse) {
+      warnings.push('AI response missing');
+      return { response: fallback, warnings };
+    }
+
+    try {
+      const parsed = JSON.parse(aiResponse);
+      const recommendation =
+        typeof parsed?.ai_recommendation === 'string' && parsed.ai_recommendation.trim()
+          ? parsed.ai_recommendation.trim()
+          : fallback.ai_recommendation;
+      const confidence = clamp01(coerceNumber(parsed?.confidence, fallback.confidence));
+      const explanations = coerceStringArray(parsed?.explanations, fallback.explanations);
+      const nextSteps = coerceStringArray(parsed?.next_steps, fallback.next_steps);
+      const deltas = coerceStringArray(parsed?.deltas, fallback.deltas);
+      const tasteVector = sanitizeTasteVector(parsed?.taste_vector, fallbackVector);
+
+      return {
+        response: {
+          ai_recommendation: recommendation,
+          confidence,
+          explanations,
+          next_steps: nextSteps,
+          deltas,
+          taste_vector: tasteVector,
+        },
+        warnings,
+      };
+    } catch (error) {
+      warnings.push('AI response JSON parse failed');
+      return { response: fallback, warnings };
+    }
+  };
+
+  const buildRecommendationText = (response: TasteAIResponse) => {
+    const sections: string[] = [];
+    sections.push(`Zhrnutie:\n${response.ai_recommendation}`);
+
+    if (response.deltas.length > 0) {
+      sections.push(`Zmeny oproti minule:\n- ${response.deltas.join('\n- ')}`);
+    }
+
+    if (response.explanations.length > 0) {
+      sections.push(`Prečo:\n- ${response.explanations.join('\n- ')}`);
+    }
+
+    if (response.next_steps.length > 0) {
+      sections.push(`Ďalšie kroky:\n- ${response.next_steps.join('\n- ')}`);
+    }
+
+    if (response.confidence < 0.85) {
+      sections.push('Poznámka: Istota odporúčania je stredná – výsledok dolaď ďalšími kávami.');
+    }
+
+    return sections.join('\n\n');
+  };
+
   const calculateTasteVector = (quizAnswers: Record<string, string>): TasteVector => {
     const totals: Record<keyof TasteVector, { sum: number; count: number }> = {
       acidity: { sum: 0, count: 0 },
@@ -293,6 +421,23 @@ const CoffeePreferenceForm = ({
     const selectedValue = quizAnswers[questionId];
     const option = question?.options.find(opt => opt.value === selectedValue);
     return option?.label || 'neodpovedané';
+  };
+
+  const buildAnswerDeltaSummary = (
+    orderedQuestions: string[],
+    currentAnswers: Record<string, string>,
+    previousAnswers: Record<string, string> | undefined,
+  ) => {
+    return orderedQuestions
+      .map((id, idx) => {
+        const current = getAnswerLabel(id, currentAnswers);
+        const previous = previousAnswers ? getAnswerLabel(id, previousAnswers) : 'neznáme';
+        if (current === previous) {
+          return null;
+        }
+        return `Q${idx + 1}: ${previous} → ${current}`;
+      })
+      .filter(Boolean);
   };
 
   const callOpenAIJsonSchema = async (
@@ -346,8 +491,29 @@ const CoffeePreferenceForm = ({
                   ],
                 },
                 confidence: { type: 'number', minimum: 0, maximum: 1 },
+                explanations: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  minItems: 1,
+                },
+                next_steps: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  minItems: 1,
+                },
+                deltas: {
+                  type: 'array',
+                  items: { type: 'string' },
+                },
               },
-              required: ['ai_recommendation', 'taste_vector', 'confidence'],
+              required: [
+                'ai_recommendation',
+                'taste_vector',
+                'confidence',
+                'explanations',
+                'next_steps',
+                'deltas',
+              ],
             },
           },
         },
@@ -368,12 +534,13 @@ const CoffeePreferenceForm = ({
     variant: 'concise' | 'deep',
     priorProfile: typeof previousProfile,
   ): Promise<{ tasteVector: TasteVector; confidence: number; profileText: string }> => {
+    const fallbackResponse = buildFallbackAIResponse(fallbackVector);
     if (!OPENAI_API_KEY) {
       console.error('Chýba OpenAI API key. Odporúčanie sa nevygeneruje.');
       return {
-        tasteVector: fallbackVector,
-        confidence: 0.6,
-        profileText: 'Nastala chyba pri generovaní odporúčania.',
+        tasteVector: fallbackResponse.taste_vector,
+        confidence: fallbackResponse.confidence,
+        profileText: buildRecommendationText(fallbackResponse),
       };
     }
 
@@ -403,16 +570,20 @@ const CoffeePreferenceForm = ({
           : 'neznáme';
       });
 
-      const systemPrompt = `You are a deterministic coffee preference profiling engine.
-You must produce JSON that adheres exactly to the provided schema.
-You do not output any extra keys or prose.
-Safety constraints:
-- No medical or health claims.
-- No absolute guarantees (avoid "always", "never", "guaranteed").
-- No diagnosing, treatment, or caffeine/health advice.
-Use neutral, professional language.`;
+      const answerDeltas = buildAnswerDeltaSummary(
+        orderedQuestions,
+        quizAnswers,
+        priorProfile?.quiz_answers,
+      );
+      const deltaSummary = answerDeltas.length > 0 ? answerDeltas.join('\n') : 'Žiadne zmeny.';
 
-      const userPrompt = `Generate a coffee preference profile based on the questionnaire answers.
+      const systemPrompt = `Si deterministický engine pre chuťové profily kávy.
+Výstup musí byť výhradne JSON podľa schémy (bez Markdownu, bez extra textu).
+Jazyk odpovede: slovenčina.
+Bez medicínskych tvrdení, bez zdravotných rád, bez absolútnych garancií.
+Ak sú údaje neúplné, doplň bezpečné defaulty namiesto vynechávania kľúčov.`;
+
+      const userPrompt = `Vygeneruj chuťový profil kávy na základe odpovedí z dotazníka.
 
 Variant: ${variant}
 Language: Slovak
@@ -441,6 +612,9 @@ Q8: ${previousAnswerMap.Q8}
 Q9: ${previousAnswerMap.Q9}
 Q10: ${previousAnswerMap.Q10}
 
+Changed answers summary (current vs previous):
+${deltaSummary}
+
 Previous profile (if any):
 ${JSON.stringify(
         {
@@ -458,7 +632,7 @@ ${JSON.stringify(fallbackVector, null, 2)}
 Rules for taste_vector:
 - Output floats between 0.0 and 1.0
 - Adjust based on current answers
-- Consider deltas vs previous profile to mention changes in the recommendation
+- Reflect meaningful deltas vs previous answers (see delta summary)
 
 Rules for ai_recommendation:
 - If Variant is "concise": 2-3 sentences max
@@ -471,22 +645,49 @@ Rules for confidence:
 - 0.6 to 1.0 based on consistency of answers
 - Lower confidence if answers conflict or changed drastically vs previous profile
 
+Rules for explanations:
+- 2-4 bullet-like sentences explaining why this profile fits the answers
+- Mention at least one concrete taste dimension (sladkosť/kyslosť/horkosť/telo/intenzita)
+
+Rules for next_steps:
+- 2-3 actionable, short steps the user can try
+
+Rules for deltas:
+- Array of short sentences describing what changed vs previous answers (empty if no change)
+
+JSON schema (all fields required):
+{
+  "ai_recommendation": "string",
+  "taste_vector": {
+    "acidity": 0-1,
+    "bitterness": 0-1,
+    "sweetness": 0-1,
+    "body": 0-1,
+    "intensity": 0-1,
+    "experimentalism": 0-1
+  },
+  "confidence": 0-1,
+  "explanations": ["string", ...],
+  "next_steps": ["string", ...],
+  "deltas": ["string", ...]
+}
+
 Return JSON only.`;
 
       console.log('📤 [OpenAI] prefs prompt:', userPrompt);
       const aiResponse = await callOpenAIJsonSchema(systemPrompt, userPrompt, 0.2);
 
-      let tasteVector = fallbackVector;
-      let confidence = 0.8;
-      let profileText = 'Nepodarilo sa získať odporúčanie.';
-      try {
-        const parsed = aiResponse ? JSON.parse(aiResponse) : null;
-        tasteVector = { ...fallbackVector, ...(parsed?.taste_vector ?? {}) };
-        confidence = parsed?.confidence ?? confidence;
-        profileText = parsed?.ai_recommendation ?? profileText;
-      } catch (err) {
-        console.warn('⚠️  Parsing profile failed, using fallback.', err);
+      const { response: parsedResponse, warnings } = parseTasteAIResponse(
+        aiResponse,
+        fallbackVector,
+      );
+      if (warnings.length > 0) {
+        console.warn('⚠️  AI response validation warnings:', warnings);
       }
+
+      const tasteVector = parsedResponse.taste_vector;
+      const confidence = parsedResponse.confidence;
+      const profileText = buildRecommendationText(parsedResponse);
 
       return {
         tasteVector,
@@ -496,9 +697,9 @@ Return JSON only.`;
     } catch (err) {
       console.error('AI error:', err);
       return {
-        tasteVector: fallbackVector,
-        confidence: 0.6,
-        profileText: 'Nastala chyba pri generovaní odporúčania.',
+        tasteVector: fallbackResponse.taste_vector,
+        confidence: fallbackResponse.confidence,
+        profileText: buildRecommendationText(fallbackResponse),
       };
     }
   };
@@ -551,8 +752,16 @@ Return JSON only.`;
       const resData = await res.json().catch(() => null);
       console.log('📥 [BE] Save response:', resData);
       if (!res.ok) throw new Error('Failed to save preferences');
+      const updatedProfile = resData?.coffee_preferences ?? null;
       setRecommendation(profileText);
       setShowRecommendation(true);
+      // Uložíme si aj lokálny snapshot pre ďalšie AI delty bez nutnosti refetchu.
+      setPreviousProfile({
+        quiz_answers: updatedProfile?.quiz_answers ?? answers,
+        taste_vector: updatedProfile?.taste_vector ?? tasteVector,
+        ai_recommendation: resData?.ai_recommendation ?? profileText,
+        consistency_score: updatedProfile?.consistency_score ?? confidence,
+      });
       onPreferencesSaved?.();
     } catch (err) {
       Alert.alert('Chyba', 'Nepodarilo sa uložiť preferencie');

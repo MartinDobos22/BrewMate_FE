@@ -10,6 +10,66 @@ import { LOG_DIR } from '../utils/logging.js';
 const router = express.Router();
 
 /**
+ * Normalizuje DB záznam chuťového profilu do formátu používaného FE.
+ *
+ * @param {object | null | undefined} taste - DB záznam z user_taste_profiles.
+ * @returns {object} Normalizovaný tvar pre FE, vrátane coffee_preferences.
+ */
+const serializeTasteProfile = (taste) => {
+  if (!taste) {
+    return {
+      ai_recommendation: null,
+      manual_input: null,
+      taste_vector: null,
+      coffee_preferences: null,
+    };
+  }
+
+  return {
+    ai_recommendation: taste.ai_recommendation ?? null,
+    manual_input: taste.manual_input ?? null,
+    taste_vector: taste.taste_vector ?? null,
+    coffee_preferences: {
+      sweetness: Number(taste.sweetness),
+      acidity: Number(taste.acidity),
+      bitterness: Number(taste.bitterness),
+      body: Number(taste.body),
+      flavor_notes: taste.flavor_notes,
+      milk_preferences: taste.milk_preferences,
+      caffeine_sensitivity: taste.caffeine_sensitivity,
+      preferred_strength: taste.preferred_strength,
+      quiz_version: taste.quiz_version ?? null,
+      quiz_answers: taste.quiz_answers ?? {},
+      consistency_score: taste.consistency_score ?? null,
+      taste_vector: taste.taste_vector ?? null,
+    },
+  };
+};
+
+/**
+ * Zostaví odpoveď profilu podľa FE kontraktu.
+ *
+ * @param {object} params - Parametre na zostavenie profilu.
+ * @param {string} params.uid - UID používateľa.
+ * @param {string | null | undefined} params.email - Email používateľa.
+ * @param {string | null | undefined} params.displayName - Zobrazené meno používateľa.
+ * @param {object | null | undefined} params.taste - DB záznam chuťového profilu.
+ * @returns {object} Plná odpoveď pre FE.
+ */
+const buildProfileResponse = ({ uid, email, displayName, taste }) => {
+  const normalizedTaste = serializeTasteProfile(taste);
+  return {
+    id: uid,
+    email: email ?? null,
+    name: displayName || email?.split('@')[0] || 'Kávoš',
+    bio: null,
+    avatar_url: null,
+    experience_level: null,
+    ...normalizedTaste,
+  };
+};
+
+/**
  * Vráti profil prihláseného používateľa vrátane preferencií a odporúčaní.
  */
 router.get('/api/profile', async (req, res) => {
@@ -32,32 +92,12 @@ router.get('/api/profile', async (req, res) => {
 
     const taste = tasteResult.rows[0];
 
-    const response = {
-      id: uid,
+    const response = buildProfileResponse({
+      uid,
       email: decoded.email,
-      name: decoded.name || decoded.email?.split('@')[0] || 'Kávoš',
-      bio: null,
-      avatar_url: null,
-      experience_level: null,
-      ai_recommendation: taste?.ai_recommendation ?? null,
-      manual_input: taste?.manual_input ?? null,
-      taste_vector: taste?.taste_vector ?? null,
-      coffee_preferences: taste
-        ? {
-            sweetness: Number(taste.sweetness),
-            acidity: Number(taste.acidity),
-            bitterness: Number(taste.bitterness),
-            body: Number(taste.body),
-            flavor_notes: taste.flavor_notes,
-            milk_preferences: taste.milk_preferences,
-            caffeine_sensitivity: taste.caffeine_sensitivity,
-            preferred_strength: taste.preferred_strength,
-            quiz_version: taste.quiz_version ?? null,
-            quiz_answers: taste.quiz_answers ?? {},
-            consistency_score: taste.consistency_score ?? null,
-          }
-        : null,
-    };
+      displayName: decoded.name || decoded.user?.name,
+      taste,
+    });
 
     fs.appendFileSync(
       path.join(LOG_DIR, 'profile.log'),
@@ -303,11 +343,20 @@ router.put('/api/profile', async (req, res) => {
       caffeine_sensitivity,
       preferred_strength,
       preference_confidence,
+      ai_confidence,
     } = req.body;
 
     const prefs = coffee_preferences || {};
-    const flavorNotes = flavor_notes ?? prefs.flavor_notes ?? {};
-    const milkPrefs = milk_preferences ?? prefs.milk_preferences ?? {};
+    const confidenceOverride = preference_confidence ?? ai_confidence ?? null;
+
+    // Načítaj existujúci záznam, aby sme pri partial update neprepísali dôležité JSON polia na null.
+    const existingResult = await client.query(
+      `SELECT * FROM user_taste_profiles WHERE user_id = $1`,
+      [uid]
+    );
+    const existing = existingResult.rows[0] ?? null;
+    const flavorNotes = flavor_notes ?? prefs.flavor_notes ?? existing?.flavor_notes ?? {};
+    const milkPrefs = milk_preferences ?? prefs.milk_preferences ?? existing?.milk_preferences ?? {};
 
     const hasExplicitTasteInputs = [sweetness, acidity, bitterness, body].some(
       (value) => value !== undefined && value !== null
@@ -344,22 +393,22 @@ router.put('/api/profile', async (req, res) => {
     try {
       normalizedSweetness = normalizeTasteInput(
         sweetness ?? mappedTasteVector.sweetness,
-        prefs.sweetness ?? 5,
+        prefs.sweetness ?? existing?.sweetness ?? 5,
         'sweetness'
       );
       normalizedAcidity = normalizeTasteInput(
         acidity ?? mappedTasteVector.acidity,
-        prefs.acidity ?? 5,
+        prefs.acidity ?? existing?.acidity ?? 5,
         'acidity'
       );
       normalizedBitterness = normalizeTasteInput(
         bitterness ?? mappedTasteVector.bitterness,
-        prefs.bitterness ?? 5,
+        prefs.bitterness ?? existing?.bitterness ?? 5,
         'bitterness'
       );
       normalizedBody = normalizeTasteInput(
         body ?? mappedTasteVector.body,
-        prefs.body ?? 5,
+        prefs.body ?? existing?.body ?? 5,
         'body'
       );
     } catch (validationError) {
@@ -370,6 +419,33 @@ router.put('/api/profile', async (req, res) => {
     // Normalizácia chutí, aby sme pri ukladaní dotazníka nepadali na 22P02
     // (invalid_text_representation) chybách, keď frontend pošle textové štítky
     // ako "little", "medium", "high" namiesto čísiel.
+    const resolvedTasteVector =
+      taste_vector ??
+      prefs.taste_vector ??
+      existing?.taste_vector ??
+      {};
+    const resolvedQuizAnswers =
+      prefs.quiz_answers ?? existing?.quiz_answers ?? {};
+    const resolvedQuizVersion = prefs.quiz_version ?? existing?.quiz_version ?? null;
+    const resolvedConsistencyScore =
+      prefs.consistency_score ??
+      confidenceOverride ??
+      existing?.consistency_score ??
+      1;
+    const resolvedAiRecommendation =
+      ai_recommendation ?? existing?.ai_recommendation ?? null;
+    const resolvedManualInput = manual_input ?? existing?.manual_input ?? null;
+    const resolvedCaffeineSensitivity =
+      caffeine_sensitivity ??
+      prefs.caffeine_sensitivity ??
+      existing?.caffeine_sensitivity ??
+      null;
+    const resolvedPreferredStrength =
+      preferred_strength ??
+      prefs.preferred_strength ??
+      existing?.preferred_strength ??
+      null;
+
     await client.query(
       `INSERT INTO user_taste_profiles (
         user_id,
@@ -418,15 +494,15 @@ router.put('/api/profile', async (req, res) => {
         normalizedBody,
         flavorNotes,
         milkPrefs,
-        caffeine_sensitivity ?? prefs.caffeine_sensitivity,
-        preferred_strength ?? prefs.preferred_strength,
-        preference_confidence ?? 0.35,
-        prefs.quiz_version,
-        prefs.quiz_answers,
-        taste_vector,
-        prefs.consistency_score,
-        ai_recommendation,
-        manual_input,
+        resolvedCaffeineSensitivity,
+        resolvedPreferredStrength,
+        confidenceOverride ?? existing?.preference_confidence ?? 0.35,
+        resolvedQuizVersion,
+        resolvedQuizAnswers,
+        resolvedTasteVector,
+        resolvedConsistencyScore,
+        resolvedAiRecommendation,
+        resolvedManualInput,
       ]
     );
 
@@ -435,7 +511,19 @@ router.put('/api/profile', async (req, res) => {
     const log = `[${new Date().toISOString()}] PROFILE UPDATE: ${uid} (${decoded.email})\n`;
     fs.appendFileSync(path.join(LOG_DIR, 'profile.log'), log);
 
-    res.json({ message: 'Profil aktualizovaný' });
+    const { rows: updatedRows } = await client.query(
+      `SELECT * FROM user_taste_profiles WHERE user_id = $1`,
+      [uid]
+    );
+    const updatedTaste = updatedRows[0] ?? null;
+    res.json(
+      buildProfileResponse({
+        uid,
+        email: decoded.email,
+        displayName: decoded.name || decoded.user?.name,
+        taste: updatedTaste,
+      })
+    );
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('❌ Chyba pri update profilu:', err);
