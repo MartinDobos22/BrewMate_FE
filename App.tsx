@@ -140,7 +140,7 @@ class SupabaseLearningStorageAdapter implements LearningStorageAdapter {
 
   public async loadProfile(userId: string): Promise<UserTasteProfile | null> {
     const { data, error } = await this.client
-      .from('user_taste_profile')
+      .from('user_taste_profiles')
       .select('*')
       .eq('user_id', userId)
       .maybeSingle();
@@ -199,7 +199,7 @@ class SupabaseLearningStorageAdapter implements LearningStorageAdapter {
       updated_at: profile.updatedAt,
     };
 
-    const { error } = await this.client.from('user_taste_profile').upsert(payload);
+    const { error } = await this.client.from('user_taste_profiles').upsert(payload);
     if (error) {
       console.warn('SupabaseLearningStorageAdapter: persistProfile failed', error);
     }
