@@ -188,9 +188,10 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
       }
 
       const data = await response.json();
-      const normalized = normalizeCoffeePreferenceSnapshot(
-        data?.coffee_preferences,
-      );
+      const normalized = normalizeCoffeePreferenceSnapshot({
+        ...(data?.coffee_preferences ?? {}),
+        taste_vector: data?.taste_vector ?? data?.coffee_preferences?.taste_vector,
+      });
       setTastePreferenceSnapshot(normalized);
     } catch (error) {
       console.warn('HomeScreen: failed to load taste profile', error);
