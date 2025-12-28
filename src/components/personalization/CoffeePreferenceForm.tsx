@@ -70,6 +70,13 @@ const CoffeePreferenceForm = ({
   const [showRecommendation, setShowRecommendation] = useState(false);
   const [recommendation, setRecommendation] = useState('');
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [responseVariant, setResponseVariant] = useState<'concise' | 'deep'>('concise');
+  const [previousProfile, setPreviousProfile] = useState<{
+    quiz_answers?: Record<string, string>;
+    taste_vector?: TasteVector;
+    ai_recommendation?: string;
+    consistency_score?: number;
+  } | null>(null);
 
   const SAFE_MODE_VECTOR: TasteVector = {
     acidity: 0.45,
@@ -217,6 +224,12 @@ const CoffeePreferenceForm = ({
         if (data.coffee_preferences?.quiz_answers) {
           setAnswers(data.coffee_preferences.quiz_answers);
         }
+        setPreviousProfile({
+          quiz_answers: data.coffee_preferences?.quiz_answers,
+          taste_vector: data.coffee_preferences?.taste_vector ?? data.taste_vector,
+          ai_recommendation: data.coffee_preferences?.ai_recommendation ?? data.ai_recommendation,
+          consistency_score: data.coffee_preferences?.consistency_score ?? data.consistency_score,
+        });
       }
     } catch (err) {
       console.warn('Failed to load preferences:', err);
@@ -282,7 +295,7 @@ const CoffeePreferenceForm = ({
     return option?.label || 'neodpovedané';
   };
 
-  const callOpenAI = async (
+  const callOpenAIJsonSchema = async (
     systemPrompt: string,
     userPrompt: string,
     temperature = 0.2,
@@ -300,6 +313,44 @@ const CoffeePreferenceForm = ({
           { role: 'user', content: userPrompt },
         ],
         temperature,
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'coffee_preference_profile',
+            strict: true,
+            schema: {
+              type: 'object',
+              additionalProperties: false,
+              properties: {
+                ai_recommendation: {
+                  type: 'string',
+                },
+                taste_vector: {
+                  type: 'object',
+                  additionalProperties: false,
+                  properties: {
+                    acidity: { type: 'number', minimum: 0, maximum: 1 },
+                    bitterness: { type: 'number', minimum: 0, maximum: 1 },
+                    sweetness: { type: 'number', minimum: 0, maximum: 1 },
+                    body: { type: 'number', minimum: 0, maximum: 1 },
+                    intensity: { type: 'number', minimum: 0, maximum: 1 },
+                    experimentalism: { type: 'number', minimum: 0, maximum: 1 },
+                  },
+                  required: [
+                    'acidity',
+                    'bitterness',
+                    'sweetness',
+                    'body',
+                    'intensity',
+                    'experimentalism',
+                  ],
+                },
+                confidence: { type: 'number', minimum: 0, maximum: 1 },
+              },
+              required: ['ai_recommendation', 'taste_vector', 'confidence'],
+            },
+          },
+        },
       }),
     });
 
@@ -314,12 +365,14 @@ const CoffeePreferenceForm = ({
   const generateAIRecommendation = async (
     fallbackVector: TasteVector,
     quizAnswers: Record<string, string>,
-  ): Promise<{ tasteVector: TasteVector; consistencyScore: number; profileText: string }> => {
+    variant: 'concise' | 'deep',
+    priorProfile: typeof previousProfile,
+  ): Promise<{ tasteVector: TasteVector; confidence: number; profileText: string }> => {
     if (!OPENAI_API_KEY) {
       console.error('Chýba OpenAI API key. Odporúčanie sa nevygeneruje.');
       return {
         tasteVector: fallbackVector,
-        consistencyScore: 1,
+        confidence: 0.6,
         profileText: 'Nastala chyba pri generovaní odporúčania.',
       };
     }
@@ -343,15 +396,28 @@ const CoffeePreferenceForm = ({
         answerMap[`Q${idx + 1}`] = getAnswerLabel(id, quizAnswers);
       });
 
-      const parsingSystemPrompt = `You are a deterministic coffee preference evaluation engine.
-You do not give opinions.
-You do not explain your reasoning.
-You only transform structured input into structured output.
-All outputs must strictly follow the defined JSON schema.`;
+      const previousAnswerMap: Record<string, string> = {};
+      orderedQuestions.forEach((id, idx) => {
+        previousAnswerMap[`Q${idx + 1}`] = priorProfile?.quiz_answers
+          ? getAnswerLabel(id, priorProfile.quiz_answers)
+          : 'neznáme';
+      });
 
-      const parsingUserPrompt = `Based on the user's questionnaire answers, generate a normalized coffee taste preference vector.
+      const systemPrompt = `You are a deterministic coffee preference profiling engine.
+You must produce JSON that adheres exactly to the provided schema.
+You do not output any extra keys or prose.
+Safety constraints:
+- No medical or health claims.
+- No absolute guarantees (avoid "always", "never", "guaranteed").
+- No diagnosing, treatment, or caffeine/health advice.
+Use neutral, professional language.`;
 
-Questionnaire answers:
+      const userPrompt = `Generate a coffee preference profile based on the questionnaire answers.
+
+Variant: ${variant}
+Language: Slovak
+
+Current questionnaire answers (labels):
 Q1: ${answerMap.Q1}
 Q2: ${answerMap.Q2}
 Q3: ${answerMap.Q3}
@@ -363,101 +429,75 @@ Q8: ${answerMap.Q8}
 Q9: ${answerMap.Q9}
 Q10: ${answerMap.Q10}
 
-Rules:
-- Output values must be floats between 0.0 and 1.0
-- Higher value = stronger preference or tolerance
-- Do NOT invent preferences
-- If an answer indicates dislike, reduce the related dimension
+Previous questionnaire answers (labels, if any):
+Q1: ${previousAnswerMap.Q1}
+Q2: ${previousAnswerMap.Q2}
+Q3: ${previousAnswerMap.Q3}
+Q4: ${previousAnswerMap.Q4}
+Q5: ${previousAnswerMap.Q5}
+Q6: ${previousAnswerMap.Q6}
+Q7: ${previousAnswerMap.Q7}
+Q8: ${previousAnswerMap.Q8}
+Q9: ${previousAnswerMap.Q9}
+Q10: ${previousAnswerMap.Q10}
 
-Taste dimensions:
-- acidity
-- bitterness
-- sweetness
-- body
-- intensity
-- experimentalism
+Previous profile (if any):
+${JSON.stringify(
+        {
+          taste_vector: priorProfile?.taste_vector ?? null,
+          ai_recommendation: priorProfile?.ai_recommendation ?? null,
+          consistency_score: priorProfile?.consistency_score ?? null,
+        },
+        null,
+        2,
+      )}
 
-Output only valid JSON.`;
+Fallback taste vector (computed from weights):
+${JSON.stringify(fallbackVector, null, 2)}
 
-      console.log('📤 [OpenAI] prefs parsing prompt:', parsingUserPrompt);
-      const parsingResponse = await callOpenAI(parsingSystemPrompt, parsingUserPrompt, 0.1);
+Rules for taste_vector:
+- Output floats between 0.0 and 1.0
+- Adjust based on current answers
+- Consider deltas vs previous profile to mention changes in the recommendation
+
+Rules for ai_recommendation:
+- If Variant is "concise": 2-3 sentences max
+- If Variant is "deep": 5-7 sentences, include nuance
+- No specific coffee product recommendations
+- Mention uncertainty if confidence < 0.85
+- Do not use absolutes or medical claims
+
+Rules for confidence:
+- 0.6 to 1.0 based on consistency of answers
+- Lower confidence if answers conflict or changed drastically vs previous profile
+
+Return JSON only.`;
+
+      console.log('📤 [OpenAI] prefs prompt:', userPrompt);
+      const aiResponse = await callOpenAIJsonSchema(systemPrompt, userPrompt, 0.2);
 
       let tasteVector = fallbackVector;
+      let confidence = 0.8;
+      let profileText = 'Nepodarilo sa získať odporúčanie.';
       try {
-        tasteVector = { ...fallbackVector, ...(parsingResponse ? JSON.parse(parsingResponse) : {}) };
+        const parsed = aiResponse ? JSON.parse(aiResponse) : null;
+        tasteVector = { ...fallbackVector, ...(parsed?.taste_vector ?? {}) };
+        confidence = parsed?.confidence ?? confidence;
+        profileText = parsed?.ai_recommendation ?? profileText;
       } catch (err) {
-        console.warn('⚠️  Parsing taste vector failed, using fallback.', err);
+        console.warn('⚠️  Parsing profile failed, using fallback.', err);
       }
-
-      const validationSystemPrompt = `You are a consistency validation engine.
-Your task is to detect contradictions between declared preferences and behavioral choices.
-You do not judge the user.
-You output confidence modifiers only.`;
-
-      const validationUserPrompt = `Analyze the following questionnaire answers and detect inconsistencies.
-
-Questionnaire answers:
-Q1: ${answerMap.Q1}
-Q2: ${answerMap.Q2}
-Q4: ${answerMap.Q4}
-Q7: ${answerMap.Q7}
-Q10: ${answerMap.Q10}
-
-Rules:
-- Identify logical conflicts (e.g. low acidity tolerance + filter preference)
-- Do not assume user intent
-- Output a confidence modifier between 0.6 and 1.0
-- 1.0 = fully consistent
-- Below 0.75 means high inconsistency
-
-Output only valid JSON.`;
-
-      console.log('📤 [OpenAI] prefs validation prompt:', validationUserPrompt);
-      const validationResponse = await callOpenAI(validationSystemPrompt, validationUserPrompt, 0.1);
-
-      let consistencyScore = 1;
-      try {
-        const parsed = validationResponse ? JSON.parse(validationResponse) : null;
-        consistencyScore = parsed?.consistency_score ?? 1;
-      } catch (err) {
-        console.warn('⚠️  Parsing consistency failed, defaulting to 1.', err);
-      }
-
-      const finalSystemPrompt = `You are a professional coffee profiling assistant.
-You describe taste preferences clearly and conservatively.
-You avoid absolute claims.
-You never guarantee liking or disliking.`;
-
-      const finalUserPrompt = `Create a concise coffee taste profile based on the following data.
-
-Taste vector:
-${JSON.stringify(tasteVector, null, 2)}
-
-Consistency score:
-${consistencyScore}
-
-Rules:
-- Describe preferences in neutral, professional language
-- Mention limitations or uncertainty if consistency score < 0.85
-- Do NOT recommend specific coffees
-- Output in Slovak language
-- Max 3 sentences
-
-Output plain text only.`;
-
-      console.log('📤 [OpenAI] prefs final prompt:', finalUserPrompt);
-      const finalResponse = await callOpenAI(finalSystemPrompt, finalUserPrompt, 0.2);
 
       return {
         tasteVector,
-        consistencyScore,
-        profileText: finalResponse || 'Nepodarilo sa získať odporúčanie.',
+        confidence,
+        profileText,
       };
     } catch (err) {
       console.error('AI error:', err);
       return {
         tasteVector: fallbackVector,
-        consistencyScore: 1,
+        confidence: 0.6,
         profileText: 'Nastala chyba pri generovaní odporúčania.',
       };
     }
@@ -476,16 +516,19 @@ Output plain text only.`;
     setIsLoading(true);
     const fallbackTasteVector = calculateTasteVector(answers);
 
-    const { tasteVector, consistencyScore, profileText } = await generateAIRecommendation(
+    const { tasteVector, confidence, profileText } = await generateAIRecommendation(
       fallbackTasteVector,
       answers,
+      responseVariant,
+      previousProfile,
     );
 
     const preferences = {
       quiz_version: 'taste-2024-10',
       quiz_answers: answers,
       taste_vector: tasteVector,
-      consistency_score: consistencyScore,
+      consistency_score: confidence,
+      ai_confidence: confidence,
     };
 
     try {
@@ -502,6 +545,7 @@ Output plain text only.`;
           coffee_preferences: preferences,
           taste_vector: tasteVector,
           ai_recommendation: profileText,
+          ai_confidence: confidence,
         }),
       });
       const resData = await res.json().catch(() => null);
@@ -585,6 +629,43 @@ Output plain text only.`;
           <Text style={styles.introText}>• Vždy 1 odpoveď, žiadne „záleží“.</Text>
           <Text style={styles.introText}>• Nútený výber, odpovede sa mapujú na váhy 0–1.</Text>
           <Text style={styles.introText}>• Prvá predikcia je SAFE MODE: utlmené extrémy, čokoláda/oriešky/stredné telo.</Text>
+        </View>
+        <View style={styles.variantContainer}>
+          <Text style={styles.variantLabel}>Typ odporúčania</Text>
+          <View style={styles.variantButtons}>
+            <TouchableOpacity
+              style={[
+                styles.variantButton,
+                responseVariant === 'concise' && styles.variantButtonSelected,
+              ]}
+              onPress={() => setResponseVariant('concise')}
+            >
+              <Text
+                style={[
+                  styles.variantButtonText,
+                  responseVariant === 'concise' && styles.variantButtonTextSelected,
+                ]}
+              >
+                Stručné
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.variantButton,
+                responseVariant === 'deep' && styles.variantButtonSelected,
+              ]}
+              onPress={() => setResponseVariant('deep')}
+            >
+              <Text
+                style={[
+                  styles.variantButtonText,
+                  responseVariant === 'deep' && styles.variantButtonTextSelected,
+                ]}
+              >
+                Detailné
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
         {visibleQuestions.map(question => renderQuestion(question))}
 
@@ -704,6 +785,47 @@ const createStyles = (isDarkMode: boolean) => {
       fontSize: 14,
       color: colors.textSecondary,
       marginBottom: 4,
+    },
+    variantContainer: {
+      marginTop: 12,
+      marginBottom: 4,
+      paddingVertical: 12,
+      paddingHorizontal: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.cardBackground,
+    },
+    variantLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.textSecondary,
+      marginBottom: 8,
+    },
+    variantButtons: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    variantButton: {
+      flex: 1,
+      paddingVertical: 10,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      backgroundColor: colors.background,
+    },
+    variantButtonSelected: {
+      borderColor: colors.primary,
+      backgroundColor: isDarkMode ? 'rgba(139,69,19,0.2)' : 'rgba(139,69,19,0.1)',
+    },
+    variantButtonText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.textSecondary,
+    },
+    variantButtonTextSelected: {
+      color: colors.primary,
     },
     questionContainer: {
       paddingVertical: 25,
