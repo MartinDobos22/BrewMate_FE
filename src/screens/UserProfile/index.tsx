@@ -27,12 +27,13 @@ import {
 import type { TrackingPreferences, TasteProfileVector } from '../../types/Personalization';
 import { palette, styles } from './styles';
 import { API_URL } from '../../services/api';
+import { buildTasteRadarScores, normalizeCoffeePreferenceSnapshot } from '../../utils/tasteProfile';
 
 const PRIMARY_GRADIENT = [palette.espresso, palette.medium];
 
 type RadarAxisKey = 'acidity' | 'sweetness' | 'body' | 'bitterness' | 'aroma' | 'fruitiness';
 
-type RadarScores = Record<RadarAxisKey, number | null>;
+type RadarScores = Record<RadarAxisKey, number>;
 
 const RADAR_AXES: { key: RadarAxisKey; label: string }[] = [
   { key: 'acidity', label: 'Kyslosť' },
@@ -54,39 +55,11 @@ const RADAR_SIZE = 240;
 const RADAR_CENTER = RADAR_SIZE / 2;
 const RADAR_RADIUS = RADAR_SIZE / 2 - 24;
 
-const normalizeTasteValue = (value: number | undefined | null): number | null => {
-  if (typeof value !== 'number' || Number.isNaN(value)) {
-    return null;
-  }
-  return Math.max(0, Math.min(10, value));
-};
-
 const getExperienceLevelMeta = (level?: string | null) => {
   if (!level) {
     return EXPERIENCE_LEVEL_META.default;
   }
   return EXPERIENCE_LEVEL_META[level] ?? EXPERIENCE_LEVEL_META.default;
-};
-
-const buildRadarScores = (profile?: TasteProfileVector | null): RadarScores | null => {
-  if (!profile) {
-    return null;
-  }
-
-  const aromaBase = normalizeTasteValue(profile.body);
-  const fruitinessBase = normalizeTasteValue(profile.acidity);
-
-  const scores = {
-    acidity: normalizeTasteValue(profile.acidity),
-    sweetness: normalizeTasteValue(profile.sweetness),
-    body: normalizeTasteValue(profile.body),
-    bitterness: normalizeTasteValue(profile.bitterness),
-    aroma: aromaBase,
-    fruitiness: fruitinessBase,
-  };
-
-  const hasValue = Object.values(scores).some(value => value !== null);
-  return hasValue ? scores : null;
 };
 
 const radarPoint = (value: number, index: number, total: number, radius: number = RADAR_RADIUS) => {
@@ -107,17 +80,12 @@ const buildPolygonPoints = (values: number[], radius: number = RADAR_RADIUS) =>
     .join(' ');
 
 const ProfileRadarChart: React.FC<{ scores: RadarScores }> = React.memo(({ scores }) => {
-  const activeAxes = useMemo(() => RADAR_AXES.filter(axis => scores[axis.key] !== null), [scores]);
-  const dataValues = useMemo(() => activeAxes.map(axis => scores[axis.key] as number), [activeAxes, scores]);
+  const dataValues = useMemo(() => RADAR_AXES.map(axis => scores[axis.key]), [scores]);
   const dataPolygon = useMemo(() => buildPolygonPoints(dataValues), [dataValues]);
   const gridPolygons = useMemo(
-    () => [2, 4, 6, 8, 10].map(level => buildPolygonPoints(new Array(activeAxes.length).fill(level))),
-    [activeAxes.length],
+    () => [2, 4, 6, 8, 10].map(level => buildPolygonPoints(new Array(RADAR_AXES.length).fill(level))),
+    [],
   );
-
-  if (activeAxes.length === 0) {
-    return null;
-  }
 
   return (
     <Svg width={RADAR_SIZE} height={RADAR_SIZE}>
@@ -132,15 +100,15 @@ const ProfileRadarChart: React.FC<{ scores: RadarScores }> = React.memo(({ score
         </SvgLinearGradient>
       </Defs>
 
-      <Polygon points={buildPolygonPoints(new Array(activeAxes.length).fill(10))} fill="url(#profile-radar-bg)" />
+      <Polygon points={buildPolygonPoints(new Array(RADAR_AXES.length).fill(10))} fill="url(#profile-radar-bg)" />
 
       {gridPolygons.map((points, index) => (
         <Polygon key={`grid-${index}`} points={points} fill="none" stroke="rgba(217, 119, 6, 0.18)" strokeWidth={1} />
       ))}
 
-      {activeAxes.map((axis, index) => {
-        const axisEnd = radarPoint(10, index, activeAxes.length);
-        const labelPosition = radarPoint(11, index, activeAxes.length);
+      {RADAR_AXES.map((axis, index) => {
+        const axisEnd = radarPoint(10, index, RADAR_AXES.length);
+        const labelPosition = radarPoint(11, index, RADAR_AXES.length);
         return (
           <React.Fragment key={axis.key}>
             <Line x1={RADAR_CENTER} y1={RADAR_CENTER} x2={axisEnd.x} y2={axisEnd.y} stroke="rgba(217, 119, 6, 0.25)" strokeWidth={1} />
@@ -153,8 +121,8 @@ const ProfileRadarChart: React.FC<{ scores: RadarScores }> = React.memo(({ score
 
       <Polygon points={dataPolygon} fill="url(#profile-radar-fill)" stroke="rgba(234, 88, 12, 0.85)" strokeWidth={2.5} />
 
-      {activeAxes.map((axis, index) => {
-        const { x, y } = radarPoint(dataValues[index], index, activeAxes.length);
+      {RADAR_AXES.map((axis, index) => {
+        const { x, y } = radarPoint(dataValues[index], index, RADAR_AXES.length);
         return <Circle key={`dot-${axis.key}`} cx={x} cy={y} r={4.5} fill="#EA580C" stroke="#fff7ed" strokeWidth={2} />;
       })}
     </Svg>
@@ -211,19 +179,21 @@ const UserProfile = ({
     userId: personalizationUserId,
   } = usePersonalization();
   const privacyManagerRef = useRef<PrivacyManager>(contextPrivacyManager ?? privacyManager.manager);
-  // The personalization context is the single source of truth for taste data used in this screen.
-  const personalizationTasteProfile = personalizationProfile?.preferences ?? null;
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [recommendation, setRecommendation] = useState<string | null>(null);
   const [coffeeStats, setCoffeeStats] = useState<Stat[]>([]);
-  const [tasteProfile, setTasteProfile] = useState<TasteProfileVector | null>(null);
   const [communityAverage, setCommunityAverage] = useState<TasteProfileVector>(DEFAULT_COMMUNITY_AVERAGE);
   const [trackingConsent, setTrackingConsent] = useState<TrackingPreferences | null>(null);
   const [exportingData, setExportingData] = useState(false);
   const [deletingData, setDeletingData] = useState(false);
   const hasDataConsent = trackingConsent ? optIn.dataControl.every(flag => trackingConsent[flag]) : false;
+  const normalizedPreferences = useMemo(() => {
+    // Backend payloads use snake_case (flavor_notes, taste_vector); normalize to flavorNotes/tasteVector
+    // so aroma/fruitiness can be derived from flavor notes and taste vector signals.
+    return normalizeCoffeePreferenceSnapshot(profile?.coffee_preferences);
+  }, [profile?.coffee_preferences]);
 
   useEffect(() => {
     if (contextPrivacyManager) {
@@ -276,8 +246,6 @@ const UserProfile = ({
           ? managerInstance.buildCommunityInsights(effectiveUserId)
           : Promise.resolve({ flavorTrends: {}, sampleSize: 0 }),
       ]);
-      const nextTasteProfile = personalizationTasteProfile;
-
       const nextCommunityAverage: TasteProfileVector = insights.sampleSize > 0
         ? {
             sweetness: clampTasteValue(insights.flavorTrends.sweetness, DEFAULT_COMMUNITY_AVERAGE.sweetness),
@@ -288,7 +256,6 @@ const UserProfile = ({
         : { ...DEFAULT_COMMUNITY_AVERAGE };
 
       return {
-        profile: nextTasteProfile,
         preferences,
         communityAverage: nextCommunityAverage,
       };
@@ -301,12 +268,10 @@ const UserProfile = ({
   const applyPersonalization = useCallback(async () => {
     try {
       const data = await readPersonalization();
-      setTasteProfile(data.profile);
       setTrackingConsent(data.preferences);
       setCommunityAverage(data.communityAverage);
     } catch (error) {
       console.warn('UserProfile: personalization state update failed', error);
-      setTasteProfile(null);
       setCommunityAverage(DEFAULT_COMMUNITY_AVERAGE);
     }
   }, [readPersonalization]);
@@ -343,14 +308,12 @@ const UserProfile = ({
         if (!active) {
           return;
         }
-        setTasteProfile(data.profile);
         setTrackingConsent(data.preferences);
         setCommunityAverage(data.communityAverage);
       } catch (error) {
         if (!active) {
           return;
         }
-        setTasteProfile(null);
         setCommunityAverage(DEFAULT_COMMUNITY_AVERAGE);
       }
     };
@@ -499,7 +462,10 @@ const UserProfile = ({
 
   const ProfileContent = () => {
     const { label: levelLabel, gradient: levelGradient } = getExperienceLevelMeta(profile?.experience_level);
-    const radarScores = useMemo(() => buildRadarScores(tasteProfile), [tasteProfile]);
+    const radarScores = useMemo(
+      () => buildTasteRadarScores({ profile: personalizationProfile, preferences: normalizedPreferences }),
+      [normalizedPreferences, personalizationProfile],
+    );
 
     return (
       <>
