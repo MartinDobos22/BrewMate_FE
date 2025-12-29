@@ -18,6 +18,15 @@ import { getSafeAreaTop, getSafeAreaBottom, scale, verticalScale } from '../util
 import { AIResponseDisplay } from './AIResponseDisplay';
 import { CONFIG } from '../../config/config';
 import { API_URL } from '../../services/api';
+import {
+  DEFAULT_TASTE_VECTOR,
+  buildFallbackAIResponse,
+  buildRecommendationText,
+  callOpenAIJsonSchema,
+  parseTasteAIResponse,
+  TASTE_AI_SCHEMA_PROMPT,
+  TasteVector,
+} from './tasteAiUtils';
 
 const OPENAI_API_KEY = CONFIG.OPENAI_API_KEY;
 
@@ -36,6 +45,7 @@ interface ProfileData {
   experience_level?: string;
   ai_recommendation?: string;
   manual_input?: string;
+  taste_vector?: TasteVector;
 }
 
 /**
@@ -79,54 +89,97 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
   /**
    * Vygeneruje nové AI odporúčanie podľa zadaných poznámok.
    */
-  const generateAI = async (additionalNotes: string) => {
+  const getFallbackTasteVector = () => {
+    return profile?.coffee_preferences?.taste_vector ?? profile?.taste_vector ?? DEFAULT_TASTE_VECTOR;
+  };
+
+  const generateAI = async (additionalNotes: string, options?: { reset?: boolean }) => {
     if (!OPENAI_API_KEY) {
       console.error('Chýba OpenAI API key. Odporúčanie sa nevygeneruje.');
-      return 'Nastala chyba pri generovaní odporúčania.';
+      const fallback = buildFallbackAIResponse(getFallbackTasteVector());
+      return buildRecommendationText(fallback);
     }
 
     try {
-      let prompt = `Používateľ má tieto preferencie kávy: ${JSON.stringify(profile?.coffee_preferences)}.`;
+      const fallbackVector = getFallbackTasteVector();
+      const fallback = buildFallbackAIResponse(fallbackVector);
+      const isReset = options?.reset;
 
-      if (currentRecommendation) {
-        prompt += ` Aktuálne odporúčanie: "${currentRecommendation}".`;
+      const systemPrompt = `Si deterministický engine pre chuťové profily kávy.
+Výstup musí byť výhradne JSON podľa schémy (bez Markdownu, bez extra textu).
+Jazyk odpovede: slovenčina.
+Bez medicínskych tvrdení, bez zdravotných rád, bez absolútnych garancií.
+Ak sú údaje neúplné, doplň bezpečné defaulty namiesto vynechávania kľúčov.`;
+
+      let prompt = `Uprav odporúčanie na kávu podľa preferencií používateľa.
+Language: Slovak
+
+Preferences snapshot:
+${JSON.stringify(profile?.coffee_preferences ?? {}, null, 2)}
+
+Fallback taste vector (computed from profile if available):
+${JSON.stringify(fallbackVector, null, 2)}`;
+
+      if (!isReset && currentRecommendation) {
+        prompt += `\n\nCurrent recommendation:\n${currentRecommendation}`;
       }
 
-      if (profile?.manual_input) {
-        prompt += ` Predchádzajúce poznámky používateľa: "${profile.manual_input}".`;
+      if (!isReset && profile?.manual_input) {
+        prompt += `\n\nPrevious manual notes:\n${profile.manual_input}`;
       }
 
-      prompt += ` Používateľ chce upraviť odporúčanie s týmito novými poznámkami: "${additionalNotes}". 
-      Vytvor nové personalizované odporúčanie na kávu, ktoré zohľadňuje všetky tieto informácie. 
-      Odpoveď napíš v slovenčine, priateľsky a stručne (max 3-4 vety).`;
+      if (!isReset) {
+        prompt += `\n\nNew manual notes to apply:\n${additionalNotes}`;
+      }
+
+      if (isReset) {
+        prompt += `\n\nReset request: ignore previous recommendations and notes, generate a fresh profile.`;
+      }
+
+      prompt += `\n\nRules for ai_recommendation:
+- 3-4 sentences, friendly tone
+- No specific coffee product recommendations
+- Mention uncertainty if confidence < 0.85
+- Do not use absolutes or medical claims
+
+Rules for taste_vector:
+- Output floats between 0.0 and 1.0
+- Adjust based on the notes and preferences
+
+Rules for confidence:
+- 0.6 to 1.0 based on clarity and consistency
+- Lower confidence if notes conflict with existing preferences
+
+Rules for explanations:
+- 2-3 sentences explaining how the notes/preferences shaped the result
+
+Rules for next_steps:
+- 2-3 actionable, short steps the user can try
+
+Rules for deltas:
+- Short sentences describing what changed vs the previous recommendation
+- If this is a reset, return an empty array
+
+${TASTE_AI_SCHEMA_PROMPT}`;
 
       console.log('📤 [OpenAI] prompt:', prompt);
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [
-            {
-              role: 'system',
-              content: 'Si skúsený barista a coffee expert. Vytváraš personalizované odporúčania pre milovníkov kávy na základe ich preferencií a dodatočných požiadaviek.'
-            },
-            { role: 'user', content: prompt },
-          ],
-          temperature: 0.4,
-          max_tokens: 200,
-        }),
-      });
+      const aiResponse = await callOpenAIJsonSchema(OPENAI_API_KEY, systemPrompt, prompt, 0.3);
 
-      const data = await response.json();
-      console.log('📥 [OpenAI] response:', data);
-      return data?.choices?.[0]?.message?.content?.trim() || 'Nepodarilo sa získať odporúčanie.';
+      // Validate and coerce the structured JSON so invalid output does not break the UI.
+      const { response: parsedResponse, warnings } = parseTasteAIResponse(
+        aiResponse,
+        fallbackVector,
+      );
+      // Fall back to a safe default if the model omitted fields or returned malformed JSON.
+      if (warnings.length > 0) {
+        console.warn('⚠️  AI response validation warnings:', warnings);
+      }
+
+      return buildRecommendationText(parsedResponse);
     } catch (err) {
       console.error('AI error:', err);
-      return 'Nastala chyba pri generovaní odporúčania.';
+      const fallback = buildFallbackAIResponse(getFallbackTasteVector());
+      return buildRecommendationText(fallback);
     }
   };
 
@@ -189,33 +242,7 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
           onPress: async () => {
             setSaving(true);
             try {
-              const basicPrompt = `Používateľ má tieto preferencie kávy: ${JSON.stringify(profile?.coffee_preferences)}. 
-              Vytvor personalizované odporúčanie na kávu. Odpoveď napíš v slovenčine, priateľsky a stručne (max 3-4 vety).`;
-
-              console.log('📤 [OpenAI] reset prompt:', basicPrompt);
-              const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${OPENAI_API_KEY}`,
-                },
-                body: JSON.stringify({
-                  model: 'gpt-4o',
-                  messages: [
-                    {
-                      role: 'system',
-                      content: 'Si skúsený barista a coffee expert. Vytváraš personalizované odporúčania pre milovníkov kávy.'
-                    },
-                    { role: 'user', content: basicPrompt },
-                  ],
-                  temperature: 0.4,
-                  max_tokens: 200,
-                }),
-              });
-
-              const data = await response.json();
-              console.log('📥 [OpenAI] reset response:', data);
-              const newRecommendation = data?.choices?.[0]?.message?.content?.trim() || 'Nepodarilo sa získať odporúčanie.';
+              const newRecommendation = await generateAI('', { reset: true });
 
               const user = auth().currentUser;
               const token = await user?.getIdToken();
