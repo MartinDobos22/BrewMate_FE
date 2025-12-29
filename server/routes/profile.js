@@ -8,6 +8,82 @@ import { normalizeTasteInput } from '../utils/coffee.js';
 import { LOG_DIR } from '../utils/logging.js';
 
 const router = express.Router();
+const TASTE_VECTOR_KEYS = [
+  'sweetness',
+  'acidity',
+  'bitterness',
+  'body',
+  'intensity',
+  'experimentalism',
+];
+
+const isPlainObject = (value) =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+
+const clampNumber = (value, min, max) => Math.min(max, Math.max(min, value));
+
+/**
+ * Validate and clamp a taste vector payload.
+ *
+ * Ensures the payload is a plain object with numeric values for the expected keys
+ * (sweetness, acidity, bitterness, body, intensity, experimentalism) and clamps
+ * each value to a 0–1 or 0–10 range based on scale.
+ *
+ * @param {unknown} value - Incoming taste vector payload.
+ * @returns {Record<string, number> | null} Sanitized taste vector or null when not provided.
+ */
+const validateTasteVector = (value) => {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (!isPlainObject(value)) {
+    throw new Error('Invalid taste_vector: expected a plain object.');
+  }
+
+  const sanitized = {};
+
+  TASTE_VECTOR_KEYS.forEach((key) => {
+    const rawValue = value[key];
+    if (rawValue === undefined || rawValue === null) {
+      return;
+    }
+
+    if (typeof rawValue !== 'number' || Number.isNaN(rawValue)) {
+      throw new Error(`Invalid taste_vector.${key}: expected a number.`);
+    }
+
+    const clamped =
+      rawValue <= 1
+        ? clampNumber(rawValue, 0, 1)
+        : clampNumber(rawValue, 0, 10);
+    sanitized[key] = clamped;
+  });
+
+  return sanitized;
+};
+
+const validateQuizAnswers = (value) => {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (!isPlainObject(value)) {
+    throw new Error(
+      'Invalid quiz_answers: expected a plain object with string values.'
+    );
+  }
+
+  const sanitized = {};
+  Object.entries(value).forEach(([key, entryValue]) => {
+    if (typeof entryValue !== 'string') {
+      throw new Error(`Invalid quiz_answers.${key}: expected a string.`);
+    }
+    sanitized[key] = entryValue;
+  });
+
+  return sanitized;
+};
 
 /**
  * Normalizuje DB záznam chuťového profilu do formátu používaného FE.
@@ -358,29 +434,43 @@ router.put('/api/profile', async (req, res) => {
     const flavorNotes = flavor_notes ?? prefs.flavor_notes ?? existing?.flavor_notes ?? {};
     const milkPrefs = milk_preferences ?? prefs.milk_preferences ?? existing?.milk_preferences ?? {};
 
+    let validatedTasteVector;
+    let validatedQuizAnswers;
+    try {
+      // Validate taste vector shape and clamp numeric values to safe ranges.
+      validatedTasteVector = validateTasteVector(taste_vector ?? prefs.taste_vector);
+      // Validate quiz answers shape and enforce string-only values.
+      validatedQuizAnswers = validateQuizAnswers(prefs.quiz_answers);
+    } catch (validationError) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: validationError.message });
+    }
+
     const hasExplicitTasteInputs = [sweetness, acidity, bitterness, body].some(
       (value) => value !== undefined && value !== null
     );
     const mappedTasteVector =
-      !hasExplicitTasteInputs && taste_vector
+      !hasExplicitTasteInputs && validatedTasteVector
         ? {
             sweetness:
-              taste_vector.sweetness !== undefined &&
-              taste_vector.sweetness !== null
-                ? taste_vector.sweetness * 10
+              validatedTasteVector.sweetness !== undefined &&
+              validatedTasteVector.sweetness !== null
+                ? validatedTasteVector.sweetness * 10
                 : undefined,
             acidity:
-              taste_vector.acidity !== undefined && taste_vector.acidity !== null
-                ? taste_vector.acidity * 10
+              validatedTasteVector.acidity !== undefined &&
+              validatedTasteVector.acidity !== null
+                ? validatedTasteVector.acidity * 10
                 : undefined,
             bitterness:
-              taste_vector.bitterness !== undefined &&
-              taste_vector.bitterness !== null
-                ? taste_vector.bitterness * 10
+              validatedTasteVector.bitterness !== undefined &&
+              validatedTasteVector.bitterness !== null
+                ? validatedTasteVector.bitterness * 10
                 : undefined,
             body:
-              taste_vector.body !== undefined && taste_vector.body !== null
-                ? taste_vector.body * 10
+              validatedTasteVector.body !== undefined &&
+              validatedTasteVector.body !== null
+                ? validatedTasteVector.body * 10
                 : undefined,
           }
         : {};
@@ -420,12 +510,9 @@ router.put('/api/profile', async (req, res) => {
     // (invalid_text_representation) chybách, keď frontend pošle textové štítky
     // ako "little", "medium", "high" namiesto čísiel.
     const resolvedTasteVector =
-      taste_vector ??
-      prefs.taste_vector ??
-      existing?.taste_vector ??
-      {};
+      validatedTasteVector ?? existing?.taste_vector ?? {};
     const resolvedQuizAnswers =
-      prefs.quiz_answers ?? existing?.quiz_answers ?? {};
+      validatedQuizAnswers ?? existing?.quiz_answers ?? {};
     const resolvedQuizVersion = prefs.quiz_version ?? existing?.quiz_version ?? null;
     const resolvedConsistencyScore =
       prefs.consistency_score ??
