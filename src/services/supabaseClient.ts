@@ -47,7 +47,9 @@ const trimmedSupabaseAnonKey = normalizeEnvValue(
 
 const getSupabaseAccessToken = async (): Promise<string | null> => {
   try {
-    // Prefer a Supabase-issued JWT if the backend exchanges auth tokens.
+    // Prefer a Supabase-issued JWT if the backend exchanges auth tokens. The
+    // client should only fall back to Firebase tokens when the backend is
+    // explicitly configured to trust them for Supabase RLS.
     const storedToken = await AsyncStorage.getItem('@SupabaseJwt');
     if (storedToken) {
       return storedToken;

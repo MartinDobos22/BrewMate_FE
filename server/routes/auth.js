@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -10,6 +11,56 @@ import { LOG_DIR } from '../utils/logging.js';
 const router = express.Router();
 
 // ========== AUTH ENDPOINT ==========
+
+const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
+const SUPABASE_JWT_AUDIENCE = process.env.SUPABASE_JWT_AUDIENCE || 'authenticated';
+const parsedTtlSeconds = Number.parseInt(
+  process.env.SUPABASE_JWT_TTL_SECONDS || '3600',
+  10
+);
+const SUPABASE_JWT_TTL_SECONDS = Number.isNaN(parsedTtlSeconds)
+  ? 3600
+  : parsedTtlSeconds;
+
+const base64Url = (value) =>
+  Buffer.from(value)
+    .toString('base64')
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+
+const signJwt = (payload, secret) => {
+  const header = { alg: 'HS256', typ: 'JWT' };
+  const encodedHeader = base64Url(JSON.stringify(header));
+  const encodedPayload = base64Url(JSON.stringify(payload));
+  const signature = crypto
+    .createHmac('sha256', secret)
+    .update(`${encodedHeader}.${encodedPayload}`)
+    .digest('base64')
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+
+  return `${encodedHeader}.${encodedPayload}.${signature}`;
+};
+
+const buildSupabaseJwt = (decoded) => {
+  if (!SUPABASE_JWT_SECRET) {
+    return null;
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    aud: SUPABASE_JWT_AUDIENCE,
+    role: 'authenticated',
+    sub: decoded.uid,
+    email: decoded.email ?? undefined,
+    iat: now,
+    exp: now + SUPABASE_JWT_TTL_SECONDS,
+  };
+
+  return signJwt(payload, SUPABASE_JWT_SECRET);
+};
 
 /**
  * Overí platnosť Firebase ID tokenu a zaloguje prihlásenie používateľa.
@@ -52,10 +103,45 @@ router.post('/api/auth', async (req, res) => {
     fs.appendFileSync(path.join(LOG_DIR, 'auth.log'), logEntry);
     console.log('✅ Audit log:', logEntry.trim());
 
-    res.status(200).json({ message: 'Authenticated', uid, email, provider });
+    const supabaseJwt = buildSupabaseJwt(decoded);
+    res.status(200).json({
+      message: 'Authenticated',
+      uid,
+      email,
+      provider,
+      supabase_jwt: supabaseJwt ?? undefined,
+    });
   } catch (err) {
     console.error('Token verify error:', err);
     res.status(401).json({ error: 'Invalid token' });
+  }
+});
+
+/**
+ * Vymení Firebase ID token za Supabase JWT, ak je server nastavený na podpisovanie.
+ */
+router.post('/api/auth/exchange', async (req, res) => {
+  const idToken = req.headers.authorization?.split(' ')[1];
+
+  if (!idToken) {
+    return res.status(400).json({ error: 'Token chýba' });
+  }
+
+  try {
+    const decoded = await admin.auth().verifyIdToken(idToken);
+
+    await ensureAppUserExists(decoded.uid, decoded.email || decoded.user?.email, {
+      name: decoded.name || decoded.user?.name,
+    });
+
+    const supabaseJwt = buildSupabaseJwt(decoded);
+
+    return res.status(200).json({
+      supabase_jwt: supabaseJwt ?? null,
+    });
+  } catch (err) {
+    console.error('Supabase JWT exchange error:', err);
+    return res.status(401).json({ error: 'Invalid token' });
   }
 });
 

@@ -56,6 +56,7 @@ import type { MoodSignal, TasteQuizResult } from './src/types/PersonalizationAI'
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabaseClient } from './src/services/supabaseClient';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from './src/config/env';
+import { API_URL } from './src/services/api';
 import type { BrewLog } from './src/types/BrewLog';
 import type { BrewDevice, Recipe } from './src/types/Recipe';
 import type { OCRHistory } from './src/services/ocrServices';
@@ -201,7 +202,22 @@ class SupabaseLearningStorageAdapter implements LearningStorageAdapter {
 
     const { error } = await this.client.from('user_taste_profiles').upsert(payload);
     if (error) {
-      console.warn('SupabaseLearningStorageAdapter: persistProfile failed', error);
+      const message = String(error.message ?? '');
+      const probableCause = message.toLowerCase().includes('foreign key')
+        ? 'foreign_key'
+        : message.toLowerCase().includes('permission') || message.toLowerCase().includes('policy')
+          ? 'rls_policy'
+          : 'unknown';
+      console.warn('SupabaseLearningStorageAdapter: persistProfile failed', {
+        userId: profile.userId,
+        probableCause,
+        error: {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+        },
+      });
     }
   }
 
@@ -369,6 +385,276 @@ class SupabaseLearningEventAdapter implements LearningEventProvider {
   }
 }
 
+const authorizedFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
+  const token = await AsyncStorage.getItem('@AuthToken');
+  if (!token) {
+    throw new Error('Missing auth token for API request.');
+  }
+  const headers = new Headers(options.headers ?? {});
+  headers.set('Authorization', `Bearer ${token}`);
+  return fetch(url, { ...options, headers });
+};
+
+class ApiLearningStorageAdapter implements LearningStorageAdapter {
+  public async loadProfile(userId: string): Promise<UserTasteProfile | null> {
+    try {
+      const response = await authorizedFetch(`${API_URL}/profile`, {
+        method: 'GET',
+      });
+      if (!response.ok) {
+        console.warn('ApiLearningStorageAdapter: loadProfile failed', response.status);
+        return null;
+      }
+
+      const data = await response.json();
+      const prefs = data?.coffee_preferences ?? {};
+
+      return {
+        userId,
+        preferences: {
+          sweetness: Number(prefs.sweetness ?? 5),
+          acidity: Number(prefs.acidity ?? 5),
+          bitterness: Number(prefs.bitterness ?? 5),
+          body: Number(prefs.body ?? 5),
+        },
+        flavorNotes: (prefs.flavor_notes as Record<string, number> | null) ?? {},
+        milkPreferences: (prefs.milk_preferences as UserTasteProfile['milkPreferences'] | null) ?? {
+          types: ['plnotučné'],
+          texture: 'krémová',
+        },
+        caffeineSensitivity: (prefs.caffeine_sensitivity as UserTasteProfile['caffeineSensitivity']) ?? 'medium',
+        preferredStrength: (prefs.preferred_strength as UserTasteProfile['preferredStrength']) ?? 'balanced',
+        seasonalAdjustments: Array.isArray(prefs.seasonal_adjustments)
+          ? (prefs.seasonal_adjustments as UserTasteProfile['seasonalAdjustments'])
+          : [],
+        preferenceConfidence: Number(prefs.preference_confidence ?? data?.preference_confidence ?? 0.35),
+        lastRecalculatedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    } catch (error) {
+      console.warn('ApiLearningStorageAdapter: loadProfile failed', error);
+      return null;
+    }
+  }
+
+  public async persistProfile(profile: UserTasteProfile): Promise<void> {
+    try {
+      const payload = {
+        sweetness: profile.preferences.sweetness,
+        acidity: profile.preferences.acidity,
+        bitterness: profile.preferences.bitterness,
+        body: profile.preferences.body,
+        flavor_notes: profile.flavorNotes,
+        milk_preferences: profile.milkPreferences,
+        caffeine_sensitivity: profile.caffeineSensitivity,
+        preferred_strength: profile.preferredStrength,
+        preference_confidence: profile.preferenceConfidence,
+        coffee_preferences: {
+          sweetness: profile.preferences.sweetness,
+          acidity: profile.preferences.acidity,
+          bitterness: profile.preferences.bitterness,
+          body: profile.preferences.body,
+          flavor_notes: profile.flavorNotes,
+          milk_preferences: profile.milkPreferences,
+          caffeine_sensitivity: profile.caffeineSensitivity,
+          preferred_strength: profile.preferredStrength,
+          seasonal_adjustments: profile.seasonalAdjustments,
+        },
+      };
+
+      const response = await authorizedFetch(`${API_URL}/profile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        console.warn('ApiLearningStorageAdapter: persistProfile failed', response.status);
+      }
+    } catch (error) {
+      console.warn('ApiLearningStorageAdapter: persistProfile failed', error);
+    }
+  }
+
+  public async fetchRecentHistory(userId: string, limit: number = 200): Promise<BrewHistoryEntry[]> {
+    try {
+      const response = await authorizedFetch(
+        `${API_URL}/personalization/brew-history?limit=${limit}`,
+        { method: 'GET' }
+      );
+      if (!response.ok) {
+        console.warn('ApiLearningStorageAdapter: fetchRecentHistory failed', response.status);
+        return [];
+      }
+
+      const data = await response.json();
+      return (data?.entries ?? []).map((row: any) => ({
+        id: String(row.id ?? `remote-${Date.now()}`),
+        userId: row.user_id ?? userId,
+        recipeId: row.recipe_id ?? undefined,
+        beans: (row.beans as BrewHistoryEntry['beans']) ?? undefined,
+        grindSize: row.grind_size ?? undefined,
+        waterTemp: typeof row.water_temp === 'number' ? row.water_temp : undefined,
+        brewTimeSeconds: undefined,
+        rating: typeof row.rating === 'number' ? row.rating : 0,
+        tasteFeedback: (row.taste_feedback as BrewHistoryEntry['tasteFeedback']) ?? undefined,
+        flavorNotes: (row.flavor_notes as BrewHistoryEntry['flavorNotes']) ?? undefined,
+        modifications: (row.modifications as string[]) ?? undefined,
+        createdAt: row.created_at ?? new Date().toISOString(),
+        updatedAt: row.updated_at ?? new Date().toISOString(),
+      }));
+    } catch (error) {
+      console.warn('ApiLearningStorageAdapter: fetchRecentHistory failed', error);
+      return [];
+    }
+  }
+
+  public async fetchRecipeProfile(recipeId: string): Promise<RecipeProfile | null> {
+    void recipeId;
+    return null;
+  }
+
+  public async fetchSimilarRecipes(userId: string, recipeId: string, limit: number = 3): Promise<RecipeProfile[]> {
+    void userId;
+    void recipeId;
+    void limit;
+    return [];
+  }
+
+  public async fetchCommunityFlavorStats(): Promise<CommunityFlavorStats> {
+    return {};
+  }
+}
+
+class ApiDiaryStorageAdapter implements DiaryStorageAdapter {
+  public async saveEntry(entry: BrewHistoryEntry): Promise<void> {
+    try {
+      const payload = {
+        recipe_id: entry.recipeId ?? null,
+        beans: entry.beans ?? null,
+        grind_size: entry.grindSize ?? null,
+        water_temp: entry.waterTemp ?? null,
+        rating: entry.rating,
+        taste_feedback: entry.tasteFeedback ?? null,
+        flavor_notes: entry.flavorNotes ?? null,
+        context_time_of_day: entry.context?.timeOfDay ?? null,
+        context_weather: entry.context?.weather ?? null,
+        mood_before: entry.context?.moodBefore ?? null,
+        mood_after: entry.context?.moodAfter ?? null,
+        modifications: entry.modifications ?? null,
+        created_at: entry.createdAt,
+        updated_at: entry.updatedAt,
+      };
+
+      const response = await authorizedFetch(`${API_URL}/personalization/brew-history`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        console.warn('ApiDiaryStorageAdapter: saveEntry failed', response.status);
+      }
+    } catch (error) {
+      console.warn('ApiDiaryStorageAdapter: saveEntry failed', error);
+    }
+  }
+
+  public async getEntries(userId: string): Promise<BrewHistoryEntry[]> {
+    try {
+      const response = await authorizedFetch(
+        `${API_URL}/personalization/brew-history?limit=200`,
+        { method: 'GET' }
+      );
+      if (!response.ok) {
+        console.warn('ApiDiaryStorageAdapter: getEntries failed', response.status);
+        return [];
+      }
+
+      const data = await response.json();
+      return (data?.entries ?? []).map((row: any) => ({
+        id: String(row.id ?? `remote-${Date.now()}`),
+        userId: row.user_id ?? userId,
+        recipeId: row.recipe_id ?? undefined,
+        beans: (row.beans as BrewHistoryEntry['beans']) ?? undefined,
+        grindSize: row.grind_size ?? undefined,
+        waterTemp: typeof row.water_temp === 'number' ? row.water_temp : undefined,
+        brewTimeSeconds: undefined,
+        rating: typeof row.rating === 'number' ? row.rating : 0,
+        tasteFeedback: (row.taste_feedback as BrewHistoryEntry['tasteFeedback']) ?? undefined,
+        flavorNotes: (row.flavor_notes as BrewHistoryEntry['flavorNotes']) ?? undefined,
+        modifications: (row.modifications as string[]) ?? undefined,
+        createdAt: row.created_at ?? new Date().toISOString(),
+        updatedAt: row.updated_at ?? new Date().toISOString(),
+      }));
+    } catch (error) {
+      console.warn('ApiDiaryStorageAdapter: getEntries failed', error);
+      return [];
+    }
+  }
+
+  public async deleteEntries(userId: string): Promise<void> {
+    void userId;
+    try {
+      const response = await authorizedFetch(`${API_URL}/personalization/brew-history`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        console.warn('ApiDiaryStorageAdapter: deleteEntries failed', response.status);
+      }
+    } catch (error) {
+      console.warn('ApiDiaryStorageAdapter: deleteEntries failed', error);
+    }
+  }
+}
+
+class ApiLearningEventAdapter implements LearningEventProvider {
+  public async getEvents(userId: string): Promise<LearningEvent[]> {
+    try {
+      const response = await authorizedFetch(
+        `${API_URL}/personalization/learning-events?limit=500`,
+        { method: 'GET' }
+      );
+      if (!response.ok) {
+        console.warn('ApiLearningEventAdapter: getEvents failed', response.status);
+        return [];
+      }
+
+      const data = await response.json();
+      return (data?.events ?? []).map((row: any) => ({
+        id: String(row.id ?? `event-${Date.now()}`),
+        userId: row.user_id ?? userId,
+        brewHistoryId: row.brew_history_id ? String(row.brew_history_id) : undefined,
+        eventType: row.event_type ?? 'liked',
+        eventWeight: Number(row.event_weight ?? 1),
+        metadata: (row.metadata as Record<string, unknown>) ?? undefined,
+        createdAt: row.created_at ?? new Date().toISOString(),
+      }));
+    } catch (error) {
+      console.warn('ApiLearningEventAdapter: getEvents failed', error);
+      return [];
+    }
+  }
+
+  public async deleteEvents(userId: string): Promise<void> {
+    void userId;
+    try {
+      const response = await authorizedFetch(`${API_URL}/personalization/learning-events`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        console.warn('ApiLearningEventAdapter: deleteEvents failed', response.status);
+      }
+    } catch (error) {
+      console.warn('ApiLearningEventAdapter: deleteEvents failed', error);
+    }
+  }
+}
+
 interface AppContentProps {
   personalization: PersonalizationContextValue;
   setPersonalization: React.Dispatch<React.SetStateAction<PersonalizationContextValue>>;
@@ -377,6 +663,8 @@ interface AppContentProps {
 const AppContent = ({ personalization, setPersonalization }: AppContentProps): React.JSX.Element | null => {
   const [currentScreen, setCurrentScreen] = useState<ScreenName>('home');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [bootstrapReady, setBootstrapReady] = useState(false);
+  const [supabaseJwtAvailable, setSupabaseJwtAvailable] = useState(false);
   const [generatedRecipe, setGeneratedRecipe] = useState('');
   const [selectedRecipeDevice, setSelectedRecipeDevice] =
     useState<BrewDevice | undefined>(undefined);
@@ -411,6 +699,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     [],
   );
   const supabaseConfigured = missingEnvVars.length === 0 && Boolean(supabaseClient);
+  const hasServerFallback = Boolean(API_URL);
 
   const handleExperimentToggle = useCallback(
     async (enabled: boolean) => {
@@ -428,7 +717,59 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     [privacyManager, setPersonalization, userId],
   );
 
-  
+  const ensureUserProfile = useCallback(async (idToken: string) => {
+    try {
+      // Ensure app_users exists so FK checks on personalization tables succeed
+      // before SupabaseLearningStorageAdapter.persistProfile() attempts upserts.
+      const response = await fetch(`${API_URL}/profile`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+        },
+      });
+      if (!response.ok) {
+        console.warn('App: ensure user profile failed', response.status);
+      }
+    } catch (error) {
+      console.warn('App: ensure user profile failed', error);
+    }
+  }, []);
+
+  const exchangeSupabaseJwt = useCallback(async (idToken: string) => {
+    try {
+      // Only trust Supabase JWTs issued by the backend; client tokens are not
+      // assumed valid for RLS unless explicitly configured server-side.
+      const response = await fetch(`${API_URL}/auth/exchange`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${idToken}`,
+        },
+      });
+      if (!response.ok) {
+        console.warn('App: Supabase JWT exchange failed', response.status);
+        await AsyncStorage.removeItem('@SupabaseJwt');
+        return null;
+      }
+
+      const data = await response.json();
+      const supabaseJwt =
+        typeof data?.supabase_jwt === 'string' && data.supabase_jwt.length > 0
+          ? data.supabase_jwt
+          : null;
+      if (supabaseJwt) {
+        await AsyncStorage.setItem('@SupabaseJwt', supabaseJwt);
+        return supabaseJwt;
+      }
+
+      await AsyncStorage.removeItem('@SupabaseJwt');
+      return null;
+    } catch (error) {
+      console.warn('App: Supabase JWT exchange failed', error);
+      await AsyncStorage.removeItem('@SupabaseJwt');
+      return null;
+    }
+  }, []);
+
 
   useEffect(() => {
     const init = async () => {
@@ -436,11 +777,15 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
       if (stored) {
         setIsAuthenticated(true);
       }
+      const storedSupabaseJwt = await AsyncStorage.getItem('@SupabaseJwt');
+      setSupabaseJwtAvailable(Boolean(storedSupabaseJwt));
     };
     init();
 
     const unsubscribe = auth().onAuthStateChanged(async (user) => {
       if (user) {
+        setBootstrapReady(false);
+        setSupabaseJwtAvailable(false);
         try {
           await user.reload();
         } catch (reloadError) {
@@ -455,14 +800,22 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           ...prev,
           userId: user.uid,
         }));
+
+        await ensureUserProfile(token);
+        const supabaseJwt = await exchangeSupabaseJwt(token);
+        setSupabaseJwtAvailable(Boolean(supabaseJwt));
+        setBootstrapReady(true);
       } else {
         await AsyncStorage.removeItem('@AuthToken');
+        await AsyncStorage.removeItem('@SupabaseJwt');
         setIsAuthenticated(false);
+        setBootstrapReady(false);
+        setSupabaseJwtAvailable(false);
         setPersonalization(() => ({ ...emptyPersonalizationState }));
       }
     });
     return unsubscribe;
-  }, [setPersonalization]);
+  }, [ensureUserProfile, exchangeSupabaseJwt, setPersonalization]);
 
 
   useEffect(() => {
@@ -545,7 +898,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   }, [isAuthenticated, userId]);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !bootstrapReady) {
       return;
     }
 
@@ -555,13 +908,14 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     }
 
     const client = supabaseClient;
+    const shouldUseSupabase = supabaseConfigured && supabaseJwtAvailable;
 
-    if (missingEnvVars.length > 0) {
+    if (shouldUseSupabase && missingEnvVars.length > 0) {
       console.warn('App: Missing Supabase environment variables', missingEnvVars);
       return;
     }
 
-    if (!client) {
+    if (shouldUseSupabase && !client) {
       console.warn('App: Supabase client is not configured');
       return;
     }
@@ -583,9 +937,15 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
 
     const initializeServices = async () => {
       try {
-        const learningStorage = new SupabaseLearningStorageAdapter(client);
-        const diaryStorage = new SupabaseDiaryStorageAdapter(client);
-        const eventProvider = new SupabaseLearningEventAdapter(client);
+        const learningStorage = shouldUseSupabase
+          ? new SupabaseLearningStorageAdapter(client!)
+          : new ApiLearningStorageAdapter();
+        const diaryStorage = shouldUseSupabase
+          ? new SupabaseDiaryStorageAdapter(client!)
+          : new ApiDiaryStorageAdapter();
+        const eventProvider = shouldUseSupabase
+          ? new SupabaseLearningEventAdapter(client!)
+          : new ApiLearningEventAdapter();
 
         const engine = new PreferenceLearningEngine(activeUserId, {
           storage: learningStorage,
@@ -688,7 +1048,15 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, missingEnvVars, setPersonalization, userId]);
+  }, [
+    bootstrapReady,
+    isAuthenticated,
+    missingEnvVars,
+    setPersonalization,
+    supabaseConfigured,
+    supabaseJwtAvailable,
+    userId,
+  ]);
 
   useEffect(() => {
     if (!userId || !privacyManager) {
@@ -1026,7 +1394,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     setCurrentScreen('home');
   };
 
-  if (!supabaseConfigured) {
+  if (!supabaseConfigured && !hasServerFallback) {
     const envSummary =
       missingEnvVars.length > 0
         ? `Missing env vars: ${missingEnvVars.join(', ')}`

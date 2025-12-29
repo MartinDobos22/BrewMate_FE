@@ -7,6 +7,7 @@ import coffeesRouter from './routes/coffees.js';
 import dashboardRouter from './routes/dashboard.js';
 import ocrRouter from './routes/ocr.js';
 import profileRouter from './routes/profile.js';
+import personalizationRouter from './routes/personalization.js';
 import recipesRouter from './routes/recipes.js';
 import signalsRouter from './routes/signals.js';
 
@@ -36,6 +37,7 @@ app.get('/health', (_req, res) => {
 
 app.use(authRouter);
 app.use(profileRouter);
+app.use(personalizationRouter);
 app.use(dashboardRouter);
 app.use(ocrRouter);
 app.use(coffeesRouter);
