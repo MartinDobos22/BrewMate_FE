@@ -263,7 +263,7 @@ const UserProfile = ({
       console.warn('UserProfile: failed to load personalization data', error);
       throw error;
     }
-  }, [personalizationTasteProfile, personalizationUserId]);
+  }, [personalizationUserId]);
 
   const applyPersonalization = useCallback(async () => {
     try {
