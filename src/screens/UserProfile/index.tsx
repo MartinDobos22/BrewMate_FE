@@ -20,11 +20,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePersonalization } from '../../hooks/usePersonalization';
 import {
   PrivacyManager,
-  preferenceEngine,
   privacyManager,
   optIn,
   DEFAULT_COMMUNITY_AVERAGE,
-  PERSONALIZATION_USER_ID,
 } from './services';
 import type { TrackingPreferences, TasteProfileVector } from '../../types/Personalization';
 import { palette, styles } from './styles';
@@ -178,17 +176,7 @@ interface Stat {
   emoji: string;
 }
 
-const UserProfile = ({
-                       onEdit,
-                       onPreferences,
-                       onForm,
-                       onBack,
-                       onHomePress,
-                       onDiscoverPress,
-                       onRecipesPress,
-                       onFavoritesPress,
-                       onProfilePress,
-                     }: {
+interface UserProfileProps {
   onEdit: () => void;
   onPreferences: () => void;
   onForm?: () => void;
@@ -198,9 +186,33 @@ const UserProfile = ({
   onRecipesPress: () => void;
   onFavoritesPress: () => void;
   onProfilePress: () => void;
-}) => {
-  const { ready: personalizationReady, privacyManager: contextPrivacyManager } = usePersonalization();
+  /**
+   * Triggers a refresh of profile + personalization data after preferences are saved.
+   */
+  preferencesReloadKey?: number;
+}
+
+const UserProfile = ({
+  onEdit,
+  onPreferences,
+  onForm,
+  onBack,
+  onHomePress,
+  onDiscoverPress,
+  onRecipesPress,
+  onFavoritesPress,
+  onProfilePress,
+  preferencesReloadKey = 0,
+}: UserProfileProps) => {
+  const {
+    privacyManager: contextPrivacyManager,
+    profile: personalizationProfile,
+    refreshInsights,
+    userId: personalizationUserId,
+  } = usePersonalization();
   const privacyManagerRef = useRef<PrivacyManager>(contextPrivacyManager ?? privacyManager.manager);
+  // The personalization context is the single source of truth for taste data used in this screen.
+  const personalizationTasteProfile = personalizationProfile?.preferences ?? null;
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -255,17 +267,16 @@ const UserProfile = ({
   }, []);
 
   const readPersonalization = useCallback(async () => {
-    const profilePromise = personalizationReady ? preferenceEngine.getProfile() : Promise.resolve(null);
-
     try {
       const managerInstance = privacyManagerRef.current;
-      const [personalProfile, preferences, insights] = await Promise.all([
-        profilePromise,
-        managerInstance.loadPreferences(PERSONALIZATION_USER_ID),
-        managerInstance.buildCommunityInsights(PERSONALIZATION_USER_ID),
+      const effectiveUserId = personalizationUserId ?? auth().currentUser?.uid ?? null;
+      const [preferences, insights] = await Promise.all([
+        effectiveUserId ? managerInstance.loadPreferences(effectiveUserId) : Promise.resolve(null),
+        effectiveUserId
+          ? managerInstance.buildCommunityInsights(effectiveUserId)
+          : Promise.resolve({ flavorTrends: {}, sampleSize: 0 }),
       ]);
-
-      const nextTasteProfile = personalProfile?.preferences ?? null;
+      const nextTasteProfile = personalizationTasteProfile;
 
       const nextCommunityAverage: TasteProfileVector = insights.sampleSize > 0
         ? {
@@ -285,7 +296,7 @@ const UserProfile = ({
       console.warn('UserProfile: failed to load personalization data', error);
       throw error;
     }
-  }, [personalizationReady]);
+  }, [personalizationTasteProfile, personalizationUserId]);
 
   const applyPersonalization = useCallback(async () => {
     try {
@@ -319,7 +330,9 @@ const UserProfile = ({
 
   useEffect(() => {
     fetchProfile();
-  }, [fetchProfile]);
+    applyPersonalization();
+    refreshInsights?.();
+  }, [applyPersonalization, fetchProfile, preferencesReloadKey, refreshInsights]);
 
   useEffect(() => {
     let active = true;
@@ -398,7 +411,12 @@ const UserProfile = ({
 
     setExportingData(true);
     try {
-      const payload = await privacyManager.exportData();
+      const managerInstance = privacyManagerRef.current;
+      const effectiveUserId = personalizationUserId ?? auth().currentUser?.uid ?? null;
+      if (!effectiveUserId) {
+        throw new Error('Missing user id for export.');
+      }
+      const payload = await managerInstance.exportUserData(effectiveUserId);
       console.log('UserProfile: export payload', payload);
       Alert.alert('Export pripravený', 'Tvoje personalizačné dáta boli pripravené na export.');
     } catch (error) {
@@ -407,7 +425,7 @@ const UserProfile = ({
     } finally {
       setExportingData(false);
     }
-  }, [exportingData, hasDataConsent]);
+  }, [exportingData, hasDataConsent, personalizationUserId]);
 
   const handleDeleteData = useCallback(async () => {
     if (!hasDataConsent || deletingData) {
@@ -416,7 +434,12 @@ const UserProfile = ({
 
     setDeletingData(true);
     try {
-      await privacyManager.deleteData();
+      const managerInstance = privacyManagerRef.current;
+      const effectiveUserId = personalizationUserId ?? auth().currentUser?.uid ?? null;
+      if (!effectiveUserId) {
+        throw new Error('Missing user id for delete.');
+      }
+      await managerInstance.deleteUserData(effectiveUserId);
       await applyPersonalization();
       Alert.alert('Vymazané', 'Tvoje personalizačné dáta boli odstránené.');
     } catch (error) {
@@ -425,7 +448,7 @@ const UserProfile = ({
     } finally {
       setDeletingData(false);
     }
-  }, [applyPersonalization, deletingData, hasDataConsent]);
+  }, [applyPersonalization, deletingData, hasDataConsent, personalizationUserId]);
 
   const confirmDeleteData = useCallback(() => {
     if (!hasDataConsent || deletingData) {

@@ -951,6 +951,12 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
 
   const handlePreferencesSaved = () => {
     setPreferencesReloadKey((prev) => prev + 1);
+    // Refresh personalization context so taste graphs stay in sync after preference updates.
+    personalization.refreshInsights?.();
+    if (personalization.learningEngine) {
+      const latestProfile = personalization.learningEngine.getProfile();
+      setPersonalization((prev) => ({ ...prev, profile: latestProfile }));
+    }
   };
 
   const handleBrewHistoryPress = () => {
@@ -1329,6 +1335,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           onRecipesPress={handleRecipesPress}
           onFavoritesPress={handleFavoritesPress}
           onProfilePress={handleProfilePress}
+          preferencesReloadKey={preferencesReloadKey}
         />
       </ResponsiveWrapper>
     );
