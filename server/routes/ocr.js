@@ -13,23 +13,46 @@ const router = express.Router();
 const GOOGLE_VISION_API_KEY = process.env.GOOGLE_VISION_API_KEY || ' ';
 const PROFILE_MISSING_RESPONSE = {
   status: 'profile_missing',
-  recommendation: '',
+  verdict: null,
+  confidence: null,
+  summary:
+    'Najprv dokonči kávový chuťový profil, aby sme vedeli vyhodnotiť zhodu.',
+  reasons: [],
+  what_youll_like: [],
+  what_might_bother_you: [],
+  tips_to_make_it_better: [],
+  recommended_brew_methods: [],
   cta: {
-    title: 'Dokonči chuťový profil',
-    message: 'Aby sme ti vedeli odporučiť kávu, potrebujeme doplniť tvoje chute.',
-    action_label: 'Vyplniť profil',
+    action: 'complete_taste_profile',
+    label: 'Vyplniť chuťový profil',
   },
+  disclaimer:
+    'Vyhodnotenie bude dostupné po dokončení chuťového dotazníka.',
 };
 
 const EVALUATION_RESPONSE_SCHEMA = `JSON schema (strict):
 {
   "status": "ok | profile_missing",
-  "recommendation": "string",
+  "verdict": "likely_yes | likely_no | uncertain | null",
+  "confidence": "number | null",
+  "summary": "string",
+  "reasons": [
+    {
+      "signal": "string",
+      "user_preference": "string",
+      "coffee_attribute": "string",
+      "explanation": "string"
+    }
+  ],
+  "what_youll_like": ["string"],
+  "what_might_bother_you": ["string"],
+  "tips_to_make_it_better": ["string"],
+  "recommended_brew_methods": ["string"],
   "cta": {
-    "title": "string",
-    "message": "string",
-    "action_label": "string"
-  } | null
+    "action": "complete_taste_profile | null",
+    "label": "string | null"
+  },
+  "disclaimer": "string"
 }
 
 Return JSON only. Do not include markdown fences or extra text.`;
@@ -46,33 +69,94 @@ const isValidEvaluationResponse = (value) => {
     return false;
   }
 
-  const requiredKeys = ['status', 'recommendation', 'cta'];
+  const requiredKeys = [
+    'status',
+    'verdict',
+    'confidence',
+    'summary',
+    'reasons',
+    'what_youll_like',
+    'what_might_bother_you',
+    'tips_to_make_it_better',
+    'recommended_brew_methods',
+    'cta',
+    'disclaimer',
+  ];
   if (!requiredKeys.every((key) => Object.prototype.hasOwnProperty.call(value, key))) {
     return false;
   }
 
-  const { status, recommendation, cta } = value;
+  const {
+    status,
+    verdict,
+    confidence,
+    summary,
+    reasons,
+    what_youll_like,
+    what_might_bother_you,
+    tips_to_make_it_better,
+    recommended_brew_methods,
+    cta,
+    disclaimer,
+  } = value;
+
   if (status !== 'ok' && status !== 'profile_missing') {
     return false;
   }
 
-  if (typeof recommendation !== 'string') {
+  const validVerdicts = ['likely_yes', 'likely_no', 'uncertain'];
+  if (verdict !== null && !validVerdicts.includes(verdict)) {
+    return false;
+  }
+
+  if (confidence !== null && (typeof confidence !== 'number' || Number.isNaN(confidence))) {
+    return false;
+  }
+
+  if (typeof summary !== 'string') {
+    return false;
+  }
+
+  if (!Array.isArray(reasons)) {
+    return false;
+  }
+
+  if (
+    !Array.isArray(what_youll_like) ||
+    !Array.isArray(what_might_bother_you) ||
+    !Array.isArray(tips_to_make_it_better) ||
+    !Array.isArray(recommended_brew_methods)
+  ) {
+    return false;
+  }
+
+  if (typeof disclaimer !== 'string') {
     return false;
   }
 
   if (status === 'ok') {
-    return cta === null;
+    if (verdict === null || confidence === null || !cta || cta.action !== null) {
+      return false;
+    }
+  } else {
+    if (verdict !== null || confidence !== null || reasons.length !== 0) {
+      return false;
+    }
   }
 
   if (!cta || typeof cta !== 'object' || Array.isArray(cta)) {
     return false;
   }
 
-  return (
-    typeof cta.title === 'string' &&
-    typeof cta.message === 'string' &&
-    typeof cta.action_label === 'string'
-  );
+  if (cta.action !== null && cta.action !== 'complete_taste_profile') {
+    return false;
+  }
+
+  if (cta.label !== null && typeof cta.label !== 'string') {
+    return false;
+  }
+
+  return true;
 };
 
 // ========== OCR ENDPOINTS ==========
@@ -271,25 +355,38 @@ router.post('/api/ocr/evaluate', async (req, res) => {
       return res.json(PROFILE_MISSING_RESPONSE);
     }
 
-    const systemPrompt = `Si hodnotiaci engine pre kávové preferencie v BrewMate.
-Musíš vrátiť striktne platný JSON podľa schémy, bez markdownu a bez dodatočného textu.`;
-    const userPrompt = `Vyhodnoť, či káva bude vyhovovať používateľovým chutiam. Zohľadni sladkosť, kyslosť, horkosť, telo, chuťové poznámky, mliečne preferencie a silu.
-Vráť krátke odporúčanie v slovenčine. Ak je profil kompletný, nastav "status" na "ok" a "cta" na null.
-Ak informácie nestačia alebo odporúčanie nie je bezpečné, nastav "status" na "profile_missing" a vyplň "cta" podľa schémy.
+    const systemPrompt = `Si expert na kávu a chuťové profily.
+Nikdy nehádaš preferencie používateľa. Ak profil chýba alebo je neúplný, vraciaš iba status "profile_missing".
+Vráť striktne platný JSON podľa schémy, bez markdownu a bez dodatočného textu.
+Vysvetlenia musia byť podložené konkrétnymi signálmi z preferencií a z atribútov kávy.`;
+    const userPrompt = `Vyhodnoť, či používateľovi bude chutiť naskenovaná káva.
 
-Používateľove preferencie:
-- Sladkosť: ${preferences.sweetness}
-- Kyslosť: ${preferences.acidity}
-- Horkosť: ${preferences.bitterness}
-- Telo: ${preferences.body}
-- Chuťové poznámky: ${Array.isArray(preferences.flavor_notes) ? preferences.flavor_notes.join(', ') : ''}
-- Mliečne preferencie: ${JSON.stringify(preferences.milk_preferences || {})}
-- Sila: ${preferences.preferred_strength}
+PRAVIDLÁ:
+- Ak je user_taste_profile null alebo neúplný, vráť iba "profile_missing" odpoveď v JSON.
+- Nehádať chýbajúce preferencie.
+- Výstup musí byť striktne podľa schémy.
 
-Popis kávy (OCR výstup):
-${corrected_text}
+VSTUP:
+user_taste_profile: {
+  "sweetness": ${preferences.sweetness},
+  "acidity": ${preferences.acidity},
+  "bitterness": ${preferences.bitterness},
+  "body": ${preferences.body},
+  "flavor_notes": ${JSON.stringify(preferences.flavor_notes ?? [])},
+  "milk_preferences": ${JSON.stringify(preferences.milk_preferences || {})},
+  "caffeine_sensitivity": ${JSON.stringify(preferences.caffeine_sensitivity ?? null)},
+  "preferred_strength": ${JSON.stringify(preferences.preferred_strength ?? null)}
+}
+coffee_attributes: {
+  "ocr_text": ${JSON.stringify(corrected_text)}
+}
 
-${EVALUATION_RESPONSE_SCHEMA}`;
+${EVALUATION_RESPONSE_SCHEMA}
+
+Ak status="profile_missing":
+- verdict a confidence musia byť null
+- reasons musí byť prázdne pole
+- cta.action musí byť "complete_taste_profile"`;
 
     console.log('📤 [OpenAI] Prompt:', userPrompt);
     const response = await axios.post(
