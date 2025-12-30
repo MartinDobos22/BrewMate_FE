@@ -97,6 +97,7 @@ const serializeTasteProfile = (taste) => {
       ai_recommendation: null,
       manual_input: null,
       taste_vector: null,
+      is_complete: false,
       coffee_preferences: null,
     };
   }
@@ -105,6 +106,7 @@ const serializeTasteProfile = (taste) => {
     ai_recommendation: taste.ai_recommendation ?? null,
     manual_input: taste.manual_input ?? null,
     taste_vector: taste.taste_vector ?? null,
+    is_complete: taste.is_complete ?? false,
     coffee_preferences: {
       sweetness: Number(taste.sweetness),
       acidity: Number(taste.acidity),
@@ -162,7 +164,7 @@ router.get('/api/profile', async (req, res) => {
     const uid = decoded.uid;
 
     const tasteResult = await db.query(
-      `SELECT * FROM user_taste_profiles WHERE user_id = $1`,
+      `SELECT * FROM user_taste_profiles_with_completion WHERE user_id = $1`,
       [uid]
     );
 
@@ -427,7 +429,7 @@ router.put('/api/profile', async (req, res) => {
 
     // Načítaj existujúci záznam, aby sme pri partial update neprepísali dôležité JSON polia na null.
     const existingResult = await client.query(
-      `SELECT * FROM user_taste_profiles WHERE user_id = $1`,
+      `SELECT * FROM user_taste_profiles_with_completion WHERE user_id = $1`,
       [uid]
     );
     const existing = existingResult.rows[0] ?? null;
@@ -599,7 +601,7 @@ router.put('/api/profile', async (req, res) => {
     fs.appendFileSync(path.join(LOG_DIR, 'profile.log'), log);
 
     const { rows: updatedRows } = await client.query(
-      `SELECT * FROM user_taste_profiles WHERE user_id = $1`,
+      `SELECT * FROM user_taste_profiles_with_completion WHERE user_id = $1`,
       [uid]
     );
     const updatedTaste = updatedRows[0] ?? null;
