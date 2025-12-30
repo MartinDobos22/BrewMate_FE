@@ -1666,13 +1666,21 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   }, [onQuestionnairePress]);
 
   const showBackButton = currentView !== 'home';
-  // When the backend reports a missing profile, suppress compatibility scoring in the UI.
-  const isProfileMissing = scanResult?.evaluation?.status === 'profile_missing';
+  const evaluationStatus = scanResult?.evaluation?.status;
+  // When the backend reports a non-ok status, suppress compatibility scoring in the UI.
+  const shouldSuppressCompatibility = evaluationStatus != null && evaluationStatus !== 'ok';
+  const isProfileMissing = evaluationStatus === 'profile_missing';
+  const profileMissingText = scanResult?.evaluation?.summary
+    || scanResult?.evaluation?.disclaimer
+    || 'Vyplň krátky dotazník a získaš osobné hodnotenie zhody pre každú kávu.';
+  const profileMissingCtaLabel = scanResult?.evaluation?.cta?.label || 'Vyplniť dotazník';
   const matchLabel = compatibility
     ? `${compatibility.score}%`
     : scanResult
       ? isProfileMissing
         ? undefined
+        : shouldSuppressCompatibility
+          ? undefined
         : scanResult.isRecommended === false
           ? 'Mimo preferencií'
           : 'Sedí k profilu'
@@ -1739,8 +1747,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   }, [recognizedText, structuredFields.roastLevel.value]);
 
   const compatibility = useMemo(() => {
-    // Skip compatibility scoring when the backend signals that the profile is missing.
-    if (!scanResult || isProfileMissing) {
+    // Skip compatibility scoring when the backend signals a non-ok status.
+    if (!scanResult || shouldSuppressCompatibility) {
       return null;
     }
 
@@ -1788,7 +1796,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     } as const;
   }, [
     implicitSignals,
-    isProfileMissing,
+    shouldSuppressCompatibility,
     profile?.preferences?.acidity,
     profile?.preferences?.bitterness,
     roastCategory,
@@ -2417,14 +2425,14 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                         <View style={styles.profileMissingCard}>
                           <Text style={styles.profileMissingTitle}>Chýba chuťový profil</Text>
                           <Text style={styles.profileMissingText}>
-                            Vyplň krátky dotazník a získaš osobné hodnotenie zhody pre každú kávu.
+                            {profileMissingText}
                           </Text>
                           <TouchableOpacity
                             style={styles.profileMissingButton}
                             onPress={handleQuestionnaireCTA}
                             activeOpacity={0.85}
                           >
-                            <Text style={styles.profileMissingButtonText}>Vyplniť dotazník</Text>
+                            <Text style={styles.profileMissingButtonText}>{profileMissingCtaLabel}</Text>
                           </TouchableOpacity>
                         </View>
                       ) : (
