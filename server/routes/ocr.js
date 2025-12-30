@@ -134,26 +134,26 @@ const isValidEvaluationResponse = (value) => {
     return false;
   }
 
+  if (!cta || typeof cta !== 'object' || Array.isArray(cta)) {
+    return false;
+  }
+
   if (status === 'ok') {
-    if (verdict === null || confidence === null || !cta || cta.action !== null) {
+    if (verdict === null || confidence === null || cta.action !== null || cta.label !== null) {
       return false;
     }
   } else {
     if (verdict !== null || confidence !== null || reasons.length !== 0) {
       return false;
     }
-  }
 
-  if (!cta || typeof cta !== 'object' || Array.isArray(cta)) {
-    return false;
-  }
+    if (cta.action !== 'complete_taste_profile') {
+      return false;
+    }
 
-  if (cta.action !== null && cta.action !== 'complete_taste_profile') {
-    return false;
-  }
-
-  if (cta.label !== null && typeof cta.label !== 'string') {
-    return false;
+    if (typeof cta.label !== 'string' || cta.label.trim().length === 0) {
+      return false;
+    }
   }
 
   return true;
