@@ -97,33 +97,91 @@ const safeParseJSON = <T>(value: unknown): T | null => {
 };
 
 const normalizeEvaluationStatus = (value: unknown): CoffeeEvaluationStatus => {
-  if (value === 'ok' || value === 'profile_missing' || value === 'error') {
+  if (value === 'ok' || value === 'profile_missing') {
     return value;
   }
   return 'unknown';
 };
 
 const normalizeEvaluationVerdict = (value: unknown): CoffeeEvaluationVerdict | null => {
-  if (value === 'SAFE' || value === 'RISKY' || value === 'NO-GO') {
+  if (value === 'likely_yes' || value === 'likely_no' || value === 'uncertain') {
     return value;
   }
   return null;
+};
+
+const normalizeEvaluationReasons = (value: unknown): CoffeeEvaluationReason[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return null;
+      }
+      const record = entry as Record<string, unknown>;
+      return {
+        signal: typeof record.signal === 'string' ? record.signal : '',
+        user_preference: typeof record.user_preference === 'string' ? record.user_preference : '',
+        coffee_attribute:
+          typeof record.coffee_attribute === 'string' ? record.coffee_attribute : '',
+        explanation: typeof record.explanation === 'string' ? record.explanation : '',
+      };
+    })
+    .filter((entry): entry is CoffeeEvaluationReason => Boolean(entry));
+};
+
+const buildEvaluationRecommendation = (
+  summary: string,
+  reasons: CoffeeEvaluationReason[]
+): string => {
+  const trimmedSummary = summary.trim();
+  const reasonText = reasons
+    .map((reason) => reason.explanation)
+    .filter((text) => text && text.trim().length > 0);
+  return [trimmedSummary, ...reasonText].filter(Boolean).join('. ');
 };
 
 const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult => {
   const record =
     payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
   const confidenceValue =
-    typeof record.confidence === 'number'
-      ? record.confidence
-      : typeof record.confidence_score === 'number'
-      ? record.confidence_score
-      : null;
+    typeof record.confidence === 'number' ? record.confidence : null;
+  const summary = typeof record.summary === 'string' ? record.summary : '';
+  const reasons = normalizeEvaluationReasons(record.reasons);
+  const recommendation = buildEvaluationRecommendation(summary, reasons);
+
   return {
     status: normalizeEvaluationStatus(record.status),
     verdict: normalizeEvaluationVerdict(record.verdict),
     confidence: confidenceValue,
-    recommendation: typeof record.recommendation === 'string' ? record.recommendation : '',
+    summary,
+    reasons,
+    what_youll_like: Array.isArray(record.what_youll_like)
+      ? record.what_youll_like.filter((item): item is string => typeof item === 'string')
+      : [],
+    what_might_bother_you: Array.isArray(record.what_might_bother_you)
+      ? record.what_might_bother_you.filter((item): item is string => typeof item === 'string')
+      : [],
+    tips_to_make_it_better: Array.isArray(record.tips_to_make_it_better)
+      ? record.tips_to_make_it_better.filter((item): item is string => typeof item === 'string')
+      : [],
+    recommended_brew_methods: Array.isArray(record.recommended_brew_methods)
+      ? record.recommended_brew_methods.filter((item): item is string => typeof item === 'string')
+      : [],
+    cta:
+      record.cta && typeof record.cta === 'object'
+        ? {
+            action:
+              record.cta.action === 'complete_taste_profile'
+                ? 'complete_taste_profile'
+                : null,
+            label: typeof record.cta.label === 'string' ? record.cta.label : null,
+          }
+        : { action: null, label: null },
+    disclaimer: typeof record.disclaimer === 'string' ? record.disclaimer : '',
+    recommendation,
     raw: payload,
   };
 };
@@ -154,14 +212,34 @@ export interface ConfirmStructuredPayload {
   raw?: unknown;
 }
 
-export type CoffeeEvaluationStatus = 'ok' | 'profile_missing' | 'error' | 'unknown';
+export type CoffeeEvaluationStatus = 'ok' | 'profile_missing' | 'unknown';
 
-export type CoffeeEvaluationVerdict = 'SAFE' | 'RISKY' | 'NO-GO';
+export type CoffeeEvaluationVerdict = 'likely_yes' | 'likely_no' | 'uncertain';
+
+export interface CoffeeEvaluationReason {
+  signal: string;
+  user_preference: string;
+  coffee_attribute: string;
+  explanation: string;
+}
+
+export interface CoffeeEvaluationCta {
+  action: 'complete_taste_profile' | null;
+  label: string | null;
+}
 
 export interface CoffeeEvaluationResult {
   status: CoffeeEvaluationStatus;
   verdict: CoffeeEvaluationVerdict | null;
   confidence: number | null;
+  summary: string;
+  reasons: CoffeeEvaluationReason[];
+  what_youll_like: string[];
+  what_might_bother_you: string[];
+  tips_to_make_it_better: string[];
+  recommended_brew_methods: string[];
+  cta: CoffeeEvaluationCta;
+  disclaimer: string;
   recommendation: string;
   raw?: unknown;
 }
@@ -761,6 +839,14 @@ export const processOCR = async (
       status: 'unknown',
       verdict: null,
       confidence: null,
+      summary: '',
+      reasons: [],
+      what_youll_like: [],
+      what_might_bother_you: [],
+      tips_to_make_it_better: [],
+      recommended_brew_methods: [],
+      cta: { action: null, label: null },
+      disclaimer: '',
       recommendation: '',
       raw: null,
     };
@@ -769,9 +855,7 @@ export const processOCR = async (
       recommendation =
         'Nepodarilo sa vyhodnotiť kávu. Skontroluj svoje preferencie v profile.';
       evaluation = {
-        status: 'error',
-        verdict: null,
-        confidence: null,
+        ...evaluation,
         recommendation,
         raw: evaluationResult.error,
       };
@@ -787,9 +871,7 @@ export const processOCR = async (
           recommendation =
             'Nepodarilo sa vyhodnotiť kávu. Skontroluj svoje preferencie v profile.';
           evaluation = {
-            status: 'error',
-            verdict: null,
-            confidence: null,
+            ...evaluation,
             recommendation,
             raw: evalResponse.status,
           };
@@ -799,9 +881,7 @@ export const processOCR = async (
         recommendation =
           'Nepodarilo sa vyhodnotiť kávu. Skontroluj svoje preferencie v profile.';
         evaluation = {
-          status: 'error',
-          verdict: null,
-          confidence: null,
+          ...evaluation,
           recommendation,
           raw: evalError,
         };
@@ -812,6 +892,7 @@ export const processOCR = async (
       original: originalText,
       corrected: correctedText,
       recommendation,
+      evaluation,
       matchPercentage,
       isRecommended,
       scanId,
