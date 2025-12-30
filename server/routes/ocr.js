@@ -32,7 +32,7 @@ const EVALUATION_RESPONSE_SCHEMA = `JSON schema (strict):
   } | null
 }
 
-Return JSON only.`;
+Return JSON only. Do not include markdown fences or extra text.`;
 
 const normalizeOpenAiJson = (value) => {
   if (!value) {
@@ -46,6 +46,11 @@ const isValidEvaluationResponse = (value) => {
     return false;
   }
 
+  const requiredKeys = ['status', 'recommendation', 'cta'];
+  if (!requiredKeys.every((key) => Object.prototype.hasOwnProperty.call(value, key))) {
+    return false;
+  }
+
   const { status, recommendation, cta } = value;
   if (status !== 'ok' && status !== 'profile_missing') {
     return false;
@@ -55,8 +60,8 @@ const isValidEvaluationResponse = (value) => {
     return false;
   }
 
-  if (cta === null) {
-    return status === 'ok';
+  if (status === 'ok') {
+    return cta === null;
   }
 
   if (!cta || typeof cta !== 'object' || Array.isArray(cta)) {
@@ -266,9 +271,11 @@ router.post('/api/ocr/evaluate', async (req, res) => {
       return res.json(PROFILE_MISSING_RESPONSE);
     }
 
-    const systemPrompt = `Si prísny hodnotiaci engine pre kávové preferencie.
-Dodržiavaj JSON schema a neuvádzaj žiadne ďalšie texty.`;
-    const userPrompt = `Porovnaj preferencie používateľa s popisom kávy a vyhodnoť, či mu káva bude chutiť.
+    const systemPrompt = `Si hodnotiaci engine pre kávové preferencie v BrewMate.
+Musíš vrátiť striktne platný JSON podľa schémy, bez markdownu a bez dodatočného textu.`;
+    const userPrompt = `Vyhodnoť, či káva bude vyhovovať používateľovým chutiam. Zohľadni sladkosť, kyslosť, horkosť, telo, chuťové poznámky, mliečne preferencie a silu.
+Vráť krátke odporúčanie v slovenčine. Ak je profil kompletný, nastav "status" na "ok" a "cta" na null.
+Ak informácie nestačia alebo odporúčanie nie je bezpečné, nastav "status" na "profile_missing" a vyplň "cta" podľa schémy.
 
 Používateľove preferencie:
 - Sladkosť: ${preferences.sweetness}
@@ -281,8 +288,6 @@ Používateľove preferencie:
 
 Popis kávy (OCR výstup):
 ${corrected_text}
-
-Vráť JSON s odporúčaním v poli "recommendation". Ak je profil kompletný, nastav "status" na "ok" a "cta" na null.
 
 ${EVALUATION_RESPONSE_SCHEMA}`;
 
@@ -318,15 +323,16 @@ ${EVALUATION_RESPONSE_SCHEMA}`;
       parsed = null;
     }
 
-    // ⬇️ Validate the AI response against the strict schema.
+    // ⬇️ Validate AI JSON strictly to prevent malformed payloads from breaking the FE.
     if (!isValidEvaluationResponse(parsed) || parsed.status !== 'ok') {
+      // ⬇️ On any schema mismatch, return the safe fallback to keep UX consistent.
       return res.json(PROFILE_MISSING_RESPONSE);
     }
 
     return res.json(parsed);
   } catch (err) {
     console.error('❌ Chyba AI vyhodnotenia:', err);
-    // ⬇️ Fallback to the safe profile-missing payload on any error.
+    // ⬇️ Fallback to the safe profile-missing payload to avoid leaking errors to clients.
     return res.json(PROFILE_MISSING_RESPONSE);
   }
 });
