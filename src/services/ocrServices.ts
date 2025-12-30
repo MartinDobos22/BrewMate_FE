@@ -96,6 +96,38 @@ const safeParseJSON = <T>(value: unknown): T | null => {
   }
 };
 
+const normalizeEvaluationStatus = (value: unknown): CoffeeEvaluationStatus => {
+  if (value === 'ok' || value === 'profile_missing' || value === 'error') {
+    return value;
+  }
+  return 'unknown';
+};
+
+const normalizeEvaluationVerdict = (value: unknown): CoffeeEvaluationVerdict | null => {
+  if (value === 'SAFE' || value === 'RISKY' || value === 'NO-GO') {
+    return value;
+  }
+  return null;
+};
+
+const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult => {
+  const record =
+    payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+  const confidenceValue =
+    typeof record.confidence === 'number'
+      ? record.confidence
+      : typeof record.confidence_score === 'number'
+      ? record.confidence_score
+      : null;
+  return {
+    status: normalizeEvaluationStatus(record.status),
+    verdict: normalizeEvaluationVerdict(record.verdict),
+    confidence: confidenceValue,
+    recommendation: typeof record.recommendation === 'string' ? record.recommendation : '',
+    raw: payload,
+  };
+};
+
 export interface StructuredCoffeeMetadata {
   roaster: string | null;
   origin: string | null;
@@ -122,6 +154,18 @@ export interface ConfirmStructuredPayload {
   raw?: unknown;
 }
 
+export type CoffeeEvaluationStatus = 'ok' | 'profile_missing' | 'error' | 'unknown';
+
+export type CoffeeEvaluationVerdict = 'SAFE' | 'RISKY' | 'NO-GO';
+
+export interface CoffeeEvaluationResult {
+  status: CoffeeEvaluationStatus;
+  verdict: CoffeeEvaluationVerdict | null;
+  confidence: number | null;
+  recommendation: string;
+  raw?: unknown;
+}
+
 interface OCRResult {
   original: string;
   corrected: string;
@@ -139,6 +183,7 @@ interface OCRResult {
   structuredConfidence?: Record<string, unknown> | null;
   structuredUncertainty?: Record<string, unknown> | null;
   rawStructuredResponse?: unknown;
+  evaluation?: CoffeeEvaluationResult | null;
 }
 
 /**
@@ -710,23 +755,56 @@ export const processOCR = async (
       methodsPromise,
     ]);
 
+    // Evaluation endpoint now returns structured JSON (status/verdict/confidence/etc.).
     let recommendation = '';
+    let evaluation: CoffeeEvaluationResult = {
+      status: 'unknown',
+      verdict: null,
+      confidence: null,
+      recommendation: '',
+      raw: null,
+    };
     if ('error' in evaluationResult) {
       console.warn('Evaluation failed:', evaluationResult.error);
       recommendation =
         'Nepodarilo sa vyhodnotiť kávu. Skontroluj svoje preferencie v profile.';
+      evaluation = {
+        status: 'error',
+        verdict: null,
+        confidence: null,
+        recommendation,
+        raw: evaluationResult.error,
+      };
     } else {
       try {
         const evalResponse = evaluationResult.response;
         if (evalResponse.ok) {
           const evalData = await evalResponse.json();
           console.log('📥 [BE] Evaluate response:', evalData);
-          recommendation = evalData.recommendation || '';
+          evaluation = normalizeEvaluationResponse(evalData);
+          recommendation = evaluation.recommendation || '';
+        } else {
+          recommendation =
+            'Nepodarilo sa vyhodnotiť kávu. Skontroluj svoje preferencie v profile.';
+          evaluation = {
+            status: 'error',
+            verdict: null,
+            confidence: null,
+            recommendation,
+            raw: evalResponse.status,
+          };
         }
       } catch (evalError) {
         console.warn('Evaluation failed:', evalError);
         recommendation =
           'Nepodarilo sa vyhodnotiť kávu. Skontroluj svoje preferencie v profile.';
+        evaluation = {
+          status: 'error',
+          verdict: null,
+          confidence: null,
+          recommendation,
+          raw: evalError,
+        };
       }
     }
 
@@ -747,6 +825,7 @@ export const processOCR = async (
       structuredConfidence,
       structuredUncertainty,
       rawStructuredResponse,
+      evaluation,
     };
   } catch (error) {
     console.error('OCR processing error:', error);

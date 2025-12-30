@@ -53,7 +53,12 @@ import {
   recordScanSignal,
   SignalUpdateResult,
 } from '../../services/userSignals';
-import type { OCRHistory, StructuredCoffeeMetadata, ConfirmStructuredPayload } from './services';
+import type {
+  OCRHistory,
+  StructuredCoffeeMetadata,
+  ConfirmStructuredPayload,
+  CoffeeEvaluationResult,
+} from './services';
 import { BrewContext } from '../../types/Personalization';
 import { usePersonalization } from '../../hooks/usePersonalization';
 import { showToast } from '../../utils/toast';
@@ -75,6 +80,7 @@ interface ScanResult {
   structuredMetadata?: StructuredCoffeeMetadata | null;
   structuredConfidence?: Record<string, unknown> | null;
   structuredRaw?: unknown;
+  evaluation?: CoffeeEvaluationResult | null;
 }
 
 type ScanResultLike = ScanResult & { rawStructuredResponse?: unknown };
@@ -87,6 +93,7 @@ type StructuredConfirmPayload = ConfirmStructuredPayload & {
 interface ProfessionalOCRScannerProps {
   onBack?: () => void;
   onHistoryPress?: () => void;
+  onQuestionnairePress?: () => void;
 }
 
 const resolveTimeOfDay = (date: Date): BrewContext['timeOfDay'] => {
@@ -466,7 +473,11 @@ const normalizeRoastLevel = (value?: string | null): RoastCategory => {
   return 'unknown';
 };
 
-const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onHistoryPress }) => {
+const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
+  onBack,
+  onHistoryPress,
+  onQuestionnairePress,
+}) => {
   const { coffeeDiary: personalizationDiary, refreshInsights, profile, userId } =
     usePersonalization();
   const diary = personalizationDiary ;
@@ -686,6 +697,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
         structuredMetadata: result.structuredMetadata ?? null,
         structuredConfidence: result.structuredConfidence ?? null,
         structuredRaw,
+        evaluation: result.evaluation ?? null,
       };
 
       setScanResult(normalizedResult);
@@ -1644,13 +1656,26 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
     }
   };
 
+  const handleQuestionnaireCTA = useCallback(() => {
+    // Keep a stable callback so the CTA does not trigger unnecessary re-renders.
+    if (onQuestionnairePress) {
+      onQuestionnairePress();
+      return;
+    }
+    showToast('Vyplň dotazník preferencií v profile.');
+  }, [onQuestionnairePress]);
+
   const showBackButton = currentView !== 'home';
+  // When the backend reports a missing profile, suppress compatibility scoring in the UI.
+  const isProfileMissing = scanResult?.evaluation?.status === 'profile_missing';
   const matchLabel = compatibility
     ? `${compatibility.score}%`
     : scanResult
-      ? scanResult.isRecommended === false
-        ? 'Mimo preferencií'
-        : 'Sedí k profilu'
+      ? isProfileMissing
+        ? undefined
+        : scanResult.isRecommended === false
+          ? 'Mimo preferencií'
+          : 'Sedí k profilu'
       : undefined;
   const refreshControl =
     currentView === 'home'
@@ -1714,7 +1739,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
   }, [recognizedText, structuredFields.roastLevel.value]);
 
   const compatibility = useMemo(() => {
-    if (!scanResult) {
+    // Skip compatibility scoring when the backend signals that the profile is missing.
+    if (!scanResult || isProfileMissing) {
       return null;
     }
 
@@ -1760,7 +1786,14 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
       badge: `${bucket} · ${clamped}%`,
       description: descriptionMap[bucket],
     } as const;
-  }, [implicitSignals, profile?.preferences?.acidity, profile?.preferences?.bitterness, roastCategory, scanResult]);
+  }, [
+    implicitSignals,
+    isProfileMissing,
+    profile?.preferences?.acidity,
+    profile?.preferences?.bitterness,
+    roastCategory,
+    scanResult,
+  ]);
 
   // AI recommendation sentences coming from the scan response; reused for the insight section.
   const recommendationSentences = useMemo(() => {
@@ -2379,35 +2412,52 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
                         ) : null}
                       </LinearGradient>
 
+                      {isProfileMissing ? (
+                        // Profile is missing -> guide the user to the questionnaire instead of showing a score.
+                        <View style={styles.profileMissingCard}>
+                          <Text style={styles.profileMissingTitle}>Chýba chuťový profil</Text>
+                          <Text style={styles.profileMissingText}>
+                            Vyplň krátky dotazník a získaš osobné hodnotenie zhody pre každú kávu.
+                          </Text>
+                          <TouchableOpacity
+                            style={styles.profileMissingButton}
+                            onPress={handleQuestionnaireCTA}
+                            activeOpacity={0.85}
+                          >
+                            <Text style={styles.profileMissingButtonText}>Vyplniť dotazník</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
                         <View style={styles.verdictCard}>
                           <View style={styles.sectionHeaderRow}>
                             <Text style={styles.sectionTitle}>Verdikt</Text>
                             <View
                               style={[
                                 styles.verdictBadge,
-                              compatibility?.bucket === 'NO-GO'
-                                ? styles.verdictBadgeNo
-                                : compatibility?.bucket === 'RISKY'
-                                  ? styles.verdictBadgeRisky
-                                  : styles.verdictBadgeYes,
+                                compatibility?.bucket === 'NO-GO'
+                                  ? styles.verdictBadgeNo
+                                  : compatibility?.bucket === 'RISKY'
+                                    ? styles.verdictBadgeRisky
+                                    : styles.verdictBadgeYes,
                               ]}
                             >
                               <Text
                                 style={[
                                   styles.verdictBadgeText,
-                                compatibility?.bucket === 'NO-GO'
-                                  ? styles.verdictBadgeTextNo
-                                  : compatibility?.bucket === 'RISKY'
-                                    ? styles.verdictBadgeTextRisky
-                                    : styles.verdictBadgeTextYes,
+                                  compatibility?.bucket === 'NO-GO'
+                                    ? styles.verdictBadgeTextNo
+                                    : compatibility?.bucket === 'RISKY'
+                                      ? styles.verdictBadgeTextRisky
+                                      : styles.verdictBadgeTextYes,
                                 ]}
                               >
                                 {verdictLabel}
                               </Text>
+                            </View>
                           </View>
+                          <Text style={styles.verdictDescription}>{verdictExplanation}</Text>
                         </View>
-                        <Text style={styles.verdictDescription}>{verdictExplanation}</Text>
-                      </View>
+                      )}
 
                       <View style={styles.ownershipCardModern}>
                         <View style={styles.sectionHeaderRow}>

@@ -671,7 +671,7 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   const [recipeStepsReturnTo, setRecipeStepsReturnTo] =
     useState<ScreenName>('brew');
   const [preferencesReturnTo, setPreferencesReturnTo] =
-    useState<'profile' | 'home'>('profile');
+    useState<'profile' | 'home' | 'scanner'>('profile');
   const [preferencesReloadKey, setPreferencesReloadKey] = useState(0);
   const [isTasteQuizComplete, setIsTasteQuizComplete] = useState(false);
   const [checkingTasteQuiz, setCheckingTasteQuiz] = useState(true);
@@ -1286,6 +1286,11 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     setCurrentScreen('preferences');
   };
 
+  const handleScannerPreferencesPress = () => {
+    setPreferencesReturnTo('scanner');
+    setCurrentScreen('preferences');
+  };
+
   const handleDiscoverPress = () => {
     setCurrentScreen('discover');
   };
@@ -1312,7 +1317,12 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   };
 
   const handlePreferencesBack = () => {
-    const target = preferencesReturnTo === 'home' ? 'home' : 'profile';
+    const target =
+      preferencesReturnTo === 'home'
+        ? 'home'
+        : preferencesReturnTo === 'scanner'
+          ? 'scanner'
+          : 'profile';
     setCurrentScreen(target);
     setPreferencesReturnTo('profile');
   };
@@ -1481,7 +1491,10 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
             <Text style={styles.backButtonText}>← Späť</Text>
           </TouchableOpacity>
         </View>
-        <CoffeeTasteScanner onHistoryPress={handleScanHistoryPress} />
+        <CoffeeTasteScanner
+          onHistoryPress={handleScanHistoryPress}
+          onQuestionnairePress={handleScannerPreferencesPress}
+        />
         <BottomNav
           active="home"
           onHomePress={handleBackPress}
