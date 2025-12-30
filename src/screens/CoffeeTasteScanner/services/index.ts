@@ -11,6 +11,7 @@ export {
 export type {
   StructuredCoffeeMetadata,
   ConfirmStructuredPayload,
+  CoffeeEvaluationResult,
 } from '../../../services/ocrServices';
 export { saveOCRResult, loadOCRResult } from '../../../services/offlineCache';
 export { addRecentScan } from '../../../services/coffeeServices';
