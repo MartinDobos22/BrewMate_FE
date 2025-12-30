@@ -145,13 +145,18 @@ router.post('/api/ocr/save', async (req, res) => {
       value === undefined || value === null ? null : JSON.stringify(value);
 
     const prefResult = await db.query(
-      `SELECT * FROM user_taste_profiles WHERE user_id = $1`,
+      `SELECT * FROM user_taste_profiles_with_completion WHERE user_id = $1 LIMIT 1`,
       [uid]
     );
 
     const preferences = prefResult.rows[0];
-    const matchPercentage = calculateMatch(corrected_text, preferences);
-    const isRecommended = matchPercentage > 75;
+    const isProfileComplete = Boolean(
+      preferences?.is_complete ?? preferences?.taste_profile_completed ?? false
+    );
+    const matchPercentage = isProfileComplete
+      ? calculateMatch(corrected_text, preferences)
+      : null;
+    const isRecommended = matchPercentage !== null ? matchPercentage > 75 : false;
     const coffeeName = extractCoffeeName(corrected_text || original_text);
 
     const result = await db.query(
