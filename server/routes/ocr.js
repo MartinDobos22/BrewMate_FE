@@ -65,7 +65,26 @@ router.post('/api/ocr/save', async (req, res) => {
       name: decoded.name || decoded.user?.name,
     });
 
-    const { original_text, corrected_text } = req.body;
+    const {
+      original_text,
+      corrected_text,
+      origin,
+      roast_level,
+      flavor_notes,
+      processing,
+      roast_date,
+      varietals,
+      thumbnail_url,
+      structured_metadata,
+      structuredMetadata,
+    } = req.body;
+
+    const structured = structured_metadata || structuredMetadata || {};
+
+    const normalizeTextField = (value) =>
+      typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+    const normalizeJsonField = (value) =>
+      value === undefined || value === null ? null : JSON.stringify(value);
 
     const prefResult = await db.query(
       `SELECT * FROM user_taste_profiles WHERE user_id = $1`,
@@ -78,10 +97,62 @@ router.post('/api/ocr/save', async (req, res) => {
     const coffeeName = extractCoffeeName(corrected_text || original_text);
 
     const result = await db.query(
-      `INSERT INTO scan_events (user_id, coffee_name, brand, barcode, image_url, match_score, is_recommended, detected_at, created_at)
-       VALUES ($1, $2, NULL, NULL, NULL, $3, $4, now(), now())
+      `INSERT INTO scan_events (
+        user_id,
+        coffee_name,
+        brand,
+        barcode,
+        image_url,
+        original_text,
+        corrected_text,
+        origin,
+        roast_level,
+        flavor_notes,
+        processing,
+        roast_date,
+        varietals,
+        thumbnail_url,
+        match_score,
+        is_recommended,
+        detected_at,
+        created_at
+      )
+       VALUES (
+        $1,
+        $2,
+        NULL,
+        NULL,
+        NULL,
+        $3,
+        $4,
+        $5,
+        $6,
+        $7::jsonb,
+        $8,
+        $9,
+        $10::jsonb,
+        $11,
+        $12,
+        $13,
+        now(),
+        now()
+      )
        RETURNING id`,
-      [uid, coffeeName, matchPercentage, isRecommended]
+      [
+        uid,
+        coffeeName,
+        normalizeTextField(original_text),
+        normalizeTextField(corrected_text),
+        normalizeTextField(origin ?? structured.origin),
+        normalizeTextField(roast_level ?? structured.roast_level ?? structured.roastLevel),
+        normalizeJsonField(flavor_notes ?? structured.flavor_notes ?? structured.flavorNotes),
+        normalizeTextField(processing ?? structured.processing),
+        normalizeTextField(roast_date ?? structured.roast_date ?? structured.roastDate),
+        normalizeJsonField(varietals ?? structured.varietals),
+        normalizeTextField(thumbnail_url ?? structured.thumbnail_url ?? structured.thumbnailUrl),
+        matchPercentage,
+        isRecommended,
+      ]
     );
 
     res.status(200).json({
@@ -281,7 +352,22 @@ router.get('/api/ocr/history', async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
 
     const result = await db.query(
-      `SELECT id, coffee_name, match_score, is_recommended, created_at
+      `SELECT
+        id,
+        coffee_name,
+        brand,
+        original_text,
+        corrected_text,
+        origin,
+        roast_level,
+        flavor_notes,
+        processing,
+        roast_date,
+        varietals,
+        thumbnail_url,
+        match_score,
+        is_recommended,
+        created_at
        FROM scan_events
        WHERE user_id = $1
        ORDER BY created_at DESC
@@ -292,6 +378,16 @@ router.get('/api/ocr/history', async (req, res) => {
     const history = result.rows.map((row) => ({
       id: row.id.toString(),
       coffee_name: row.coffee_name,
+      original_text: row.original_text,
+      corrected_text: row.corrected_text,
+      brand: row.brand,
+      origin: row.origin,
+      roast_level: row.roast_level,
+      flavor_notes: row.flavor_notes,
+      processing: row.processing,
+      roast_date: row.roast_date,
+      varietals: row.varietals,
+      thumbnail_url: row.thumbnail_url,
       created_at: row.created_at,
       rating: null,
       match_percentage: row.match_score || 0,
