@@ -2,10 +2,36 @@
  * Vypočíta percentuálnu zhodu medzi opisom kávy a preferenciami používateľa.
  * @param {string} coffeeText - Textový opis kávy.
  * @param {object} preferences - Preferencie používateľa z databázy.
- * @returns {number} Hodnota zhody v percentách.
+ * @returns {number | null} Hodnota zhody v percentách alebo null pri neúplných preferenciách.
  */
 export const calculateMatch = (coffeeText, preferences) => {
-  if (!preferences) return 70;
+  if (!preferences) return null;
+
+  const hasCompletionFlag = 'is_complete' in preferences || 'taste_profile_completed' in preferences;
+  const isProfileComplete = hasCompletionFlag
+    ? Boolean(preferences.is_complete ?? preferences.taste_profile_completed)
+    : null;
+
+  const hasStrength =
+    typeof preferences.preferred_strength === 'string' &&
+    preferences.preferred_strength.trim().length > 0;
+  const hasSweetness =
+    preferences.sweetness !== null &&
+    preferences.sweetness !== undefined &&
+    !Number.isNaN(Number(preferences.sweetness));
+  const hasAcidity =
+    preferences.acidity !== null &&
+    preferences.acidity !== undefined &&
+    !Number.isNaN(Number(preferences.acidity));
+  const flavorList = Array.isArray(preferences.flavor_notes)
+    ? preferences.flavor_notes
+    : Object.keys(preferences.flavor_notes || {});
+  const hasFlavorNotes = flavorList.length > 0;
+
+  const passesCompletionCheck =
+    isProfileComplete !== null ? isProfileComplete : hasStrength && (hasSweetness || hasAcidity) && hasFlavorNotes;
+
+  if (!passesCompletionCheck) return null;
 
   let score = 50;
   const lower = (coffeeText || '').toLowerCase();
@@ -15,10 +41,6 @@ export const calculateMatch = (coffeeText, preferences) => {
       score += 10;
     }
   }
-
-  const flavorList = Array.isArray(preferences.flavor_notes)
-    ? preferences.flavor_notes
-    : Object.keys(preferences.flavor_notes || {});
 
   flavorList.forEach((flavor) => {
     if (typeof flavor === 'string' && lower.includes(flavor.toLowerCase())) {
