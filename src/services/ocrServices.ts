@@ -146,6 +146,24 @@ const buildEvaluationRecommendation = (
 const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult => {
   const record =
     payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+  const normalizedStatus = normalizeEvaluationStatus(record.status);
+  if (normalizedStatus !== 'ok') {
+    return {
+      status: 'profile_missing',
+      verdict: null,
+      confidence: null,
+      summary: '',
+      reasons: [],
+      what_youll_like: [],
+      what_might_bother_you: [],
+      tips_to_make_it_better: [],
+      recommended_brew_methods: [],
+      cta: { action: null, label: null },
+      disclaimer: '',
+      recommendation: '',
+      raw: payload,
+    };
+  }
   const confidenceValue =
     typeof record.confidence === 'number' ? record.confidence : null;
   const summary = typeof record.summary === 'string' ? record.summary : '';
@@ -153,7 +171,7 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
   const recommendation = buildEvaluationRecommendation(summary, reasons);
 
   return {
-    status: normalizeEvaluationStatus(record.status),
+    status: normalizedStatus,
     verdict: normalizeEvaluationVerdict(record.verdict),
     confidence: confidenceValue,
     summary,
