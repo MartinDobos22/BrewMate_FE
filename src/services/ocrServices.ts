@@ -813,14 +813,14 @@ export const fetchOCRHistory = async (limit: number = 10): Promise<OCRHistory[]>
       is_recommended: item.is_recommended,
       is_purchased: item.is_purchased,
       is_favorite: item.is_favorite,
-      brand: item.brand ?? item.roaster ?? null,
-      origin: item.origin ?? item.country_of_origin ?? null,
-      roast_level: item.roast_level ?? item.roastLevel ?? null,
-      flavor_notes: item.flavor_notes ?? item.flavorNotes ?? null,
+      brand: item.brand ?? null,
+      origin: item.origin ?? null,
+      roast_level: item.roast_level ?? null,
+      flavor_notes: item.flavor_notes ?? null,
       processing: item.processing ?? null,
-      roast_date: item.roast_date ?? item.roastDate ?? null,
+      roast_date: item.roast_date ?? null,
       varietals: item.varietals ?? null,
-      thumbnail_url: item.thumbnail_url ?? item.thumbnailUrl ?? null,
+      thumbnail_url: item.thumbnail_url ?? null,
     }));
   } catch (error) {
     console.error('Error fetching OCR history:', error);
