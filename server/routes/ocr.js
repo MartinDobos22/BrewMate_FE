@@ -11,6 +11,64 @@ import { LOG_DIR } from '../utils/logging.js';
 const router = express.Router();
 
 const GOOGLE_VISION_API_KEY = process.env.GOOGLE_VISION_API_KEY || ' ';
+const PROFILE_MISSING_RESPONSE = {
+  status: 'profile_missing',
+  recommendation: '',
+  cta: {
+    title: 'Dokonči chuťový profil',
+    message: 'Aby sme ti vedeli odporučiť kávu, potrebujeme doplniť tvoje chute.',
+    action_label: 'Vyplniť profil',
+  },
+};
+
+const EVALUATION_RESPONSE_SCHEMA = `JSON schema (strict):
+{
+  "status": "ok | profile_missing",
+  "recommendation": "string",
+  "cta": {
+    "title": "string",
+    "message": "string",
+    "action_label": "string"
+  } | null
+}
+
+Return JSON only.`;
+
+const normalizeOpenAiJson = (value) => {
+  if (!value) {
+    return value;
+  }
+  return value.replace(/```json\s*/i, '').replace(/```$/i, '').trim();
+};
+
+const isValidEvaluationResponse = (value) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const { status, recommendation, cta } = value;
+  if (status !== 'ok' && status !== 'profile_missing') {
+    return false;
+  }
+
+  if (typeof recommendation !== 'string') {
+    return false;
+  }
+
+  if (cta === null) {
+    return status === 'ok';
+  }
+
+  if (!cta || typeof cta !== 'object' || Array.isArray(cta)) {
+    return false;
+  }
+
+  return (
+    typeof cta.title === 'string' &&
+    typeof cta.message === 'string' &&
+    typeof cta.action_label === 'string'
+  );
+};
 
 // ========== OCR ENDPOINTS ==========
 
@@ -188,20 +246,25 @@ router.post('/api/ocr/evaluate', async (req, res) => {
     if (!corrected_text) return res.status(400).json({ error: 'Chýba text kávy' });
 
     const result = await db.query(
-      `SELECT * FROM user_taste_profiles WHERE user_id = $1 LIMIT 1`,
+      `SELECT * FROM user_taste_profiles_with_completion WHERE user_id = $1 LIMIT 1`,
       [uid]
     );
 
-    if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ error: 'Používateľ nemá nastavené preferencie' });
+    const preferences = result.rows[0];
+    // ⬇️ Use the DB completion flag/view to determine if we can safely evaluate.
+    const isProfileComplete = Boolean(
+      preferences?.is_complete ?? preferences?.taste_profile_completed ?? false
+    );
+
+    if (!isProfileComplete) {
+      // ⬇️ Short-circuit with the strict JSON schema when profile is incomplete.
+      return res.json(PROFILE_MISSING_RESPONSE);
     }
 
-    const preferences = result.rows[0];
+    const systemPrompt = `Si prísny hodnotiaci engine pre kávové preferencie.
+Dodržiavaj JSON schema a neuvádzaj žiadne ďalšie texty.`;
+    const userPrompt = `Porovnaj preferencie používateľa s popisom kávy a vyhodnoť, či mu káva bude chutiť.
 
-    const prompt = `
-Porovnaj preferencie používateľa s popisom kávy a vyhodnoť, či mu káva bude chutiť.
 Používateľove preferencie:
 - Sladkosť: ${preferences.sweetness}
 - Kyslosť: ${preferences.acidity}
@@ -214,12 +277,11 @@ Používateľove preferencie:
 Popis kávy (OCR výstup):
 ${corrected_text}
 
-Výsledok napíš ako používateľovi:
-- Začni vetou: "Táto káva ti pravdepodobne bude chutiť, pretože..." alebo "Zrejme ti chutiť nebude, lebo..."
-- Pridaj stručné zdôvodnenie na základe chuti, praženia, spôsobu prípravy atď.
-`;
+Vráť JSON s odporúčaním v poli "recommendation". Ak je profil kompletný, nastav "status" na "ok" a "cta" na null.
 
-    console.log('📤 [OpenAI] Prompt:', prompt);
+${EVALUATION_RESPONSE_SCHEMA}`;
+
+    console.log('📤 [OpenAI] Prompt:', userPrompt);
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
@@ -227,9 +289,9 @@ Výsledok napíš ako používateľovi:
         messages: [
           {
             role: 'system',
-            content: 'Si expert na kávu. Porovnávaš preferencie s popisom kávy.',
+            content: systemPrompt,
           },
-          { role: 'user', content: prompt },
+          { role: 'user', content: userPrompt },
         ],
         temperature: 0.2,
       },
@@ -242,11 +304,25 @@ Výsledok napíš ako používateľovi:
     );
     console.log('📥 [OpenAI] Response:', response.data);
 
-    const recommendation = response.data.choices?.[0]?.message?.content?.trim();
-    return res.json({ recommendation });
+    const aiMessage = response.data.choices?.[0]?.message?.content?.trim();
+    let parsed;
+    try {
+      const normalized = normalizeOpenAiJson(aiMessage);
+      parsed = normalized ? JSON.parse(normalized) : null;
+    } catch (error) {
+      parsed = null;
+    }
+
+    // ⬇️ Validate the AI response against the strict schema.
+    if (!isValidEvaluationResponse(parsed) || parsed.status !== 'ok') {
+      return res.json(PROFILE_MISSING_RESPONSE);
+    }
+
+    return res.json(parsed);
   } catch (err) {
     console.error('❌ Chyba AI vyhodnotenia:', err);
-    return res.status(500).json({ error: 'Nepodarilo sa vyhodnotiť kávu' });
+    // ⬇️ Fallback to the safe profile-missing payload on any error.
+    return res.json(PROFILE_MISSING_RESPONSE);
   }
 });
 
