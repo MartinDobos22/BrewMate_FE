@@ -1666,14 +1666,61 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   }, [onQuestionnairePress]);
 
   const showBackButton = currentView !== 'home';
-  const evaluationStatus = scanResult?.evaluation?.status;
-  // When the backend reports a non-ok status, suppress compatibility scoring in the UI.
-  const shouldSuppressCompatibility = evaluationStatus != null && evaluationStatus !== 'ok';
+  const evaluation = scanResult?.evaluation ?? null;
+  const evaluationStatus = evaluation?.status;
+  // Only suppress compatibility scoring when the profile is missing (AI cannot evaluate yet).
+  const shouldSuppressCompatibility = evaluationStatus === 'profile_missing';
   const isProfileMissing = evaluationStatus === 'profile_missing';
-  const profileMissingText = scanResult?.evaluation?.summary
-    || scanResult?.evaluation?.disclaimer
+  const profileMissingText = evaluation?.summary
+    || evaluation?.disclaimer
     || 'Vyplň krátky dotazník a získaš osobné hodnotenie zhody pre každú kávu.';
-  const profileMissingCtaLabel = scanResult?.evaluation?.cta?.label || 'Vyplniť dotazník';
+  const profileMissingCtaLabel = evaluation?.cta?.label || 'Vyplniť dotazník';
+  // Normalize AI confidence to a readable percentage label for the verdict section.
+  const evaluationConfidenceLabel = useMemo(() => {
+    if (!evaluation || typeof evaluation.confidence !== 'number') {
+      return null;
+    }
+    const raw = evaluation.confidence;
+    const normalized = raw <= 1 ? raw * 100 : raw;
+    const rounded = Math.round(Math.max(0, Math.min(100, normalized)));
+    return `${rounded}% istota`;
+  }, [evaluation]);
+  // Prefer the AI verdict when available; fall back to heuristic compatibility buckets otherwise.
+  const evaluationVerdictLabel = useMemo(() => {
+    if (evaluationStatus === 'ok') {
+      if (evaluation?.verdict === 'suitable') {
+        return 'Vhodná';
+      }
+      if (evaluation?.verdict === 'not_suitable') {
+        return 'Nevhodná';
+      }
+      if (evaluation?.verdict === 'uncertain') {
+        return 'Neisté';
+      }
+    }
+    return compatibility?.bucket ?? (scanResult?.isRecommended === false ? 'NO-GO' : 'SAFE');
+  }, [compatibility?.bucket, evaluation, evaluationStatus, scanResult?.isRecommended]);
+  // Map verdict intent to existing badge styles for consistent color cues.
+  const evaluationVerdictTone = useMemo(() => {
+    if (evaluationStatus === 'ok') {
+      if (evaluation?.verdict === 'not_suitable') {
+        return 'NO';
+      }
+      if (evaluation?.verdict === 'uncertain') {
+        return 'RISKY';
+      }
+      if (evaluation?.verdict === 'suitable') {
+        return 'YES';
+      }
+    }
+    if (compatibility?.bucket === 'NO-GO') {
+      return 'NO';
+    }
+    if (compatibility?.bucket === 'RISKY') {
+      return 'RISKY';
+    }
+    return 'YES';
+  }, [compatibility?.bucket, evaluation, evaluationStatus]);
   const matchLabel = compatibility
     ? `${compatibility.score}%`
     : scanResult
@@ -1909,8 +1956,43 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     return ['N/A'];
   }, [combinedLowerText, structuredFields.flavorNotes.value]);
 
-  const verdictLabel = compatibility?.bucket ?? (scanResult?.isRecommended === false ? 'NO-GO' : 'SAFE');
+  // Normalize AI evaluation blocks so the UI can render consistent sections.
+  const evaluationReasonEntries = useMemo(() => {
+    if (evaluationStatus !== 'ok' || !evaluation?.reasons?.length) {
+      return [];
+    }
+    return evaluation.reasons.map((reason, index) => {
+      const detailParts = [
+        reason.user_preference ? `Preferencia: ${reason.user_preference}` : null,
+        reason.coffee_attribute ? `Atribút: ${reason.coffee_attribute}` : null,
+        reason.explanation ? reason.explanation : null,
+      ].filter(Boolean);
+      return {
+        key: `${reason.signal || 'reason'}-${index}`,
+        title: reason.signal || `Signál ${index + 1}`,
+        detail: detailParts.join(' • '),
+      };
+    });
+  }, [evaluation, evaluationStatus]);
+  const evaluationLikes =
+    evaluationStatus === 'ok' ? evaluation?.what_youll_like ?? [] : [];
+  const evaluationConcerns =
+    evaluationStatus === 'ok' ? evaluation?.what_might_bother_you ?? [] : [];
+  const evaluationTips =
+    evaluationStatus === 'ok' ? evaluation?.tips_to_make_it_better ?? [] : [];
+  const evaluationBrewMethods =
+    evaluationStatus === 'ok' ? evaluation?.recommended_brew_methods ?? [] : [];
+
+  const verdictLabel = evaluationVerdictLabel;
   const verdictExplanation = useMemo(() => {
+    if (evaluationStatus === 'ok') {
+      if (evaluation?.summary) {
+        return evaluation.summary;
+      }
+      if (evaluation?.reasons?.length) {
+        return evaluation.reasons[0].explanation;
+      }
+    }
     if (compatibility) {
       return compatibility.description;
     }
@@ -1935,7 +2017,16 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       return reasonSentences[0];
     }
     return insightText;
-  }, [cautionReasons, compatibility, insightText, positiveReasons, reasonSentences, scanResult]);
+  }, [
+    cautionReasons,
+    compatibility,
+    evaluation,
+    evaluationStatus,
+    insightText,
+    positiveReasons,
+    reasonSentences,
+    scanResult,
+  ]);
 
   const ratingDisplay =
     userRating > 0
@@ -2439,12 +2530,12 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                         <View style={styles.verdictCard}>
                           <View style={styles.sectionHeaderRow}>
                             <Text style={styles.sectionTitle}>Verdikt</Text>
-                            <View
+                          <View
                               style={[
                                 styles.verdictBadge,
-                                compatibility?.bucket === 'NO-GO'
+                                evaluationVerdictTone === 'NO'
                                   ? styles.verdictBadgeNo
-                                  : compatibility?.bucket === 'RISKY'
+                                  : evaluationVerdictTone === 'RISKY'
                                     ? styles.verdictBadgeRisky
                                     : styles.verdictBadgeYes,
                               ]}
@@ -2452,9 +2543,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                               <Text
                                 style={[
                                   styles.verdictBadgeText,
-                                  compatibility?.bucket === 'NO-GO'
+                                  evaluationVerdictTone === 'NO'
                                     ? styles.verdictBadgeTextNo
-                                    : compatibility?.bucket === 'RISKY'
+                                    : evaluationVerdictTone === 'RISKY'
                                       ? styles.verdictBadgeTextRisky
                                       : styles.verdictBadgeTextYes,
                                 ]}
@@ -2463,9 +2554,91 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                               </Text>
                             </View>
                           </View>
+                          {evaluationConfidenceLabel ? (
+                            <Text style={styles.verdictConfidence}>{evaluationConfidenceLabel}</Text>
+                          ) : null}
                           <Text style={styles.verdictDescription}>{verdictExplanation}</Text>
                         </View>
                       )}
+
+                      {evaluationStatus === 'ok' ? (
+                        // AI evaluation sections are only shown when a complete profile exists.
+                        <View style={styles.compatibilityCardModern}>
+                          <View style={styles.sectionHeaderRow}>
+                            <Text style={styles.sectionTitle}>AI hodnotenie zhody</Text>
+                          </View>
+                          {evaluation?.summary ? (
+                            <Text style={styles.compatibilityIntro}>{evaluation.summary}</Text>
+                          ) : null}
+                          {evaluationReasonEntries.length ? (
+                            <View style={styles.reasonBlocksWrapper}>
+                              {evaluationReasonEntries.map(entry => (
+                                <View key={entry.key} style={styles.reasonBlock}>
+                                  <Text style={styles.reasonTitle}>{entry.title}</Text>
+                                  <View style={styles.reasonRow}>
+                                    <View style={[styles.reasonBadge, styles.reasonBadgePositive]}>
+                                      <Text style={styles.reasonBadgeText}>◎</Text>
+                                    </View>
+                                    <Text style={styles.reasonText}>{entry.detail}</Text>
+                                  </View>
+                                </View>
+                              ))}
+                            </View>
+                          ) : null}
+                          {evaluationLikes.length ? (
+                            <View style={styles.reasonBlock}>
+                              <Text style={styles.reasonTitle}>Čo ti bude chutiť</Text>
+                              {evaluationLikes.map((item, index) => (
+                                <View key={`like-${index}-${item}`} style={styles.reasonRow}>
+                                  <View style={[styles.reasonBadge, styles.reasonBadgePositive]}>
+                                    <Text style={styles.reasonBadgeText}>✓</Text>
+                                  </View>
+                                  <Text style={styles.reasonText}>{item}</Text>
+                                </View>
+                              ))}
+                            </View>
+                          ) : null}
+                          {evaluationConcerns.length ? (
+                            <View style={styles.reasonBlock}>
+                              <Text style={styles.reasonTitle}>Čo môže rušiť</Text>
+                              {evaluationConcerns.map((item, index) => (
+                                <View key={`concern-${index}-${item}`} style={styles.reasonRow}>
+                                  <View style={[styles.reasonBadge, styles.reasonBadgeNegative]}>
+                                    <Text style={styles.reasonBadgeText}>!</Text>
+                                  </View>
+                                  <Text style={styles.reasonText}>{item}</Text>
+                                </View>
+                              ))}
+                            </View>
+                          ) : null}
+                          {evaluationTips.length ? (
+                            <View style={styles.reasonBlock}>
+                              <Text style={styles.reasonTitle}>Tipy na lepšiu zhodu</Text>
+                              {evaluationTips.map((item, index) => (
+                                <View key={`tip-${index}-${item}`} style={styles.reasonRow}>
+                                  <View style={[styles.reasonBadge, styles.reasonBadgePositive]}>
+                                    <Text style={styles.reasonBadgeText}>💡</Text>
+                                  </View>
+                                  <Text style={styles.reasonText}>{item}</Text>
+                                </View>
+                              ))}
+                            </View>
+                          ) : null}
+                          {evaluationBrewMethods.length ? (
+                            <View style={styles.reasonBlock}>
+                              <Text style={styles.reasonTitle}>Odporúčané prípravy</Text>
+                              {evaluationBrewMethods.map((item, index) => (
+                                <View key={`brew-${index}-${item}`} style={styles.reasonRow}>
+                                  <View style={[styles.reasonBadge, styles.reasonBadgePositive]}>
+                                    <Text style={styles.reasonBadgeText}>☕</Text>
+                                  </View>
+                                  <Text style={styles.reasonText}>{item}</Text>
+                                </View>
+                              ))}
+                            </View>
+                          ) : null}
+                        </View>
+                      ) : null}
 
                       <View style={styles.ownershipCardModern}>
                         <View style={styles.sectionHeaderRow}>

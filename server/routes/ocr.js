@@ -11,6 +11,7 @@ import { LOG_DIR } from '../utils/logging.js';
 const router = express.Router();
 
 const GOOGLE_VISION_API_KEY = process.env.GOOGLE_VISION_API_KEY || ' ';
+// Strict fallback returned when the taste profile is missing or incomplete.
 const PROFILE_MISSING_RESPONSE = {
   status: 'profile_missing',
   verdict: null,
@@ -30,10 +31,26 @@ const PROFILE_MISSING_RESPONSE = {
     'Vyhodnotenie bude dostupné po dokončení chuťového dotazníka.',
 };
 
+// Safe fallback for AI parsing failures when a profile exists (keeps UX stable without lying about profile state).
+const AI_FALLBACK_RESPONSE = {
+  status: 'ok',
+  verdict: 'uncertain',
+  confidence: 0.35,
+  summary: 'Momentálne nevieme spoľahlivo vyhodnotiť zhodu tejto kávy.',
+  reasons: [],
+  what_youll_like: [],
+  what_might_bother_you: [],
+  tips_to_make_it_better: [],
+  recommended_brew_methods: [],
+  cta: { action: null, label: null },
+  disclaimer:
+    'Hodnotenie je dočasne obmedzené kvôli technickej chybe pri analýze.',
+};
+
 const EVALUATION_RESPONSE_SCHEMA = `JSON schema (strict):
 {
   "status": "ok | profile_missing",
-  "verdict": "likely_yes | likely_no | uncertain | null",
+  "verdict": "suitable | not_suitable | uncertain | null",
   "confidence": "number | null",
   "summary": "string",
   "reasons": [
@@ -104,7 +121,7 @@ const isValidEvaluationResponse = (value) => {
     return false;
   }
 
-  const validVerdicts = ['likely_yes', 'likely_no', 'uncertain'];
+  const validVerdicts = ['suitable', 'not_suitable', 'uncertain'];
   if (verdict !== null && !validVerdicts.includes(verdict)) {
     return false;
   }
@@ -336,7 +353,7 @@ router.post('/api/ocr/evaluate', async (req, res) => {
       name: decoded.name || decoded.user?.name,
     });
 
-    const { corrected_text } = req.body;
+    const { corrected_text, structured_metadata, structuredMetadata, coffee_attributes } = req.body;
     if (!corrected_text) return res.status(400).json({ error: 'Chýba text kávy' });
 
     const result = await db.query(
@@ -355,8 +372,19 @@ router.post('/api/ocr/evaluate', async (req, res) => {
       return res.json(PROFILE_MISSING_RESPONSE);
     }
 
+    // Accept structured metadata from the FE (or any upstream source) to ground the explanation.
+    const structured = structured_metadata || structuredMetadata || {};
+    const coffeeAttributes =
+      coffee_attributes && typeof coffee_attributes === 'object'
+        ? coffee_attributes
+        : {
+            ocr_text: corrected_text,
+            structured_metadata: structured,
+          };
+
     const systemPrompt = `Si expert na kávu a chuťové profily.
-Nikdy nehádaš preferencie používateľa. Ak profil chýba alebo je neúplný, vraciaš iba status "profile_missing".
+Odpovedaj v slovenčine. Nikdy nehádaš preferencie používateľa.
+Ak profil chýba alebo je neúplný, vráť iba status "profile_missing" podľa schémy.
 Vráť striktne platný JSON podľa schémy, bez markdownu a bez dodatočného textu.
 Vysvetlenia musia byť podložené konkrétnymi signálmi z preferencií a z atribútov kávy.`;
     const userPrompt = `Vyhodnoť, či používateľovi bude chutiť naskenovaná káva.
@@ -365,6 +393,7 @@ PRAVIDLÁ:
 - Ak je user_taste_profile null alebo neúplný, vráť iba "profile_missing" odpoveď v JSON.
 - Nehádať chýbajúce preferencie.
 - Výstup musí byť striktne podľa schémy.
+- Ak profil existuje, výsledok musí byť "ok" s verdictom suitable/not_suitable/uncertain.
 
 VSTUP:
 user_taste_profile: {
@@ -377,9 +406,7 @@ user_taste_profile: {
   "caffeine_sensitivity": ${JSON.stringify(preferences.caffeine_sensitivity ?? null)},
   "preferred_strength": ${JSON.stringify(preferences.preferred_strength ?? null)}
 }
-coffee_attributes: {
-  "ocr_text": ${JSON.stringify(corrected_text)}
-}
+ coffee_attributes: ${JSON.stringify(coffeeAttributes)}
 
 ${EVALUATION_RESPONSE_SCHEMA}
 
@@ -422,15 +449,15 @@ Ak status="profile_missing":
 
     // ⬇️ Validate AI JSON strictly to prevent malformed payloads from breaking the FE.
     if (!isValidEvaluationResponse(parsed) || parsed.status !== 'ok') {
-      // ⬇️ On any schema mismatch, return the safe fallback to keep UX consistent.
-      return res.json(PROFILE_MISSING_RESPONSE);
+      // ⬇️ On any schema mismatch, return the safe "uncertain" fallback to keep UX consistent.
+      return res.json(AI_FALLBACK_RESPONSE);
     }
 
     return res.json(parsed);
   } catch (err) {
     console.error('❌ Chyba AI vyhodnotenia:', err);
-    // ⬇️ Fallback to the safe profile-missing payload to avoid leaking errors to clients.
-    return res.json(PROFILE_MISSING_RESPONSE);
+    // ⬇️ Fallback to the safe uncertain payload to avoid leaking errors to clients.
+    return res.json(AI_FALLBACK_RESPONSE);
   }
 });
 
@@ -602,7 +629,7 @@ router.post('/api/ocr/purchase', async (req, res) => {
       name: decoded.name || decoded.user?.name,
     });
 
-    const { ocr_log_id, coffee_name, brand } = req.body;
+    const { ocr_log_id, coffee_name, brand, metadata } = req.body;
     if (!ocr_log_id) return res.status(400).json({ error: 'Chýba ID záznamu OCR' });
 
     await db.query(
@@ -611,11 +638,36 @@ router.post('/api/ocr/purchase', async (req, res) => {
     );
 
     if (coffee_name) {
+      // Pull structured metadata from the scan confirmation when available.
+      const normalizedMetadata =
+        metadata && typeof metadata === 'object' ? metadata : {};
+      const origin =
+        typeof normalizedMetadata.origin === 'string' ? normalizedMetadata.origin : null;
+      const roastLevel =
+        typeof normalizedMetadata.roastLevel === 'string'
+          ? normalizedMetadata.roastLevel
+          : typeof normalizedMetadata.roast_level === 'string'
+          ? normalizedMetadata.roast_level
+          : null;
+      const flavorNotes =
+        Array.isArray(normalizedMetadata.flavorNotes)
+          ? normalizedMetadata.flavorNotes
+          : Array.isArray(normalizedMetadata.flavor_notes)
+          ? normalizedMetadata.flavor_notes
+          : null;
+
       await db.query(
-        `INSERT INTO user_coffees (user_id, name, brand)
-         VALUES ($1, $2, $3)
+        `INSERT INTO user_coffees (user_id, name, brand, origin, roast_level, flavor_notes)
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb)
          ON CONFLICT DO NOTHING`,
-        [uid, coffee_name, brand || null]
+        [
+          uid,
+          coffee_name,
+          brand || null,
+          origin,
+          roastLevel,
+          flavorNotes ? JSON.stringify(flavorNotes) : null,
+        ]
       );
     }
 

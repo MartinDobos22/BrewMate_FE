@@ -584,6 +584,12 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       color: palette.textSecondary,
       lineHeight: 20,
     },
+    verdictConfidence: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: palette.textTertiary,
+      marginBottom: 6,
+    },
     sectionSubtitle: {
       fontSize: 12,
       color: palette.textTertiary,
