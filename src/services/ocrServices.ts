@@ -104,7 +104,7 @@ const normalizeEvaluationStatus = (value: unknown): CoffeeEvaluationStatus => {
 };
 
 const normalizeEvaluationVerdict = (value: unknown): CoffeeEvaluationVerdict | null => {
-  if (value === 'likely_yes' || value === 'likely_no' || value === 'uncertain') {
+  if (value === 'suitable' || value === 'not_suitable' || value === 'uncertain') {
     return value;
   }
   return null;
@@ -147,9 +147,37 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
   const record =
     payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
   const normalizedStatus = normalizeEvaluationStatus(record.status);
-  if (normalizedStatus !== 'ok') {
+  if (normalizedStatus === 'profile_missing') {
+    // Preserve profile-missing payloads so the UI can display the CTA and guidance text.
     return {
-      status: 'profile_missing',
+      status: normalizedStatus,
+      verdict: null,
+      confidence: null,
+      summary: typeof record.summary === 'string' ? record.summary : '',
+      reasons: [],
+      what_youll_like: [],
+      what_might_bother_you: [],
+      tips_to_make_it_better: [],
+      recommended_brew_methods: [],
+      cta: {
+        action:
+          record.cta && typeof record.cta === 'object' && record.cta.action === 'complete_taste_profile'
+            ? 'complete_taste_profile'
+            : 'complete_taste_profile',
+        label:
+          record.cta && typeof record.cta === 'object' && typeof record.cta.label === 'string'
+            ? record.cta.label
+            : 'Vyplniť chuťový profil',
+      },
+      disclaimer: typeof record.disclaimer === 'string' ? record.disclaimer : '',
+      recommendation: '',
+      raw: payload,
+    };
+  }
+  if (normalizedStatus !== 'ok') {
+    // Unknown payloads remain neutral so the UI can display a generic fallback state.
+    return {
+      status: 'unknown',
       verdict: null,
       confidence: null,
       summary: '',
@@ -232,7 +260,7 @@ export interface ConfirmStructuredPayload {
 
 export type CoffeeEvaluationStatus = 'ok' | 'profile_missing' | 'unknown';
 
-export type CoffeeEvaluationVerdict = 'likely_yes' | 'likely_no' | 'uncertain';
+export type CoffeeEvaluationVerdict = 'suitable' | 'not_suitable' | 'uncertain';
 
 export interface CoffeeEvaluationReason {
   signal: string;
@@ -828,7 +856,11 @@ export const processOCR = async (
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ corrected_text: correctedText }),
+          // Send structured metadata to help the backend ground the evaluation in actual coffee attributes.
+          body: JSON.stringify({
+            corrected_text: correctedText,
+            structured_metadata: structuredMetadata,
+          }),
         });
 
         return { response } as const;
