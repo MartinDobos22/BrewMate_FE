@@ -985,7 +985,10 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       setOverlayText('Analyzujem...');
       setOverlayVisible(true);
 
-      const result = await processOCR(base64image, { imagePath: extra?.imagePath });
+      const result = await processOCR(base64image, {
+        imagePath: extra?.imagePath,
+        tasteProfile: profile?.preferences ?? null,
+      });
 
       if (result) {
         if (result.source === 'offline') {

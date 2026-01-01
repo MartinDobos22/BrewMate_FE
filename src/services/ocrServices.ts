@@ -4,6 +4,7 @@ import NetInfo from '@react-native-community/netinfo';
 import RNFS from 'react-native-fs';
 import { CONFIG } from '../config/config';
 import { API_HOST, API_URL } from './api';
+import type { TasteProfileVector } from '../types/Personalization';
 
 const OPENAI_API_KEY = CONFIG.OPENAI_API_KEY;
 const AI_CACHE_TTL = 24;
@@ -692,7 +693,7 @@ const ensureOfflineImagePath = async (
  */
 export const processOCR = async (
   base64image: string,
-  options?: { imagePath?: string },
+  options?: { imagePath?: string; tasteProfile?: TasteProfileVector | null },
 ): Promise<OCRResult | null> => {
   try {
     await ensureOnline();
@@ -892,6 +893,13 @@ export const processOCR = async (
     // 4. Získaj AI hodnotenie a návrhy metód súčasne
     const evaluatePromise = (async () => {
       try {
+        const payload: Record<string, unknown> = {
+          corrected_text: correctedText,
+          structured_metadata: structuredMetadata,
+        };
+        if (options?.tasteProfile) {
+          payload.taste_profile = options.tasteProfile;
+        }
         const response = await loggedFetch(`${API_URL}/ocr/evaluate`, {
           method: 'POST',
           headers: {
@@ -899,10 +907,7 @@ export const processOCR = async (
             'Content-Type': 'application/json',
           },
           // Send structured metadata to help the backend ground the evaluation in actual coffee attributes.
-          body: JSON.stringify({
-            corrected_text: correctedText,
-            structured_metadata: structuredMetadata,
-          }),
+          body: JSON.stringify(payload),
         });
 
         return { response } as const;
@@ -958,6 +963,13 @@ export const processOCR = async (
           const evalData = await evalResponse.json();
           console.log('📥 [BE] Evaluate response:', evalData);
           evaluation = normalizeEvaluationResponse(evalData);
+          if (options?.tasteProfile && evaluation.status === 'profile_missing') {
+            evaluation = {
+              ...evaluation,
+              status: 'unknown',
+              cta: { action: null, label: null },
+            };
+          }
           recommendation = evaluation.recommendation || '';
         } else {
           recommendation =
