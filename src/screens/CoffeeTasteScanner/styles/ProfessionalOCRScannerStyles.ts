@@ -430,11 +430,13 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
     },
     scanMetricsRow: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
+      justifyContent: 'center',
       columnGap: 12,
     },
     scanMetricCard: {
       flex: 1,
+      maxWidth: 240,
+      alignSelf: 'center',
       borderRadius: 20,
       backgroundColor: 'rgba(255,255,255,0.9)',
       borderWidth: 1,
