@@ -1756,53 +1756,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     const rounded = Math.round(Math.max(0, Math.min(100, normalized)));
     return `${rounded}% istota`;
   }, [evaluation]);
-  // Prefer the AI verdict when available; fall back to heuristic compatibility buckets otherwise.
-  const evaluationVerdictLabel = useMemo(() => {
-    if (evaluationStatus === 'ok') {
-      if (evaluation?.verdict === 'suitable') {
-        return 'Vhodná';
-      }
-      if (evaluation?.verdict === 'not_suitable') {
-        return 'Nevhodná';
-      }
-      if (evaluation?.verdict === 'uncertain') {
-        return 'Neisté';
-      }
-    }
-    return compatibility?.bucket ?? (scanResult?.isRecommended === false ? 'NO-GO' : 'SAFE');
-  }, [compatibility?.bucket, evaluation, evaluationStatus, scanResult?.isRecommended]);
-  // Map verdict intent to existing badge styles for consistent color cues.
-  const evaluationVerdictTone = useMemo(() => {
-    if (evaluationStatus === 'ok') {
-      if (evaluation?.verdict === 'not_suitable') {
-        return 'NO';
-      }
-      if (evaluation?.verdict === 'uncertain') {
-        return 'RISKY';
-      }
-      if (evaluation?.verdict === 'suitable') {
-        return 'YES';
-      }
-    }
-    if (compatibility?.bucket === 'NO-GO') {
-      return 'NO';
-    }
-    if (compatibility?.bucket === 'RISKY') {
-      return 'RISKY';
-    }
-    return 'YES';
-  }, [compatibility?.bucket, evaluation, evaluationStatus]);
-  const matchLabel = compatibility
-    ? `${compatibility.score}%`
-    : scanResult
-      ? isProfileMissing
-        ? undefined
-        : shouldSuppressCompatibility
-          ? undefined
-        : scanResult.isRecommended === false
-          ? 'Mimo preferencií'
-          : 'Sedí k profilu'
-      : undefined;
   const refreshControl =
     currentView === 'home'
       ? (
@@ -1920,6 +1873,54 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     roastCategory,
     scanResult,
   ]);
+
+  // Prefer the AI verdict when available; fall back to heuristic compatibility buckets otherwise.
+  const evaluationVerdictLabel = useMemo(() => {
+    if (evaluationStatus === 'ok') {
+      if (evaluation?.verdict === 'suitable') {
+        return 'Vhodná';
+      }
+      if (evaluation?.verdict === 'not_suitable') {
+        return 'Nevhodná';
+      }
+      if (evaluation?.verdict === 'uncertain') {
+        return 'Neisté';
+      }
+    }
+    return compatibility?.bucket ?? (scanResult?.isRecommended === false ? 'NO-GO' : 'SAFE');
+  }, [compatibility?.bucket, evaluation, evaluationStatus, scanResult?.isRecommended]);
+  // Map verdict intent to existing badge styles for consistent color cues.
+  const evaluationVerdictTone = useMemo(() => {
+    if (evaluationStatus === 'ok') {
+      if (evaluation?.verdict === 'not_suitable') {
+        return 'NO';
+      }
+      if (evaluation?.verdict === 'uncertain') {
+        return 'RISKY';
+      }
+      if (evaluation?.verdict === 'suitable') {
+        return 'YES';
+      }
+    }
+    if (compatibility?.bucket === 'NO-GO') {
+      return 'NO';
+    }
+    if (compatibility?.bucket === 'RISKY') {
+      return 'RISKY';
+    }
+    return 'YES';
+  }, [compatibility?.bucket, evaluation, evaluationStatus]);
+  const matchLabel = compatibility
+    ? `${compatibility.score}%`
+    : scanResult
+      ? isProfileMissing
+        ? undefined
+        : shouldSuppressCompatibility
+          ? undefined
+        : scanResult.isRecommended === false
+          ? 'Mimo preferencií'
+          : 'Sedí k profilu'
+      : undefined;
 
   // AI recommendation sentences coming from the scan response; reused for the insight section.
   const recommendationSentences = useMemo(() => {
