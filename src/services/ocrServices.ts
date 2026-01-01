@@ -219,6 +219,63 @@ const normalizeEvaluationText = (value: unknown, fallback = ''): string => {
   return trimmed ? trimmed : fallback;
 };
 
+type VerdictExplanation =
+  | string
+  | {
+      user_preferences_summary?: string;
+      coffee_profile_summary?: string;
+      comparison_summary?: string;
+    };
+
+const normalizeVerdictExplanation = (
+  value: unknown,
+  fallback: VerdictExplanation = ''
+): VerdictExplanation => {
+  if (typeof value === 'string') {
+    const fallbackText = typeof fallback === 'string' ? fallback : '';
+    return normalizeEvaluationText(value, fallbackText);
+  }
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    const userPreferencesSummary = normalizeEvaluationText(
+      record.user_preferences_summary
+    );
+    const coffeeProfileSummary = normalizeEvaluationText(
+      record.coffee_profile_summary
+    );
+    const comparisonSummary = normalizeEvaluationText(record.comparison_summary);
+    if (userPreferencesSummary || coffeeProfileSummary || comparisonSummary) {
+      return {
+        user_preferences_summary: userPreferencesSummary,
+        coffee_profile_summary: coffeeProfileSummary,
+        comparison_summary: comparisonSummary,
+      };
+    }
+    if (typeof fallback === 'object') {
+      return fallback;
+    }
+  }
+  if (typeof fallback === 'string') {
+    return normalizeEvaluationText(fallback);
+  }
+  return fallback;
+};
+
+const resolveVerdictExplanationText = (value: VerdictExplanation | null | undefined): string => {
+  if (!value) {
+    return '';
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  return (
+    value.comparison_summary ||
+    value.user_preferences_summary ||
+    value.coffee_profile_summary ||
+    ''
+  );
+};
+
 const NEUTRAL_EVALUATION_COPY = {
   summary: 'Momentálne nemáme dostatok údajov na spoľahlivé vyhodnotenie.',
   verdict_explanation:
@@ -262,7 +319,7 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
             : 'Vyplniť chuťový profil',
       },
       disclaimer: normalizeEvaluationText(record.disclaimer),
-      verdict_explanation: normalizeEvaluationText(record.verdict_explanation),
+      verdict_explanation: normalizeVerdictExplanation(record.verdict_explanation),
       insight: normalizeEvaluationInsight(record.insight),
       raw: payload,
     };
@@ -284,11 +341,11 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
         ? normalizeEvaluationText(record.disclaimer, NEUTRAL_EVALUATION_COPY.disclaimer)
         : normalizeEvaluationText(record.disclaimer),
       verdict_explanation: useNeutralCopy
-        ? normalizeEvaluationText(
+        ? normalizeVerdictExplanation(
             record.verdict_explanation,
             NEUTRAL_EVALUATION_COPY.verdict_explanation
           )
-        : normalizeEvaluationText(record.verdict_explanation),
+        : normalizeVerdictExplanation(record.verdict_explanation),
       insight: normalizeEvaluationInsight(record.insight),
       raw: payload,
     };
@@ -332,11 +389,11 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
       ? normalizeEvaluationText(record.disclaimer, NEUTRAL_EVALUATION_COPY.disclaimer)
       : normalizeEvaluationText(record.disclaimer),
     verdict_explanation: useNeutralCopy
-      ? normalizeEvaluationText(
+      ? normalizeVerdictExplanation(
           record.verdict_explanation,
           NEUTRAL_EVALUATION_COPY.verdict_explanation
         )
-      : normalizeEvaluationText(record.verdict_explanation),
+      : normalizeVerdictExplanation(record.verdict_explanation),
     insight: normalizeEvaluationInsight(record.insight),
     raw: payload,
   };
@@ -410,7 +467,7 @@ export interface CoffeeEvaluationResult {
   recommended_brew_methods: string[];
   cta: CoffeeEvaluationCta;
   disclaimer: string;
-  verdict_explanation: string;
+  verdict_explanation: VerdictExplanation;
   insight: CoffeeEvaluationInsight | null;
   raw?: unknown;
 }
@@ -1080,7 +1137,7 @@ export const processOCR = async (
             };
           }
           recommendation =
-            evaluation.verdict_explanation ||
+            resolveVerdictExplanationText(evaluation.verdict_explanation) ||
             evaluation.summary ||
             '';
         } else {

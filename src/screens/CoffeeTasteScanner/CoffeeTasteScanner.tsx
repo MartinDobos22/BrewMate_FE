@@ -2100,9 +2100,16 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       ? ''
       : insightHeadline;
     // Fall back to verdict_explanation when filtered insight would conflict with the verdict.
+    const verdictExplanationText =
+      typeof evaluation?.verdict_explanation === 'string'
+        ? evaluation.verdict_explanation
+        : evaluation?.verdict_explanation?.comparison_summary
+          || evaluation?.verdict_explanation?.user_preferences_summary
+          || evaluation?.verdict_explanation?.coffee_profile_summary
+          || '';
     const resolvedHeadline =
       sanitizedHeadline
-        || evaluation?.verdict_explanation
+        || verdictExplanationText
         || evaluation?.summary
         || '';
     return {
@@ -2141,12 +2148,37 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
 
   const verdictLabel = evaluationVerdictLabel;
   const verdictExplanation = useMemo(() => {
+    const verdictExplanationPayload = evaluation?.verdict_explanation;
     if (evaluationStatus === 'ok') {
+      if (verdictExplanationPayload && typeof verdictExplanationPayload === 'object') {
+        const {
+          user_preferences_summary: userPreferencesSummary,
+          coffee_profile_summary: coffeeProfileSummary,
+          comparison_summary: comparisonSummary,
+        } = verdictExplanationPayload;
+        // 1) Zhrň preferencie používateľa.
+        // 2) Popíš profil kávy.
+        // 3) Jasne porovnaj oba profily v slovenčine.
+        const explanationLines = [
+          userPreferencesSummary
+            ? `Tvoje preferencie: ${userPreferencesSummary}`
+            : null,
+          coffeeProfileSummary
+            ? `Profil kávy: ${coffeeProfileSummary}`
+            : null,
+          comparisonSummary
+            ? `Porovnanie s tvojím profilom: ${comparisonSummary}`
+            : null,
+        ].filter((line): line is string => Boolean(line));
+        if (explanationLines.length) {
+          return explanationLines.join('\n');
+        }
+      }
+      if (typeof verdictExplanationPayload === 'string' && verdictExplanationPayload) {
+        return verdictExplanationPayload;
+      }
       if (evaluation?.summary) {
         return evaluation.summary;
-      }
-      if (evaluation?.verdict_explanation) {
-        return evaluation.verdict_explanation;
       }
       if (evaluation?.reasons?.length) {
         return evaluation.reasons[0].explanation;
@@ -2175,7 +2207,10 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     if (reasonSentences.length) {
       return reasonSentences[0];
     }
-    return evaluation?.verdict_explanation || 'Táto káva potrebuje viac informácií, aby sme ju vedeli vyhodnotiť.';
+    if (typeof verdictExplanationPayload === 'string' && verdictExplanationPayload) {
+      return verdictExplanationPayload;
+    }
+    return 'Táto káva potrebuje viac informácií, aby sme ju vedeli vyhodnotiť.';
   }, [
     cautionReasons,
     compatibility,
