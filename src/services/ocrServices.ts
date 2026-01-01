@@ -991,9 +991,20 @@ export const processOCR = async (
     // 4. Získaj AI hodnotenie a návrhy metód súčasne
     const evaluatePromise = (async () => {
       try {
+        const coffeeAttributes = {
+          corrected_text: correctedText,
+          origin: structuredMetadata?.origin ?? null,
+          roast_level: structuredMetadata?.roastLevel ?? null,
+          flavor_notes: structuredMetadata?.flavorNotes ?? null,
+          processing: structuredMetadata?.processing ?? null,
+          varietals: structuredMetadata?.varietals ?? null,
+          roast_date: structuredMetadata?.roastDate ?? null,
+          roaster: structuredMetadata?.roaster ?? null,
+        };
         const payload: Record<string, unknown> = {
           corrected_text: correctedText,
           structured_metadata: structuredMetadata,
+          coffee_attributes: coffeeAttributes,
         };
         if (options?.tasteProfile) {
           payload.taste_profile = options.tasteProfile;

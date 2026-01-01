@@ -49,20 +49,20 @@ const INSUFFICIENT_COFFEE_DATA_RESPONSE = {
     user_preferences_summary:
       'Tvoje chuťové preferencie máme uložené, ale chýbajú detaily o káve.',
     coffee_profile_summary:
-      'Z dostupných údajov nevieme spoľahlivo zhrnúť profil kávy.',
+      'Z dostupných údajov nevieme spoľahlivo zhrnúť profil kávy, preto zostávame opatrní.',
     comparison_summary:
-      'Doplň informácie o káve (pôvod, chuťové tóny, spracovanie), aby sme vedeli porovnať zhodu.',
+      'Skús malý test (napr. cupping alebo jednu dávku) alebo rescan balenia a doplň pôvod, tóny a spracovanie.',
   },
   insight: {
-    headline: 'Doplň údaje o káve',
+    headline: 'Máme príliš málo údajov',
     why: [
       'Na presné hodnotenie potrebujeme viac údajov o káve.',
-      'Bez týchto údajov by bolo hodnotenie nepresné.',
+      'Bez nich by sme len hádali zhodu.',
     ],
     what_youll_like: [],
     what_might_bother_you: [],
     how_to_brew_for_better_match: [
-      'Skús nasnímať balenie znova alebo doplň chýbajúce informácie.',
+      'Skús rescan balenia alebo urob malý test (cupping/jedna dávka) a doplň chuťové signály.',
     ],
     recommended_alternatives: [
       'Zatiaľ sa pozri na kávy s jasne uvedeným pôvodom a chuťovými tónmi.',
@@ -128,27 +128,37 @@ const hasMeaningfulCoffeeData = (coffeeAttributes) => {
     return false;
   }
 
-  const { ocr_text, structured_metadata, ...rest } = coffeeAttributes;
-  if (Object.keys(rest).length > 0) {
-    return true;
-  }
+  const { structured_metadata } = coffeeAttributes;
+  const structured =
+    structured_metadata && typeof structured_metadata === 'object' ? structured_metadata : {};
 
-  if (structured_metadata && typeof structured_metadata === 'object') {
-    const hasStructuredSignal = Object.values(structured_metadata).some((value) => {
-      if (Array.isArray(value)) {
-        return value.length > 0;
-      }
-      if (typeof value === 'string') {
-        return value.trim().length > 0;
-      }
-      return value !== null && value !== undefined;
-    });
-    if (hasStructuredSignal) {
-      return true;
+  const getValue = (record, keys) =>
+    keys.reduce((acc, key) => (acc !== undefined ? acc : record?.[key]), undefined);
+  const hasValue = (value) => {
+    if (Array.isArray(value)) {
+      return value.length > 0;
     }
-  }
+    if (typeof value === 'string') {
+      return value.trim().length > 0;
+    }
+    return value !== null && value !== undefined;
+  };
 
-  return typeof ocr_text === 'string' && ocr_text.trim().length >= 20;
+  const origin = getValue(coffeeAttributes, ['origin']) ?? getValue(structured, ['origin']);
+  const roastLevel =
+    getValue(coffeeAttributes, ['roast_level', 'roastLevel']) ??
+    getValue(structured, ['roast_level', 'roastLevel']);
+  const flavorNotes =
+    getValue(coffeeAttributes, ['flavor_notes', 'flavorNotes']) ??
+    getValue(structured, ['flavor_notes', 'flavorNotes']);
+  const processing =
+    getValue(coffeeAttributes, ['processing']) ?? getValue(structured, ['processing']);
+  const varietals =
+    getValue(coffeeAttributes, ['varietals']) ?? getValue(structured, ['varietals']);
+
+  // Require at least one core attribute (origin/roast/flavor/processing/varietals) before AI evaluation.
+  // This threshold avoids hallucinated match claims when we only have generic OCR text.
+  return [origin, roastLevel, flavorNotes, processing, varietals].some(hasValue);
 };
 
 const isValidEvaluationResponse = (value) => {
