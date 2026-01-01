@@ -11,7 +11,7 @@ import { LOG_DIR } from '../utils/logging.js';
 const router = express.Router();
 
 const GOOGLE_VISION_API_KEY = process.env.GOOGLE_VISION_API_KEY || ' ';
-// Strict fallback returned when the taste profile is missing or incomplete.
+// Schema-compliant fallback returned when the taste profile is missing or incomplete.
 const PROFILE_MISSING_RESPONSE = {
   status: 'profile_missing',
   verdict: null,
@@ -71,19 +71,20 @@ const INSUFFICIENT_COFFEE_DATA_RESPONSE = {
   disclaimer: 'Vyhodnotenie bude možné po doplnení údajov o káve.',
 };
 
-// Safe fallback for AI parsing failures when a profile exists (keeps UX stable without lying about profile state).
-const AI_FALLBACK_RESPONSE = {
+// Neutral fallback for AI parsing failures (keeps UX stable without claiming a match).
+const NEUTRAL_UNCERTAIN_RESPONSE = {
   status: 'ok',
   verdict: 'uncertain',
   confidence: 0.35,
   verdict_explanation: {
-    user_preferences_summary: 'Tvoje preferencie sú známe, ale vyhodnotenie zlyhalo.',
-    coffee_profile_summary: 'Profil kávy nevieme spoľahlivo spracovať.',
-    comparison_summary: 'Skús to prosím znova, aby sme vedeli porovnať zhodu.',
+    user_preferences_summary: 'Preferencie máme uložené, no výsledok sa nepodarilo overiť.',
+    coffee_profile_summary: 'Z údajov o káve nevieme spoľahlivo určiť profil.',
+    comparison_summary:
+      'Momentálne nie je možné potvrdiť zhodu. Skús sken zopakovať alebo doplň údaje.',
   },
   insight: {
-    headline: 'Dočasne nevieme vyhodnotiť zhodu',
-    why: ['Nastala technická chyba pri analýze.'],
+    headline: 'Zhodu nevieme potvrdiť',
+    why: ['Výsledok je neistý, pretože analýzu sa nepodarilo dokončiť.'],
     what_youll_like: [],
     what_might_bother_you: [],
     how_to_brew_for_better_match: ['Skús sken zopakovať alebo doplň informácie.'],
@@ -209,13 +210,16 @@ const isValidEvaluationResponse = (value) => {
     return false;
   }
 
+  const isStringArray = (value) =>
+    Array.isArray(value) && value.every((item) => typeof item === 'string');
+
   if (
     typeof insight.headline !== 'string' ||
-    !Array.isArray(insight.why) ||
-    !Array.isArray(insight.what_youll_like) ||
-    !Array.isArray(insight.what_might_bother_you) ||
-    !Array.isArray(insight.how_to_brew_for_better_match) ||
-    !Array.isArray(insight.recommended_alternatives)
+    !isStringArray(insight.why) ||
+    !isStringArray(insight.what_youll_like) ||
+    !isStringArray(insight.what_might_bother_you) ||
+    !isStringArray(insight.how_to_brew_for_better_match) ||
+    !isStringArray(insight.recommended_alternatives)
   ) {
     return false;
   }
@@ -520,15 +524,16 @@ Ak status="profile_missing" alebo "insufficient_coffee_data":
 
     // ⬇️ Validate AI JSON strictly to prevent malformed payloads from breaking the FE.
     if (!isValidEvaluationResponse(parsed) || parsed.status !== 'ok') {
-      // ⬇️ On any schema mismatch, return the safe "uncertain" fallback to keep UX consistent.
-      return res.json(AI_FALLBACK_RESPONSE);
+      // ⬇️ On schema mismatch, use a neutral "uncertain" fallback to avoid contradictions.
+      //    We don't claim a match or missing profile when the AI response is invalid.
+      return res.json(NEUTRAL_UNCERTAIN_RESPONSE);
     }
 
     return res.json(parsed);
   } catch (err) {
     console.error('❌ Chyba AI vyhodnotenia:', err);
-    // ⬇️ Fallback to the safe uncertain payload to avoid leaking errors to clients.
-    return res.json(AI_FALLBACK_RESPONSE);
+    // ⬇️ Fallback to the neutral uncertain payload to avoid leaking errors or making claims.
+    return res.json(NEUTRAL_UNCERTAIN_RESPONSE);
   }
 });
 
