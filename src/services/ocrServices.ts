@@ -124,7 +124,7 @@ const safeParseJSON = <T>(value: unknown): T | null => {
 };
 
 const normalizeEvaluationStatus = (value: unknown): CoffeeEvaluationStatus => {
-  if (value === 'ok' || value === 'profile_missing') {
+  if (value === 'ok' || value === 'profile_missing' || value === 'insufficient_coffee_data') {
     return value;
   }
   return 'unknown';
@@ -170,6 +170,58 @@ const buildEvaluationRecommendation = (
   return [trimmedSummary, ...reasonText].filter(Boolean).join('. ');
 };
 
+const normalizeEvaluationInsight = (value: unknown): CoffeeEvaluationInsight | null => {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed ? { headline: trimmed, sections: [] } : null;
+  }
+  const parsed = safeParseJSON<Record<string, unknown>>(value);
+  if (!parsed || typeof parsed !== 'object') {
+    return null;
+  }
+  const headline =
+    typeof parsed.headline === 'string'
+      ? parsed.headline
+      : typeof parsed.title === 'string'
+        ? parsed.title
+        : '';
+  const sectionsSource = Array.isArray(parsed.sections)
+    ? parsed.sections
+    : Array.isArray(parsed.blocks)
+      ? parsed.blocks
+      : [];
+  const sections = sectionsSource
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return null;
+      }
+      const record = entry as Record<string, unknown>;
+      const title =
+        typeof record.title === 'string'
+          ? record.title
+          : typeof record.heading === 'string'
+            ? record.heading
+            : '';
+      const bulletsSource = Array.isArray(record.bullets)
+        ? record.bullets
+        : Array.isArray(record.items)
+          ? record.items
+          : Array.isArray(record.points)
+            ? record.points
+            : [];
+      const bullets = bulletsSource.filter((item): item is string => typeof item === 'string');
+      if (!title && bullets.length === 0) {
+        return null;
+      }
+      return { title, bullets };
+    })
+    .filter((entry): entry is CoffeeEvaluationInsightSection => Boolean(entry));
+  if (!headline.trim() && sections.length === 0) {
+    return null;
+  }
+  return { headline, sections };
+};
+
 const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult => {
   const record =
     payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
@@ -198,24 +250,30 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
       },
       disclaimer: typeof record.disclaimer === 'string' ? record.disclaimer : '',
       recommendation: '',
+      verdict_explanation:
+        typeof record.verdict_explanation === 'string' ? record.verdict_explanation : '',
+      insight: normalizeEvaluationInsight(record.insight),
       raw: payload,
     };
   }
   if (normalizedStatus !== 'ok') {
     // Unknown payloads remain neutral so the UI can display a generic fallback state.
     return {
-      status: 'unknown',
+      status: normalizedStatus,
       verdict: null,
       confidence: null,
-      summary: '',
+      summary: typeof record.summary === 'string' ? record.summary : '',
       reasons: [],
       what_youll_like: [],
       what_might_bother_you: [],
       tips_to_make_it_better: [],
       recommended_brew_methods: [],
       cta: { action: null, label: null },
-      disclaimer: '',
+      disclaimer: typeof record.disclaimer === 'string' ? record.disclaimer : '',
       recommendation: '',
+      verdict_explanation:
+        typeof record.verdict_explanation === 'string' ? record.verdict_explanation : '',
+      insight: normalizeEvaluationInsight(record.insight),
       raw: payload,
     };
   }
@@ -255,6 +313,9 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
         : { action: null, label: null },
     disclaimer: typeof record.disclaimer === 'string' ? record.disclaimer : '',
     recommendation,
+    verdict_explanation:
+      typeof record.verdict_explanation === 'string' ? record.verdict_explanation : '',
+    insight: normalizeEvaluationInsight(record.insight),
     raw: payload,
   };
 };
@@ -285,7 +346,11 @@ export interface ConfirmStructuredPayload {
   raw?: unknown;
 }
 
-export type CoffeeEvaluationStatus = 'ok' | 'profile_missing' | 'unknown';
+export type CoffeeEvaluationStatus =
+  | 'ok'
+  | 'profile_missing'
+  | 'insufficient_coffee_data'
+  | 'unknown';
 
 export type CoffeeEvaluationVerdict = 'suitable' | 'not_suitable' | 'uncertain';
 
@@ -301,6 +366,16 @@ export interface CoffeeEvaluationCta {
   label: string | null;
 }
 
+export interface CoffeeEvaluationInsightSection {
+  title: string;
+  bullets: string[];
+}
+
+export interface CoffeeEvaluationInsight {
+  headline?: string;
+  sections?: CoffeeEvaluationInsightSection[];
+}
+
 export interface CoffeeEvaluationResult {
   status: CoffeeEvaluationStatus;
   verdict: CoffeeEvaluationVerdict | null;
@@ -314,6 +389,8 @@ export interface CoffeeEvaluationResult {
   cta: CoffeeEvaluationCta;
   disclaimer: string;
   recommendation: string;
+  verdict_explanation: string;
+  insight: CoffeeEvaluationInsight | null;
   raw?: unknown;
 }
 

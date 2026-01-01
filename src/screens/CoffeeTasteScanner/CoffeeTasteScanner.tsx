@@ -182,6 +182,8 @@ const POSITIVE_REASON_KEYWORDS = [
 ];
 
 const CAUTION_REASON_KEYWORDS = ['pozor', 'ak preferuješ', 'môže', 'siln', 'hork', 'telo'];
+const INSIGHT_POSITIVE_CLAIMS = ['sedí', 'zhod', 'match', 'vhod', 'vyhovuje', 'ideál', 'odporúč'];
+const INSIGHT_NEGATIVE_CLAIMS = ['nevhod', 'nesedí', 'mimo', 'nezhod', 'neodporúč', 'rizik'];
 const MAX_IMAGE_DIMENSION = 1600;
 const IMAGE_QUALITY = 0.75;
 const MAX_BASE64_LENGTH = 1300000;
@@ -1741,7 +1743,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
 
   const showBackButton = currentView !== 'home';
   const evaluation = scanResult?.evaluation ?? null;
-  const evaluationStatus = evaluation?.status;
+  const evaluationStatus = evaluation?.status ?? 'unknown';
   // Only suppress compatibility scoring when the profile is missing (AI cannot evaluate yet).
   const shouldSuppressCompatibility = evaluationStatus === 'profile_missing';
   const isProfileMissing = evaluationStatus === 'profile_missing';
@@ -1943,9 +1945,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       .filter(Boolean);
   }, [scanResult]);
 
-  const insightText = recommendationSentences[0] ??
-    'Táto káva má potenciál osloviť tvoje chuťové preferencie na základe posledných hodnotení.';
-
   const reasonSentences = recommendationSentences.slice(1);
 
   const positiveReasons = useMemo(() => {
@@ -2065,11 +2064,89 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   const evaluationBrewMethods =
     evaluationStatus === 'ok' ? evaluation?.recommended_brew_methods ?? [] : [];
 
+  const insightBadgeStyle =
+    evaluation?.verdict === 'not_suitable'
+      ? styles.reasonBadgeNegative
+      : styles.reasonBadgePositive;
+  const insightContent = useMemo(() => {
+    if (evaluationStatus !== 'ok') {
+      return null;
+    }
+    const verdict = evaluation?.verdict ?? null;
+    const rawInsight = evaluation?.insight;
+    const insightHeadline = rawInsight?.headline ?? '';
+    const insightSections = rawInsight?.sections ?? [];
+    const isContradictoryClaim = (text: string) => {
+      const lower = text.toLowerCase();
+      if (verdict === 'not_suitable') {
+        return INSIGHT_POSITIVE_CLAIMS.some(keyword => lower.includes(keyword));
+      }
+      if (verdict === 'suitable') {
+        return INSIGHT_NEGATIVE_CLAIMS.some(keyword => lower.includes(keyword));
+      }
+      return false;
+    };
+    const filteredSections = insightSections
+      .map(section => {
+        if (section.title && isContradictoryClaim(section.title)) {
+          return null;
+        }
+        const bullets = section.bullets.filter(bullet => !isContradictoryClaim(bullet));
+        return bullets.length ? { title: section.title, bullets } : null;
+      })
+      .filter((section): section is typeof insightSections[number] => Boolean(section));
+    // If the verdict says "not_suitable", drop any "match" copy to avoid insight/verdict contradictions.
+    const sanitizedHeadline = insightHeadline && isContradictoryClaim(insightHeadline)
+      ? ''
+      : insightHeadline;
+    // Fall back to verdict_explanation when filtered insight would conflict with the verdict.
+    const resolvedHeadline =
+      sanitizedHeadline
+        || evaluation?.verdict_explanation
+        || evaluation?.summary
+        || '';
+    return {
+      headline: resolvedHeadline,
+      sections: filteredSections,
+    };
+  }, [evaluation, evaluationStatus]);
+  const insightStatusContent = useMemo(() => {
+    if (evaluationStatus === 'profile_missing') {
+      return {
+        headline: 'Získaj presnejší insight',
+        body: profileMissingText,
+        ctaLabel: profileMissingCtaLabel,
+      };
+    }
+    if (evaluationStatus === 'insufficient_coffee_data') {
+      return {
+        headline: 'Potrebujeme viac detailov',
+        body:
+          evaluation?.summary
+          || evaluation?.disclaimer
+          || 'Z etikety sme nezískali dosť údajov na personalizovaný insight. Skús ostriejší záber alebo viac informácií.',
+      };
+    }
+    if (evaluationStatus && evaluationStatus !== 'ok') {
+      return {
+        headline: 'Insight zatiaľ nie je pripravený',
+        body:
+          evaluation?.summary
+          || evaluation?.disclaimer
+          || 'Insight sa nepodarilo pripraviť, skús to prosím neskôr.',
+      };
+    }
+    return null;
+  }, [evaluation, evaluationStatus, profileMissingCtaLabel, profileMissingText]);
+
   const verdictLabel = evaluationVerdictLabel;
   const verdictExplanation = useMemo(() => {
     if (evaluationStatus === 'ok') {
       if (evaluation?.summary) {
         return evaluation.summary;
+      }
+      if (evaluation?.verdict_explanation) {
+        return evaluation.verdict_explanation;
       }
       if (evaluation?.reasons?.length) {
         return evaluation.reasons[0].explanation;
@@ -2098,13 +2175,12 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     if (reasonSentences.length) {
       return reasonSentences[0];
     }
-    return insightText;
+    return evaluation?.verdict_explanation || 'Táto káva potrebuje viac informácií, aby sme ju vedeli vyhodnotiť.';
   }, [
     cautionReasons,
     compatibility,
     evaluation,
     evaluationStatus,
-    insightText,
     positiveReasons,
     reasonSentences,
     scanResult,
@@ -2831,36 +2907,49 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                           </View>
                           <Text style={styles.insightTitle}>AI insight</Text>
                         </View>
-                        <Text style={styles.insightText}>{insightText}</Text>
-                        {(positiveReasons.length > 0 || cautionReasons.length > 0) && (
-                          <View style={styles.reasonBlocksWrapper}>
-                            {positiveReasons.length > 0 && (
-                              <View style={styles.reasonBlock}>
-                                <Text style={styles.reasonTitle}>Prečo áno</Text>
-                                {positiveReasons.map(reason => (
-                                  <View key={reason} style={styles.reasonRow}>
-                                    <View style={[styles.reasonBadge, styles.reasonBadgePositive]}>
-                                      <Text style={styles.reasonBadgeText}>✓</Text>
-                                    </View>
-                                    <Text style={styles.reasonText}>{reason}</Text>
+                        {insightStatusContent ? (
+                          <>
+                            {insightStatusContent.headline ? (
+                              <Text style={styles.insightText}>{insightStatusContent.headline}</Text>
+                            ) : null}
+                            <Text style={styles.insightText}>{insightStatusContent.body}</Text>
+                            {insightStatusContent.ctaLabel ? (
+                              <TouchableOpacity
+                                style={styles.profileMissingButton}
+                                onPress={handleQuestionnaireCTA}
+                                activeOpacity={0.85}
+                              >
+                                <Text style={styles.profileMissingButtonText}>
+                                  {insightStatusContent.ctaLabel}
+                                </Text>
+                              </TouchableOpacity>
+                            ) : null}
+                          </>
+                        ) : (
+                          <>
+                            {insightContent?.headline ? (
+                              <Text style={styles.insightText}>{insightContent.headline}</Text>
+                            ) : null}
+                            {insightContent?.sections.length ? (
+                              <View style={styles.reasonBlocksWrapper}>
+                                {insightContent.sections.map((section, index) => (
+                                  <View key={`${section.title}-${index}`} style={styles.reasonBlock}>
+                                    {section.title ? (
+                                      <Text style={styles.reasonTitle}>{section.title}</Text>
+                                    ) : null}
+                                    {section.bullets.map(bullet => (
+                                      <View key={bullet} style={styles.reasonRow}>
+                                        <View style={[styles.reasonBadge, insightBadgeStyle]}>
+                                          <Text style={styles.reasonBadgeText}>•</Text>
+                                        </View>
+                                        <Text style={styles.reasonText}>{bullet}</Text>
+                                      </View>
+                                    ))}
                                   </View>
                                 ))}
                               </View>
-                            )}
-                            {cautionReasons.length > 0 && (
-                              <View style={styles.reasonBlock}>
-                                <Text style={styles.reasonTitle}>Na čo si dať pozor</Text>
-                                {cautionReasons.map(reason => (
-                                  <View key={reason} style={styles.reasonRow}>
-                                    <View style={[styles.reasonBadge, styles.reasonBadgeNegative]}>
-                                      <Text style={styles.reasonBadgeText}>✗</Text>
-                                    </View>
-                                    <Text style={styles.reasonText}>{reason}</Text>
-                                  </View>
-                                ))}
-                              </View>
-                            )}
-                          </View>
+                            ) : null}
+                          </>
                         )}
                       </LinearGradient>
 
