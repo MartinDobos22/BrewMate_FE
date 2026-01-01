@@ -16,19 +16,59 @@ const PROFILE_MISSING_RESPONSE = {
   status: 'profile_missing',
   verdict: null,
   confidence: null,
-  summary:
-    'Najprv dokonči kávový chuťový profil, aby sme vedeli vyhodnotiť zhodu.',
-  reasons: [],
-  what_youll_like: [],
-  what_might_bother_you: [],
-  tips_to_make_it_better: [],
-  recommended_brew_methods: [],
-  cta: {
-    action: 'complete_taste_profile',
-    label: 'Vyplniť chuťový profil',
+  verdict_explanation: {
+    user_preferences_summary:
+      'Používateľský chuťový profil nie je dokončený, takže nemáme kompletné preferencie.',
+    coffee_profile_summary: 'Profil kávy je k dispozícii, no nie je s čím ho porovnať.',
+    comparison_summary:
+      'Dokonči chuťový profil, aby sme vedeli porovnať kávu s tvojimi preferenciami.',
   },
-  disclaimer:
-    'Vyhodnotenie bude dostupné po dokončení chuťového dotazníka.',
+  insight: {
+    headline: 'Dokonči chuťový profil',
+    why: [
+      'Potrebujeme tvoje preferencie sladkosti, acidity, horkosti a tela.',
+      'Bez profilu by sme len hádali, čo ti chutí.',
+    ],
+    what_youll_like: [],
+    what_might_bother_you: [],
+    how_to_brew_for_better_match: [
+      'Vyplň krátky dotazník s chuťovými preferenciami.',
+    ],
+    recommended_alternatives: [
+      'Po dokončení profilu ti odporučíme vhodnejšie kávy.',
+    ],
+  },
+  disclaimer: 'Vyhodnotenie bude dostupné po dokončení chuťového profilu.',
+};
+
+const INSUFFICIENT_COFFEE_DATA_RESPONSE = {
+  status: 'insufficient_coffee_data',
+  verdict: null,
+  confidence: null,
+  verdict_explanation: {
+    user_preferences_summary:
+      'Tvoje chuťové preferencie máme uložené, ale chýbajú detaily o káve.',
+    coffee_profile_summary:
+      'Z dostupných údajov nevieme spoľahlivo zhrnúť profil kávy.',
+    comparison_summary:
+      'Doplň informácie o káve (pôvod, chuťové tóny, spracovanie), aby sme vedeli porovnať zhodu.',
+  },
+  insight: {
+    headline: 'Doplň údaje o káve',
+    why: [
+      'Na presné hodnotenie potrebujeme viac údajov o káve.',
+      'Bez týchto údajov by bolo hodnotenie nepresné.',
+    ],
+    what_youll_like: [],
+    what_might_bother_you: [],
+    how_to_brew_for_better_match: [
+      'Skús nasnímať balenie znova alebo doplň chýbajúce informácie.',
+    ],
+    recommended_alternatives: [
+      'Zatiaľ sa pozri na kávy s jasne uvedeným pôvodom a chuťovými tónmi.',
+    ],
+  },
+  disclaimer: 'Vyhodnotenie bude možné po doplnení údajov o káve.',
 };
 
 // Safe fallback for AI parsing failures when a profile exists (keeps UX stable without lying about profile state).
@@ -36,40 +76,41 @@ const AI_FALLBACK_RESPONSE = {
   status: 'ok',
   verdict: 'uncertain',
   confidence: 0.35,
-  summary: 'Momentálne nevieme spoľahlivo vyhodnotiť zhodu tejto kávy.',
-  reasons: [],
-  what_youll_like: [],
-  what_might_bother_you: [],
-  tips_to_make_it_better: [],
-  recommended_brew_methods: [],
-  cta: { action: null, label: null },
-  disclaimer:
-    'Hodnotenie je dočasne obmedzené kvôli technickej chybe pri analýze.',
+  verdict_explanation: {
+    user_preferences_summary: 'Tvoje preferencie sú známe, ale vyhodnotenie zlyhalo.',
+    coffee_profile_summary: 'Profil kávy nevieme spoľahlivo spracovať.',
+    comparison_summary: 'Skús to prosím znova, aby sme vedeli porovnať zhodu.',
+  },
+  insight: {
+    headline: 'Dočasne nevieme vyhodnotiť zhodu',
+    why: ['Nastala technická chyba pri analýze.'],
+    what_youll_like: [],
+    what_might_bother_you: [],
+    how_to_brew_for_better_match: ['Skús sken zopakovať alebo doplň informácie.'],
+    recommended_alternatives: [],
+  },
+  disclaimer: 'Hodnotenie je dočasne obmedzené kvôli technickej chybe pri analýze.',
 };
 
 const EVALUATION_RESPONSE_SCHEMA = `JSON schema (strict):
 {
-  "status": "ok | profile_missing",
-  "verdict": "suitable | not_suitable | uncertain | null",
-  "confidence": "number | null",
-  "summary": "string",
-  "reasons": [
-    {
-      "signal": "string",
-      "user_preference": "string",
-      "coffee_attribute": "string",
-      "explanation": "string"
-    }
-  ],
-  "what_youll_like": ["string"],
-  "what_might_bother_you": ["string"],
-  "tips_to_make_it_better": ["string"],
-  "recommended_brew_methods": ["string"],
-  "cta": {
-    "action": "complete_taste_profile | null",
-    "label": "string | null"
+  "status": "ok" | "profile_missing" | "insufficient_coffee_data",
+  "verdict": "suitable" | "not_suitable" | "uncertain" | null,
+  "confidence": number | null,
+  "verdict_explanation": {
+    "user_preferences_summary": string,
+    "coffee_profile_summary": string,
+    "comparison_summary": string
   },
-  "disclaimer": "string"
+  "insight": {
+    "headline": string,
+    "why": string[],
+    "what_youll_like": string[],
+    "what_might_bother_you": string[],
+    "how_to_brew_for_better_match": string[],
+    "recommended_alternatives": string[]
+  },
+  "disclaimer": string
 }
 
 Return JSON only. Do not include markdown fences or extra text.`;
@@ -81,6 +122,34 @@ const normalizeOpenAiJson = (value) => {
   return value.replace(/```json\s*/i, '').replace(/```$/i, '').trim();
 };
 
+const hasMeaningfulCoffeeData = (coffeeAttributes) => {
+  if (!coffeeAttributes || typeof coffeeAttributes !== 'object') {
+    return false;
+  }
+
+  const { ocr_text, structured_metadata, ...rest } = coffeeAttributes;
+  if (Object.keys(rest).length > 0) {
+    return true;
+  }
+
+  if (structured_metadata && typeof structured_metadata === 'object') {
+    const hasStructuredSignal = Object.values(structured_metadata).some((value) => {
+      if (Array.isArray(value)) {
+        return value.length > 0;
+      }
+      if (typeof value === 'string') {
+        return value.trim().length > 0;
+      }
+      return value !== null && value !== undefined;
+    });
+    if (hasStructuredSignal) {
+      return true;
+    }
+  }
+
+  return typeof ocr_text === 'string' && ocr_text.trim().length >= 20;
+};
+
 const isValidEvaluationResponse = (value) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return false;
@@ -90,13 +159,8 @@ const isValidEvaluationResponse = (value) => {
     'status',
     'verdict',
     'confidence',
-    'summary',
-    'reasons',
-    'what_youll_like',
-    'what_might_bother_you',
-    'tips_to_make_it_better',
-    'recommended_brew_methods',
-    'cta',
+    'verdict_explanation',
+    'insight',
     'disclaimer',
   ];
   if (!requiredKeys.every((key) => Object.prototype.hasOwnProperty.call(value, key))) {
@@ -107,17 +171,16 @@ const isValidEvaluationResponse = (value) => {
     status,
     verdict,
     confidence,
-    summary,
-    reasons,
-    what_youll_like,
-    what_might_bother_you,
-    tips_to_make_it_better,
-    recommended_brew_methods,
-    cta,
+    verdict_explanation,
+    insight,
     disclaimer,
   } = value;
 
-  if (status !== 'ok' && status !== 'profile_missing') {
+  if (
+    status !== 'ok' &&
+    status !== 'profile_missing' &&
+    status !== 'insufficient_coffee_data'
+  ) {
     return false;
   }
 
@@ -130,19 +193,29 @@ const isValidEvaluationResponse = (value) => {
     return false;
   }
 
-  if (typeof summary !== 'string') {
-    return false;
-  }
-
-  if (!Array.isArray(reasons)) {
+  if (!verdict_explanation || typeof verdict_explanation !== 'object') {
     return false;
   }
 
   if (
-    !Array.isArray(what_youll_like) ||
-    !Array.isArray(what_might_bother_you) ||
-    !Array.isArray(tips_to_make_it_better) ||
-    !Array.isArray(recommended_brew_methods)
+    typeof verdict_explanation.user_preferences_summary !== 'string' ||
+    typeof verdict_explanation.coffee_profile_summary !== 'string' ||
+    typeof verdict_explanation.comparison_summary !== 'string'
+  ) {
+    return false;
+  }
+
+  if (!insight || typeof insight !== 'object') {
+    return false;
+  }
+
+  if (
+    typeof insight.headline !== 'string' ||
+    !Array.isArray(insight.why) ||
+    !Array.isArray(insight.what_youll_like) ||
+    !Array.isArray(insight.what_might_bother_you) ||
+    !Array.isArray(insight.how_to_brew_for_better_match) ||
+    !Array.isArray(insight.recommended_alternatives)
   ) {
     return false;
   }
@@ -151,24 +224,12 @@ const isValidEvaluationResponse = (value) => {
     return false;
   }
 
-  if (!cta || typeof cta !== 'object' || Array.isArray(cta)) {
-    return false;
-  }
-
   if (status === 'ok') {
-    if (verdict === null || confidence === null || cta.action !== null || cta.label !== null) {
+    if (verdict === null || confidence === null) {
       return false;
     }
   } else {
-    if (verdict !== null || confidence !== null || reasons.length !== 0) {
-      return false;
-    }
-
-    if (cta.action !== 'complete_taste_profile') {
-      return false;
-    }
-
-    if (typeof cta.label !== 'string' || cta.label.trim().length === 0) {
+    if (verdict !== null || confidence !== null) {
       return false;
     }
   }
@@ -382,18 +443,28 @@ router.post('/api/ocr/evaluate', async (req, res) => {
             structured_metadata: structured,
           };
 
+    if (!hasMeaningfulCoffeeData(coffeeAttributes)) {
+      return res.json(INSUFFICIENT_COFFEE_DATA_RESPONSE);
+    }
+
+    // The prompt ties verdict + insight to the same comparison to prevent contradictions.
     const systemPrompt = `Si expert na kávu a chuťové profily.
 Odpovedaj v slovenčine. Nikdy nehádaš preferencie používateľa.
 Ak profil chýba alebo je neúplný, vráť iba status "profile_missing" podľa schémy.
+Ak chýbajú kľúčové informácie o káve, vráť iba status "insufficient_coffee_data".
 Vráť striktne platný JSON podľa schémy, bez markdownu a bez dodatočného textu.
+Verdikt aj insight musia byť odvodené z toho istého porovnania a nesmú si odporovať.
 Vysvetlenia musia byť podložené konkrétnymi signálmi z preferencií a z atribútov kávy.`;
     const userPrompt = `Vyhodnoť, či používateľovi bude chutiť naskenovaná káva.
 
 PRAVIDLÁ:
 - Ak je user_taste_profile null alebo neúplný, vráť iba "profile_missing" odpoveď v JSON.
+- Ak chýbajú relevantné atribúty kávy, vráť "insufficient_coffee_data" v JSON.
 - Nehádať chýbajúce preferencie.
 - Výstup musí byť striktne podľa schémy.
-- Ak profil existuje, výsledok musí byť "ok" s verdictom suitable/not_suitable/uncertain.
+- Všetky používateľsky viditeľné polia musia byť v slovenčine.
+- Verdikt a insight musia vychádzať z rovnakého porovnania preferencií a atribútov kávy a nesmú si odporovať.
+- Ak profil existuje a údaje o káve sú dostatočné, výsledok musí byť "ok" s verdictom suitable/not_suitable/uncertain.
 
 VSTUP:
 user_taste_profile: {
@@ -410,10 +481,10 @@ user_taste_profile: {
 
 ${EVALUATION_RESPONSE_SCHEMA}
 
-Ak status="profile_missing":
+Ak status="profile_missing" alebo "insufficient_coffee_data":
 - verdict a confidence musia byť null
-- reasons musí byť prázdne pole
-- cta.action musí byť "complete_taste_profile"`;
+- poskytnúť CTA štýlom vedenia v verdict_explanation.comparison_summary a v insight.how_to_brew_for_better_match
+`;
 
     console.log('📤 [OpenAI] Prompt:', userPrompt);
     const response = await axios.post(
