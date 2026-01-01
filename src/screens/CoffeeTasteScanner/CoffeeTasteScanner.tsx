@@ -22,6 +22,7 @@ import {
   PhotoFile,
 } from 'react-native-vision-camera';
 import { launchImageLibrary, ImagePickerResponse, ImageLibraryOptions } from 'react-native-image-picker';
+import ImageResizer from 'react-native-image-resizer';
 import RNFS from 'react-native-fs';
 import NetInfo from '@react-native-community/netinfo';
 import { scannerStyles } from './styles';
@@ -136,6 +137,20 @@ const isOfflineError = (error: unknown): boolean => {
   return error.message === 'Offline' || error.message.includes('Network request failed');
 };
 
+const ensureFileUri = (path: string): string => {
+  if (path.startsWith('file://')) {
+    return path;
+  }
+  return `file://${path}`;
+};
+
+const stripFileUri = (path: string): string => {
+  if (path.startsWith('file://')) {
+    return path.replace('file://', '');
+  }
+  return path;
+};
+
 const WELCOME_GRADIENT = ['#FF9966', '#A86B8C'];
 const COFFEE_GRADIENT = ['#8B6544', '#6B4423'];
 const WARM_GRADIENT = ['#FFA000', '#FF6B6B'];
@@ -167,6 +182,9 @@ const POSITIVE_REASON_KEYWORDS = [
 ];
 
 const CAUTION_REASON_KEYWORDS = ['pozor', 'ak preferuješ', 'môže', 'siln', 'hork', 'telo'];
+const MAX_IMAGE_DIMENSION = 1600;
+const IMAGE_QUALITY = 0.75;
+const MAX_BASE64_LENGTH = 1300000;
 
 type StructuredFieldKey = keyof Pick<
   StructuredCoffeeMetadata,
@@ -832,6 +850,30 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     setRefreshing(false);
   };
 
+  const compressImageForUpload = useCallback(async (imagePath: string) => {
+    const resized = await ImageResizer.createResizedImage(
+      ensureFileUri(imagePath),
+      MAX_IMAGE_DIMENSION,
+      MAX_IMAGE_DIMENSION,
+      'JPEG',
+      Math.round(IMAGE_QUALITY * 100),
+      0,
+    );
+
+    const resizedPath = stripFileUri(resized.path ?? resized.uri ?? '');
+    if (!resizedPath) {
+      throw new Error('Resized image path is missing');
+    }
+
+    const base64 = await RNFS.readFile(resizedPath, 'base64');
+    if (base64.length > MAX_BASE64_LENGTH) {
+      Alert.alert('Upozornenie', 'Obrázok je príliš veľký, skúste zbližiť alebo nafotiť znova.');
+      return null;
+    }
+
+    return { base64, path: resizedPath };
+  }, []);
+
   /**
    * Odfotí etiketu a odošle ju na OCR spracovanie.
    */
@@ -849,14 +891,17 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       });
 
       setShowCamera(false);
-      const base64 = await RNFS.readFile(photo.path, 'base64');
-
-      if (isConnected === false) {
-        await handleOfflineScan(photo.path, base64);
+      const compressed = await compressImageForUpload(photo.path);
+      if (!compressed) {
         return;
       }
 
-      await processImage(base64, { imagePath: photo.path, base64 });
+      if (isConnected === false) {
+        await handleOfflineScan(photo.path, compressed.base64);
+        return;
+      }
+
+      await processImage(compressed.base64, { imagePath: photo.path, base64: compressed.base64 });
     } catch (error) {
       console.error('Take photo error:', error);
       Alert.alert('Chyba', 'Nepodarilo sa urobiť fotografiu');
@@ -878,36 +923,52 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     launchImageLibrary(options, async (response: ImagePickerResponse) => {
       if (response.didCancel || response.errorMessage) return;
 
-      if (response.assets && response.assets[0]?.base64) {
-        const base64 = response.assets[0].base64;
-        try {
-          closeNonCoffeeModal();
+      const asset = response.assets?.[0];
+      if (!asset) {
+        Alert.alert('Chyba', 'Nepodarilo sa načítať obrázok');
+        return;
+      }
+
+      try {
+        closeNonCoffeeModal();
+        setShowCamera(false);
+
+        let originalPath = asset.uri ? stripFileUri(asset.uri) : '';
+        if (!originalPath && asset.base64) {
           const cacheDir =
             RNFS.CachesDirectoryPath || RNFS.TemporaryDirectoryPath || RNFS.DocumentDirectoryPath;
           if (!cacheDir) {
             throw new Error('Temporary directory is not available');
           }
           const tempPath = `${cacheDir}/brew-offline-${Date.now()}.jpg`;
-          await RNFS.writeFile(tempPath, base64, 'base64');
-
-          if (isConnected === false) {
-            setIsLoading(true);
-            setShowCamera(false);
-            try {
-              await handleOfflineScan(tempPath, base64);
-            } finally {
-              setIsLoading(false);
-            }
-            return;
-          }
-
-          await processImage(base64, { imagePath: tempPath, base64 });
-        } catch (err) {
-          console.error('Gallery processing error:', err);
-          Alert.alert('Chyba', 'Nepodarilo sa spracovať obrázok');
+          await RNFS.writeFile(tempPath, asset.base64, 'base64');
+          originalPath = tempPath;
         }
-      } else {
-        Alert.alert('Chyba', 'Nepodarilo sa načítať obrázok');
+
+        if (!originalPath) {
+          Alert.alert('Chyba', 'Nepodarilo sa načítať obrázok');
+          return;
+        }
+
+        const compressed = await compressImageForUpload(originalPath);
+        if (!compressed) {
+          return;
+        }
+
+        if (isConnected === false) {
+          setIsLoading(true);
+          try {
+            await handleOfflineScan(originalPath, compressed.base64);
+          } finally {
+            setIsLoading(false);
+          }
+          return;
+        }
+
+        await processImage(compressed.base64, { imagePath: originalPath, base64: compressed.base64 });
+      } catch (err) {
+        console.error('Gallery processing error:', err);
+        Alert.alert('Chyba', 'Nepodarilo sa spracovať obrázok');
       }
     });
   };
