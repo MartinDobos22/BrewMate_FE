@@ -159,17 +159,6 @@ const normalizeEvaluationReasons = (value: unknown): CoffeeEvaluationReason[] =>
     .filter((entry): entry is CoffeeEvaluationReason => Boolean(entry));
 };
 
-const buildEvaluationRecommendation = (
-  summary: string,
-  reasons: CoffeeEvaluationReason[]
-): string => {
-  const trimmedSummary = summary.trim();
-  const reasonText = reasons
-    .map((reason) => reason.explanation)
-    .filter((text) => text && text.trim().length > 0);
-  return [trimmedSummary, ...reasonText].filter(Boolean).join('. ');
-};
-
 const normalizeEvaluationInsight = (value: unknown): CoffeeEvaluationInsight | null => {
   if (typeof value === 'string') {
     const trimmed = value.trim();
@@ -222,10 +211,34 @@ const normalizeEvaluationInsight = (value: unknown): CoffeeEvaluationInsight | n
   return { headline, sections };
 };
 
+const normalizeEvaluationText = (value: unknown, fallback = ''): string => {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+  const trimmed = value.trim();
+  return trimmed ? trimmed : fallback;
+};
+
+const NEUTRAL_EVALUATION_COPY = {
+  summary: 'Momentálne nemáme dostatok údajov na spoľahlivé vyhodnotenie.',
+  verdict_explanation:
+    'Nevieme spoľahlivo určiť, či sa táto káva hodí k vášmu profilu.',
+  disclaimer: 'Výsledok je orientačný a môže sa zmeniť po doplnení údajov.',
+};
+
+// Normalize the evaluation payload to align with the backend schema
+// (verdict_explanation, insight, disclaimer) while keeping contradiction-safe defaults.
 const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult => {
   const record =
     payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
   const normalizedStatus = normalizeEvaluationStatus(record.status);
+  const verdict =
+    normalizeEvaluationVerdict(record.verdict) ??
+    (normalizedStatus === 'insufficient_coffee_data' ? 'uncertain' : null);
+  const useNeutralCopy =
+    verdict === 'uncertain' ||
+    normalizedStatus === 'insufficient_coffee_data' ||
+    normalizedStatus === 'unknown';
   if (normalizedStatus === 'profile_missing') {
     // Preserve profile-missing payloads so the UI can display the CTA and guidance text.
     return {
@@ -248,10 +261,8 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
             ? record.cta.label
             : 'Vyplniť chuťový profil',
       },
-      disclaimer: typeof record.disclaimer === 'string' ? record.disclaimer : '',
-      recommendation: '',
-      verdict_explanation:
-        typeof record.verdict_explanation === 'string' ? record.verdict_explanation : '',
+      disclaimer: normalizeEvaluationText(record.disclaimer),
+      verdict_explanation: normalizeEvaluationText(record.verdict_explanation),
       insight: normalizeEvaluationInsight(record.insight),
       raw: payload,
     };
@@ -269,23 +280,29 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
       tips_to_make_it_better: [],
       recommended_brew_methods: [],
       cta: { action: null, label: null },
-      disclaimer: typeof record.disclaimer === 'string' ? record.disclaimer : '',
-      recommendation: '',
-      verdict_explanation:
-        typeof record.verdict_explanation === 'string' ? record.verdict_explanation : '',
+      disclaimer: useNeutralCopy
+        ? normalizeEvaluationText(record.disclaimer, NEUTRAL_EVALUATION_COPY.disclaimer)
+        : normalizeEvaluationText(record.disclaimer),
+      verdict_explanation: useNeutralCopy
+        ? normalizeEvaluationText(
+            record.verdict_explanation,
+            NEUTRAL_EVALUATION_COPY.verdict_explanation
+          )
+        : normalizeEvaluationText(record.verdict_explanation),
       insight: normalizeEvaluationInsight(record.insight),
       raw: payload,
     };
   }
   const confidenceValue =
     typeof record.confidence === 'number' ? record.confidence : null;
-  const summary = typeof record.summary === 'string' ? record.summary : '';
+  const summary = useNeutralCopy
+    ? normalizeEvaluationText(record.summary, NEUTRAL_EVALUATION_COPY.summary)
+    : normalizeEvaluationText(record.summary);
   const reasons = normalizeEvaluationReasons(record.reasons);
-  const recommendation = buildEvaluationRecommendation(summary, reasons);
 
   return {
     status: normalizedStatus,
-    verdict: normalizeEvaluationVerdict(record.verdict),
+    verdict,
     confidence: confidenceValue,
     summary,
     reasons,
@@ -311,10 +328,15 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
             label: typeof record.cta.label === 'string' ? record.cta.label : null,
           }
         : { action: null, label: null },
-    disclaimer: typeof record.disclaimer === 'string' ? record.disclaimer : '',
-    recommendation,
-    verdict_explanation:
-      typeof record.verdict_explanation === 'string' ? record.verdict_explanation : '',
+    disclaimer: useNeutralCopy
+      ? normalizeEvaluationText(record.disclaimer, NEUTRAL_EVALUATION_COPY.disclaimer)
+      : normalizeEvaluationText(record.disclaimer),
+    verdict_explanation: useNeutralCopy
+      ? normalizeEvaluationText(
+          record.verdict_explanation,
+          NEUTRAL_EVALUATION_COPY.verdict_explanation
+        )
+      : normalizeEvaluationText(record.verdict_explanation),
     insight: normalizeEvaluationInsight(record.insight),
     raw: payload,
   };
@@ -388,7 +410,6 @@ export interface CoffeeEvaluationResult {
   recommended_brew_methods: string[];
   cta: CoffeeEvaluationCta;
   disclaimer: string;
-  recommendation: string;
   verdict_explanation: string;
   insight: CoffeeEvaluationInsight | null;
   raw?: unknown;
@@ -1021,7 +1042,8 @@ export const processOCR = async (
       recommended_brew_methods: [],
       cta: { action: null, label: null },
       disclaimer: '',
-      recommendation: '',
+      verdict_explanation: '',
+      insight: null,
       raw: null,
     };
     if ('error' in evaluationResult) {
@@ -1030,7 +1052,6 @@ export const processOCR = async (
         'Nepodarilo sa vyhodnotiť kávu. Skontroluj svoje preferencie v profile.';
       evaluation = {
         ...evaluation,
-        recommendation,
         raw: evaluationResult.error,
       };
     } else {
@@ -1047,13 +1068,15 @@ export const processOCR = async (
               cta: { action: null, label: null },
             };
           }
-          recommendation = evaluation.recommendation || '';
+          recommendation =
+            evaluation.verdict_explanation ||
+            evaluation.summary ||
+            '';
         } else {
           recommendation =
             'Nepodarilo sa vyhodnotiť kávu. Skontroluj svoje preferencie v profile.';
           evaluation = {
             ...evaluation,
-            recommendation,
             raw: evalResponse.status,
           };
         }
@@ -1063,7 +1086,6 @@ export const processOCR = async (
           'Nepodarilo sa vyhodnotiť kávu. Skontroluj svoje preferencie v profile.';
         evaluation = {
           ...evaluation,
-          recommendation,
           raw: evalError,
         };
       }
