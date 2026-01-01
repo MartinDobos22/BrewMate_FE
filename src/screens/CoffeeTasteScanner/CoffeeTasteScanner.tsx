@@ -1078,6 +1078,16 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       }
     } catch (error) {
       console.error('Error processing image:', error);
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          Alert.alert('Chyba', 'Analýza trvala príliš dlho, skús to znova.');
+          return;
+        }
+        if (/upload aborted/i.test(error.message)) {
+          Alert.alert('Chyba', 'Obrázok je príliš veľký, skús menší.');
+          return;
+        }
+      }
       if (
         extra?.imagePath &&
         error instanceof Error &&

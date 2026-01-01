@@ -62,6 +62,32 @@ export const retryableFetch = async (
 };
 
 /**
+ * Executes fetch with an AbortController timeout to avoid hanging requests.
+ *
+ * @param {string} url - Absolute request URL.
+ * @param {RequestInit} options - Fetch options including headers and body.
+ * @param {number} timeoutMs - Timeout in milliseconds before aborting the request.
+ * @returns {Promise<Response>} The fetch response if completed before timeout.
+ */
+const fetchWithTimeout = async (
+  url: string,
+  options: RequestInit,
+  timeoutMs = 45000,
+): Promise<Response> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
+/**
  * Wrapper around `fetch` that enforces online status and logs API traffic for debugging.
  *
  * @param {string} url - Absolute request URL.
@@ -72,7 +98,7 @@ export const retryableFetch = async (
 const loggedFetch = async (url: string, options: RequestInit): Promise<Response> => {
   await ensureOnline();
   console.log('📤 [FE->BE]');
-  const res = await retryableFetch(() => fetch(url, options));
+  const res = await retryableFetch(() => fetchWithTimeout(url, options));
   console.log('📥 [BE->FE]', url, res.status);
   return res;
 };
@@ -379,7 +405,7 @@ ${ocrText}
     await ensureOnline();
     console.log('📤 [OpenAI] OCR prompt:', prompt);
     const response = await retryableFetch(() =>
-      fetch('https://api.openai.com/v1/chat/completions', {
+      fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -441,7 +467,7 @@ export const suggestBrewingMethods = async (
     await ensureOnline();
     console.log('📤 [OpenAI] Brewing prompt:', prompt);
     const response = await retryableFetch(() =>
-      fetch('https://api.openai.com/v1/chat/completions', {
+      fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -513,7 +539,7 @@ export const getBrewRecipe = async (
     await ensureOnline();
     console.log('📤 [OpenAI] Recipe prompt:', prompt);
     const response = await retryableFetch(() =>
-      fetch('https://api.openai.com/v1/chat/completions', {
+      fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -676,6 +702,22 @@ export const processOCR = async (
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ base64image }),
     });
+
+    if (!ocrResponse.ok) {
+      let errorText = '';
+      try {
+        errorText = await ocrResponse.text();
+      } catch (error) {
+        console.warn('Failed to read OCR error response', error);
+      }
+      const normalizedError = errorText.toLowerCase();
+      if (ocrResponse.status === 413 || (ocrResponse.status === 400 && normalizedError.includes('upload aborted'))) {
+        throw new Error('upload aborted');
+      }
+      throw new Error(
+        errorText || `OCR request failed with status ${ocrResponse.status}`,
+      );
+    }
 
     const ocrData = await ocrResponse.json();
     console.log('📥 [BE] OCR result:', ocrData);
