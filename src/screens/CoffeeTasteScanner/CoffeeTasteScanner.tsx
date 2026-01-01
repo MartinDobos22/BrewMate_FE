@@ -1862,11 +1862,18 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       'NO-GO': 'Nízka zhoda – vysoké riziko, že ti nesadne',
     } as const;
 
+    const labelMap: Record<CompatibilityBucket, string> = {
+      SAFE: 'Vysoká',
+      RISKY: 'Stredná',
+      'NO-GO': 'Nízka',
+    } as const;
+
     return {
       score: clamped,
       bucket,
       badge: `${bucket} · ${clamped}%`,
       description: descriptionMap[bucket],
+      label: labelMap[bucket],
     } as const;
   }, [
     implicitSignals,
@@ -2114,17 +2121,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     : 'Uprav, ak niečo nesedí';
 
   const metrics = useMemo(
-    () => [
-      { icon: '🎯', value: matchLabel ?? '—', label: 'Zhoda' },
-      { icon: '🛡️', value: compatibility?.bucket ?? '—', label: 'Režim' },
-      { icon: '⭐', value: ratingDisplay, label: 'Tvoje skóre' },
-      {
-        icon: '📡',
-        value: scanResult?.source === 'offline' ? 'Offline' : 'Live',
-        label: 'Zdroj',
-      },
-    ],
-    [compatibility?.bucket, matchLabel, ratingDisplay, scanResult?.source]
+    () => [{ icon: '🛡️', value: compatibility?.label ?? '—', label: 'Kompatibilita' }],
+    [compatibility?.label]
   );
 
   // Camera View
