@@ -461,24 +461,21 @@ router.post('/api/ocr/evaluate', async (req, res) => {
       return res.json(INSUFFICIENT_COFFEE_DATA_RESPONSE);
     }
 
-    // The prompt ties verdict + insight to the same comparison to prevent contradictions.
+    // The comparison-based structure prevents contradictions because verdict and insight share the same summaries.
     const systemPrompt = `Si expert na kávu a chuťové profily.
-Odpovedaj v slovenčine. Nikdy nehádaš preferencie používateľa.
-Ak profil chýba alebo je neúplný, vráť iba status "profile_missing" podľa schémy.
-Ak chýbajú kľúčové informácie o káve, vráť iba status "insufficient_coffee_data".
-Vráť striktne platný JSON podľa schémy, bez markdownu a bez dodatočného textu.
-Verdikt aj insight musia byť odvodené z toho istého porovnania a nesmú si odporovať.
-Vysvetlenia musia byť podložené konkrétnymi signálmi z preferencií a z atribútov kávy.`;
-    const userPrompt = `Vyhodnoť, či používateľovi bude chutiť naskenovaná káva.
+Odpovedaj výhradne v slovenčine.
+Vráť striktne platný JSON podľa zadanej schémy, bez markdownu a bez dodatočného textu.
+Nikdy nehádaj chýbajúce dáta. Ak chýba profil alebo údaje o káve, priznaj neistotu podľa schémy.
+Verdict a insight musia vychádzať z toho istého porovnania preferencií a atribútov kávy a nesmú si odporovať.`;
+    const userPrompt = `Vyhodnoť vhodnosť naskenovanej kávy pre používateľa.
 
 PRAVIDLÁ:
-- Ak je user_taste_profile null alebo neúplný, vráť iba "profile_missing" odpoveď v JSON.
-- Ak chýbajú relevantné atribúty kávy, vráť "insufficient_coffee_data" v JSON.
-- Nehádať chýbajúce preferencie.
-- Výstup musí byť striktne podľa schémy.
-- Všetky používateľsky viditeľné polia musia byť v slovenčine.
-- Verdikt a insight musia vychádzať z rovnakého porovnania preferencií a atribútov kávy a nesmú si odporovať.
-- Ak profil existuje a údaje o káve sú dostatočné, výsledok musí byť "ok" s verdictom suitable/not_suitable/uncertain.
+- Výstup musí byť STRICT JSON podľa schémy nižšie.
+- Ak chýba alebo je neúplný chuťový profil → status="profile_missing", verdict=null.
+- Ak chýbajú kľúčové atribúty kávy → status="insufficient_coffee_data", verdict=null.
+- Ak sú dáta dostatočné → status="ok" a verdict je "suitable" | "not_suitable" | "uncertain".
+- Vysvetlenie musí byť porovnávacie: zhrň používateľove preferencie, zhrň profil kávy, porovnaj ich.
+- Insight musí byť konzistentný s verdictom (bez protichodných tvrdení).
 
 VSTUP:
 user_taste_profile: {
@@ -491,13 +488,10 @@ user_taste_profile: {
   "caffeine_sensitivity": ${JSON.stringify(preferences.caffeine_sensitivity ?? null)},
   "preferred_strength": ${JSON.stringify(preferences.preferred_strength ?? null)}
 }
- coffee_attributes: ${JSON.stringify(coffeeAttributes)}
+coffee_attributes: ${JSON.stringify(coffeeAttributes)}
 
-${EVALUATION_RESPONSE_SCHEMA}
-
-Ak status="profile_missing" alebo "insufficient_coffee_data":
-- verdict a confidence musia byť null
-- poskytnúť CTA štýlom vedenia v verdict_explanation.comparison_summary a v insight.how_to_brew_for_better_match
+SCHEMA:
+{ ... (schema from task stub #2) ... }
 `;
 
     console.log('📤 [OpenAI] Prompt:', userPrompt);
