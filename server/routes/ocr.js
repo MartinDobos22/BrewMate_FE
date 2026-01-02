@@ -155,10 +155,13 @@ const hasMeaningfulCoffeeData = (coffeeAttributes) => {
     getValue(coffeeAttributes, ['processing']) ?? getValue(structured, ['processing']);
   const varietals =
     getValue(coffeeAttributes, ['varietals']) ?? getValue(structured, ['varietals']);
+  const ocrText =
+    getValue(coffeeAttributes, ['corrected_text', 'ocr_text', 'original_text']) ??
+    getValue(structured, ['corrected_text', 'ocr_text', 'original_text']);
 
-  // Require at least one core attribute (origin/roast/flavor/processing/varietals) before AI evaluation.
-  // This threshold avoids hallucinated match claims when we only have generic OCR text.
-  return [origin, roastLevel, flavorNotes, processing, varietals].some(hasValue);
+  // Require at least one core attribute or OCR text before AI evaluation.
+  // OCR text allows AI to stay uncertain without claiming specifics.
+  return [origin, roastLevel, flavorNotes, processing, varietals, ocrText].some(hasValue);
 };
 
 const isValidEvaluationResponse = (value) => {
