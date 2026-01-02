@@ -518,8 +518,13 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   onHistoryPress,
   onQuestionnairePress,
 }) => {
-  const { coffeeDiary: personalizationDiary, refreshInsights, profile, userId } =
-    usePersonalization();
+  const {
+    coffeeDiary: personalizationDiary,
+    refreshInsights,
+    profile,
+    userId,
+    ready: personalizationReady,
+  } = usePersonalization();
   const diary = personalizationDiary ;
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [editedText, setEditedText] = useState<string>('');
@@ -1001,6 +1006,12 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   type ProcessImageExtra = { imagePath?: string; base64?: string };
 
   const processImage = async (base64image: string, extra?: ProcessImageExtra) => {
+    if (!personalizationReady || profile?.preferences == null) {
+      showToast('Počkajte na načítanie profilu');
+      void refreshInsights?.();
+      return;
+    }
+
     try {
       setIsLoading(true);
       setShowCamera(false);
