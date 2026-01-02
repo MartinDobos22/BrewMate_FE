@@ -1212,7 +1212,8 @@ export const processOCR = async (
           if (
             options?.tasteProfile &&
             evaluation.status === 'profile_missing' &&
-            isTasteProfileComplete(options.tasteProfile)
+            isTasteProfileComplete(options.tasteProfile) &&
+            evaluation.verdict
           ) {
             evaluation = {
               ...evaluation,
