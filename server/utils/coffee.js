@@ -7,10 +7,22 @@
 export const calculateMatch = (coffeeText, preferences) => {
   if (!preferences) return null;
 
-  const hasCompletionFlag = 'is_complete' in preferences || 'taste_profile_completed' in preferences;
+  const hasCompletionFlag =
+    'is_complete' in preferences || 'taste_profile_completed' in preferences;
   const isProfileComplete = hasCompletionFlag
     ? Boolean(preferences.is_complete ?? preferences.taste_profile_completed)
     : null;
+
+  const isPlainObject = (value) =>
+    value !== null && typeof value === 'object' && !Array.isArray(value);
+  const hasQuizAnswers =
+    isPlainObject(preferences.quiz_answers) &&
+    Object.keys(preferences.quiz_answers).length > 0;
+  const hasTasteVector =
+    isPlainObject(preferences.taste_vector) &&
+    Object.values(preferences.taste_vector).some(
+      (value) => typeof value === 'number' && !Number.isNaN(value)
+    );
 
   const hasStrength =
     typeof preferences.preferred_strength === 'string' &&
@@ -29,7 +41,9 @@ export const calculateMatch = (coffeeText, preferences) => {
   const hasFlavorNotes = flavorList.length > 0;
 
   const passesCompletionCheck =
-    isProfileComplete !== null ? isProfileComplete : hasStrength && (hasSweetness || hasAcidity) && hasFlavorNotes;
+    isProfileComplete !== null
+      ? isProfileComplete
+      : hasQuizAnswers || hasTasteVector;
 
   if (!passesCompletionCheck) return null;
 

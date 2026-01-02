@@ -6,20 +6,24 @@ DO $$ BEGIN
       SELECT
         utp.*,
         (
-          utp.preferred_strength IS NOT NULL
-          AND (utp.sweetness IS NOT NULL OR utp.acidity IS NOT NULL)
-          AND CASE
-            WHEN utp.flavor_notes IS NULL THEN false
-            WHEN jsonb_typeof(utp.flavor_notes) = 'array'
-              THEN jsonb_array_length(utp.flavor_notes) > 0
-            WHEN jsonb_typeof(utp.flavor_notes) = 'object'
-              THEN EXISTS (
-                SELECT 1
-                FROM jsonb_object_keys(utp.flavor_notes)
-                LIMIT 1
-              )
-            ELSE false
-          END
+          (
+            utp.quiz_answers IS NOT NULL
+            AND jsonb_typeof(utp.quiz_answers) = 'object'
+            AND EXISTS (
+              SELECT 1
+              FROM jsonb_object_keys(utp.quiz_answers)
+              LIMIT 1
+            )
+          )
+          OR (
+            utp.taste_vector IS NOT NULL
+            AND jsonb_typeof(utp.taste_vector) = 'object'
+            AND EXISTS (
+              SELECT 1
+              FROM jsonb_each(utp.taste_vector) AS taste_entry(key, value)
+              WHERE jsonb_typeof(taste_entry.value) = 'number'
+            )
+          )
         ) AS is_complete
       FROM public.user_taste_profiles utp
     $view$;
