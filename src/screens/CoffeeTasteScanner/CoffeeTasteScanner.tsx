@@ -235,6 +235,26 @@ const STRUCTURED_FIELD_LABELS: Record<StructuredFieldKey, string> = {
   varietals: 'Odrody',
 };
 
+const hasVerdictExplanation = (
+  payload: CoffeeEvaluationResult['verdict_explanation'] | null | undefined,
+): boolean => {
+  if (!payload) {
+    return false;
+  }
+  if (typeof payload === 'string') {
+    return payload.trim().length > 0;
+  }
+  if (typeof payload === 'object') {
+    const record = payload as Record<string, unknown>;
+    return (
+      typeof record.user_preferences_summary === 'string' && record.user_preferences_summary.trim().length > 0
+      || typeof record.coffee_profile_summary === 'string' && record.coffee_profile_summary.trim().length > 0
+      || typeof record.comparison_summary === 'string' && record.comparison_summary.trim().length > 0
+    );
+  }
+  return false;
+};
+
 const STRUCTURED_FIELD_ORDER: Array<{
   key: StructuredFieldKey;
   type: 'text' | 'list';
@@ -2150,6 +2170,44 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     return null;
   }, [evaluation, evaluationStatus, profileMissingCtaLabel, profileMissingText]);
 
+  const fallbackVerdictExplanation = useMemo(() => {
+    if (evaluationStatus !== 'ok') {
+      return null;
+    }
+    const summaryLines: string[] = [];
+    if (profile?.preferences) {
+      const { acidity, sweetness, bitterness, body } = profile.preferences;
+      summaryLines.push(
+        `Tvoje preferencie: Kyslosť ${Math.round(acidity)}/10, `
+          + `Sladkosť ${Math.round(sweetness)}/10, `
+          + `Horkosť ${Math.round(bitterness)}/10, `
+          + `Telo ${Math.round(body)}/10.`,
+      );
+    }
+
+    const structuredDetails = [
+      structuredMetadata?.roastLevel ? `Praženie: ${structuredMetadata.roastLevel}` : null,
+      structuredMetadata?.origin ? `Pôvod: ${structuredMetadata.origin}` : null,
+      structuredMetadata?.processing ? `Spracovanie: ${structuredMetadata.processing}` : null,
+      structuredMetadata?.flavorNotes?.length
+        ? `Chuťové tóny: ${structuredMetadata.flavorNotes.join(', ')}`
+        : null,
+    ].filter((entry): entry is string => Boolean(entry));
+
+    if (structuredDetails.length) {
+      summaryLines.push(`Profil kávy: ${structuredDetails.join(' • ')}.`);
+    }
+
+    if (tasteAttributes.length) {
+      const tasteSummary = tasteAttributes
+        .map(attribute => `${attribute.label} ${Math.round(attribute.value)}/10`)
+        .join(', ');
+      summaryLines.push(`Odhad chutí z etikety: ${tasteSummary}.`);
+    }
+
+    return summaryLines.length ? summaryLines.join('\n') : null;
+  }, [evaluationStatus, profile?.preferences, structuredMetadata, tasteAttributes]);
+
   const verdictLabel = evaluationVerdictLabel;
   const verdictExplanation = useMemo(() => {
     const verdictExplanationPayload = evaluation?.verdict_explanation;
@@ -2183,6 +2241,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       }
       if (typeof verdictExplanationPayload === 'string' && verdictExplanationPayload) {
         return verdictExplanationPayload;
+      }
+      if (!hasVerdictExplanation(verdictExplanationPayload) && fallbackVerdictExplanation) {
+        return fallbackVerdictExplanation;
       }
       if (evaluation?.summary) {
         return evaluation.summary;
@@ -2226,6 +2287,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     positiveReasons,
     reasonSentences,
     scanResult,
+    fallbackVerdictExplanation,
   ]);
 
   const ratingDisplay =
