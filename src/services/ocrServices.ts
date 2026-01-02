@@ -219,6 +219,23 @@ const normalizeEvaluationText = (value: unknown, fallback = ''): string => {
   return trimmed ? trimmed : fallback;
 };
 
+const isTasteProfileComplete = (profile?: TasteProfileVector | null): boolean => {
+  if (!profile) {
+    return false;
+  }
+
+  const values = [
+    profile.sweetness,
+    profile.acidity,
+    profile.bitterness,
+    profile.body,
+  ];
+
+  return values.every(
+    (value) => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 10
+  );
+};
+
 type VerdictExplanation =
   | string
   | {
@@ -1129,7 +1146,11 @@ export const processOCR = async (
           const evalData = await evalResponse.json();
           console.log('📥 [BE] Evaluate response:', evalData);
           evaluation = normalizeEvaluationResponse(evalData);
-          if (options?.tasteProfile && evaluation.status === 'profile_missing') {
+          if (
+            options?.tasteProfile &&
+            evaluation.status === 'profile_missing' &&
+            isTasteProfileComplete(options.tasteProfile)
+          ) {
             evaluation = {
               ...evaluation,
               status: 'unknown',
