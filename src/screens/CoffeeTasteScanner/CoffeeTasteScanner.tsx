@@ -1020,7 +1020,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
 
       const result = await processOCR(base64image, {
         imagePath: extra?.imagePath,
-        tasteProfile: profile?.preferences ?? null,
+        tasteProfile: profile ?? null,
       });
 
       if (result) {
