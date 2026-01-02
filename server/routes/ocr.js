@@ -71,26 +71,94 @@ const INSUFFICIENT_COFFEE_DATA_RESPONSE = {
   disclaimer: 'Vyhodnotenie bude možné po doplnení údajov o káve.',
 };
 
-// Neutral fallback for AI parsing failures (keeps UX stable without claiming a match).
-const NEUTRAL_UNCERTAIN_RESPONSE = {
-  status: 'ok',
-  verdict: 'uncertain',
-  confidence: 0.35,
-  verdict_explanation: {
-    user_preferences_summary: 'Preferencie máme uložené, no výsledok sa nepodarilo overiť.',
-    coffee_profile_summary: 'Z údajov o káve nevieme spoľahlivo určiť profil.',
-    comparison_summary:
-      'Momentálne nie je možné potvrdiť zhodu. Skús sken zopakovať alebo doplň údaje.',
-  },
-  insight: {
-    headline: 'Zhodu nevieme potvrdiť',
-    why: ['Výsledok je neistý, pretože analýzu sa nepodarilo dokončiť.'],
-    what_youll_like: [],
-    what_might_bother_you: [],
-    how_to_brew_for_better_match: ['Skús sken zopakovať alebo doplň informácie.'],
-    recommended_alternatives: [],
-  },
-  disclaimer: 'Hodnotenie je dočasne obmedzené kvôli technickej chybe pri analýze.',
+const buildDeterministicFallbackResponse = ({ preferences, coffeeAttributes, correctedText }) => {
+  const safePreferences = preferences || {};
+  const matchScore = calculateMatch(correctedText || '', safePreferences);
+  const normalizedScore =
+    typeof matchScore === 'number' && Number.isFinite(matchScore) ? matchScore : 50;
+  const verdict = normalizedScore >= 75 ? 'suitable' : 'not_suitable';
+  const confidence = Number((normalizedScore / 100).toFixed(2));
+
+  const structured =
+    coffeeAttributes && typeof coffeeAttributes === 'object'
+      ? coffeeAttributes.structured_metadata || {}
+      : {};
+  const origin = coffeeAttributes?.origin ?? structured?.origin;
+  const roastLevel =
+    coffeeAttributes?.roast_level ?? coffeeAttributes?.roastLevel ?? structured?.roast_level;
+  const flavorNotes =
+    coffeeAttributes?.flavor_notes ??
+    coffeeAttributes?.flavorNotes ??
+    structured?.flavor_notes ??
+    structured?.flavorNotes;
+  const processing = coffeeAttributes?.processing ?? structured?.processing;
+  const varietals = coffeeAttributes?.varietals ?? structured?.varietals;
+
+  const profileBits = [
+    origin ? `pôvod: ${origin}` : null,
+    roastLevel ? `praženie: ${roastLevel}` : null,
+    processing ? `spracovanie: ${processing}` : null,
+    Array.isArray(flavorNotes) && flavorNotes.length > 0
+      ? `tóny: ${flavorNotes.join(', ')}`
+      : null,
+    Array.isArray(varietals) && varietals.length > 0
+      ? `odrody: ${varietals.join(', ')}`
+      : null,
+  ].filter(Boolean);
+
+  const coffeeProfileSummary =
+    profileBits.length > 0
+      ? `Profil kávy obsahuje ${profileBits.join(', ')}.`
+      : 'Káva má základné údaje z OCR textu a balenia.';
+
+  const formatPreference = (value) =>
+    value === null || value === undefined || value === '' ? 'neznáme' : value;
+  const userPreferencesSummary = `Profil používateľa: sladkosť ${formatPreference(
+    safePreferences.sweetness
+  )}, acidita ${formatPreference(safePreferences.acidity)}, horkosť ${formatPreference(
+    safePreferences.bitterness
+  )}, telo ${formatPreference(safePreferences.body)}.`;
+  const comparisonSummary =
+    verdict === 'suitable'
+      ? `Textová zhoda vychádza na ${Math.round(
+          normalizedScore
+        )} %, preto kávu hodnotíme ako vhodnú.`
+      : `Textová zhoda vychádza na ${Math.round(
+          normalizedScore
+        )} %, preto kávu hodnotíme ako menej vhodnú.`;
+
+  return {
+    status: 'ok',
+    verdict,
+    confidence,
+    verdict_explanation: {
+      user_preferences_summary: userPreferencesSummary,
+      coffee_profile_summary: coffeeProfileSummary,
+      comparison_summary: comparisonSummary,
+    },
+    insight: {
+      headline: verdict === 'suitable' ? 'Vyzerá to vhodne' : 'Zváž inú voľbu',
+      why:
+        verdict === 'suitable'
+          ? [
+              'Zistené údaje zodpovedajú preferovanému chuťovému profilu.',
+              'Celkové skóre zhody je nad odporúčaným prahom.',
+            ]
+          : [
+              'Zistené údaje sa zhodujú len čiastočne s preferenciami.',
+              'Celkové skóre je pod odporúčaným prahom.',
+            ],
+      what_youll_like: verdict === 'suitable' ? ['Stabilný profil podľa tvojich preferencií.'] : [],
+      what_might_bother_you:
+        verdict === 'suitable' ? [] : ['Profil môže byť odlišný od tvojich preferencií.'],
+      how_to_brew_for_better_match: [
+        'Ak chceš vyššiu zhodu, dolaď mletie a dávku podľa chuti.',
+      ],
+      recommended_alternatives:
+        verdict === 'suitable' ? [] : ['Pozri sa na kávy s podobnými chuťovými tónmi.'],
+    },
+    disclaimer: 'Výsledok je založený na dostupných údajoch z OCR.',
+  };
 };
 
 const EVALUATION_RESPONSE_SCHEMA = `JSON schema (strict):
@@ -422,6 +490,9 @@ router.post('/api/ocr/evaluate', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
   if (!idToken) return res.status(401).json({ error: 'Token chýba' });
 
+  let preferences;
+  let coffeeAttributes;
+  let correctedText;
   try {
     const decoded = await admin.auth().verifyIdToken(idToken);
     const uid = decoded.uid;
@@ -433,13 +504,14 @@ router.post('/api/ocr/evaluate', async (req, res) => {
 
     const { corrected_text, structured_metadata, structuredMetadata, coffee_attributes } = req.body;
     if (!corrected_text) return res.status(400).json({ error: 'Chýba text kávy' });
+    correctedText = corrected_text;
 
     const result = await db.query(
       `SELECT * FROM user_taste_profiles_with_completion WHERE user_id = $1 LIMIT 1`,
       [uid]
     );
 
-    const preferences = result.rows[0];
+    preferences = result.rows[0];
     // ⬇️ Use the DB completion flag/view to determine if we can safely evaluate.
     const isProfileComplete = Boolean(
       preferences?.is_complete ?? preferences?.taste_profile_completed ?? false
@@ -452,7 +524,7 @@ router.post('/api/ocr/evaluate', async (req, res) => {
 
     // Accept structured metadata from the FE (or any upstream source) to ground the explanation.
     const structured = structured_metadata || structuredMetadata || {};
-    const coffeeAttributes =
+    coffeeAttributes =
       coffee_attributes && typeof coffee_attributes === 'object'
         ? coffee_attributes
         : {
@@ -531,16 +603,25 @@ SCHEMA:
 
     // ⬇️ Validate AI JSON strictly to prevent malformed payloads from breaking the FE.
     if (!isValidEvaluationResponse(parsed) || parsed.status !== 'ok') {
-      // ⬇️ On schema mismatch, use a neutral "uncertain" fallback to avoid contradictions.
-      //    We don't claim a match or missing profile when the AI response is invalid.
-      return res.json(NEUTRAL_UNCERTAIN_RESPONSE);
+      return res.json(
+        buildDeterministicFallbackResponse({
+          preferences,
+          coffeeAttributes,
+          correctedText,
+        })
+      );
     }
 
     return res.json(parsed);
   } catch (err) {
     console.error('❌ Chyba AI vyhodnotenia:', err);
-    // ⬇️ Fallback to the neutral uncertain payload to avoid leaking errors or making claims.
-    return res.json(NEUTRAL_UNCERTAIN_RESPONSE);
+    return res.json(
+      buildDeterministicFallbackResponse({
+        preferences,
+        coffeeAttributes,
+        correctedText,
+      })
+    );
   }
 });
 

@@ -354,7 +354,7 @@ const resolveVerdictExplanationText = (value: VerdictExplanation | null | undefi
 };
 
 const NEUTRAL_EVALUATION_COPY = {
-  summary: 'Momentálne nemáme dostatok údajov na spoľahlivé vyhodnotenie.',
+  summary: 'Na spoľahlivé vyhodnotenie potrebujeme doplniť detaily o káve.',
   verdict_explanation:
     'Nevieme spoľahlivo určiť, či sa táto káva hodí k vášmu profilu.',
   disclaimer: 'Výsledok je orientačný a môže sa zmeniť po doplnení údajov.',
