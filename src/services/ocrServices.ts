@@ -4,7 +4,7 @@ import NetInfo from '@react-native-community/netinfo';
 import RNFS from 'react-native-fs';
 import { CONFIG } from '../config/config';
 import { API_HOST, API_URL } from './api';
-import type { TasteProfileVector } from '../types/Personalization';
+import type { TasteProfileVector, UserTasteProfile } from '../types/Personalization';
 
 const OPENAI_API_KEY = CONFIG.OPENAI_API_KEY;
 const AI_CACHE_TTL = 24;
@@ -219,16 +219,76 @@ const normalizeEvaluationText = (value: unknown, fallback = ''): string => {
   return trimmed ? trimmed : fallback;
 };
 
-const isTasteProfileComplete = (profile?: TasteProfileVector | null): boolean => {
+const extractTasteVector = (
+  profile?: TasteProfileVector | UserTasteProfile | null,
+): TasteProfileVector | null => {
   if (!profile) {
+    return null;
+  }
+  if ('preferences' in profile) {
+    return profile.preferences ?? null;
+  }
+  return profile;
+};
+
+const mapTasteProfilePayload = (
+  profile?: TasteProfileVector | UserTasteProfile | null,
+): Record<string, unknown> | null => {
+  if (!profile) {
+    return null;
+  }
+
+  const tasteVector = extractTasteVector(profile);
+  if (!tasteVector) {
+    return null;
+  }
+
+  if ('preferences' in profile) {
+    const flavorNoteEntries = profile.flavorNotes ?? {};
+    const flavorNotes = Object.keys(flavorNoteEntries).filter(Boolean);
+    return {
+      user_id: profile.userId,
+      taste_vector: tasteVector,
+      sweetness: tasteVector.sweetness,
+      acidity: tasteVector.acidity,
+      bitterness: tasteVector.bitterness,
+      body: tasteVector.body,
+      flavor_notes: flavorNotes,
+      flavor_note_weights: flavorNoteEntries,
+      milk_preferences: profile.milkPreferences,
+      caffeine_sensitivity: profile.caffeineSensitivity,
+      preferred_strength: profile.preferredStrength,
+      seasonal_adjustments: profile.seasonalAdjustments?.map((adjustment) => ({
+        key: adjustment.key,
+        delta: adjustment.delta,
+        last_applied: adjustment.lastApplied,
+      })),
+      preference_confidence: profile.preferenceConfidence,
+      last_recalculated_at: profile.lastRecalculatedAt,
+      updated_at: profile.updatedAt,
+    };
+  }
+
+  return {
+    taste_vector: tasteVector,
+    sweetness: tasteVector.sweetness,
+    acidity: tasteVector.acidity,
+    bitterness: tasteVector.bitterness,
+    body: tasteVector.body,
+  };
+};
+
+const isTasteProfileComplete = (profile?: TasteProfileVector | UserTasteProfile | null): boolean => {
+  const tasteVector = extractTasteVector(profile);
+  if (!tasteVector) {
     return false;
   }
 
   const values = [
-    profile.sweetness,
-    profile.acidity,
-    profile.bitterness,
-    profile.body,
+    tasteVector.sweetness,
+    tasteVector.acidity,
+    tasteVector.bitterness,
+    tasteVector.body,
   ];
 
   return values.every(
@@ -865,7 +925,7 @@ const ensureOfflineImagePath = async (
  */
 export const processOCR = async (
   base64image: string,
-  options?: { imagePath?: string; tasteProfile?: TasteProfileVector | null },
+  options?: { imagePath?: string; tasteProfile?: TasteProfileVector | UserTasteProfile | null },
 ): Promise<OCRResult | null> => {
   try {
     await ensureOnline();
@@ -1081,7 +1141,10 @@ export const processOCR = async (
           coffee_attributes: coffeeAttributes,
         };
         if (options?.tasteProfile) {
-          payload.taste_profile = options.tasteProfile;
+          const tasteProfilePayload = mapTasteProfilePayload(options.tasteProfile);
+          if (tasteProfilePayload) {
+            payload.taste_profile = tasteProfilePayload;
+          }
         }
         const response = await loggedFetch(`${API_URL}/ocr/evaluate`, {
           method: 'POST',
