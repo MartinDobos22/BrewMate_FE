@@ -1744,8 +1744,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   const showBackButton = currentView !== 'home';
   const evaluation = scanResult?.evaluation ?? null;
   const evaluationStatus = evaluation?.status ?? 'unknown';
-  // Only suppress compatibility scoring when the profile is missing (AI cannot evaluate yet).
-  const shouldSuppressCompatibility = evaluationStatus === 'profile_missing';
+  // Suppress compatibility scoring whenever the AI evaluation is not ready.
+  const shouldSuppressCompatibility = evaluationStatus !== 'ok';
   const isProfileMissing = evaluationStatus === 'profile_missing';
   const profileMissingText = evaluation?.summary
     || evaluation?.disclaimer
@@ -1824,7 +1824,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
 
   const compatibility = useMemo(() => {
     // Skip compatibility scoring when the backend signals a non-ok status.
-    if (!scanResult || shouldSuppressCompatibility) {
+    if (!scanResult || evaluationStatus !== 'ok') {
       return null;
     }
 
@@ -1888,21 +1888,25 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
 
   // Prefer the AI verdict when available; fall back to heuristic compatibility buckets otherwise.
   const evaluationVerdictLabel = useMemo(() => {
-    if (evaluationStatus === 'ok') {
-      if (evaluation?.verdict === 'suitable') {
-        return 'Vhodná';
-      }
-      if (evaluation?.verdict === 'not_suitable') {
-        return 'Nevhodná';
-      }
-      if (evaluation?.verdict === 'uncertain') {
-        return 'Neisté';
-      }
+    if (evaluationStatus !== 'ok') {
+      return 'Nedostatok dát';
+    }
+    if (evaluation?.verdict === 'suitable') {
+      return 'Vhodná';
+    }
+    if (evaluation?.verdict === 'not_suitable') {
+      return 'Nevhodná';
+    }
+    if (evaluation?.verdict === 'uncertain') {
+      return 'Neisté';
     }
     return compatibility?.bucket ?? (scanResult?.isRecommended === false ? 'NO-GO' : 'SAFE');
   }, [compatibility?.bucket, evaluation, evaluationStatus, scanResult?.isRecommended]);
   // Map verdict intent to existing badge styles for consistent color cues.
   const evaluationVerdictTone = useMemo(() => {
+    if (evaluationStatus !== 'ok') {
+      return 'RISKY';
+    }
     if (evaluationStatus === 'ok') {
       if (evaluation?.verdict === 'not_suitable') {
         return 'NO';
@@ -2149,6 +2153,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   const verdictLabel = evaluationVerdictLabel;
   const verdictExplanation = useMemo(() => {
     const verdictExplanationPayload = evaluation?.verdict_explanation;
+    if (evaluationStatus !== 'ok') {
+      return 'Čakáme na AI hodnotenie.';
+    }
     if (evaluationStatus === 'ok') {
       if (verdictExplanationPayload && typeof verdictExplanationPayload === 'object') {
         const {
