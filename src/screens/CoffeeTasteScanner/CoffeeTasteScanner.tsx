@@ -1777,6 +1777,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   const evaluationStatus = evaluation?.status ?? 'unknown';
   // Suppress compatibility scoring whenever the AI evaluation is not ready.
   const shouldSuppressCompatibility = evaluationStatus !== 'ok';
+  const neutralVerdictCopy = 'Čakáme na AI hodnotenie';
   const isProfileMissing = evaluationStatus === 'profile_missing';
   const profileMissingText = evaluation?.summary
     || evaluation?.disclaimer
@@ -1855,7 +1856,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
 
   const compatibility = useMemo(() => {
     // Skip compatibility scoring when the backend signals a non-ok status.
-    if (!scanResult || evaluationStatus !== 'ok') {
+    if (!scanResult || shouldSuppressCompatibility) {
       return null;
     }
 
@@ -1887,7 +1888,14 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     }
 
     const clamped = Math.max(0, Math.min(100, Math.round(adjusted)));
-    const bucket: CompatibilityBucket = clamped < 70 ? 'NO-GO' : clamped < 82 ? 'RISKY' : 'SAFE';
+    const hasConsistentCompatibilityData =
+      typeof scanResult.matchPercentage === 'number'
+      || Boolean(implicitSignals)
+      || (structuredMetadata && Object.keys(structuredMetadata).length > 0);
+    let bucket: CompatibilityBucket = clamped < 70 ? 'NO-GO' : clamped < 82 ? 'RISKY' : 'SAFE';
+    if (bucket === 'NO-GO' && !hasConsistentCompatibilityData) {
+      bucket = 'RISKY';
+    }
 
     const descriptionMap: Record<CompatibilityBucket, string> = {
       SAFE: 'Veľmi dobrá zhoda s tvojím profilom',
@@ -1915,12 +1923,13 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     profile?.preferences?.bitterness,
     roastCategory,
     scanResult,
+    structuredMetadata,
   ]);
 
   // Prefer the AI verdict when available; fall back to heuristic compatibility buckets otherwise.
   const evaluationVerdictLabel = useMemo(() => {
     if (evaluationStatus !== 'ok') {
-      return 'Nedostatok dát';
+      return neutralVerdictCopy;
     }
     if (evaluation?.verdict === 'suitable') {
       return 'Vhodná';
@@ -1931,8 +1940,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     if (evaluation?.verdict === 'uncertain') {
       return 'Neisté';
     }
-    return compatibility?.bucket ?? (scanResult?.isRecommended === false ? 'NO-GO' : 'SAFE');
-  }, [compatibility?.bucket, evaluation, evaluationStatus, scanResult?.isRecommended]);
+    return compatibility?.bucket ?? 'Neisté';
+  }, [compatibility?.bucket, evaluation, evaluationStatus, neutralVerdictCopy]);
   // Map verdict intent to existing badge styles for consistent color cues.
   const evaluationVerdictTone = useMemo(() => {
     if (evaluationStatus !== 'ok') {
@@ -2223,7 +2232,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   const verdictExplanation = useMemo(() => {
     const verdictExplanationPayload = evaluation?.verdict_explanation;
     if (evaluationStatus !== 'ok') {
-      return 'Čakáme na AI hodnotenie.';
+      return `${neutralVerdictCopy}.`;
     }
     if (evaluationStatus === 'ok') {
       if (verdictExplanationPayload && typeof verdictExplanationPayload === 'object') {
