@@ -878,6 +878,20 @@ export const processOCR = async (
             hasProfile = evalData.has_profile;
           } else if (typeof evalData.hasProfile === 'boolean') {
             hasProfile = evalData.hasProfile;
+          } else if (typeof evalData.status === 'string') {
+            switch (evalData.status) {
+              case 'ok':
+                hasProfile = true;
+                break;
+              case 'profile_missing':
+                hasProfile = false;
+                break;
+              case 'insufficient_coffee_data':
+                hasProfile = null;
+                break;
+              default:
+                break;
+            }
           }
           const structuredRecommendation = normalizeStructuredRecommendation(
             evalData.recommendation ?? evalData

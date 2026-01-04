@@ -2061,6 +2061,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
                         <Text style={styles.verdictDescription}>{verdictExplanation}</Text>
                         {scanResult.hasProfile === false ? (
                           <Text style={styles.profilePrompt}>Vyplň dotazník</Text>
+                        ) : scanResult.hasProfile == null ? (
+                          <Text style={styles.profilePrompt}>Profil kávy nejasný</Text>
                         ) : null}
                       </View>
 
