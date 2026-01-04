@@ -681,13 +681,21 @@ export const processOCR = async (
     // 4. Získaj AI hodnotenie a návrhy metód súčasne
     const evaluatePromise = (async () => {
       try {
+        const evaluatePayload: Record<string, unknown> = {
+          corrected_text: correctedText,
+        };
+        if (structuredMetadata || rawStructuredResponse) {
+          evaluatePayload.structured_metadata =
+            structuredMetadata ?? rawStructuredResponse ?? null;
+        }
+
         const response = await loggedFetch(`${API_URL}/ocr/evaluate`, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ corrected_text: correctedText }),
+          body: JSON.stringify(evaluatePayload),
         });
 
         return { response } as const;

@@ -691,7 +691,7 @@ app.post('/api/ocr/evaluate', async (req, res) => {
       name: decoded.name || decoded.user?.name,
     });
 
-    const { corrected_text } = req.body;
+    const { corrected_text, structured_metadata: structuredMetadata } = req.body;
     if (!corrected_text) return res.status(400).json({ error: 'Chýba text kávy' });
 
     const result = await db.query(
@@ -705,7 +705,21 @@ app.post('/api/ocr/evaluate', async (req, res) => {
 
     const preferences = result.rows[0];
 
-    const extractionPrompt = `
+    let structured = null;
+    if (structuredMetadata) {
+      if (typeof structuredMetadata === 'string') {
+        try {
+          structured = JSON.parse(structuredMetadata);
+        } catch (error) {
+          console.warn('❗️ Nepodarilo sa parsovať structured_metadata', error);
+        }
+      } else if (typeof structuredMetadata === 'object') {
+        structured = structuredMetadata;
+      }
+    }
+
+    if (!structured) {
+      const extractionPrompt = `
 Extrahuj štruktúrované údaje o káve z OCR textu.
 Vráť iba JSON s poľami:
 - origin
@@ -721,40 +735,43 @@ OCR text:
 ${corrected_text}
 `;
 
-    console.log('📤 [OpenAI] Extraction prompt:', extractionPrompt);
-    const extractionResponse = await axios.post(
-      'https://api.openai.com/v1/chat/completions',
-      {
-        model: 'gpt-4o',
-        messages: [
-          {
-            role: 'system',
-            content:
-              'Extrahuješ štruktúrované údaje o káve z OCR textu. Vráť iba validný JSON.',
-          },
-          { role: 'user', content: extractionPrompt },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-          'Content-Type': 'application/json',
+      console.log('📤 [OpenAI] Extraction prompt:', extractionPrompt);
+      const extractionResponse = await axios.post(
+        'https://api.openai.com/v1/chat/completions',
+        {
+          model: 'gpt-4o',
+          messages: [
+            {
+              role: 'system',
+              content:
+                'Extrahuješ štruktúrované údaje o káve z OCR textu. Vráť iba validný JSON.',
+            },
+            { role: 'user', content: extractionPrompt },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0,
         },
-      }
-    );
-    console.log('📥 [OpenAI] Extraction response:', extractionResponse.data);
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      console.log('📥 [OpenAI] Extraction response:', extractionResponse.data);
 
-    const extractionContent = extractionResponse.data.choices?.[0]?.message?.content?.trim();
-    const structured = extractionContent ? JSON.parse(extractionContent) : null;
+      const extractionContent = extractionResponse.data.choices?.[0]?.message?.content?.trim();
+      structured = extractionContent ? JSON.parse(extractionContent) : null;
+    }
     const inferredTaste = inferTasteFromNotes(corrected_text);
     const structuredWithFallback = {
-      origin: structured?.origin ?? null,
-      roast_level: structured?.roast_level ?? null,
+      origin: structured?.origin ?? structured?.country_of_origin ?? null,
+      roast_level: structured?.roast_level ?? structured?.roastLevel ?? null,
       flavor_notes:
         Array.isArray(structured?.flavor_notes) && structured.flavor_notes.length > 0
           ? structured.flavor_notes
+          : Array.isArray(structured?.flavorNotes) && structured.flavorNotes.length > 0
+          ? structured.flavorNotes
           : inferredTaste.flavor_notes,
       acidity: structured?.acidity ?? inferredTaste.acidity,
       sweetness: structured?.sweetness ?? inferredTaste.sweetness,
