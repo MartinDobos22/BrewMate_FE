@@ -748,6 +748,19 @@ ${corrected_text}
 
     const extractionContent = extractionResponse.data.choices?.[0]?.message?.content?.trim();
     const structured = extractionContent ? JSON.parse(extractionContent) : null;
+    const inferredTaste = inferTasteFromNotes(corrected_text);
+    const structuredWithFallback = {
+      origin: structured?.origin ?? null,
+      roast_level: structured?.roast_level ?? null,
+      flavor_notes:
+        Array.isArray(structured?.flavor_notes) && structured.flavor_notes.length > 0
+          ? structured.flavor_notes
+          : inferredTaste.flavor_notes,
+      acidity: structured?.acidity ?? inferredTaste.acidity,
+      sweetness: structured?.sweetness ?? inferredTaste.sweetness,
+      bitterness: structured?.bitterness ?? inferredTaste.bitterness,
+      body: structured?.body ?? inferredTaste.body,
+    };
 
     const prompt = `
 Porovnaj preferencie používateľa s popisom kávy a vyhodnoť, či mu káva bude chutiť.
@@ -761,7 +774,7 @@ Používateľove preferencie:
 - Sila: ${preferences.preferred_strength}
 
 Popis kávy (štruktúrované dáta z OCR):
-${JSON.stringify(structured, null, 2)}
+${JSON.stringify(structuredWithFallback, null, 2)}
 
 Výsledok napíš ako používateľovi:
 - Začni vetou: "Táto káva ti pravdepodobne bude chutiť, pretože..." alebo "Zrejme ti chutiť nebude, lebo..."
@@ -1411,6 +1424,82 @@ function calculateMatch(coffeeText, preferences) {
   if (preferences.acidity && preferences.acidity <= 3) score += 5;
 
   return Math.min(score, 100);
+}
+
+/**
+ * Odhadne chuťový profil na základe kľúčových slov v popise.
+ * @param {string} text - Text s chuťovými poznámkami.
+ * @returns {{ acidity: number, sweetness: number, bitterness: number, body: number, flavor_notes: string[] }}
+ */
+function inferTasteFromNotes(text) {
+  const lower = (text || '').toLowerCase();
+  const keywordMap = [
+    {
+      key: 'fruit',
+      match: ['fruit', 'fruity'],
+      values: { acidity: 7, sweetness: 6, bitterness: 3, body: 4 },
+    },
+    {
+      key: 'berry',
+      match: ['berry', 'berries'],
+      values: { acidity: 8, sweetness: 6, bitterness: 3, body: 4 },
+    },
+    {
+      key: 'citrus',
+      match: ['citrus', 'lemon', 'lime', 'orange', 'grapefruit'],
+      values: { acidity: 9, sweetness: 5, bitterness: 3, body: 3 },
+    },
+    {
+      key: 'chocolate',
+      match: ['chocolate', 'cocoa', 'cacao'],
+      values: { acidity: 3, sweetness: 5, bitterness: 6, body: 7 },
+    },
+    {
+      key: 'nuts',
+      match: ['nut', 'nuts', 'hazelnut', 'almond', 'walnut'],
+      values: { acidity: 3, sweetness: 5, bitterness: 4, body: 7 },
+    },
+    {
+      key: 'caramel',
+      match: ['caramel', 'toffee', 'butterscotch'],
+      values: { acidity: 3, sweetness: 8, bitterness: 3, body: 6 },
+    },
+    {
+      key: 'spice',
+      match: ['spice', 'spicy', 'cinnamon', 'clove', 'cardamom'],
+      values: { acidity: 4, sweetness: 4, bitterness: 6, body: 6 },
+    },
+  ];
+
+  const matches = keywordMap.filter((entry) => entry.match.some((word) => lower.includes(word)));
+  if (matches.length === 0) {
+    return {
+      acidity: 5,
+      sweetness: 5,
+      bitterness: 5,
+      body: 5,
+      flavor_notes: [],
+    };
+  }
+
+  const totals = matches.reduce(
+    (acc, entry) => ({
+      acidity: acc.acidity + entry.values.acidity,
+      sweetness: acc.sweetness + entry.values.sweetness,
+      bitterness: acc.bitterness + entry.values.bitterness,
+      body: acc.body + entry.values.body,
+    }),
+    { acidity: 0, sweetness: 0, bitterness: 0, body: 0 }
+  );
+
+  const divisor = matches.length;
+  return {
+    acidity: Math.round(totals.acidity / divisor),
+    sweetness: Math.round(totals.sweetness / divisor),
+    bitterness: Math.round(totals.bitterness / divisor),
+    body: Math.round(totals.body / divisor),
+    flavor_notes: matches.map((entry) => entry.key),
+  };
 }
 
 /**
