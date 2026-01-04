@@ -804,6 +804,17 @@ ${correctedText}
 
 /**
  * Uloží výsledok OCR do databázy a vypočíta zhodu s preferenciami používateľa.
+ *
+ * Odpoveď:
+ * {
+ *   message: string,
+ *   id: string,
+ *   match_percentage: number,
+ *   is_recommended: boolean,
+ *   structured_metadata: object | null
+ * }
+ *
+ * Poznámka: structured_confidence a structured_uncertainty sa na BE negenerujú.
  */
 app.post('/api/ocr/save', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
