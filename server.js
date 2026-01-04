@@ -718,6 +718,7 @@ app.post('/api/ocr/evaluate', async (req, res) => {
     }
 
     const preferences = result.rows[0];
+    const hasProfile = Boolean(preferences);
 
     let structured = null;
     if (structuredMetadata) {
@@ -836,7 +837,7 @@ Výsledok napíš ako používateľovi:
     console.log('📥 [OpenAI] Response:', response.data);
 
     const recommendation = response.data.choices?.[0]?.message?.content?.trim();
-    return res.json({ recommendation });
+    return res.json({ recommendation, has_profile: hasProfile });
   } catch (err) {
     console.error('❌ Chyba AI vyhodnotenia:', err);
     return res.status(500).json({ error: 'Nepodarilo sa vyhodnotiť kávu' });

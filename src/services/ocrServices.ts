@@ -198,6 +198,7 @@ interface OCRResult {
   original: string;
   corrected: string;
   recommendation: OCRRecommendationPayload;
+  hasProfile?: boolean;
   matchPercentage?: number;
   isRecommended?: boolean;
   scanId?: string;
@@ -791,6 +792,7 @@ export const processOCR = async (
     ]);
 
     let recommendation: OCRRecommendationPayload = '';
+    let hasProfile: boolean | null = null;
     if ('error' in evaluationResult) {
       console.warn('Evaluation failed:', evaluationResult.error);
       recommendation =
@@ -801,6 +803,11 @@ export const processOCR = async (
         if (evalResponse.ok) {
           const evalData = await evalResponse.json();
           console.log('📥 [BE] Evaluate response:', evalData);
+          if (typeof evalData.has_profile === 'boolean') {
+            hasProfile = evalData.has_profile;
+          } else if (typeof evalData.hasProfile === 'boolean') {
+            hasProfile = evalData.hasProfile;
+          }
           const structuredRecommendation = normalizeStructuredRecommendation(
             evalData.recommendation ?? evalData
           );
@@ -823,6 +830,7 @@ export const processOCR = async (
       original: originalText,
       corrected: correctedText,
       recommendation,
+      hasProfile: typeof hasProfile === 'boolean' ? hasProfile : undefined,
       matchPercentage,
       isRecommended,
       scanId,
