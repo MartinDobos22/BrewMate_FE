@@ -538,6 +538,15 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       marginBottom: 16,
       ...baseShadow,
     },
+    comparisonCard: {
+      backgroundColor: palette.surface,
+      borderRadius: 24,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: palette.borderLight,
+      marginBottom: 16,
+      ...baseShadow,
+    },
     sectionHeaderRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -583,6 +592,11 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
     },
     verdictDescription: {
       fontSize: 14,
+      color: palette.textSecondary,
+      lineHeight: 20,
+    },
+    comparisonText: {
+      fontSize: 13,
       color: palette.textSecondary,
       lineHeight: 20,
     },
