@@ -96,6 +96,68 @@ const safeParseJSON = <T>(value: unknown): T | null => {
   }
 };
 
+const normalizeStructuredRecommendation = (
+  value: unknown
+): OCRStructuredRecommendation | null => {
+  const parsed =
+    safeParseJSON<Record<string, unknown>>(value) ??
+    (typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null);
+  if (!parsed) return null;
+
+  const hasFields = [
+    'verdict',
+    'confidence',
+    'verdict_explanation',
+    'insight',
+    'disclaimer',
+  ].some(key => key in parsed);
+  if (!hasFields) return null;
+
+  return {
+    verdict: typeof parsed.verdict === 'string' ? parsed.verdict : null,
+    confidence: typeof parsed.confidence === 'number' ? parsed.confidence : null,
+    verdict_explanation:
+      typeof parsed.verdict_explanation === 'string' ? parsed.verdict_explanation : null,
+    insight: typeof parsed.insight === 'string' ? parsed.insight : null,
+    disclaimer: typeof parsed.disclaimer === 'string' ? parsed.disclaimer : null,
+  };
+};
+
+export const formatStructuredRecommendation = (
+  payload: OCRStructuredRecommendation
+): string => {
+  const lines: string[] = [];
+  const verdict = payload.verdict?.trim();
+  if (verdict) {
+    if (typeof payload.confidence === 'number') {
+      const confidenceValue =
+        payload.confidence <= 1
+          ? Math.round(payload.confidence * 100)
+          : Math.round(payload.confidence);
+      lines.push(`${verdict} (${confidenceValue}% dôvera)`);
+    } else {
+      lines.push(verdict);
+    }
+  }
+
+  const explanation = payload.verdict_explanation?.trim();
+  if (explanation) {
+    lines.push(explanation);
+  }
+
+  const insight = payload.insight?.trim();
+  if (insight) {
+    lines.push(insight);
+  }
+
+  const disclaimer = payload.disclaimer?.trim();
+  if (disclaimer) {
+    lines.push(disclaimer);
+  }
+
+  return lines.join('\n');
+};
+
 export interface StructuredCoffeeMetadata {
   roaster: string | null;
   origin: string | null;
@@ -122,10 +184,20 @@ export interface ConfirmStructuredPayload {
   raw?: unknown;
 }
 
+export interface OCRStructuredRecommendation {
+  verdict?: string | null;
+  confidence?: number | null;
+  verdict_explanation?: string | null;
+  insight?: string | null;
+  disclaimer?: string | null;
+}
+
+export type OCRRecommendationPayload = string | OCRStructuredRecommendation;
+
 interface OCRResult {
   original: string;
   corrected: string;
-  recommendation: string;
+  recommendation: OCRRecommendationPayload;
   matchPercentage?: number;
   isRecommended?: boolean;
   scanId?: string;
@@ -718,7 +790,7 @@ export const processOCR = async (
       methodsPromise,
     ]);
 
-    let recommendation = '';
+    let recommendation: OCRRecommendationPayload = '';
     if ('error' in evaluationResult) {
       console.warn('Evaluation failed:', evaluationResult.error);
       recommendation =
@@ -729,7 +801,16 @@ export const processOCR = async (
         if (evalResponse.ok) {
           const evalData = await evalResponse.json();
           console.log('📥 [BE] Evaluate response:', evalData);
-          recommendation = evalData.recommendation || '';
+          const structuredRecommendation = normalizeStructuredRecommendation(
+            evalData.recommendation ?? evalData
+          );
+          if (structuredRecommendation) {
+            recommendation = structuredRecommendation;
+          } else if (typeof evalData.recommendation === 'string') {
+            recommendation = evalData.recommendation;
+          } else {
+            recommendation = '';
+          }
         }
       } catch (evalError) {
         console.warn('Evaluation failed:', evalError);

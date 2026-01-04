@@ -41,7 +41,11 @@ import {
   toggleFavorite,
   isCoffeeRelatedText,
 } from './services';
-import type { RecipeHistory } from './services';
+import type {
+  RecipeHistory,
+  OCRRecommendationPayload,
+} from './services';
+import { formatStructuredRecommendation } from './services';
 import { BrewContext } from '../../types/Personalization';
 import { usePersonalization } from '../../hooks/usePersonalization';
 import { showToast } from '../../utils/toast';
@@ -61,7 +65,7 @@ interface OCRHistory {
 interface ScanResult {
   original: string;
   corrected: string;
-  recommendation: string;
+  recommendation: OCRRecommendationPayload;
   matchPercentage?: number;
   isRecommended?: boolean;
   scanId?: string;
@@ -111,6 +115,16 @@ const buildBrewContext = (metadata?: Record<string, unknown>): BrewContext => {
   }
 
   return context;
+};
+
+const getRecommendationText = (payload?: OCRRecommendationPayload | null): string => {
+  if (!payload) {
+    return '';
+  }
+  if (typeof payload === 'string') {
+    return payload;
+  }
+  return formatStructuredRecommendation(payload);
 };
 
 
@@ -660,12 +674,16 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
   }, [editedText, scanResult]);
   const recognizedName = recognizedLines[0] ?? 'Rozpoznaná káva';
   const recognizedDetails = recognizedLines.slice(1, 3).join(' • ');
+  const recommendationText = useMemo(
+    () => getRecommendationText(scanResult?.recommendation),
+    [scanResult]
+  );
   const tastingNotes = useMemo(() => {
-    if (!scanResult?.recommendation) {
+    if (!recommendationText) {
       return [] as string[];
     }
 
-    const bulletNotes = scanResult.recommendation
+    const bulletNotes = recommendationText
       .split('\n')
       .map((line) => line.replace(/^[•\-\d\.\s]+/, '').trim())
       .filter((line) => line.length > 0 && line.length <= 28)
@@ -675,14 +693,14 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
       return bulletNotes;
     }
 
-    const commaSegments = scanResult.recommendation
+    const commaSegments = recommendationText
       .split(',')
       .map((segment) => segment.trim())
       .filter((segment) => segment.length > 0 && segment.length <= 24)
       .slice(0, 4);
 
     return commaSegments;
-  }, [scanResult]);
+  }, [recommendationText]);
   const ratingDisplay = useMemo(() => {
     if (userRating > 0) {
       return userRating.toFixed(1);
@@ -989,7 +1007,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
                         </View>
                       </View>
 
-                      {scanResult.recommendation ? (
+                      {recommendationText ? (
                         <View style={styles.scanTipWrapper}>
                           <LinearGradient colors={TIP_GRADIENT} style={styles.scanTipCard}>
                             <View style={styles.scanTipHeader}>
@@ -998,7 +1016,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
                               </View>
                               <Text style={styles.scanTipLabel}>AI TIP</Text>
                             </View>
-                            <Text style={styles.scanTipText}>{scanResult.recommendation}</Text>
+                            <Text style={styles.scanTipText}>{recommendationText}</Text>
                           </LinearGradient>
                         </View>
                       ) : null}

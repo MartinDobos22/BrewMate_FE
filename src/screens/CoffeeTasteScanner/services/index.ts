@@ -11,7 +11,10 @@ export {
 export type {
   StructuredCoffeeMetadata,
   ConfirmStructuredPayload,
+  OCRRecommendationPayload,
+  OCRStructuredRecommendation,
 } from '../../../services/ocrServices';
+export { formatStructuredRecommendation } from '../../../services/ocrServices';
 export { saveOCRResult, loadOCRResult } from '../../../services/offlineCache';
 export { addRecentScan } from '../../../services/coffeeServices';
 export { coffeeDiary as fallbackCoffeeDiary, preferenceEngine } from '../../../services/personalizationGateway';
