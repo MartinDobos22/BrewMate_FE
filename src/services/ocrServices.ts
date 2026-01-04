@@ -104,6 +104,46 @@ const loggedFetch = async (url: string, options: RequestInit): Promise<Response>
   return res;
 };
 
+const wait = (ms: number): Promise<void> =>
+  new Promise(resolve => setTimeout(resolve, ms));
+
+const loggedFetchWithStatusRetry = async (
+  url: string,
+  options: RequestInit,
+  retries = 2,
+): Promise<{ response?: Response; error?: unknown; exhaustedRetries: boolean }> => {
+  await ensureOnline();
+  let attempt = 0;
+  let delay = 500;
+
+  while (true) {
+    console.log('📤 [FE->BE]');
+    try {
+      const response = await fetchWithTimeout(url, options);
+      console.log('📥 [BE->FE]', url, response.status);
+
+      if (!response.ok && response.status >= 500) {
+        if (attempt >= retries) {
+          return { response, exhaustedRetries: true };
+        }
+        await wait(delay);
+        attempt += 1;
+        delay *= 2;
+        continue;
+      }
+
+      return { response, exhaustedRetries: false };
+    } catch (error) {
+      if (attempt >= retries) {
+        return { error, exhaustedRetries: true };
+      }
+      await wait(delay);
+      attempt += 1;
+      delay *= 2;
+    }
+  }
+};
+
 /**
  * Safely attempts to parse unknown JSON values without throwing.
  *
@@ -1142,6 +1182,25 @@ export const processOCR = async (
       raw: null,
     };
 
+    const evaluationRetryFallback: CoffeeEvaluationResult = {
+      status: 'unknown',
+      verdict: null,
+      confidence: null,
+      summary: 'Hodnotenie kávy je momentálne nedostupné.',
+      reasons: [],
+      what_youll_like: [],
+      what_might_bother_you: [],
+      tips_to_make_it_better: [],
+      recommended_brew_methods: [],
+      cta: { action: null, label: null },
+      disclaimer:
+        'Skúste to znova o chvíľu. Výsledok môže byť dostupný po obnovení služby.',
+      verdict_explanation:
+        'Hodnotenie sa nepodarilo dokončiť pre dočasný problém na strane služby.',
+      insight: null,
+      raw: null,
+    };
+
     // 4. Získaj AI hodnotenie a návrhy metód súčasne
     const evaluatePromise =
       isCoffee === false
@@ -1169,19 +1228,31 @@ export const processOCR = async (
                   payload.taste_profile = tasteProfilePayload;
                 }
               }
-              const response = await loggedFetch(`${API_URL}/ocr/evaluate`, {
-                method: 'POST',
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  'Content-Type': 'application/json',
+              const evaluationResult = await loggedFetchWithStatusRetry(
+                `${API_URL}/ocr/evaluate`,
+                {
+                  method: 'POST',
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                  },
+                  // Send structured metadata to help the backend ground the evaluation in actual coffee attributes.
+                  body: JSON.stringify(payload),
                 },
-                // Send structured metadata to help the backend ground the evaluation in actual coffee attributes.
-                body: JSON.stringify(payload),
-              });
+              );
 
-              return { response } as const;
+              if (evaluationResult.response) {
+                return {
+                  response: evaluationResult.response,
+                  exhaustedRetries: evaluationResult.exhaustedRetries,
+                } as const;
+              }
+              return {
+                error: evaluationResult.error,
+                exhaustedRetries: evaluationResult.exhaustedRetries,
+              } as const;
             } catch (error) {
-              return { error } as const;
+              return { error, exhaustedRetries: true } as const;
             }
           })();
 
@@ -1209,12 +1280,12 @@ export const processOCR = async (
       recommendation =
         'Nepodarilo sa vyhodnotiť kávu. Skontroluj svoje preferencie v profile.';
       evaluation = {
-        ...fallbackEvaluation,
+        ...(evaluationResult.exhaustedRetries ? evaluationRetryFallback : fallbackEvaluation),
         raw: evaluationResult.error,
       };
     } else {
       try {
-        const evalResponse = evaluationResult.response;
+        const { response: evalResponse, exhaustedRetries } = evaluationResult;
         if (evalResponse.ok) {
           const evalData = await evalResponse.json();
           console.log('📥 [BE] Evaluate response:', evalData);
@@ -1239,7 +1310,7 @@ export const processOCR = async (
           recommendation =
             'Nepodarilo sa vyhodnotiť kávu. Skontroluj svoje preferencie v profile.';
           evaluation = {
-            ...fallbackEvaluation,
+            ...(exhaustedRetries ? evaluationRetryFallback : fallbackEvaluation),
             raw: evalResponse.status,
           };
         }
@@ -1248,7 +1319,7 @@ export const processOCR = async (
         recommendation =
           'Nepodarilo sa vyhodnotiť kávu. Skontroluj svoje preferencie v profile.';
         evaluation = {
-          ...fallbackEvaluation,
+          ...evaluationRetryFallback,
           raw: evalError,
         };
       }
