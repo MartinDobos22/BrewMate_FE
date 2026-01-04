@@ -41,7 +41,14 @@ import {
   toggleFavorite,
   isCoffeeRelatedText,
 } from './services';
-import type { OCRHistory, StructuredCoffeeMetadata, ConfirmStructuredPayload } from './services';
+import type {
+  OCRHistory,
+  StructuredCoffeeMetadata,
+  ConfirmStructuredPayload,
+  OCRRecommendationPayload,
+  OCRStructuredRecommendation,
+} from './services';
+import { formatStructuredRecommendation } from './services';
 import { BrewContext } from '../../types/Personalization';
 import { usePersonalization } from '../../hooks/usePersonalization';
 import { showToast } from '../../utils/toast';
@@ -50,7 +57,7 @@ import { recognizeCoffee } from 'services/VisionService.ts';
 interface ScanResult {
   original: string;
   corrected: string;
-  recommendation: string;
+  recommendation: OCRRecommendationPayload;
   matchPercentage?: number;
   isRecommended?: boolean;
   scanId?: string;
@@ -115,6 +122,16 @@ const isOfflineError = (error: unknown): boolean => {
     return false;
   }
   return error.message === 'Offline' || error.message.includes('Network request failed');
+};
+
+const getRecommendationText = (payload?: OCRRecommendationPayload | null): string => {
+  if (!payload) {
+    return '';
+  }
+  if (typeof payload === 'string') {
+    return payload;
+  }
+  return formatStructuredRecommendation(payload);
 };
 
 const WELCOME_GRADIENT = ['#FF9966', '#A86B8C'];
@@ -1164,7 +1181,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
 
     const fallbackId = `taste-${Date.now()}`;
     const recordId = scanResult.scanId ?? fallbackId;
-    const noteParts = [scanResult.recommendation, editedText].filter(
+    const recommendationText = getRecommendationText(scanResult.recommendation);
+    const noteParts = [recommendationText, editedText].filter(
       (part): part is string => Boolean(part),
     );
     const notes = noteParts.length > 0 ? noteParts.join('\n\n') : undefined;
@@ -1209,8 +1227,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
         isRecommended: scanResult.isRecommended,
       };
 
-      if (scanResult.recommendation) {
-        metadata.recommendation = scanResult.recommendation;
+      if (recommendationText) {
+        metadata.recommendation = recommendationText;
       }
       if (editedText) {
         metadata.correctedText = editedText;
@@ -1507,18 +1525,30 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
     return scanResult.corrected?.length ? 'Rozpoznaná etiketa' : 'Pripravené na úpravy';
   }, [recognizedText, scanResult]);
 
+  const structuredRecommendation: OCRStructuredRecommendation | null =
+    scanResult?.recommendation && typeof scanResult.recommendation !== 'string'
+      ? scanResult.recommendation
+      : null;
+
+  const recommendationText = useMemo(
+    () => getRecommendationText(scanResult?.recommendation),
+    [scanResult]
+  );
+
   // AI recommendation sentences coming from the scan response; reused for the insight section.
   const recommendationSentences = useMemo(() => {
-    if (!scanResult?.recommendation) {
+    if (!recommendationText) {
       return [];
     }
-    return scanResult.recommendation
+    return recommendationText
       .split(/[\.\n]/)
       .map(sentence => sentence.trim())
       .filter(Boolean);
-  }, [scanResult]);
+  }, [recommendationText]);
 
-  const insightText = recommendationSentences[0] ??
+  const insightText =
+    structuredRecommendation?.insight ??
+    recommendationSentences[0] ??
     'Táto káva má potenciál osloviť tvoje chuťové preferencie na základe posledných hodnotení.';
 
   const reasonSentences = recommendationSentences.slice(1);
@@ -1546,9 +1576,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
   }, [reasonSentences]);
 
   const combinedLowerText = useMemo(() => {
-    const combined = `${recognizedText}\n${scanResult?.recommendation ?? ''}`;
+    const combined = `${recognizedText}\n${recommendationText}`;
     return combined.toLowerCase();
-  }, [recognizedText, scanResult]);
+  }, [recognizedText, recommendationText]);
 
   const tasteAttributes = useMemo(() => {
     const computeScore = (
@@ -1613,9 +1643,12 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
     return ['N/A'];
   }, [combinedLowerText, structuredFields.flavorNotes.value]);
 
-  const verdictLabel = scanResult?.isRecommended === false ? 'Skôr NIE' : 'Skôr ÁNO';
+  const verdictLabel =
+    structuredRecommendation?.verdict ??
+    (scanResult?.isRecommended === false ? 'Skôr NIE' : 'Skôr ÁNO');
   const verdictExplanation =
-    scanResult?.recommendation ??
+    structuredRecommendation?.verdict_explanation ??
+    recommendationText ??
     'Na základe tvojich posledných hodnotení to vyzerá, že táto káva zapadne do tvojho chuťového profilu.';
 
   const ratingDisplay =
