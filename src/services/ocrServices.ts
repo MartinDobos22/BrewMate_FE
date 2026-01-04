@@ -313,8 +313,6 @@ interface OCRResult {
   detectionLabels?: string[];
   detectionConfidence?: number;
   structuredMetadata?: StructuredCoffeeMetadata | null;
-  structuredConfidence?: Record<string, unknown> | null;
-  structuredUncertainty?: Record<string, unknown> | null;
   rawStructuredResponse?: unknown;
 }
 
@@ -750,8 +748,6 @@ export const processOCR = async (
     let isRecommended = false;
     let scanId = '';
     let structuredMetadata: StructuredCoffeeMetadata | null = null;
-    let structuredConfidence: Record<string, unknown> | null = null;
-    let structuredUncertainty: Record<string, unknown> | null = null;
     let rawStructuredResponse: unknown = null;
 
     if (saveResponse.ok) {
@@ -856,12 +852,6 @@ export const processOCR = async (
         rawStructuredResponse = metadataParsed;
       }
 
-      structuredConfidence = safeParseJSON<Record<string, unknown>>(
-        saveData.structured_confidence
-      );
-      structuredUncertainty = safeParseJSON<Record<string, unknown>>(
-        saveData.structured_uncertainty
-      );
       if (rawStructuredResponse == null) {
         rawStructuredResponse = metadataRaw ?? null;
       }
@@ -972,8 +962,6 @@ export const processOCR = async (
       detectionConfidence,
       nonCoffeeReason,
       structuredMetadata,
-      structuredConfidence,
-      structuredUncertainty,
       rawStructuredResponse,
     };
   } catch (error) {
