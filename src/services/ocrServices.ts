@@ -96,6 +96,41 @@ const safeParseJSON = <T>(value: unknown): T | null => {
   }
 };
 
+const buildStructuredText = (
+  value: unknown,
+  orderedKeys: string[]
+): string | null => {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : null;
+  }
+  if (Array.isArray(value)) {
+    const joined = value
+      .filter(item => typeof item === 'string')
+      .map(item => item.trim())
+      .filter(Boolean)
+      .join(' ');
+    return joined.length ? joined : null;
+  }
+  if (typeof value !== 'object') return null;
+
+  const record = value as Record<string, unknown>;
+  const usedKeys = new Set(orderedKeys);
+  const orderedParts = orderedKeys
+    .map(key => (typeof record[key] === 'string' ? (record[key] as string) : null))
+    .filter(Boolean);
+  const remainingParts = Object.entries(record)
+    .filter(([key, val]) => !usedKeys.has(key) && typeof val === 'string')
+    .map(([, val]) => val as string);
+  const combined = [...orderedParts, ...remainingParts]
+    .map(part => part.trim())
+    .filter(Boolean)
+    .join(' ');
+
+  return combined.length ? combined : null;
+};
+
 const normalizeStructuredRecommendation = (
   value: unknown
 ): OCRStructuredRecommendation | null => {
@@ -108,17 +143,51 @@ const normalizeStructuredRecommendation = (
     'verdict',
     'confidence',
     'verdict_explanation',
+    'verdict_explanation_text',
     'insight',
+    'insight_text',
     'disclaimer',
   ].some(key => key in parsed);
   if (!hasFields) return null;
+
+  const verdictExplanationRaw =
+    parsed.verdict_explanation ?? parsed.verdictExplanation ?? parsed.verdict_explanation_text;
+  const insightRaw = parsed.insight ?? parsed.insight_text;
+  const verdictExplanationText =
+    typeof parsed.verdict_explanation_text === 'string'
+      ? parsed.verdict_explanation_text
+      : buildStructuredText(verdictExplanationRaw, [
+          'coffee_profile_summary',
+          'comparison_summary',
+          'user_preferences_summary',
+        ]);
+  const insightText =
+    typeof parsed.insight_text === 'string'
+      ? parsed.insight_text
+      : buildStructuredText(insightRaw, [
+          'headline',
+          'why',
+          'what_youll_like',
+          'what_youll_like_more',
+          'what_youll_like_even_more',
+          'next_steps',
+          'cta',
+          'closing',
+        ]);
 
   return {
     verdict: typeof parsed.verdict === 'string' ? parsed.verdict : null,
     confidence: typeof parsed.confidence === 'number' ? parsed.confidence : null,
     verdict_explanation:
-      typeof parsed.verdict_explanation === 'string' ? parsed.verdict_explanation : null,
-    insight: typeof parsed.insight === 'string' ? parsed.insight : null,
+      typeof verdictExplanationRaw === 'string'
+        ? verdictExplanationRaw
+        : verdictExplanationText ?? null,
+    verdict_explanation_text: verdictExplanationText,
+    insight:
+      typeof insightRaw === 'string'
+        ? insightRaw
+        : insightText ?? null,
+    insight_text: insightText,
     disclaimer: typeof parsed.disclaimer === 'string' ? parsed.disclaimer : null,
   };
 };
@@ -140,12 +209,12 @@ export const formatStructuredRecommendation = (
     }
   }
 
-  const explanation = payload.verdict_explanation?.trim();
+  const explanation = (payload.verdict_explanation_text ?? payload.verdict_explanation)?.trim();
   if (explanation) {
     lines.push(explanation);
   }
 
-  const insight = payload.insight?.trim();
+  const insight = (payload.insight_text ?? payload.insight)?.trim();
   if (insight) {
     lines.push(insight);
   }
@@ -188,7 +257,9 @@ export interface OCRStructuredRecommendation {
   verdict?: string | null;
   confidence?: number | null;
   verdict_explanation?: string | null;
+  verdict_explanation_text?: string | null;
   insight?: string | null;
+  insight_text?: string | null;
   disclaimer?: string | null;
 }
 
