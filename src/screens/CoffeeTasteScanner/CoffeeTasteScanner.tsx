@@ -58,6 +58,7 @@ interface ScanResult {
   original: string;
   corrected: string;
   recommendation: OCRRecommendationPayload;
+  hasProfile?: boolean;
   matchPercentage?: number;
   isRecommended?: boolean;
   scanId?: string;
@@ -2056,6 +2057,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
                           </View>
                         </View>
                         <Text style={styles.verdictDescription}>{verdictExplanation}</Text>
+                        {scanResult.hasProfile === false ? (
+                          <Text style={styles.profilePrompt}>Vyplň dotazník</Text>
+                        ) : null}
                       </View>
 
                       <View style={styles.ownershipCardModern}>

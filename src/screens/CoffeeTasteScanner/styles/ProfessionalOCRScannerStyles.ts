@@ -482,6 +482,12 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       color: palette.textSecondary,
       lineHeight: 20,
     },
+    profilePrompt: {
+      marginTop: 10,
+      fontSize: 13,
+      fontWeight: '700',
+      color: palette.accentDark,
+    },
     sectionSubtitle: {
       fontSize: 12,
       color: palette.textTertiary,
