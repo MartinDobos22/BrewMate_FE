@@ -884,7 +884,19 @@ app.post('/api/ocr/evaluate', async (req, res) => {
     });
 
     const { corrected_text, structured_metadata: structuredMetadata } = req.body;
-    if (!corrected_text) {
+    const structured = parseStructuredMetadata(structuredMetadata);
+    const normalizedText =
+      typeof corrected_text === 'string' ? corrected_text.trim() : '';
+    const hasStructuredPayload = hasStructuredMetadataValue(structured);
+
+    if (!normalizedText || (!hasStructuredPayload && normalizedText.length < 3)) {
+      console.warn('⚠️ Empty or low-signal OCR evaluate payload', {
+        corrected_text,
+        structured_metadata: structuredMetadata,
+      });
+    }
+
+    if (!normalizedText) {
       return res.status(400).json({
         error: 'Chýba text kávy',
         status: 'insufficient_coffee_data',
@@ -908,7 +920,6 @@ app.post('/api/ocr/evaluate', async (req, res) => {
     const preferences = result.rows[0];
     const hasProfile = Boolean(preferences);
 
-    let structured = parseStructuredMetadata(structuredMetadata);
     if (!hasStructuredMetadataValue(structured)) {
       structured = await extractStructuredMetadataFromText(corrected_text);
     }

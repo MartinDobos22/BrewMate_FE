@@ -712,7 +712,11 @@ export const processOCR = async (
     }
 
     // 2. Oprav text pomocou AI
-    const correctedText = await fixTextWithAI(originalText);
+    const correctedTextRaw = await fixTextWithAI(originalText);
+    const correctedText =
+      typeof correctedTextRaw === 'string' && correctedTextRaw.trim().length > 0
+        ? correctedTextRaw
+        : originalText;
 
     const localStructuredMetadata = normalizeStructuredMetadataInput(
       options?.structuredMetadata ??
@@ -861,12 +865,14 @@ export const processOCR = async (
     const evaluatePromise = (async () => {
       try {
         const evaluatePayload: Record<string, unknown> = {
-          corrected_text: correctedText,
+          corrected_text: correctedText || originalText,
         };
         const structuredCandidate =
           structuredMetadata ?? rawStructuredResponse ?? localStructuredMetadata ?? null;
-        if (normalizeStructuredMetadataInput(structuredCandidate)) {
-          evaluatePayload.structured_metadata = structuredCandidate;
+        const normalizedStructuredCandidate =
+          normalizeStructuredMetadataInput(structuredCandidate);
+        if (normalizedStructuredCandidate) {
+          evaluatePayload.structured_metadata = normalizedStructuredCandidate;
         }
 
         const response = await loggedFetch(`${API_URL}/ocr/evaluate`, {
