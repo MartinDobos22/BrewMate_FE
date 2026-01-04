@@ -1382,12 +1382,14 @@ app.get('/api/ocr/history', async (req, res) => {
         structuredPayload?.roast_level ?? structuredPayload?.roastLevel ?? null;
       const roastDate =
         structuredPayload?.roast_date ?? structuredPayload?.roastDate ?? null;
+      const originalText = typeof row.original_text === 'string' ? row.original_text : null;
+      const correctedText = typeof row.corrected_text === 'string' ? row.corrected_text : null;
 
       return {
         id: row.id.toString(),
         coffee_name: row.coffee_name,
-        original_text: row.original_text,
-        corrected_text: row.corrected_text,
+        original_text: originalText,
+        corrected_text: correctedText,
         structured_metadata: structuredPayload,
         created_at: row.created_at,
         rating: null,

@@ -724,13 +724,64 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
   };
 
   const buildMetadataFromHistory = useCallback((item: OCRHistory): StructuredCoffeeMetadata | null => {
-    const roaster = normalizeStructuredStringValue(item.brand);
-    const origin = normalizeStructuredStringValue(item.origin);
-    const roastLevel = normalizeStructuredStringValue(item.roast_level);
-    const processing = normalizeStructuredStringValue(item.processing);
-    const roastDate = normalizeStructuredStringValue(item.roast_date);
-    const flavorNotes = normalizeStructuredStringArrayValue(item.flavor_notes);
-    const varietals = normalizeStructuredStringArrayValue(item.varietals);
+    const structuredMetadata =
+      item.structured_metadata && typeof item.structured_metadata === 'object'
+        ? (item.structured_metadata as Record<string, unknown>)
+        : null;
+
+    const resolveStructuredStringValue = (...values: Array<unknown>): string | null => {
+      for (const value of values) {
+        if (typeof value === 'string') {
+          const normalized = normalizeStructuredStringValue(value);
+          if (normalized) return normalized;
+        }
+      }
+      return null;
+    };
+
+    const resolveStructuredArrayValue = (...values: Array<unknown>): string[] | null => {
+      for (const value of values) {
+        if (Array.isArray(value) || typeof value === 'string') {
+          const normalized = normalizeStructuredStringArrayValue(value as string[] | string);
+          if (normalized) return normalized;
+        }
+      }
+      return null;
+    };
+
+    const roaster =
+      normalizeStructuredStringValue(item.brand) ??
+      resolveStructuredStringValue(
+        structuredMetadata?.roaster,
+        structuredMetadata?.roaster_name,
+        structuredMetadata?.brand,
+      );
+    const origin =
+      normalizeStructuredStringValue(item.origin) ??
+      resolveStructuredStringValue(structuredMetadata?.origin, structuredMetadata?.country_of_origin);
+    const roastLevel =
+      normalizeStructuredStringValue(item.roast_level) ??
+      resolveStructuredStringValue(structuredMetadata?.roast_level, structuredMetadata?.roastLevel);
+    const processing =
+      normalizeStructuredStringValue(item.processing) ??
+      resolveStructuredStringValue(structuredMetadata?.processing);
+    const roastDate =
+      normalizeStructuredStringValue(item.roast_date) ??
+      resolveStructuredStringValue(structuredMetadata?.roast_date, structuredMetadata?.roastDate);
+    const flavorNotes =
+      normalizeStructuredStringArrayValue(item.flavor_notes) ??
+      resolveStructuredArrayValue(
+        structuredMetadata?.flavor_notes,
+        structuredMetadata?.flavorNotes,
+        structuredMetadata?.notes,
+      );
+    const varietals =
+      normalizeStructuredStringArrayValue(item.varietals) ??
+      resolveStructuredArrayValue(
+        structuredMetadata?.varietals,
+        structuredMetadata?.variety,
+        structuredMetadata?.varieties,
+      );
 
     const metadata: StructuredCoffeeMetadata = {
       roaster,
