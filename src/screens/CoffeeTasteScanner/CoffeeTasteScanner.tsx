@@ -1101,9 +1101,12 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
    */
   const loadFromHistory = (item: OCRHistory) => {
     const historyMetadata = buildMetadataFromHistory(item);
+    const fallbackText = item.corrected_text || item.original_text || item.coffee_name || '';
+    const originalText = item.original_text || item.corrected_text || item.coffee_name || '';
+    const correctedText = item.corrected_text || item.original_text || item.coffee_name || '';
     const historyResult: ScanResultLike = {
-      original: item.original_text,
-      corrected: item.corrected_text,
+      original: originalText || fallbackText,
+      corrected: correctedText || fallbackText,
       recommendation: '',
       matchPercentage: item.match_percentage,
       isRecommended: item.is_recommended,
@@ -1114,7 +1117,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
     };
 
     applyScanResult(historyResult);
-    setEditedText(item.corrected_text);
+    setEditedText(correctedText || fallbackText);
     setUserRating(item.rating || 0);
     setPurchaseSelection(item.is_purchased ?? null);
     setPurchased(item.is_purchased ?? null);

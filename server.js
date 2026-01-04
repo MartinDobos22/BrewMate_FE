@@ -1334,7 +1334,14 @@ app.get('/api/ocr/history', async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
 
     const result = await db.query(
-      `SELECT id, coffee_name, match_score, is_recommended, created_at
+      `SELECT id,
+              coffee_name,
+              match_score,
+              is_recommended,
+              created_at,
+              original_text,
+              corrected_text,
+              structured_metadata
        FROM scan_events
        WHERE user_id = $1
        ORDER BY created_at DESC
@@ -1342,15 +1349,38 @@ app.get('/api/ocr/history', async (req, res) => {
       [uid, limit]
     );
 
-    const history = result.rows.map((row) => ({
-      id: row.id.toString(),
-      coffee_name: row.coffee_name,
-      created_at: row.created_at,
-      rating: null,
-      match_percentage: row.match_score || 0,
-      is_recommended: row.is_recommended || false,
-      is_purchased: false,
-    }));
+    const history = result.rows.map((row) => {
+      const structured = parseStructuredMetadata(row.structured_metadata);
+      const structuredPayload =
+        structured && typeof structured === 'object' ? structured : null;
+      const flavorNotes =
+        structuredPayload?.flavor_notes ?? structuredPayload?.flavorNotes ?? null;
+      const varietals = structuredPayload?.varietals ?? null;
+      const roastLevel =
+        structuredPayload?.roast_level ?? structuredPayload?.roastLevel ?? null;
+      const roastDate =
+        structuredPayload?.roast_date ?? structuredPayload?.roastDate ?? null;
+
+      return {
+        id: row.id.toString(),
+        coffee_name: row.coffee_name,
+        original_text: row.original_text,
+        corrected_text: row.corrected_text,
+        structured_metadata: structuredPayload,
+        created_at: row.created_at,
+        rating: null,
+        match_percentage: row.match_score || 0,
+        is_recommended: row.is_recommended || false,
+        is_purchased: false,
+        brand: structuredPayload?.brand ?? structuredPayload?.roaster ?? null,
+        origin: structuredPayload?.origin ?? structuredPayload?.country_of_origin ?? null,
+        roast_level: roastLevel,
+        flavor_notes: flavorNotes,
+        processing: structuredPayload?.processing ?? null,
+        roast_date: roastDate,
+        varietals,
+      };
+    });
 
     res.json(history);
   } catch (err) {
