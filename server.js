@@ -705,6 +705,50 @@ app.post('/api/ocr/evaluate', async (req, res) => {
 
     const preferences = result.rows[0];
 
+    const extractionPrompt = `
+Extrahuj štruktúrované údaje o káve z OCR textu.
+Vráť iba JSON s poľami:
+- origin
+- roast_level
+- flavor_notes
+- acidity
+- sweetness
+- bitterness
+- body
+Ak informácia chýba, nastav hodnotu na null alebo prázdne pole (pri flavor_notes).
+
+OCR text:
+${corrected_text}
+`;
+
+    console.log('📤 [OpenAI] Extraction prompt:', extractionPrompt);
+    const extractionResponse = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content:
+              'Extrahuješ štruktúrované údaje o káve z OCR textu. Vráť iba validný JSON.',
+          },
+          { role: 'user', content: extractionPrompt },
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    console.log('📥 [OpenAI] Extraction response:', extractionResponse.data);
+
+    const extractionContent = extractionResponse.data.choices?.[0]?.message?.content?.trim();
+    const structured = extractionContent ? JSON.parse(extractionContent) : null;
+
     const prompt = `
 Porovnaj preferencie používateľa s popisom kávy a vyhodnoť, či mu káva bude chutiť.
 Používateľove preferencie:
@@ -716,8 +760,8 @@ Používateľove preferencie:
 - Mliečne preferencie: ${JSON.stringify(preferences.milk_preferences || {})}
 - Sila: ${preferences.preferred_strength}
 
-Popis kávy (OCR výstup):
-${corrected_text}
+Popis kávy (štruktúrované dáta z OCR):
+${JSON.stringify(structured, null, 2)}
 
 Výsledok napíš ako používateľovi:
 - Začni vetou: "Táto káva ti pravdepodobne bude chutiť, pretože..." alebo "Zrejme ti chutiť nebude, lebo..."
