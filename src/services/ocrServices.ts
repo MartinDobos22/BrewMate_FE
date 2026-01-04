@@ -966,11 +966,17 @@ export const processOCR = async (
     const detectionConfidence =
       typeof ocrData.coffeeConfidence === 'number' ? ocrData.coffeeConfidence : undefined;
 
+    // 2. Oprav text pomocou AI
+    const correctedText = await fixTextWithAI(originalText);
+
     let isCoffee: boolean | undefined;
     if (typeof ocrData.isCoffee === 'boolean') {
       isCoffee = ocrData.isCoffee;
-    } else if (detectionLabels && detectionLabels.length > 0) {
-      isCoffee = detectionLabels.some(label => isCoffeeRelatedText(label));
+    } else {
+      isCoffee =
+        (detectionLabels?.some(label => isCoffeeRelatedText(label)) ?? false) ||
+        isCoffeeRelatedText(correctedText) ||
+        isCoffeeRelatedText(originalText);
     }
 
     const nonCoffeeReasonRaw =
@@ -979,9 +985,6 @@ export const processOCR = async (
     if (!nonCoffeeReason && isCoffee === false && detectionLabels && detectionLabels.length > 0) {
       nonCoffeeReason = `Rozpoznané: ${detectionLabels.slice(0, 3).join(', ')}`;
     }
-
-    // 2. Oprav text pomocou AI
-    const correctedText = await fixTextWithAI(originalText);
 
     // 3. Ulož do databázy a získaj match percentage
     const token = await getAuthToken();
@@ -1122,45 +1125,65 @@ export const processOCR = async (
       }
     }
 
-    // 4. Získaj AI hodnotenie a návrhy metód súčasne
-    const evaluatePromise = (async () => {
-      try {
-        const coffeeAttributes = {
-          corrected_text: correctedText,
-          origin: structuredMetadata?.origin ?? null,
-          roast_level: structuredMetadata?.roastLevel ?? null,
-          flavor_notes: structuredMetadata?.flavorNotes ?? null,
-          processing: structuredMetadata?.processing ?? null,
-          varietals: structuredMetadata?.varietals ?? null,
-          roast_date: structuredMetadata?.roastDate ?? null,
-          roaster: structuredMetadata?.roaster ?? null,
-        };
-        const payload: Record<string, unknown> = {
-          corrected_text: correctedText,
-          structured_metadata: structuredMetadata,
-          coffee_attributes: coffeeAttributes,
-        };
-        if (options?.tasteProfile) {
-          const tasteProfilePayload = mapTasteProfilePayload(options.tasteProfile);
-          if (tasteProfilePayload) {
-            payload.taste_profile = tasteProfilePayload;
-          }
-        }
-        const response = await loggedFetch(`${API_URL}/ocr/evaluate`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          // Send structured metadata to help the backend ground the evaluation in actual coffee attributes.
-          body: JSON.stringify(payload),
-        });
+    const fallbackEvaluation: CoffeeEvaluationResult = {
+      status: 'unknown',
+      verdict: null,
+      confidence: null,
+      summary: NEUTRAL_EVALUATION_COPY.summary,
+      reasons: [],
+      what_youll_like: [],
+      what_might_bother_you: [],
+      tips_to_make_it_better: [],
+      recommended_brew_methods: [],
+      cta: { action: null, label: null },
+      disclaimer: NEUTRAL_EVALUATION_COPY.disclaimer,
+      verdict_explanation: NEUTRAL_EVALUATION_COPY.verdict_explanation,
+      insight: null,
+      raw: null,
+    };
 
-        return { response } as const;
-      } catch (error) {
-        return { error } as const;
-      }
-    })();
+    // 4. Získaj AI hodnotenie a návrhy metód súčasne
+    const evaluatePromise =
+      isCoffee === false
+        ? Promise.resolve({ skipped: true } as const)
+        : (async () => {
+            try {
+              const coffeeAttributes = {
+                corrected_text: correctedText,
+                origin: structuredMetadata?.origin ?? null,
+                roast_level: structuredMetadata?.roastLevel ?? null,
+                flavor_notes: structuredMetadata?.flavorNotes ?? null,
+                processing: structuredMetadata?.processing ?? null,
+                varietals: structuredMetadata?.varietals ?? null,
+                roast_date: structuredMetadata?.roastDate ?? null,
+                roaster: structuredMetadata?.roaster ?? null,
+              };
+              const payload: Record<string, unknown> = {
+                corrected_text: correctedText,
+                structured_metadata: structuredMetadata,
+                coffee_attributes: coffeeAttributes,
+              };
+              if (options?.tasteProfile) {
+                const tasteProfilePayload = mapTasteProfilePayload(options.tasteProfile);
+                if (tasteProfilePayload) {
+                  payload.taste_profile = tasteProfilePayload;
+                }
+              }
+              const response = await loggedFetch(`${API_URL}/ocr/evaluate`, {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+                // Send structured metadata to help the backend ground the evaluation in actual coffee attributes.
+                body: JSON.stringify(payload),
+              });
+
+              return { response } as const;
+            } catch (error) {
+              return { error } as const;
+            }
+          })();
 
     const methodsPromise = (async () => {
       try {
@@ -1178,28 +1201,15 @@ export const processOCR = async (
 
     // Evaluation endpoint now returns structured JSON (status/verdict/confidence/etc.).
     let recommendation = '';
-    let evaluation: CoffeeEvaluationResult = {
-      status: 'unknown',
-      verdict: null,
-      confidence: null,
-      summary: '',
-      reasons: [],
-      what_youll_like: [],
-      what_might_bother_you: [],
-      tips_to_make_it_better: [],
-      recommended_brew_methods: [],
-      cta: { action: null, label: null },
-      disclaimer: '',
-      verdict_explanation: '',
-      insight: null,
-      raw: null,
-    };
-    if ('error' in evaluationResult) {
+    let evaluation: CoffeeEvaluationResult = fallbackEvaluation;
+    if ('skipped' in evaluationResult) {
+      recommendation = fallbackEvaluation.summary;
+    } else if ('error' in evaluationResult) {
       console.warn('Evaluation failed:', evaluationResult.error);
       recommendation =
         'Nepodarilo sa vyhodnotiť kávu. Skontroluj svoje preferencie v profile.';
       evaluation = {
-        ...evaluation,
+        ...fallbackEvaluation,
         raw: evaluationResult.error,
       };
     } else {
@@ -1229,7 +1239,7 @@ export const processOCR = async (
           recommendation =
             'Nepodarilo sa vyhodnotiť kávu. Skontroluj svoje preferencie v profile.';
           evaluation = {
-            ...evaluation,
+            ...fallbackEvaluation,
             raw: evalResponse.status,
           };
         }
@@ -1238,7 +1248,7 @@ export const processOCR = async (
         recommendation =
           'Nepodarilo sa vyhodnotiť kávu. Skontroluj svoje preferencie v profile.';
         evaluation = {
-          ...evaluation,
+          ...fallbackEvaluation,
           raw: evalError,
         };
       }
