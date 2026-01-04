@@ -716,6 +716,92 @@ app.post("/ocr", async (req, res) => {
   }
 });
 
+const parseStructuredMetadata = (structuredMetadata) => {
+  if (!structuredMetadata) return null;
+  if (typeof structuredMetadata === 'string') {
+    try {
+      return JSON.parse(structuredMetadata);
+    } catch (error) {
+      console.warn('❗️ Nepodarilo sa parsovať structured_metadata', error);
+      return null;
+    }
+  }
+  if (typeof structuredMetadata === 'object') {
+    return structuredMetadata;
+  }
+  return null;
+};
+
+const hasStructuredMetadataValue = (structured) => {
+  if (!structured || typeof structured !== 'object') return false;
+  return Object.values(structured).some((value) => {
+    if (Array.isArray(value)) {
+      return value.some((entry) => typeof entry === 'string' && entry.trim().length > 0);
+    }
+    if (typeof value === 'string') {
+      return value.trim().length > 0;
+    }
+    if (typeof value === 'number') {
+      return Number.isFinite(value);
+    }
+    if (typeof value === 'boolean') {
+      return true;
+    }
+    if (value && typeof value === 'object') {
+      return Object.values(value).some(Boolean);
+    }
+    return value != null;
+  });
+};
+
+const extractStructuredMetadataFromText = async (correctedText) => {
+  if (!correctedText) return null;
+  const extractionPrompt = `
+Extrahuj štruktúrované údaje o káve z OCR textu.
+Vráť iba JSON s poľami:
+- origin
+- roast_level
+- flavor_notes
+- acidity
+- sweetness
+- bitterness
+- body
+Ak informácia chýba, nastav hodnotu na null alebo prázdne pole (pri flavor_notes).
+
+OCR text:
+${correctedText}
+`;
+
+  console.log('📤 [OpenAI] Extraction prompt:', extractionPrompt);
+  const extractionResponse = await axios.post(
+    'https://api.openai.com/v1/chat/completions',
+    {
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Extrahuješ štruktúrované údaje o káve z OCR textu. Vráť iba validný JSON.',
+        },
+        { role: 'user', content: extractionPrompt },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0,
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+  console.log('📥 [OpenAI] Extraction response:', extractionResponse.data);
+
+  const extractionContent = extractionResponse.data.choices?.[0]?.message?.content?.trim();
+  if (!extractionContent) return null;
+  return JSON.parse(extractionContent);
+};
+
 /**
  * Uloží výsledok OCR do databázy a vypočíta zhodu s preferenciami používateľa.
  */
@@ -734,17 +820,9 @@ app.post('/api/ocr/save', async (req, res) => {
 
     const { original_text, corrected_text, structured_metadata: structuredMetadata } = req.body;
 
-    let structured = null;
-    if (structuredMetadata) {
-      if (typeof structuredMetadata === 'string') {
-        try {
-          structured = JSON.parse(structuredMetadata);
-        } catch (error) {
-          console.warn('❗️ Nepodarilo sa parsovať structured_metadata', error);
-        }
-      } else if (typeof structuredMetadata === 'object') {
-        structured = structuredMetadata;
-      }
+    let structured = parseStructuredMetadata(structuredMetadata);
+    if (!hasStructuredMetadataValue(structured)) {
+      structured = await extractStructuredMetadataFromText(corrected_text);
     }
 
     const prefResult = await db.query(
@@ -819,63 +897,9 @@ app.post('/api/ocr/evaluate', async (req, res) => {
     const preferences = result.rows[0];
     const hasProfile = Boolean(preferences);
 
-    let structured = null;
-    if (structuredMetadata) {
-      if (typeof structuredMetadata === 'string') {
-        try {
-          structured = JSON.parse(structuredMetadata);
-        } catch (error) {
-          console.warn('❗️ Nepodarilo sa parsovať structured_metadata', error);
-        }
-      } else if (typeof structuredMetadata === 'object') {
-        structured = structuredMetadata;
-      }
-    }
-
-    if (!structured) {
-      const extractionPrompt = `
-Extrahuj štruktúrované údaje o káve z OCR textu.
-Vráť iba JSON s poľami:
-- origin
-- roast_level
-- flavor_notes
-- acidity
-- sweetness
-- bitterness
-- body
-Ak informácia chýba, nastav hodnotu na null alebo prázdne pole (pri flavor_notes).
-
-OCR text:
-${corrected_text}
-`;
-
-      console.log('📤 [OpenAI] Extraction prompt:', extractionPrompt);
-      const extractionResponse = await axios.post(
-        'https://api.openai.com/v1/chat/completions',
-        {
-          model: 'gpt-4o',
-          messages: [
-            {
-              role: 'system',
-              content:
-                'Extrahuješ štruktúrované údaje o káve z OCR textu. Vráť iba validný JSON.',
-            },
-            { role: 'user', content: extractionPrompt },
-          ],
-          response_format: { type: 'json_object' },
-          temperature: 0,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-      console.log('📥 [OpenAI] Extraction response:', extractionResponse.data);
-
-      const extractionContent = extractionResponse.data.choices?.[0]?.message?.content?.trim();
-      structured = extractionContent ? JSON.parse(extractionContent) : null;
+    let structured = parseStructuredMetadata(structuredMetadata);
+    if (!hasStructuredMetadataValue(structured)) {
+      structured = await extractStructuredMetadataFromText(corrected_text);
     }
     const inferredTaste = inferTasteFromNotes(corrected_text);
     const structuredWithFallback = {
