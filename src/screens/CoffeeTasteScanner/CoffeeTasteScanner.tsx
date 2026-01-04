@@ -25,6 +25,7 @@ import { launchImageLibrary, ImagePickerResponse, ImageLibraryOptions } from 're
 import ImageResizer from 'react-native-image-resizer';
 import RNFS from 'react-native-fs';
 import NetInfo from '@react-native-community/netinfo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { scannerStyles } from './styles';
 import {
   processOCR,
@@ -63,6 +64,7 @@ import type {
 import { BrewContext } from '../../types/Personalization';
 import { usePersonalization } from '../../hooks/usePersonalization';
 import { showToast } from '../../utils/toast';
+import { API_URL } from '../../services/api';
 import { recognizeCoffee } from 'services/VisionService.ts';
 
 interface ScanResult {
@@ -85,6 +87,12 @@ interface ScanResult {
 }
 
 type ScanResultLike = ScanResult & { rawStructuredResponse?: unknown };
+
+type CoffeePreferenceSnapshot = {
+  ai_recommendation?: string | null;
+  consistency_score?: number | null;
+  taste_vector?: Record<string, number> | null;
+};
 
 type StructuredConfirmPayload = ConfirmStructuredPayload & {
   correctedText?: string | null;
@@ -149,6 +157,79 @@ const stripFileUri = (path: string): string => {
     return path.replace('file://', '');
   }
   return path;
+};
+
+const extractPreferenceSnapshot = (
+  payload?: Record<string, unknown> | null,
+): CoffeePreferenceSnapshot | null => {
+  if (!payload) {
+    return null;
+  }
+  const aiRecommendation =
+    typeof payload.ai_recommendation === 'string' ? payload.ai_recommendation : null;
+  const consistencyScore =
+    typeof payload.consistency_score === 'number' ? payload.consistency_score : null;
+  const tasteVector =
+    payload.taste_vector && typeof payload.taste_vector === 'object'
+      ? (payload.taste_vector as Record<string, number>)
+      : null;
+
+  if (!aiRecommendation && consistencyScore == null && !tasteVector) {
+    return null;
+  }
+
+  return {
+    ai_recommendation: aiRecommendation,
+    consistency_score: consistencyScore,
+    taste_vector: tasteVector,
+  };
+};
+
+const buildComparisonText = (
+  evaluation: CoffeeEvaluationResult | null | undefined,
+  aiRecommendation: string | null | undefined,
+): string => {
+  const hasFormText = typeof aiRecommendation === 'string' && aiRecommendation.trim().length > 0;
+  const formSection = hasFormText
+    ? `Z formy vyplýva:\n${aiRecommendation.trim()}`
+    : 'Pre porovnanie potrebujeme vyplnený dotazník.';
+
+  if (!evaluation) {
+    return `${formSection}\n\nZo skenu zatiaľ nemáme dostatok údajov na porovnanie.`;
+  }
+
+  const reasonDetails = evaluation.reasons
+    ?.map(reason => {
+      const parts = [
+        reason.signal ? reason.signal : null,
+        reason.user_preference ? reason.user_preference : null,
+        reason.coffee_attribute ? reason.coffee_attribute : null,
+        reason.explanation ? reason.explanation : null,
+      ].filter(Boolean);
+      return parts.length ? parts.join(' – ') : null;
+    })
+    .filter((reason): reason is string => Boolean(reason));
+
+  const verdictExplanation = evaluation.verdict_explanation;
+  const comparisonSummary =
+    verdictExplanation && typeof verdictExplanation === 'object'
+      ? verdictExplanation.comparison_summary ?? null
+      : null;
+
+  const scanLines = [
+    evaluation.summary ? `• ${evaluation.summary}` : null,
+    reasonDetails?.length ? `• Dôvody: ${reasonDetails.join(' • ')}` : null,
+  ].filter((line): line is string => Boolean(line));
+
+  const scanSection = scanLines.length
+    ? `Zo skenu vyplýva:\n${scanLines.join('\n')}`
+    : 'Zo skenu zatiaľ nemáme dostatok údajov na porovnanie.';
+
+  const comparisonSection = comparisonSummary
+    ? `Rozdiely/zhoda:\n${comparisonSummary}`
+    : null;
+
+  return [formSection, scanSection, comparisonSection].filter(Boolean).join('\n\n');
 };
 
 const WELCOME_GRADIENT = ['#FF9966', '#A86B8C'];
@@ -561,6 +642,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   const [pendingFeedbackChoice, setPendingFeedbackChoice] = useState<QuickFeedback | null>(null);
   const [pendingCoffee, setPendingCoffee] = useState<{ id: string; name: string } | null>(null);
   const [signalWarning, setSignalWarning] = useState<string | null>(null);
+  const [preferenceSnapshot, setPreferenceSnapshot] = useState<CoffeePreferenceSnapshot | null>(null);
 
   const camera = useRef<Camera>(null);
   const device = useCameraDevice('back');
@@ -575,6 +657,51 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     }),
     [],
   );
+
+  const contextPreferenceSnapshot = useMemo(() => {
+    const profileRecord = profile as unknown as {
+      coffee_preferences?: Record<string, unknown> | null;
+      ai_recommendation?: string | null;
+      consistency_score?: number | null;
+      taste_vector?: Record<string, number> | null;
+    };
+    const nestedSnapshot = extractPreferenceSnapshot(profileRecord?.coffee_preferences ?? null);
+    if (nestedSnapshot) {
+      return nestedSnapshot;
+    }
+    return extractPreferenceSnapshot({
+      ai_recommendation: profileRecord?.ai_recommendation,
+      consistency_score: profileRecord?.consistency_score,
+      taste_vector: profileRecord?.taste_vector,
+    });
+  }, [profile]);
+
+  const loadPreferenceSnapshot = useCallback(async () => {
+    try {
+      const token = await AsyncStorage.getItem('@AuthToken');
+      if (!token) {
+        return;
+      }
+      const response = await fetch(`${API_URL}/profile`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) {
+        console.warn('CoffeeTasteScanner: Failed to load preference profile', response.status);
+        return;
+      }
+      const data = (await response.json()) as Record<string, unknown> | null;
+      const snapshot = extractPreferenceSnapshot(
+        (data?.coffee_preferences as Record<string, unknown> | null) ?? data ?? null,
+      );
+      if (snapshot) {
+        setPreferenceSnapshot(snapshot);
+      }
+    } catch (error) {
+      console.warn('CoffeeTasteScanner: Failed to load preference profile', error);
+    }
+  }, []);
 
   const handleSignalOutcome = useCallback(
     (result: SignalUpdateResult, context: string) => {
@@ -779,6 +906,14 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       setIsConnected(null);
     };
   }, []);
+
+  useEffect(() => {
+    if (contextPreferenceSnapshot) {
+      setPreferenceSnapshot(contextPreferenceSnapshot);
+      return;
+    }
+    loadPreferenceSnapshot();
+  }, [contextPreferenceSnapshot, loadPreferenceSnapshot]);
 
   const closeNonCoffeeModal = () => {
     setNonCoffeeModalVisible(false);
@@ -1775,6 +1910,10 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   const showBackButton = currentView !== 'home';
   const evaluation = scanResult?.evaluation ?? null;
   const evaluationStatus = evaluation?.status ?? 'unknown';
+  const comparisonText = useMemo(
+    () => buildComparisonText(evaluation, preferenceSnapshot?.ai_recommendation ?? null),
+    [evaluation, preferenceSnapshot?.ai_recommendation],
+  );
   // Suppress compatibility scoring whenever the AI evaluation is not ready.
   const shouldSuppressCompatibility = evaluationStatus !== 'ok';
   const neutralVerdictCopy = 'Čakáme na AI hodnotenie';
@@ -2783,6 +2922,13 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                           </View>
                         ) : null}
                       </LinearGradient>
+
+                      <View style={styles.comparisonCard}>
+                        <View style={styles.sectionHeaderRow}>
+                          <Text style={styles.sectionTitle}>Porovnanie s dotazníkom</Text>
+                        </View>
+                        <Text style={styles.comparisonText}>{comparisonText}</Text>
+                      </View>
 
                       {isProfileMissing ? (
                         // Profile is missing -> guide the user to the questionnaire instead of showing a score.
