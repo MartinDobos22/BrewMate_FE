@@ -1548,6 +1548,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
   }, [recommendationText]);
 
   const insightText =
+    structuredRecommendation?.insight_text ??
     structuredRecommendation?.insight ??
     recommendationSentences[0] ??
     'Táto káva má potenciál osloviť tvoje chuťové preferencie na základe posledných hodnotení.';
@@ -1648,6 +1649,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
     structuredRecommendation?.verdict ??
     (scanResult?.isRecommended === false ? 'Skôr NIE' : 'Skôr ÁNO');
   const verdictExplanation =
+    structuredRecommendation?.verdict_explanation_text ??
     structuredRecommendation?.verdict_explanation ??
     recommendationText ??
     'Na základe tvojich posledných hodnotení to vyzerá, že táto káva zapadne do tvojho chuťového profilu.';

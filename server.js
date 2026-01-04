@@ -144,6 +144,95 @@ const normalizeTasteInput = (raw, fallback, fieldName = 'taste') => {
   throw new Error(`Neplatná hodnota pre ${fieldName}`);
 };
 
+const joinTextParts = (parts) =>
+  parts
+    .map(part => (typeof part === 'string' ? part.trim() : ''))
+    .filter(Boolean)
+    .join(' ');
+
+const extractStructuredText = (value, orderedKeys = []) => {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : null;
+  }
+  if (Array.isArray(value)) {
+    const joined = joinTextParts(value);
+    return joined.length ? joined : null;
+  }
+  if (typeof value !== 'object') return null;
+
+  const usedKeys = new Set(orderedKeys);
+  const orderedParts = orderedKeys
+    .map(key => (typeof value[key] === 'string' ? value[key] : null))
+    .filter(Boolean);
+
+  const remainingParts = Object.entries(value)
+    .filter(([key, val]) => !usedKeys.has(key) && typeof val === 'string')
+    .map(([, val]) => val);
+
+  const combined = joinTextParts([...orderedParts, ...remainingParts]);
+  return combined.length ? combined : null;
+};
+
+const normalizeRecommendationPayload = (raw) => {
+  if (!raw) {
+    return null;
+  }
+
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed === 'object') {
+        return normalizeRecommendationPayload(parsed);
+      }
+    } catch (error) {
+      return {
+        verdict_explanation: trimmed,
+        verdict_explanation_text: trimmed,
+        insight: null,
+        insight_text: null,
+      };
+    }
+    return {
+      verdict_explanation: trimmed,
+      verdict_explanation_text: trimmed,
+      insight: null,
+      insight_text: null,
+    };
+  }
+
+  if (typeof raw !== 'object') {
+    return null;
+  }
+
+  const verdictExplanation = raw.verdict_explanation ?? raw.verdictExplanation ?? null;
+  const insight = raw.insight ?? null;
+  const verdictText = extractStructuredText(verdictExplanation, [
+    'coffee_profile_summary',
+    'comparison_summary',
+    'user_preferences_summary',
+  ]);
+  const insightText = extractStructuredText(insight, [
+    'headline',
+    'why',
+    'what_youll_like',
+    'what_youll_like_more',
+    'what_youll_like_even_more',
+    'next_steps',
+    'cta',
+    'closing',
+  ]);
+
+  return {
+    ...raw,
+    verdict_explanation_text: verdictText,
+    insight_text: insightText,
+  };
+};
+
 // Wrap default query method to log all interactions with Supabase
 const originalQuery = db.query.bind(db);
 db.query = async (text, params) => {
@@ -837,7 +926,9 @@ Výsledok napíš ako používateľovi:
     console.log('📥 [OpenAI] Response:', response.data);
 
     const recommendation = response.data.choices?.[0]?.message?.content?.trim();
-    return res.json({ recommendation, has_profile: hasProfile });
+    const normalizedRecommendation =
+      normalizeRecommendationPayload(recommendation) ?? recommendation ?? '';
+    return res.json({ recommendation: normalizedRecommendation, has_profile: hasProfile });
   } catch (err) {
     console.error('❌ Chyba AI vyhodnotenia:', err);
     return res.status(500).json({ error: 'Nepodarilo sa vyhodnotiť kávu' });
