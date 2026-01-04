@@ -809,9 +809,10 @@ ${JSON.stringify(structuredWithFallback, null, 2)}
 
 Výsledok napíš ako používateľovi:
 - Začni vetou: "Táto káva ti pravdepodobne bude chutiť, pretože..." alebo "Zrejme ti chutiť nebude, lebo..."
-- Pridaj stručné zdôvodnenie na základe chuti, praženia, spôsobu prípravy atď.
-Ak údaje nie sú úplné, urob rozumný odhad a vždy vráť verdikt s percentuálnou istotou.
-Nevypisuj odpovede typu "nemám dosť údajov".
+- Pridaj stručné, konkrétne zdôvodnenie na základe chuti, praženia, spôsobu prípravy a dostupných dát.
+- Vždy vychádzaj z dostupných údajov vrátane fallback hodnôt a heuristík v structuredWithFallback.
+- Ak údaje nie sú úplné, urob rozumný odhad a vždy vráť verdikt s percentuálnou istotou.
+- Nikdy nepíš, že nemáš dosť údajov alebo že sa to nedá vyhodnotiť.
 `;
 
     console.log('📤 [OpenAI] Prompt:', prompt);
