@@ -643,7 +643,20 @@ app.post('/api/ocr/save', async (req, res) => {
       name: decoded.name || decoded.user?.name,
     });
 
-    const { original_text, corrected_text } = req.body;
+    const { original_text, corrected_text, structured_metadata: structuredMetadata } = req.body;
+
+    let structured = null;
+    if (structuredMetadata) {
+      if (typeof structuredMetadata === 'string') {
+        try {
+          structured = JSON.parse(structuredMetadata);
+        } catch (error) {
+          console.warn('❗️ Nepodarilo sa parsovať structured_metadata', error);
+        }
+      } else if (typeof structuredMetadata === 'object') {
+        structured = structuredMetadata;
+      }
+    }
 
     const prefResult = await db.query(
       `SELECT * FROM user_taste_profiles WHERE user_id = $1`,
@@ -656,10 +669,10 @@ app.post('/api/ocr/save', async (req, res) => {
     const coffeeName = extractCoffeeName(corrected_text || original_text);
 
     const result = await db.query(
-      `INSERT INTO scan_events (user_id, coffee_name, brand, barcode, image_url, match_score, is_recommended, detected_at, created_at)
-       VALUES ($1, $2, NULL, NULL, NULL, $3, $4, now(), now())
-       RETURNING id`,
-      [uid, coffeeName, matchPercentage, isRecommended]
+      `INSERT INTO scan_events (user_id, coffee_name, brand, barcode, image_url, match_score, is_recommended, structured_metadata, detected_at, created_at)
+       VALUES ($1, $2, NULL, NULL, NULL, $3, $4, $5, now(), now())
+       RETURNING id, structured_metadata`,
+      [uid, coffeeName, matchPercentage, isRecommended, structured]
     );
 
     res.status(200).json({
@@ -667,6 +680,7 @@ app.post('/api/ocr/save', async (req, res) => {
       id: result.rows[0].id,
       match_percentage: matchPercentage,
       is_recommended: isRecommended,
+      structured_metadata: result.rows[0].structured_metadata,
     });
   } catch (err) {
     console.error('❌ Chyba pri ukladaní OCR:', err);

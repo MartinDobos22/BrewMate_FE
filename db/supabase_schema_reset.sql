@@ -196,6 +196,7 @@ CREATE TABLE public.scan_events (
   image_url text,
   match_score numeric(5,2) CHECK (match_score BETWEEN 0 AND 100),
   is_recommended boolean NOT NULL DEFAULT false,
+  structured_metadata jsonb,
   detected_at timestamptz NOT NULL DEFAULT now(),
   created_at timestamptz NOT NULL DEFAULT now()
 );
