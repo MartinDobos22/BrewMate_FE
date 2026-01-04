@@ -732,6 +732,22 @@ const parseStructuredMetadata = (structuredMetadata) => {
   return null;
 };
 
+const parseStructuredPayload = (payload, label) => {
+  if (payload === undefined || payload === null) return null;
+  if (typeof payload === 'string') {
+    try {
+      return JSON.parse(payload);
+    } catch (error) {
+      console.warn(`❗️ Nepodarilo sa parsovať ${label || 'structured payload'}`, error);
+      return payload;
+    }
+  }
+  if (typeof payload === 'object') {
+    return payload;
+  }
+  return payload;
+};
+
 const hasStructuredMetadataValue = (structured) => {
   if (!structured || typeof structured !== 'object') return false;
   return Object.values(structured).some((value) => {
@@ -999,8 +1015,7 @@ Výsledok napíš ako používateľovi:
  * Potvrdí štruktúrované údaje skenu a uchová ich pre budúce odporúčania.
  *
  * Endpoint len validuje vstup a uloží auditný log, aby FE vedel, že
- * potvrdenie prebehlo úspešne. DB schéma aktuálne neobsahuje
- * dedikované polia na štruktúrované dáta, preto hodnoty iba logujeme.
+ * potvrdenie prebehlo úspešne. Štruktúrované dáta sa uložia k scan záznamu.
  */
 app.post('/api/ocr/:id/structured/confirm', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
@@ -1019,13 +1034,30 @@ app.post('/api/ocr/:id/structured/confirm', async (req, res) => {
     }
 
     const { metadata, confidence, raw, correctedText, purchased } = req.body || {};
+    const metadataPayload = parseStructuredPayload(metadata, 'structured_metadata');
+    const confidencePayload = parseStructuredPayload(confidence, 'structured_confidence');
+    const rawPayload = parseStructuredPayload(raw, 'structured_raw');
+
+    const updateResult = await db.query(
+      `UPDATE scan_events
+       SET structured_metadata = COALESCE($3, structured_metadata),
+           structured_confidence = COALESCE($4, structured_confidence),
+           structured_raw = COALESCE($5, structured_raw)
+       WHERE id = $1 AND user_id = $2
+       RETURNING id`,
+      [scanId, decoded.uid, metadataPayload, confidencePayload, rawPayload]
+    );
+
+    if (updateResult.rowCount === 0) {
+      return res.status(404).json({ error: 'Záznam neexistuje' });
+    }
     const logPayload = {
       userId: decoded.uid,
       scanId,
       purchased: Boolean(purchased),
-      hasMetadata: Boolean(metadata),
-      hasConfidence: Boolean(confidence),
-      hasRaw: Boolean(raw),
+      hasMetadata: Boolean(metadataPayload),
+      hasConfidence: Boolean(confidencePayload),
+      hasRaw: Boolean(rawPayload),
       hasCorrectedText: Boolean(correctedText),
       timestamp: new Date().toISOString(),
     };
@@ -1363,7 +1395,9 @@ app.get('/api/ocr/history', async (req, res) => {
               created_at,
               original_text,
               corrected_text,
-              structured_metadata
+              structured_metadata,
+              structured_confidence,
+              structured_raw
        FROM scan_events
        WHERE user_id = $1
        ORDER BY created_at DESC
@@ -1375,6 +1409,11 @@ app.get('/api/ocr/history', async (req, res) => {
       const structured = parseStructuredMetadata(row.structured_metadata);
       const structuredPayload =
         structured && typeof structured === 'object' ? structured : null;
+      const structuredConfidence = parseStructuredPayload(
+        row.structured_confidence,
+        'structured_confidence'
+      );
+      const structuredRaw = parseStructuredPayload(row.structured_raw, 'structured_raw');
       const flavorNotes =
         structuredPayload?.flavor_notes ?? structuredPayload?.flavorNotes ?? null;
       const varietals = structuredPayload?.varietals ?? null;
@@ -1391,6 +1430,8 @@ app.get('/api/ocr/history', async (req, res) => {
         original_text: originalText,
         corrected_text: correctedText,
         structured_metadata: structuredPayload,
+        structured_confidence: structuredConfidence,
+        structured_raw: structuredRaw,
         created_at: row.created_at,
         rating: null,
         match_percentage: row.match_score || 0,
