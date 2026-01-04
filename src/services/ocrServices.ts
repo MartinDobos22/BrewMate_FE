@@ -985,8 +985,8 @@ export const processOCR = async (
 export interface OCRHistory {
   id: string;
   coffee_name: string;
-  original_text: string;
-  corrected_text: string;
+  original_text?: string | null;
+  corrected_text?: string | null;
   created_at: Date;
   rating?: number;
   match_percentage?: number;
@@ -1001,6 +1001,7 @@ export interface OCRHistory {
   roast_date?: string | null;
   varietals?: string[] | string | null;
   thumbnail_url?: string | null;
+  structured_metadata?: Record<string, unknown> | null;
 }
 
 /**
@@ -1030,26 +1031,50 @@ export const fetchOCRHistory = async (limit: number = 10): Promise<OCRHistory[]>
 
     const data = await response.json();
 
-    return data.map((item: any) => ({
-      id: item.id,
-      coffee_name: item.coffee_name || extractCoffeeName(item.corrected_text),
-      original_text: item.original_text,
-      corrected_text: item.corrected_text,
-      created_at: new Date(item.created_at),
-      rating: item.rating,
-      match_percentage: item.match_percentage,
-      is_recommended: item.is_recommended,
-      is_purchased: item.is_purchased,
-      is_favorite: item.is_favorite,
-      brand: item.brand ?? item.roaster ?? null,
-      origin: item.origin ?? item.country_of_origin ?? null,
-      roast_level: item.roast_level ?? item.roastLevel ?? null,
-      flavor_notes: item.flavor_notes ?? item.flavorNotes ?? null,
-      processing: item.processing ?? null,
-      roast_date: item.roast_date ?? item.roastDate ?? null,
-      varietals: item.varietals ?? null,
-      thumbnail_url: item.thumbnail_url ?? item.thumbnailUrl ?? null,
-    }));
+    return data.map((item: any) => {
+      const structuredMetadata = normalizeStructuredMetadataInput(item.structured_metadata);
+      const normalizedOriginal =
+        typeof item.original_text === 'string' ? item.original_text : null;
+      const normalizedCorrected =
+        typeof item.corrected_text === 'string' ? item.corrected_text : null;
+      const fallbackText =
+        normalizedCorrected || normalizedOriginal || item.coffee_name || '';
+
+      return {
+        id: item.id,
+        coffee_name: item.coffee_name || extractCoffeeName(fallbackText),
+        original_text: normalizedOriginal || normalizedCorrected || item.coffee_name || null,
+        corrected_text: normalizedCorrected || normalizedOriginal || item.coffee_name || null,
+        created_at: new Date(item.created_at),
+        rating: item.rating,
+        match_percentage: item.match_percentage,
+        is_recommended: item.is_recommended,
+        is_purchased: item.is_purchased,
+        is_favorite: item.is_favorite,
+        brand:
+          item.brand ??
+          structuredMetadata?.roaster ??
+          structuredMetadata?.brand ??
+          item.roaster ??
+          null,
+        origin:
+          item.origin ??
+          structuredMetadata?.origin ??
+          structuredMetadata?.country_of_origin ??
+          item.country_of_origin ??
+          null,
+        roast_level:
+          item.roast_level ?? structuredMetadata?.roast_level ?? structuredMetadata?.roastLevel ?? item.roastLevel ?? null,
+        flavor_notes:
+          item.flavor_notes ?? structuredMetadata?.flavor_notes ?? structuredMetadata?.flavorNotes ?? item.flavorNotes ?? null,
+        processing: item.processing ?? structuredMetadata?.processing ?? null,
+        roast_date:
+          item.roast_date ?? structuredMetadata?.roast_date ?? structuredMetadata?.roastDate ?? item.roastDate ?? null,
+        varietals: item.varietals ?? structuredMetadata?.varietals ?? null,
+        thumbnail_url: item.thumbnail_url ?? item.thumbnailUrl ?? null,
+        structured_metadata: structuredMetadata,
+      };
+    });
   } catch (error) {
     console.error('Error fetching OCR history:', error);
     return [];
