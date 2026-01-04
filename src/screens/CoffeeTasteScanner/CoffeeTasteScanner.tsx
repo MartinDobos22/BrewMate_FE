@@ -64,6 +64,7 @@ import type {
 import { BrewContext } from '../../types/Personalization';
 import { usePersonalization } from '../../hooks/usePersonalization';
 import { showToast } from '../../utils/toast';
+import { buildScanPreferenceComparison } from '../../utils/scanPreferenceComparison';
 import { API_URL } from '../../services/api';
 import { recognizeCoffee } from 'services/VisionService.ts';
 
@@ -187,6 +188,7 @@ const extractPreferenceSnapshot = (
 
 const buildComparisonText = (
   evaluation: CoffeeEvaluationResult | null | undefined,
+  preferenceSnapshot: CoffeePreferenceSnapshot | null | undefined,
   aiRecommendation: string | null | undefined,
 ): string => {
   const hasFormText = typeof aiRecommendation === 'string' && aiRecommendation.trim().length > 0;
@@ -198,17 +200,14 @@ const buildComparisonText = (
     return `${formSection}\n\nZo skenu zatiaľ nemáme dostatok údajov na porovnanie.`;
   }
 
-  const reasonDetails = evaluation.reasons
-    ?.map(reason => {
-      const parts = [
-        reason.signal ? reason.signal : null,
-        reason.user_preference ? reason.user_preference : null,
-        reason.coffee_attribute ? reason.coffee_attribute : null,
-        reason.explanation ? reason.explanation : null,
-      ].filter(Boolean);
-      return parts.length ? parts.join(' – ') : null;
-    })
-    .filter((reason): reason is string => Boolean(reason));
+  const comparison = buildScanPreferenceComparison({
+    evaluation,
+    coffeePreferences: preferenceSnapshot ?? null,
+    tasteVector: preferenceSnapshot?.taste_vector ?? null,
+  });
+  const dimensionLines = comparison.dimensions
+    .map(dimension => dimension.line)
+    .filter((line): line is string => Boolean(line));
 
   const verdictExplanation = evaluation.verdict_explanation;
   const comparisonSummary =
@@ -218,18 +217,27 @@ const buildComparisonText = (
 
   const scanLines = [
     evaluation.summary ? `• ${evaluation.summary}` : null,
-    reasonDetails?.length ? `• Dôvody: ${reasonDetails.join(' • ')}` : null,
   ].filter((line): line is string => Boolean(line));
 
   const scanSection = scanLines.length
     ? `Zo skenu vyplýva:\n${scanLines.join('\n')}`
     : 'Zo skenu zatiaľ nemáme dostatok údajov na porovnanie.';
 
+  const dimensionSection = dimensionLines.length
+    ? `Porovnanie po dimenziách:\n${dimensionLines.map(line => `• ${line}`).join('\n')}`
+    : null;
+
+  const reasonSection = comparison.reasons.length
+    ? `Argumenty od AI:\n${comparison.reasons.map(reason => `• ${reason}`).join('\n')}`
+    : null;
+
   const comparisonSection = comparisonSummary
     ? `Rozdiely/zhoda:\n${comparisonSummary}`
     : null;
 
-  return [formSection, scanSection, comparisonSection].filter(Boolean).join('\n\n');
+  return [formSection, scanSection, dimensionSection, reasonSection, comparisonSection]
+    .filter(Boolean)
+    .join('\n\n');
 };
 
 const WELCOME_GRADIENT = ['#FF9966', '#A86B8C'];
@@ -1911,8 +1919,12 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   const evaluation = scanResult?.evaluation ?? null;
   const evaluationStatus = evaluation?.status ?? 'unknown';
   const comparisonText = useMemo(
-    () => buildComparisonText(evaluation, preferenceSnapshot?.ai_recommendation ?? null),
-    [evaluation, preferenceSnapshot?.ai_recommendation],
+    () => buildComparisonText(
+      evaluation,
+      preferenceSnapshot,
+      preferenceSnapshot?.ai_recommendation ?? null,
+    ),
+    [evaluation, preferenceSnapshot],
   );
   // Suppress compatibility scoring whenever the AI evaluation is not ready.
   const shouldSuppressCompatibility = evaluationStatus !== 'ok';
