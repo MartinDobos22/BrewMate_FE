@@ -779,6 +779,8 @@ ${JSON.stringify(structuredWithFallback, null, 2)}
 Výsledok napíš ako používateľovi:
 - Začni vetou: "Táto káva ti pravdepodobne bude chutiť, pretože..." alebo "Zrejme ti chutiť nebude, lebo..."
 - Pridaj stručné zdôvodnenie na základe chuti, praženia, spôsobu prípravy atď.
+Ak údaje nie sú úplné, urob rozumný odhad a vždy vráť verdikt s percentuálnou istotou.
+Nevypisuj odpovede typu "nemám dosť údajov".
 `;
 
     console.log('📤 [OpenAI] Prompt:', prompt);
