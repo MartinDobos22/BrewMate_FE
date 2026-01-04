@@ -96,6 +96,39 @@ const safeParseJSON = <T>(value: unknown): T | null => {
   }
 };
 
+const hasStructuredMetadataValue = (value: unknown): boolean => {
+  if (!value || typeof value !== 'object') return false;
+  return Object.values(value as Record<string, unknown>).some(entry => {
+    if (Array.isArray(entry)) {
+      return entry.some(item => typeof item === 'string' && item.trim().length > 0);
+    }
+    if (typeof entry === 'string') {
+      return entry.trim().length > 0;
+    }
+    if (typeof entry === 'number') {
+      return Number.isFinite(entry);
+    }
+    if (typeof entry === 'boolean') {
+      return true;
+    }
+    if (entry && typeof entry === 'object') {
+      return Object.values(entry as Record<string, unknown>).some(Boolean);
+    }
+    return entry != null;
+  });
+};
+
+const normalizeStructuredMetadataInput = (
+  value: unknown
+): Record<string, unknown> | null => {
+  if (value == null) return null;
+  const parsed =
+    safeParseJSON<Record<string, unknown>>(value) ??
+    (typeof value === 'object' ? (value as Record<string, unknown>) : null);
+  if (!parsed) return null;
+  return hasStructuredMetadataValue(parsed) ? parsed : null;
+};
+
 const buildStructuredText = (
   value: unknown,
   orderedKeys: string[]
@@ -641,7 +674,7 @@ const ensureOfflineImagePath = async (
  */
 export const processOCR = async (
   base64image: string,
-  options?: { imagePath?: string },
+  options?: { imagePath?: string; structuredMetadata?: Record<string, unknown> | null },
 ): Promise<OCRResult | null> => {
   try {
     await ensureOnline();
@@ -683,10 +716,25 @@ export const processOCR = async (
     // 2. Oprav text pomocou AI
     const correctedText = await fixTextWithAI(originalText);
 
+    const localStructuredMetadata = normalizeStructuredMetadataInput(
+      options?.structuredMetadata ??
+        ocrData?.structured_metadata ??
+        ocrData?.structuredMetadata ??
+        null
+    );
+
     // 3. Ulož do databázy a získaj match percentage
     const token = await getAuthToken();
     if (!token) {
       throw new Error('Nie si prihlásený');
+    }
+
+    const savePayload: Record<string, unknown> = {
+      original_text: originalText,
+      corrected_text: correctedText,
+    };
+    if (localStructuredMetadata) {
+      savePayload.structured_metadata = localStructuredMetadata;
     }
 
     const saveResponse = await loggedFetch(`${API_URL}/ocr/save`, {
@@ -695,10 +743,7 @@ export const processOCR = async (
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        original_text: originalText,
-        corrected_text: correctedText,
-      }),
+      body: JSON.stringify(savePayload),
     });
 
     let matchPercentage = 0;
@@ -828,9 +873,10 @@ export const processOCR = async (
         const evaluatePayload: Record<string, unknown> = {
           corrected_text: correctedText,
         };
-        if (structuredMetadata || rawStructuredResponse) {
-          evaluatePayload.structured_metadata =
-            structuredMetadata ?? rawStructuredResponse ?? null;
+        const structuredCandidate =
+          structuredMetadata ?? rawStructuredResponse ?? localStructuredMetadata ?? null;
+        if (normalizeStructuredMetadataInput(structuredCandidate)) {
+          evaluatePayload.structured_metadata = structuredCandidate;
         }
 
         const response = await loggedFetch(`${API_URL}/ocr/evaluate`, {
