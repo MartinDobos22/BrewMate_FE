@@ -795,7 +795,13 @@ app.post('/api/ocr/evaluate', async (req, res) => {
     });
 
     const { corrected_text, structured_metadata: structuredMetadata } = req.body;
-    if (!corrected_text) return res.status(400).json({ error: 'Chýba text kávy' });
+    if (!corrected_text) {
+      return res.status(400).json({
+        error: 'Chýba text kávy',
+        status: 'insufficient_coffee_data',
+        has_profile: null,
+      });
+    }
 
     const result = await db.query(
       `SELECT * FROM user_taste_profiles WHERE user_id = $1 LIMIT 1`,
@@ -803,7 +809,11 @@ app.post('/api/ocr/evaluate', async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Používateľ nemá nastavené preferencie' });
+      return res.status(404).json({
+        error: 'Používateľ nemá nastavené preferencie',
+        status: 'profile_missing',
+        has_profile: false,
+      });
     }
 
     const preferences = result.rows[0];
@@ -928,7 +938,11 @@ Výsledok napíš ako používateľovi:
     const recommendation = response.data.choices?.[0]?.message?.content?.trim();
     const normalizedRecommendation =
       normalizeRecommendationPayload(recommendation) ?? recommendation ?? '';
-    return res.json({ recommendation: normalizedRecommendation, has_profile: hasProfile });
+    return res.json({
+      recommendation: normalizedRecommendation,
+      status: 'ok',
+      has_profile: hasProfile,
+    });
   } catch (err) {
     console.error('❌ Chyba AI vyhodnotenia:', err);
     return res.status(500).json({ error: 'Nepodarilo sa vyhodnotiť kávu' });
