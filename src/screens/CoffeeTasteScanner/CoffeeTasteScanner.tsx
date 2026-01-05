@@ -135,6 +135,29 @@ const getRecommendationText = (payload?: OCRRecommendationPayload | null): strin
   return formatStructuredRecommendation(payload);
 };
 
+const hasStructuredCoffeeMetadata = (
+  metadata?: StructuredCoffeeMetadata | null,
+): boolean => {
+  if (!metadata) {
+    return false;
+  }
+
+  const parts: string[] = [];
+  if (metadata.roaster) parts.push(metadata.roaster);
+  if (metadata.origin) parts.push(metadata.origin);
+  if (metadata.roastLevel) parts.push(metadata.roastLevel);
+  if (metadata.processing) parts.push(metadata.processing);
+  if (metadata.roastDate) parts.push(metadata.roastDate);
+  if (metadata.flavorNotes?.length) {
+    parts.push(...metadata.flavorNotes);
+  }
+  if (metadata.varietals?.length) {
+    parts.push(...metadata.varietals);
+  }
+
+  return parts.some(part => part.trim().length > 0);
+};
+
 const WELCOME_GRADIENT = ['#FF9966', '#A86B8C'];
 const COFFEE_GRADIENT = ['#8B6544', '#6B4423'];
 const WARM_GRADIENT = ['#FFA000', '#FF6B6B'];
@@ -915,10 +938,14 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
         }
 
         const detectionLabels = result.detectionLabels?.filter(Boolean) ?? [];
+        const hasStructuredMetadata = hasStructuredCoffeeMetadata(
+          result.structuredMetadata ?? null,
+        );
         const computedIsCoffee =
           typeof result.isCoffee === 'boolean'
             ? result.isCoffee
-            : detectionLabels.some(label => isCoffeeRelatedText(label)) ||
+            : hasStructuredMetadata ||
+              detectionLabels.some(label => isCoffeeRelatedText(label)) ||
               isCoffeeRelatedText(result.corrected) ||
               isCoffeeRelatedText(result.original);
 
