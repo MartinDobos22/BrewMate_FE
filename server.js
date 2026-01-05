@@ -868,13 +868,14 @@ app.post('/api/ocr/save', async (req, res) => {
        RETURNING id, structured_metadata`,
       [uid, coffeeName, matchPercentage, isRecommended, structured]
     );
+    const structuredResponse = parseStructuredMetadata(result.rows[0].structured_metadata) ?? {};
 
     res.status(200).json({
       message: 'OCR uložené',
       id: result.rows[0].id,
       match_percentage: matchPercentage,
       is_recommended: isRecommended,
-      structured_metadata: result.rows[0].structured_metadata,
+      structured_metadata: structuredResponse,
     });
   } catch (err) {
     console.error('❌ Chyba pri ukladaní OCR:', err);
