@@ -1470,12 +1470,17 @@ app.post('/api/ocr/purchase', async (req, res) => {
       name: decoded.name || decoded.user?.name,
     });
 
-    const { ocr_log_id, coffee_name, brand } = req.body;
+    const { ocr_log_id, coffee_name, brand, metadata } = req.body;
     if (!ocr_log_id) return res.status(400).json({ error: 'Chýba ID záznamu OCR' });
 
+    const structuredMetadata = parseStructuredMetadata(metadata);
+
     await db.query(
-      `UPDATE scan_events SET is_recommended = true WHERE id = $1 AND user_id = $2`,
-      [ocr_log_id, uid]
+      `UPDATE scan_events
+       SET is_recommended = true,
+           structured_metadata = COALESCE($3, structured_metadata)
+       WHERE id = $1 AND user_id = $2`,
+      [ocr_log_id, uid, structuredMetadata]
     );
 
     if (coffee_name) {
