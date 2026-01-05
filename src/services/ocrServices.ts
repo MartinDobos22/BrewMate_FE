@@ -691,25 +691,6 @@ export const processOCR = async (
     }
 
     const originalText = ocrData.text;
-    const detectionLabels: string[] | undefined = Array.isArray(ocrData.labels)
-      ? ocrData.labels.filter((label: unknown): label is string => typeof label === 'string')
-      : undefined;
-    const detectionConfidence =
-      typeof ocrData.coffeeConfidence === 'number' ? ocrData.coffeeConfidence : undefined;
-
-    let isCoffee: boolean | undefined;
-    if (typeof ocrData.isCoffee === 'boolean') {
-      isCoffee = ocrData.isCoffee;
-    } else if (detectionLabels && detectionLabels.length > 0) {
-      isCoffee = detectionLabels.some(label => isCoffeeRelatedText(label));
-    }
-
-    const nonCoffeeReasonRaw =
-      typeof ocrData.nonCoffeeReason === 'string' ? ocrData.nonCoffeeReason : undefined;
-    let nonCoffeeReason = nonCoffeeReasonRaw;
-    if (!nonCoffeeReason && isCoffee === false && detectionLabels && detectionLabels.length > 0) {
-      nonCoffeeReason = `Rozpoznané: ${detectionLabels.slice(0, 3).join(', ')}`;
-    }
 
     // 2. Oprav text pomocou AI
     const correctedTextRaw = await fixTextWithAI(originalText);
@@ -963,10 +944,6 @@ export const processOCR = async (
       scanId,
       brewingMethods,
       source: 'online',
-      isCoffee,
-      detectionLabels,
-      detectionConfidence,
-      nonCoffeeReason,
       structuredMetadata,
       rawStructuredResponse,
     };
