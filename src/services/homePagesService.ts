@@ -26,6 +26,7 @@ interface UserStats {
 interface CoffeeData extends Coffee {
   timestamp?: Date;
   isRecommended?: boolean;
+  isPurchased?: boolean;
 }
 
 /**
@@ -365,6 +366,7 @@ export const fetchScanHistory = async (limit: number = 5): Promise<CoffeeData[]>
       match: parseInt(item.match_percentage || 0),
       timestamp: new Date(item.created_at),
       isRecommended: item.is_recommended || false,
+      isPurchased: item.is_purchased || false,
       brand: item.brand,
       origin: item.origin,
     }));
