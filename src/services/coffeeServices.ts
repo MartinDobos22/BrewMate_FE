@@ -12,6 +12,7 @@ export interface RecentScan {
 const STORAGE_KEY = 'recentScans';
 const MAX_RECENT_SCANS = 20;
 const MAX_IMAGE_URL_LENGTH = 1000;
+const MAX_DATA_URI_LENGTH = 2000;
 
 /**
  * Normalizes loose scan payloads coming from network or storage into a consistent shape.
@@ -35,17 +36,29 @@ const sanitizeRecentScan = (scan: RecentScan | Record<string, any>): RecentScan 
     (typeof (scan as any).coffeeName === 'string' && (scan as any).coffeeName.trim()) ||
     'Neznáma káva';
 
+  const thumbnailImage =
+    (typeof (scan as any).thumbnailUrl === 'string' && (scan as any).thumbnailUrl) ||
+    (typeof (scan as any).thumbnail_url === 'string' && (scan as any).thumbnail_url) ||
+    (typeof (scan as any).image_thumbnail === 'string' &&
+      (scan as any).image_thumbnail) ||
+    (typeof (scan as any).thumbnail === 'string' && (scan as any).thumbnail);
+
   const rawImage =
     (typeof scan.imageUrl === 'string' && scan.imageUrl) ||
     (typeof (scan as any).image_url === 'string' && (scan as any).image_url) ||
     (typeof (scan as any).image === 'string' && (scan as any).image);
 
-  const sanitizedImage =
-    rawImage &&
-    rawImage.length <= MAX_IMAGE_URL_LENGTH &&
-    !rawImage.startsWith('data:')
-      ? rawImage
-      : undefined;
+  const pickImage = (value?: string): string | undefined => {
+    if (!value) {
+      return undefined;
+    }
+    if (value.startsWith('data:')) {
+      return value.length <= MAX_DATA_URI_LENGTH ? value : undefined;
+    }
+    return value.length <= MAX_IMAGE_URL_LENGTH ? value : undefined;
+  };
+
+  const sanitizedImage = pickImage(thumbnailImage) ?? pickImage(rawImage);
 
   return {
     id: idSource || Date.now().toString(),
