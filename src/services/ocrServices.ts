@@ -2,25 +2,7 @@
 import auth from '@react-native-firebase/auth';
 import NetInfo from '@react-native-community/netinfo';
 import RNFS from 'react-native-fs';
-import { CONFIG } from '../config/config';
 import { API_HOST, API_URL } from './api';
-
-const OPENAI_API_KEY = CONFIG.OPENAI_API_KEY;
-const AI_CACHE_TTL = 24;
-
-/**
- * Builds a normalized cache key for AI responses to ensure consistent lookups across calls.
- *
- * @param {string} prefix - Namespace prefix describing the cached resource category (e.g. `ocr:fix`).
- * @param {string} input - Raw user or OCR input used to derive a unique key; trimmed and encoded before use.
- * @returns {string} Encoded cache key string safe for storage systems.
- */
-const createCacheKey = (prefix: string, input: string): string => {
-  const normalized = input.replace(/\s+/g, ' ').trim();
-  const encoded = encodeURIComponent(normalized).slice(0, 96);
-  return `ai:${prefix}:${encoded}`;
-};
-
 
 /**
  * Ensures the device is online before making network requests.
@@ -404,56 +386,23 @@ export const extractCoffeeName = (text: string): string => {
  * @throws {Error} Propagates network errors encountered during the OpenAI call unless a cached value exists.
  */
 const fixTextWithAI = async (ocrText: string): Promise<string> => {
-  const prompt = `
-Toto je text získaný OCR rozpoznávaním z etikety kávy.
-Oprav všetky chyby, ktoré mohli vzniknúť zlým rozpoznaním znakov.
-Zachovaj pôvodný význam a štruktúru, ale oprav OCR chyby.
-Vráť iba opravený text.
-
-OCR text:
-${ocrText}
-  `;
-
-  const cacheKey = createCacheKey('ocr:fix', ocrText);
-  
-
   try {
-    await ensureOnline();
-    console.log('📤 [OpenAI] OCR prompt:', prompt);
-    const response = await retryableFetch(() =>
-      fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [
-            {
-              role: 'system',
-              content:
-                'Si expert na kávu a opravu textov z OCR. Opravuješ chyby v rozpoznaných textoch z etikiet káv.',
-            },
-            { role: 'user', content: prompt },
-          ],
-          temperature: 0.2,
-        }),
-      }),
-    );
-
+    const response = await loggedFetch(`${API_URL}/ocr/fix`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ocrText }),
+    });
     const data = await response.json();
-    console.log('📥 [OpenAI] OCR response:', data);
+    console.log('📥 [BE] OCR fix response:', data);
 
-    if (data?.choices?.[0]?.message?.content) {
-      
-      return data.choices[0].message.content.trim();
+    if (typeof data?.text === 'string' && data.text.trim().length > 0) {
+      return data.text.trim();
     }
 
-    return  ocrText;
+    return ocrText;
   } catch (error) {
     console.error('AI correction error:', error);
-    return  ocrText;
+    return ocrText;
   }
 };
 
@@ -467,50 +416,17 @@ ${ocrText}
 export const suggestBrewingMethods = async (
   coffeeText: string
 ): Promise<string[]> => {
-  const prompt =
-    `Na základe tohto popisu kávy navrhni presne 4 najvhodnejšie spôsoby prípravy kávy. ` +
-    `Odpovedz len zoznamom metód oddelených novým riadkom. Popis: "${coffeeText}"`;
-
   const fallback = ['Espresso', 'French press', 'V60', 'Cold brew'];
-  const cacheKey = createCacheKey('ocr:methods', coffeeText);
-
-  if (!OPENAI_API_KEY) {
-    console.error('Chýba OpenAI API key. Vráti sa predvolený zoznam metód.');
-    return  fallback;
-  }
 
   try {
-    await ensureOnline();
-    console.log('📤 [OpenAI] Brewing prompt:', prompt);
-    const response = await retryableFetch(() =>
-      fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [
-            {
-              role: 'system',
-              content:
-                'Si barista, ktorý odporúča spôsoby prípravy kávy na základe popisu z etikety.',
-            },
-            { role: 'user', content: prompt },
-          ],
-          temperature: 0.7,
-        }),
-      })
-    );
-
+    const response = await loggedFetch(`${API_URL}/ocr/brewing-methods`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ coffeeText }),
+    });
     const data = await response.json();
-    console.log('📥 [OpenAI] Brewing response:', data);
-    const content = data?.choices?.[0]?.message?.content || '';
-    let methods = content
-      .split('\n')
-      .map((m: string) => m.replace(/^[-*\d.\s]+/, '').trim())
-      .filter(Boolean);
+    console.log('📥 [BE] Brewing methods response:', data);
+    let methods = Array.isArray(data?.methods) ? data.methods : [];
 
     if (methods.length === 0) {
       // Ak AI nevráti žiadne metódy, použijeme predvolené hodnoty
@@ -542,42 +458,15 @@ export const getBrewRecipe = async (
   method: string,
   taste: string
 ): Promise<string> => {
-  const prompt = `Priprav detailný recept na kávu pomocou metódy ${method}. Používateľ preferuje ${taste} chuť. Uveď ideálny pomer kávy k vode, teplotu vody a ďalšie dôležité kroky. Odpovedz stručne.`;
-
-  const cacheKey = createCacheKey('ocr:recipe', `${method}|${taste}`);
-
-  if (!OPENAI_API_KEY) {
-    console.error('Chýba OpenAI API key. Recept sa nevygeneruje.');
-    return  '';
-  }
-
   try {
-    await ensureOnline();
-    console.log('📤 [OpenAI] Recipe prompt:', prompt);
-    const response = await retryableFetch(() =>
-      fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o',
-          messages: [
-            {
-              role: 'system',
-              content: 'Si skúsený barista, ktorý navrhuje recepty na kávu.'
-            },
-            { role: 'user', content: prompt },
-          ],
-          temperature: 0.7,
-        }),
-      })
-    );
-
+    const response = await loggedFetch(`${API_URL}/ocr/recipe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ method, taste }),
+    });
     const data = await response.json();
-    console.log('📥 [OpenAI] Recipe response:', data);
-    const recipe = data?.choices?.[0]?.message?.content?.trim() || '';
+    console.log('📥 [BE] Recipe response:', data);
+    const recipe = typeof data?.recipe === 'string' ? data.recipe.trim() : '';
     if (recipe) {
       return recipe;
     }
