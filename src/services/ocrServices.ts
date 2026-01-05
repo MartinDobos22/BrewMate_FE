@@ -738,7 +738,7 @@ export const processOCR = async (
     if (saveResponse.ok) {
       const saveData = await saveResponse.json();
       console.log('📥 [BE] Save OCR response:', saveData);
-      matchPercentage = saveData.match_percentage || 0;
+      matchPercentage = saveData.match_percentage ?? saveData.match_score ?? 0;
       isRecommended = saveData.is_recommended || false;
       scanId = saveData.id || '';
 
@@ -1139,7 +1139,11 @@ export const fetchOCRHistory = async (limit: number = 10): Promise<OCRHistory[]>
           normalizedCorrected || normalizedOriginal || item.coffee_name || item.coffeeName || null,
         createdAt: new Date(item.created_at ?? item.createdAt),
         rating: item.rating,
-        matchPercentage: item.match_percentage ?? item.matchPercentage,
+        matchPercentage:
+          item.match_percentage ??
+          item.matchPercentage ??
+          item.match_score ??
+          item.matchScore,
         isRecommended: item.is_recommended ?? item.isRecommended,
         isPurchased: item.is_purchased ?? item.isPurchased,
         isFavorite: item.is_favorite ?? item.isFavorite,
