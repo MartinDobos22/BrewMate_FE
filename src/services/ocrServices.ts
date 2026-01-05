@@ -172,20 +172,43 @@ const normalizeStructuredRecommendation = (
     (typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null);
   if (!parsed) return null;
 
-  const hasFields = [
-    'verdict',
-    'confidence',
+  const fallbackText = buildStructuredText(parsed, [
+    'summary',
+    'reason',
     'verdict_explanation',
     'verdict_explanation_text',
     'insight',
     'insight_text',
     'disclaimer',
-  ].some(key => key in parsed);
+    'message',
+    'text',
+    'detail',
+    'details',
+  ]);
+
+  const hasFields =
+    [
+      'verdict',
+      'confidence',
+      'confidence_pct',
+      'verdict_explanation',
+      'verdict_explanation_text',
+      'insight',
+      'insight_text',
+      'disclaimer',
+      'summary',
+      'reason',
+    ].some(key => key in parsed) || Boolean(fallbackText);
   if (!hasFields) return null;
 
   const verdictExplanationRaw =
-    parsed.verdict_explanation ?? parsed.verdictExplanation ?? parsed.verdict_explanation_text;
+    parsed.verdict_explanation ??
+    parsed.verdictExplanation ??
+    parsed.verdict_explanation_text ??
+    parsed.summary ??
+    parsed.reason;
   const insightRaw = parsed.insight ?? parsed.insight_text;
+  const confidenceRaw = parsed.confidence ?? parsed.confidence_pct ?? parsed.confidencePct;
   const verdictExplanationText =
     typeof parsed.verdict_explanation_text === 'string'
       ? parsed.verdict_explanation_text
@@ -208,19 +231,32 @@ const normalizeStructuredRecommendation = (
           'closing',
         ]);
 
+  const normalizedConfidence =
+    typeof confidenceRaw === 'number'
+      ? confidenceRaw
+      : typeof confidenceRaw === 'string'
+        ? Number.parseFloat(confidenceRaw)
+        : null;
+
+  const normalizedVerdictExplanation =
+    typeof verdictExplanationRaw === 'string'
+      ? verdictExplanationRaw
+      : verdictExplanationText ?? null;
+  const normalizedInsight =
+    typeof insightRaw === 'string'
+      ? insightRaw
+      : insightText ?? null;
+
+  const finalFallbackText =
+    normalizedVerdictExplanation ?? normalizedInsight ?? fallbackText ?? null;
+
   return {
     verdict: typeof parsed.verdict === 'string' ? parsed.verdict : null,
-    confidence: typeof parsed.confidence === 'number' ? parsed.confidence : null,
-    verdict_explanation:
-      typeof verdictExplanationRaw === 'string'
-        ? verdictExplanationRaw
-        : verdictExplanationText ?? null,
-    verdict_explanation_text: verdictExplanationText,
-    insight:
-      typeof insightRaw === 'string'
-        ? insightRaw
-        : insightText ?? null,
-    insight_text: insightText,
+    confidence: Number.isFinite(normalizedConfidence ?? NaN) ? normalizedConfidence : null,
+    verdict_explanation: normalizedVerdictExplanation ?? finalFallbackText,
+    verdict_explanation_text: verdictExplanationText ?? finalFallbackText,
+    insight: normalizedInsight ?? (normalizedVerdictExplanation ? null : finalFallbackText),
+    insight_text: insightText ?? (normalizedVerdictExplanation ? null : finalFallbackText),
     disclaimer: typeof parsed.disclaimer === 'string' ? parsed.disclaimer : null,
   };
 };
