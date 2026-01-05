@@ -35,6 +35,30 @@ app.use((req, _res, next) => {
 });
 
 const GOOGLE_VISION_API_KEY = process.env.GOOGLE_VISION_API_KEY || " ";
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+
+const requestOpenAIChat = async ({ messages, temperature }) => {
+  if (!OPENAI_API_KEY) {
+    throw new Error('Missing OpenAI API key');
+  }
+
+  const response = await axios.post(
+    'https://api.openai.com/v1/chat/completions',
+    {
+      model: 'gpt-4o',
+      messages,
+      temperature,
+    },
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+    },
+  );
+
+  return response.data;
+};
 
 app.get("/", (req, res) => {
   res.send("Google Vision OCR backend beží.");
@@ -717,6 +741,111 @@ app.post("/ocr", async (req, res) => {
   } catch (error) {
     console.error("OCR server error:", error?.message ?? error);
     res.status(500).json({ error: "OCR failed", detail: error?.message ?? error });
+  }
+});
+
+app.post('/api/ocr/fix', async (req, res) => {
+  try {
+    const { ocrText } = req.body;
+    if (!ocrText || typeof ocrText !== 'string') {
+      return res.status(400).json({ error: 'Chýba OCR text' });
+    }
+
+    const prompt = `
+Toto je text získaný OCR rozpoznávaním z etikety kávy.
+Oprav všetky chyby, ktoré mohli vzniknúť zlým rozpoznaním znakov.
+Zachovaj pôvodný význam a štruktúru, ale oprav OCR chyby.
+Vráť iba opravený text.
+
+OCR text:
+${ocrText}
+    `;
+
+    const data = await requestOpenAIChat({
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Si expert na kávu a opravu textov z OCR. Opravuješ chyby v rozpoznaných textoch z etikiet káv.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.2,
+    });
+
+    const text = data?.choices?.[0]?.message?.content?.trim() || '';
+    return res.json({ text });
+  } catch (error) {
+    console.error('OpenAI OCR fix error:', error?.message ?? error);
+    return res.status(500).json({ error: 'OCR fix failed' });
+  }
+});
+
+app.post('/api/ocr/brewing-methods', async (req, res) => {
+  try {
+    const { coffeeText } = req.body;
+    if (!coffeeText || typeof coffeeText !== 'string') {
+      return res.status(400).json({ error: 'Chýba popis kávy' });
+    }
+
+    const prompt =
+      `Na základe tohto popisu kávy navrhni presne 4 najvhodnejšie spôsoby prípravy kávy. ` +
+      `Odpovedz len zoznamom metód oddelených novým riadkom. Popis: "${coffeeText}"`;
+
+    const data = await requestOpenAIChat({
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Si barista, ktorý odporúča spôsoby prípravy kávy na základe popisu z etikety.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.7,
+    });
+
+    const content = data?.choices?.[0]?.message?.content || '';
+    const methods = content
+      .split('\n')
+      .map(line => line.replace(/^[-*\d.\s]+/, '').trim())
+      .filter(Boolean)
+      .slice(0, 4);
+
+    return res.json({ methods });
+  } catch (error) {
+    console.error('OpenAI brewing methods error:', error?.message ?? error);
+    return res.status(500).json({ error: 'Brewing methods failed' });
+  }
+});
+
+app.post('/api/ocr/recipe', async (req, res) => {
+  try {
+    const { method, taste } = req.body;
+    if (!method || typeof method !== 'string') {
+      return res.status(400).json({ error: 'Chýba metóda' });
+    }
+    if (!taste || typeof taste !== 'string') {
+      return res.status(400).json({ error: 'Chýba chuť' });
+    }
+
+    const prompt = `Priprav detailný recept na kávu pomocou metódy ${method}. Používateľ preferuje ${taste} chuť. Uveď ideálny pomer kávy k vode, teplotu vody a ďalšie dôležité kroky. Odpovedz stručne.`;
+
+    const data = await requestOpenAIChat({
+      messages: [
+        {
+          role: 'system',
+          content: 'Si skúsený barista, ktorý navrhuje recepty na kávu.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.7,
+    });
+
+    const recipe = data?.choices?.[0]?.message?.content?.trim() || '';
+    return res.json({ recipe });
+  } catch (error) {
+    console.error('OpenAI recipe error:', error?.message ?? error);
+    return res.status(500).json({ error: 'Recipe failed' });
   }
 });
 
