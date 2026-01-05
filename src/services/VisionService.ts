@@ -1,3 +1,4 @@
+import { API_HOST } from './api';
 import { showToast } from '../utils/toast';
 
 /**
@@ -8,6 +9,7 @@ import { showToast } from '../utils/toast';
  * transparently switches to the offline model when the remote Vision API fails
  * or is unreachable. Users are notified when the offline model is used.
  *
+ * @param {string} base64Image - Base64 encoded image content (without data URL).
  * @param {string} imagePath - Absolute path to the image that should be
  * recognized. The image must be accessible from the device file system.
  * @returns {Promise<string|null>} Resolves with the detected coffee label or
@@ -15,23 +17,65 @@ import { showToast } from '../utils/toast';
  * @throws {Error} Propagates network errors if the remote Vision API request
  * throws before the offline fallback is attempted.
  */
-export async function recognizeCoffee(imagePath: string): Promise<string | null> {
+export async function recognizeCoffee(
+  base64Image: string,
+  imagePath: string,
+): Promise<string | null> {
   const cacheKey = `vision:${imagePath}`;
 
+  const normalizedBase64 = base64Image.replace(/^data:image\/\w+;base64,/, '');
+  const payload = {
+    requests: [
+      {
+        image: { content: normalizedBase64 },
+        features: [{ type: 'TEXT_DETECTION' }],
+      },
+    ],
+  };
+  const proxyUrl = `${API_HOST}/ocr`;
+  const visionApiKey = process.env.EXPO_PUBLIC_GOOGLE_VISION_API_KEY;
+  const directUrl = visionApiKey
+    ? `https://vision.googleapis.com/v1/images:annotate?key=${visionApiKey}`
+    : null;
 
   try {
     // pokus o použitie Google Vision API
-    const res = await fetch('https://vision.googleapis.com/v1/images:annotate', {
+    const res = await fetch(proxyUrl, {
       method: 'POST',
-      body: JSON.stringify({ imagePath }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
     });
     if (res.ok) {
       const result = await res.json();
-      const label = result.label || 'neznáme';
+      const label =
+        result.text ||
+        result.responses?.[0]?.fullTextAnnotation?.text ||
+        result.responses?.[0]?.textAnnotations?.[0]?.description ||
+        'neznáme';
       return label;
     }
   } catch (err) {
     // pokračujeme offline
+  }
+
+  if (directUrl) {
+    try {
+      const res = await fetch(directUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const result = await res.json();
+        const label =
+          result.responses?.[0]?.fullTextAnnotation?.text ||
+          result.responses?.[0]?.textAnnotations?.[0]?.description ||
+          'neznáme';
+        return label;
+      }
+    } catch (err) {
+      // pokračujeme offline
+    }
   }
 
   try {
