@@ -1409,18 +1409,36 @@ app.get('/api/ocr/history', async (req, res) => {
       const structured = parseStructuredMetadata(row.structured_metadata);
       const structuredPayload =
         structured && typeof structured === 'object' ? structured : null;
+      const normalizedStructuredPayload = structuredPayload
+        ? { ...structuredPayload }
+        : null;
+
+      if (normalizedStructuredPayload) {
+        const normalizationMap = {
+          flavorNotes: 'flavor_notes',
+          roastLevel: 'roast_level',
+          roastDate: 'roast_date',
+          countryOfOrigin: 'country_of_origin',
+        };
+
+        Object.entries(normalizationMap).forEach(([camelKey, snakeKey]) => {
+          if (camelKey in normalizedStructuredPayload && !(snakeKey in normalizedStructuredPayload)) {
+            normalizedStructuredPayload[snakeKey] = normalizedStructuredPayload[camelKey];
+          }
+          if (camelKey in normalizedStructuredPayload) {
+            delete normalizedStructuredPayload[camelKey];
+          }
+        });
+      }
       const structuredConfidence = parseStructuredPayload(
         row.structured_confidence,
         'structured_confidence'
       );
       const structuredRaw = parseStructuredPayload(row.structured_raw, 'structured_raw');
-      const flavorNotes =
-        structuredPayload?.flavor_notes ?? structuredPayload?.flavorNotes ?? null;
-      const varietals = structuredPayload?.varietals ?? null;
-      const roastLevel =
-        structuredPayload?.roast_level ?? structuredPayload?.roastLevel ?? null;
-      const roastDate =
-        structuredPayload?.roast_date ?? structuredPayload?.roastDate ?? null;
+      const flavorNotes = normalizedStructuredPayload?.flavor_notes ?? null;
+      const varietals = normalizedStructuredPayload?.varietals ?? null;
+      const roastLevel = normalizedStructuredPayload?.roast_level ?? null;
+      const roastDate = normalizedStructuredPayload?.roast_date ?? null;
       const originalText = typeof row.original_text === 'string' ? row.original_text : null;
       const correctedText = typeof row.corrected_text === 'string' ? row.corrected_text : null;
 
@@ -1429,7 +1447,7 @@ app.get('/api/ocr/history', async (req, res) => {
         coffee_name: row.coffee_name,
         original_text: originalText,
         corrected_text: correctedText,
-        structured_metadata: structuredPayload,
+        structured_metadata: normalizedStructuredPayload,
         structured_confidence: structuredConfidence,
         structured_raw: structuredRaw,
         created_at: row.created_at,
@@ -1437,11 +1455,14 @@ app.get('/api/ocr/history', async (req, res) => {
         match_percentage: row.match_score || 0,
         is_recommended: row.is_recommended || false,
         is_purchased: false,
-        brand: structuredPayload?.brand ?? structuredPayload?.roaster ?? null,
-        origin: structuredPayload?.origin ?? structuredPayload?.country_of_origin ?? null,
+        brand: normalizedStructuredPayload?.brand ?? normalizedStructuredPayload?.roaster ?? null,
+        origin:
+          normalizedStructuredPayload?.origin ??
+          normalizedStructuredPayload?.country_of_origin ??
+          null,
         roast_level: roastLevel,
         flavor_notes: flavorNotes,
-        processing: structuredPayload?.processing ?? null,
+        processing: normalizedStructuredPayload?.processing ?? null,
         roast_date: roastDate,
         varietals,
       };

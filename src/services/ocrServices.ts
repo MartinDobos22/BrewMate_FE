@@ -1057,15 +1057,12 @@ export const fetchOCRHistory = async (limit: number = 10): Promise<OCRHistory[]>
           structuredMetadata?.country_of_origin ??
           item.country_of_origin ??
           null,
-        roast_level:
-          item.roast_level ?? structuredMetadata?.roast_level ?? structuredMetadata?.roastLevel ?? item.roastLevel ?? null,
-        flavor_notes:
-          item.flavor_notes ?? structuredMetadata?.flavor_notes ?? structuredMetadata?.flavorNotes ?? item.flavorNotes ?? null,
+        roast_level: item.roast_level ?? structuredMetadata?.roast_level ?? null,
+        flavor_notes: item.flavor_notes ?? structuredMetadata?.flavor_notes ?? null,
         processing: item.processing ?? structuredMetadata?.processing ?? null,
-        roast_date:
-          item.roast_date ?? structuredMetadata?.roast_date ?? structuredMetadata?.roastDate ?? item.roastDate ?? null,
+        roast_date: item.roast_date ?? structuredMetadata?.roast_date ?? null,
         varietals: item.varietals ?? structuredMetadata?.varietals ?? null,
-        thumbnail_url: item.thumbnail_url ?? item.thumbnailUrl ?? null,
+        thumbnail_url: item.thumbnail_url ?? null,
         structured_metadata: structuredMetadata,
       };
     });
