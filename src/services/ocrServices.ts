@@ -955,25 +955,127 @@ export const processOCR = async (
 
 export interface OCRHistory {
   id: string;
-  coffee_name: string;
-  original_text?: string | null;
-  corrected_text?: string | null;
-  created_at: Date;
+  coffeeName: string;
+  originalText?: string | null;
+  correctedText?: string | null;
+  createdAt: Date;
   rating?: number;
-  match_percentage?: number;
-  is_recommended?: boolean;
-  is_purchased?: boolean;
-  is_favorite?: boolean;
+  matchPercentage?: number;
+  isRecommended?: boolean;
+  isPurchased?: boolean;
+  isFavorite?: boolean;
   brand?: string | null;
   origin?: string | null;
-  roast_level?: string | null;
-  flavor_notes?: string[] | string | null;
+  roastLevel?: string | null;
+  flavorNotes?: string[] | string | null;
   processing?: string | null;
-  roast_date?: string | null;
+  roastDate?: string | null;
   varietals?: string[] | string | null;
-  thumbnail_url?: string | null;
-  structured_metadata?: Record<string, unknown> | null;
+  thumbnailUrl?: string | null;
+  structuredMetadata?: StructuredCoffeeMetadata | null;
 }
+
+const normalizeHistoryStructuredMetadata = (
+  value: unknown
+): StructuredCoffeeMetadata | null => {
+  const parsed = normalizeStructuredMetadataInput(value);
+  if (!parsed) return null;
+
+  const normalizeString = (entry: unknown): string | null => {
+    if (typeof entry !== 'string') return null;
+    const trimmed = entry.trim();
+    return trimmed.length ? trimmed : null;
+  };
+
+  const normalizeStringArray = (entry: unknown): string[] | null => {
+    if (Array.isArray(entry)) {
+      const cleaned = entry
+        .map(item => (typeof item === 'string' ? item.trim() : ''))
+        .filter(Boolean);
+      return cleaned.length ? cleaned : null;
+    }
+    if (typeof entry === 'string') {
+      const parts = entry
+        .split(/[,;\n]/)
+        .map(part => part.trim())
+        .filter(Boolean);
+      return parts.length ? parts : null;
+    }
+    return null;
+  };
+
+  const confidenceSource =
+    parsed.confidenceFlags ?? parsed.confidence_flags ?? parsed.flags ?? null;
+  let confidenceFlags: StructuredCoffeeMetadata['confidenceFlags'] = null;
+
+  if (confidenceSource && typeof confidenceSource === 'object') {
+    confidenceFlags = {
+      roaster:
+        typeof (confidenceSource as Record<string, unknown>).roaster === 'boolean'
+          ? (confidenceSource as Record<string, unknown>).roaster as boolean
+          : null,
+      origin:
+        typeof (confidenceSource as Record<string, unknown>).origin === 'boolean'
+          ? (confidenceSource as Record<string, unknown>).origin as boolean
+          : null,
+      roastLevel:
+        typeof (confidenceSource as Record<string, unknown>).roastLevel === 'boolean'
+          ? (confidenceSource as Record<string, unknown>).roastLevel as boolean
+          : typeof (confidenceSource as Record<string, unknown>).roast_level === 'boolean'
+          ? (confidenceSource as Record<string, unknown>).roast_level as boolean
+          : null,
+      processing:
+        typeof (confidenceSource as Record<string, unknown>).processing === 'boolean'
+          ? (confidenceSource as Record<string, unknown>).processing as boolean
+          : null,
+      flavorNotes:
+        typeof (confidenceSource as Record<string, unknown>).flavorNotes === 'boolean'
+          ? (confidenceSource as Record<string, unknown>).flavorNotes as boolean
+          : typeof (confidenceSource as Record<string, unknown>).flavor_notes === 'boolean'
+          ? (confidenceSource as Record<string, unknown>).flavor_notes as boolean
+          : null,
+      roastDate:
+        typeof (confidenceSource as Record<string, unknown>).roastDate === 'boolean'
+          ? (confidenceSource as Record<string, unknown>).roastDate as boolean
+          : typeof (confidenceSource as Record<string, unknown>).roast_date === 'boolean'
+          ? (confidenceSource as Record<string, unknown>).roast_date as boolean
+          : null,
+      varietals:
+        typeof (confidenceSource as Record<string, unknown>).varietals === 'boolean'
+          ? (confidenceSource as Record<string, unknown>).varietals as boolean
+          : null,
+    };
+  }
+
+  const metadata: StructuredCoffeeMetadata = {
+    roaster:
+      normalizeString(
+        parsed.roaster ?? parsed.roaster_name ?? parsed.roasterName ?? parsed.brand
+      ) ?? null,
+    origin:
+      normalizeString(parsed.origin ?? parsed.country_of_origin ?? parsed.countryOfOrigin) ??
+      null,
+    roastLevel:
+      normalizeString(parsed.roastLevel ?? parsed.roast_level) ?? null,
+    processing: normalizeString(parsed.processing) ?? null,
+    flavorNotes:
+      normalizeStringArray(parsed.flavorNotes ?? parsed.flavor_notes ?? parsed.notes) ??
+      null,
+    roastDate:
+      normalizeString(parsed.roastDate ?? parsed.roast_date) ?? null,
+    varietals:
+      normalizeStringArray(parsed.varietals ?? parsed.variety ?? parsed.varieties) ??
+      null,
+    confidenceFlags,
+  };
+
+  const hasAnyValue =
+    [metadata.roaster, metadata.origin, metadata.roastLevel, metadata.processing, metadata.roastDate].some(Boolean) ||
+    (metadata.flavorNotes?.length ?? 0) > 0 ||
+    (metadata.varietals?.length ?? 0) > 0;
+
+  return hasAnyValue ? metadata : null;
+};
 
 /**
  * Fetches OCR scan history for the authenticated user from the backend service.
@@ -1003,44 +1105,68 @@ export const fetchOCRHistory = async (limit: number = 10): Promise<OCRHistory[]>
     const data = await response.json();
 
     return data.map((item: any) => {
-      const structuredMetadata = normalizeStructuredMetadataInput(item.structured_metadata);
+      const structuredMetadata = normalizeHistoryStructuredMetadata(
+        item.structured_metadata ?? item.structuredMetadata
+      );
       const normalizedOriginal =
-        typeof item.original_text === 'string' ? item.original_text : null;
+        typeof item.original_text === 'string'
+          ? item.original_text
+          : typeof item.originalText === 'string'
+          ? item.originalText
+          : null;
       const normalizedCorrected =
-        typeof item.corrected_text === 'string' ? item.corrected_text : null;
+        typeof item.corrected_text === 'string'
+          ? item.corrected_text
+          : typeof item.correctedText === 'string'
+          ? item.correctedText
+          : null;
       const fallbackText =
-        normalizedCorrected || normalizedOriginal || item.coffee_name || '';
+        normalizedCorrected ||
+        normalizedOriginal ||
+        item.coffee_name ||
+        item.coffeeName ||
+        '';
 
       return {
         id: item.id,
-        coffee_name: item.coffee_name || extractCoffeeName(fallbackText),
-        original_text: normalizedOriginal || normalizedCorrected || item.coffee_name || null,
-        corrected_text: normalizedCorrected || normalizedOriginal || item.coffee_name || null,
-        created_at: new Date(item.created_at),
+        coffeeName:
+          item.coffee_name ??
+          item.coffeeName ??
+          extractCoffeeName(fallbackText),
+        originalText:
+          normalizedOriginal || normalizedCorrected || item.coffee_name || item.coffeeName || null,
+        correctedText:
+          normalizedCorrected || normalizedOriginal || item.coffee_name || item.coffeeName || null,
+        createdAt: new Date(item.created_at ?? item.createdAt),
         rating: item.rating,
-        match_percentage: item.match_percentage,
-        is_recommended: item.is_recommended,
-        is_purchased: item.is_purchased,
-        is_favorite: item.is_favorite,
+        matchPercentage: item.match_percentage ?? item.matchPercentage,
+        isRecommended: item.is_recommended ?? item.isRecommended,
+        isPurchased: item.is_purchased ?? item.isPurchased,
+        isFavorite: item.is_favorite ?? item.isFavorite,
         brand:
           item.brand ??
           structuredMetadata?.roaster ??
-          structuredMetadata?.brand ??
           item.roaster ??
+          item.roaster_name ??
+          item.roasterName ??
           null,
         origin:
           item.origin ??
           structuredMetadata?.origin ??
-          structuredMetadata?.country_of_origin ??
-          item.country_of_origin ??
           null,
-        roast_level: item.roast_level ?? structuredMetadata?.roast_level ?? null,
-        flavor_notes: item.flavor_notes ?? structuredMetadata?.flavor_notes ?? null,
-        processing: item.processing ?? structuredMetadata?.processing ?? null,
-        roast_date: item.roast_date ?? structuredMetadata?.roast_date ?? null,
-        varietals: item.varietals ?? structuredMetadata?.varietals ?? null,
-        thumbnail_url: item.thumbnail_url ?? null,
-        structured_metadata: structuredMetadata,
+        roastLevel:
+          item.roast_level ?? item.roastLevel ?? structuredMetadata?.roastLevel ?? null,
+        flavorNotes:
+          item.flavor_notes ?? item.flavorNotes ?? structuredMetadata?.flavorNotes ?? null,
+        processing:
+          item.processing ?? structuredMetadata?.processing ?? null,
+        roastDate:
+          item.roast_date ?? item.roastDate ?? structuredMetadata?.roastDate ?? null,
+        varietals:
+          item.varietals ?? structuredMetadata?.varietals ?? null,
+        thumbnailUrl:
+          item.thumbnail_url ?? item.thumbnailUrl ?? null,
+        structuredMetadata,
       };
     });
   } catch (error) {

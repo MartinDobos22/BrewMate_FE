@@ -44,23 +44,12 @@ import {
 import type {
   RecipeHistory,
   OCRRecommendationPayload,
+  OCRHistory,
 } from './services';
 import { formatStructuredRecommendation } from './services';
 import { BrewContext } from '../../types/Personalization';
 import { usePersonalization } from '../../hooks/usePersonalization';
 import { showToast } from '../../utils/toast';
-
-interface OCRHistory {
-  id: string;
-  coffee_name: string;
-  original_text: string;
-  corrected_text: string;
-  created_at: Date;
-  rating?: number;
-  match_percentage?: number;
-  is_recommended?: boolean;
-  is_favorite?: boolean;
-}
 
 interface ScanResult {
   original: string;

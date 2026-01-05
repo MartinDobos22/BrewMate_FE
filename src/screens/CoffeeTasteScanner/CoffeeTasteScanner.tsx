@@ -724,10 +724,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
   };
 
   const buildMetadataFromHistory = useCallback((item: OCRHistory): StructuredCoffeeMetadata | null => {
-    const structuredMetadata =
-      item.structured_metadata && typeof item.structured_metadata === 'object'
-        ? (item.structured_metadata as Record<string, unknown>)
-        : null;
+    const structuredMetadata = item.structuredMetadata ?? null;
 
     const resolveStructuredStringValue = (...values: Array<unknown>): string | null => {
       for (const value of values) {
@@ -753,34 +750,28 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
       normalizeStructuredStringValue(item.brand) ??
       resolveStructuredStringValue(
         structuredMetadata?.roaster,
-        structuredMetadata?.roaster_name,
-        structuredMetadata?.brand,
       );
     const origin =
       normalizeStructuredStringValue(item.origin) ??
-      resolveStructuredStringValue(structuredMetadata?.origin, structuredMetadata?.country_of_origin);
+      resolveStructuredStringValue(structuredMetadata?.origin);
     const roastLevel =
-      normalizeStructuredStringValue(item.roast_level) ??
-      resolveStructuredStringValue(structuredMetadata?.roast_level, structuredMetadata?.roastLevel);
+      normalizeStructuredStringValue(item.roastLevel) ??
+      resolveStructuredStringValue(structuredMetadata?.roastLevel);
     const processing =
       normalizeStructuredStringValue(item.processing) ??
       resolveStructuredStringValue(structuredMetadata?.processing);
     const roastDate =
-      normalizeStructuredStringValue(item.roast_date) ??
-      resolveStructuredStringValue(structuredMetadata?.roast_date, structuredMetadata?.roastDate);
+      normalizeStructuredStringValue(item.roastDate) ??
+      resolveStructuredStringValue(structuredMetadata?.roastDate);
     const flavorNotes =
-      normalizeStructuredStringArrayValue(item.flavor_notes) ??
+      normalizeStructuredStringArrayValue(item.flavorNotes) ??
       resolveStructuredArrayValue(
-        structuredMetadata?.flavor_notes,
         structuredMetadata?.flavorNotes,
-        structuredMetadata?.notes,
       );
     const varietals =
       normalizeStructuredStringArrayValue(item.varietals) ??
       resolveStructuredArrayValue(
         structuredMetadata?.varietals,
-        structuredMetadata?.variety,
-        structuredMetadata?.varieties,
       );
 
     const metadata: StructuredCoffeeMetadata = {
@@ -1152,16 +1143,16 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
    */
   const loadFromHistory = (item: OCRHistory) => {
     const historyMetadata = buildMetadataFromHistory(item);
-    const fallbackText = item.corrected_text || item.original_text || item.coffee_name || '';
-    const originalText = item.original_text || item.corrected_text || item.coffee_name || '';
-    const correctedText = item.corrected_text || item.original_text || item.coffee_name || '';
+    const fallbackText = item.correctedText || item.originalText || item.coffeeName || '';
+    const originalText = item.originalText || item.correctedText || item.coffeeName || '';
+    const correctedText = item.correctedText || item.originalText || item.coffeeName || '';
     const historyResult: ScanResultLike = {
       original: originalText || fallbackText,
       corrected: correctedText || fallbackText,
       recommendation: '',
-      match_percentage: item.match_percentage,
-      isRecommended: item.is_recommended,
-      isFavorite: item.is_favorite,
+      match_percentage: item.matchPercentage,
+      isRecommended: item.isRecommended,
+      isFavorite: item.isFavorite,
       structuredMetadata: historyMetadata,
       structuredConfidence: null,
       structuredRaw: historyMetadata,
@@ -1170,9 +1161,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
     applyScanResult(historyResult);
     setEditedText(correctedText || fallbackText);
     setUserRating(item.rating || 0);
-    setPurchaseSelection(item.is_purchased ?? null);
-    setPurchased(item.is_purchased ?? null);
-    setIsFavorite(item.is_favorite ?? false);
+    setPurchaseSelection(item.isPurchased ?? null);
+    setPurchased(item.isPurchased ?? null);
+    setIsFavorite(item.isFavorite ?? false);
     setCurrentView('scan');
     setIsHistoryReadOnly(true);
     setConfirmModalVisible(false);
@@ -2037,10 +2028,10 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
                               <View style={styles.historyCardAccent} />
                               <View style={styles.historyCardContent}>
                                 <Text style={styles.historyCardName} numberOfLines={1}>
-                                  {item.coffee_name || 'Neznáma káva'}
+                                  {item.coffeeName || 'Neznáma káva'}
                                 </Text>
                                 <Text style={styles.historyCardDate}>
-                                  {new Date(item.created_at).toLocaleDateString('sk-SK')}
+                                  {new Date(item.createdAt).toLocaleDateString('sk-SK')}
                                 </Text>
                                 {item.rating ? (
                                   <Text style={styles.historyCardRating}>

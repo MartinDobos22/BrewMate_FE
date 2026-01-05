@@ -11,29 +11,29 @@ interface ScanDetailScreenProps {
 const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({ scan }) => {
   const { colors } = useTheme();
 
-  const flavorNotes = Array.isArray(scan.flavor_notes)
-    ? scan.flavor_notes.filter((note): note is string => typeof note === 'string')
-    : typeof scan.flavor_notes === 'string'
-      ? [scan.flavor_notes]
+  const flavorNotes = Array.isArray(scan.flavorNotes)
+    ? scan.flavorNotes.filter((note): note is string => typeof note === 'string')
+    : typeof scan.flavorNotes === 'string'
+      ? [scan.flavorNotes]
       : [];
 
   const detailRows: { label: string; value?: string | number | null }[] = [
     { label: 'Pražiareň / Značka', value: scan.brand },
     { label: 'Pôvod', value: scan.origin },
-    { label: 'Praženie', value: scan.roast_level },
-    { label: 'Zhoda s profilom', value: scan.match_percentage ? `${scan.match_percentage}%` : null },
+    { label: 'Praženie', value: scan.roastLevel },
+    { label: 'Zhoda s profilom', value: scan.matchPercentage ? `${scan.matchPercentage}%` : null },
     { label: 'Hodnotenie', value: typeof scan.rating === 'number' ? `${scan.rating}/5` : null },
-    { label: 'Odporúčanie AI', value: scan.is_recommended === false ? 'Skôr NIE' : scan.is_recommended ? 'Skôr ÁNO' : null },
-    { label: 'Obľúbená', value: scan.is_favorite ? 'Áno' : null },
+    { label: 'Odporúčanie AI', value: scan.isRecommended === false ? 'Skôr NIE' : scan.isRecommended ? 'Skôr ÁNO' : null },
+    { label: 'Obľúbená', value: scan.isFavorite ? 'Áno' : null },
   ];
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>{scan.coffee_name || 'Neznáma káva'}</Text>
-        {scan.created_at ? (
+        <Text style={[styles.title, { color: colors.text }]}>{scan.coffeeName || 'Neznáma káva'}</Text>
+        {scan.createdAt ? (
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            {new Date(scan.created_at).toLocaleString('sk-SK')}
+            {new Date(scan.createdAt).toLocaleString('sk-SK')}
           </Text>
         ) : null}
       </View>
@@ -58,7 +58,7 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({ scan }) => {
 
       <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Rozpoznaný text</Text>
-        <Text style={[styles.body, { color: colors.text }]}>{scan.corrected_text || scan.original_text}</Text>
+        <Text style={[styles.body, { color: colors.text }]}>{scan.correctedText || scan.originalText}</Text>
       </View>
     </ScrollView>
   );

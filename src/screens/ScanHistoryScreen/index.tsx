@@ -28,7 +28,7 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ onSelectScan }) =
     try {
       const data = await fetchOCRHistory(200);
       const sorted = data.sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
       setHistory(sorted);
     } catch (error) {
@@ -53,8 +53,8 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ onSelectScan }) =
       style={[styles.item, { borderColor: colors.border }]}
       onPress={() => onSelectScan?.(item)}
     >
-      {item.thumbnail_url ? (
-        <Image source={{ uri: item.thumbnail_url }} style={styles.thumbnail} />
+      {item.thumbnailUrl ? (
+        <Image source={{ uri: item.thumbnailUrl }} style={styles.thumbnail} />
       ) : (
         <View style={[styles.thumbnailPlaceholder, { backgroundColor: colors.cardBackground  }]}>
           <Text style={styles.thumbnailEmoji}>☕</Text>
@@ -62,7 +62,7 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ onSelectScan }) =
       )}
       <View style={styles.itemContent}>
         <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
-          {item.coffee_name || 'Neznáma káva'}
+          {item.coffeeName || 'Neznáma káva'}
         </Text>
         {item.brand ? (
           <Text style={[styles.meta, { color: colors.text }]} numberOfLines={1}>
@@ -75,7 +75,7 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ onSelectScan }) =
           </Text>
         ) : null}
         <Text style={[styles.date, { color: colors.textSecondary  }]}>
-          {new Date(item.created_at).toLocaleString('sk-SK')}
+          {new Date(item.createdAt).toLocaleString('sk-SK')}
         </Text>
         <View style={styles.metaRow}>
           {typeof item.rating === 'number' ? (
@@ -83,9 +83,9 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ onSelectScan }) =
               ⭐ {item.rating}
             </Text>
           ) : null}
-          {typeof item.match_percentage === 'number' ? (
+          {typeof item.matchPercentage === 'number' ? (
             <Text style={[styles.chip, { backgroundColor: colors.cardBackground , color: colors.text }]}>
-              🎯 {item.match_percentage}%
+              🎯 {item.matchPercentage}%
             </Text>
           ) : null}
         </View>
