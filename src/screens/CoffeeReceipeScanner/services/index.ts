@@ -7,7 +7,7 @@ export {
   rateOCRResult,
   isCoffeeRelatedText,
 } from '../../../services/ocrServices';
-export type { OCRRecommendationPayload, OCRStructuredRecommendation } from '../../../services/ocrServices';
+export type { OCRRecommendationPayload, OCRStructuredRecommendation, OCRHistory } from '../../../services/ocrServices';
 export { formatStructuredRecommendation } from '../../../services/ocrServices';
 export { saveRecipe, fetchRecipeHistory } from '../../../services/recipeServices';
 export type { RecipeHistory } from '../../../services/recipeServices';
