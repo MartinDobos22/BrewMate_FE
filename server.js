@@ -687,20 +687,24 @@ app.post('/api/auth', async (req, res) => {
  */
 app.post("/ocr", async (req, res) => {
   try {
-    const { base64image } = req.body;
-    if (!base64image) {
+    const { base64image, requests } = req.body;
+    const base64Content =
+      base64image || requests?.[0]?.image?.content || null;
+    if (!base64Content && !requests) {
       return res.status(400).json({ error: "Chýba obrázok v base64." });
     }
 
-    const payload = {
-      requests: [
-        {
-          image: { content: base64image },
-          features: [{ type: "TEXT_DETECTION" }]
-        }
-      ]
-    };
-    console.log('📤 [Vision] Payload size:', base64image.length);
+    const payload = requests
+      ? { requests }
+      : {
+          requests: [
+            {
+              image: { content: base64Content },
+              features: [{ type: "TEXT_DETECTION" }]
+            }
+          ]
+        };
+    console.log('📤 [Vision] Payload size:', base64Content?.length ?? 0);
 
     const url = `https://vision.googleapis.com/v1/images:annotate?key=${GOOGLE_VISION_API_KEY}`;
     const response = await axios.post(url, payload, {

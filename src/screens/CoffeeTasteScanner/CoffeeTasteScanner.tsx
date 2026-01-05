@@ -1040,7 +1040,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
         return;
       }
 
-      const label = existingResult?.corrected || (await recognizeCoffee(imagePath));
+      const label =
+        existingResult?.corrected || (await recognizeCoffee(base64image, imagePath));
       if (!label) {
         handleNonCoffeeDetected({ reason: 'Nepodarilo sa rozpoznať kávu. Skús to znova.' });
         return;
