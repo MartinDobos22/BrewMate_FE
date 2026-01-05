@@ -1468,6 +1468,7 @@ app.get('/api/ocr/history', async (req, res) => {
               coffee_name,
               match_score,
               is_recommended,
+              is_purchased,
               created_at,
               original_text,
               corrected_text,
@@ -1530,7 +1531,7 @@ app.get('/api/ocr/history', async (req, res) => {
         rating: null,
         match_percentage: row.match_score || 0,
         is_recommended: row.is_recommended || false,
-        is_purchased: false,
+        is_purchased: row.is_purchased || false,
         brand: normalizedStructuredPayload?.brand ?? normalizedStructuredPayload?.roaster ?? null,
         origin:
           normalizedStructuredPayload?.origin ??
@@ -1574,7 +1575,7 @@ app.post('/api/ocr/purchase', async (req, res) => {
 
     await db.query(
       `UPDATE scan_events
-       SET is_recommended = true,
+       SET is_purchased = true,
            structured_metadata = COALESCE($3, structured_metadata)
        WHERE id = $1 AND user_id = $2`,
       [ocr_log_id, uid, structuredMetadata]
