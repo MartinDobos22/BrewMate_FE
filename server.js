@@ -782,6 +782,55 @@ const mergeStructuredMetadata = (base, extracted) => {
   return merged;
 };
 
+const normalizeStructuredMetadata = (structured) => {
+  if (!structured || typeof structured !== 'object') return null;
+
+  const normalizeTextValue = (value) => {
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : null;
+    }
+    if (Array.isArray(value)) {
+      const firstString = value.find((item) => typeof item === 'string' && item.trim().length > 0);
+      return firstString ? firstString.trim() : null;
+    }
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+    return null;
+  };
+
+  const normalizeFlavorNotes = (value) => {
+    if (value === null || value === undefined) return null;
+    if (Array.isArray(value)) {
+      const notes = value
+        .filter((item) => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
+      return notes.length > 0 ? notes : null;
+    }
+    if (typeof value === 'string') {
+      const notes = value
+        .split(/[,;]+/)
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
+      return notes.length > 0 ? notes : null;
+    }
+    return null;
+  };
+
+  return {
+    origin: normalizeTextValue(structured.origin),
+    roast_level: normalizeTextValue(structured.roast_level),
+    flavor_notes: normalizeFlavorNotes(structured.flavor_notes),
+    acidity: normalizeTextValue(structured.acidity),
+    sweetness: normalizeTextValue(structured.sweetness),
+    bitterness: normalizeTextValue(structured.bitterness),
+    body: normalizeTextValue(structured.body),
+  };
+};
+
 const extractStructuredMetadataFromText = async (correctedText) => {
   if (!correctedText) return null;
   const extractionPrompt = `
@@ -827,7 +876,8 @@ ${correctedText}
 
   const extractionContent = extractionResponse.data.choices?.[0]?.message?.content?.trim();
   if (!extractionContent) return null;
-  return JSON.parse(extractionContent);
+  const parsed = JSON.parse(extractionContent);
+  return normalizeStructuredMetadata(parsed);
 };
 
 /**
