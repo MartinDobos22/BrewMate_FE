@@ -1123,7 +1123,7 @@ app.get('/api/dashboard', async (req, res) => {
       id: row.id.toString(),
       name: row.coffee_name || 'Neznáma káva',
       rating: null,
-      match: row.match_score ? parseFloat(row.match_score) : 0,
+      match_percentage: row.match_score ? parseFloat(row.match_score) : 0,
       timestamp: row.created_at,
       isRecommended: row.is_recommended || (row.match_score ?? 0) > 75,
     }));
@@ -1836,11 +1836,11 @@ async function generateRecommendations(preferences) {
   const recommendations = [];
 
   const coffees = [
-    { name: 'Colombia Geisha', rating: 4.8, match: 95, origin: 'Colombia' },
-    { name: 'Ethiopia Yirgacheffe', rating: 4.6, match: 88, origin: 'Ethiopia' },
-    { name: 'Brazil Santos', rating: 4.5, match: 82, origin: 'Brazil' },
-    { name: 'Guatemala Antigua', rating: 4.7, match: 90, origin: 'Guatemala' },
-    { name: 'Kenya AA', rating: 4.9, match: 93, origin: 'Kenya' },
+    { name: 'Colombia Geisha', rating: 4.8, match_percentage: 95, origin: 'Colombia' },
+    { name: 'Ethiopia Yirgacheffe', rating: 4.6, match_percentage: 88, origin: 'Ethiopia' },
+    { name: 'Brazil Santos', rating: 4.5, match_percentage: 82, origin: 'Brazil' },
+    { name: 'Guatemala Antigua', rating: 4.7, match_percentage: 90, origin: 'Guatemala' },
+    { name: 'Kenya AA', rating: 4.9, match_percentage: 93, origin: 'Kenya' },
   ];
 
   // Filtruj podľa preferencií ak existujú
@@ -1853,7 +1853,7 @@ async function generateRecommendations(preferences) {
     id: Math.random().toString(),
     name: coffee.name,
     rating: coffee.rating,
-    match: coffee.match,
+    match_percentage: coffee.match_percentage,
     timestamp: new Date(),
     isRecommended: true
   }));

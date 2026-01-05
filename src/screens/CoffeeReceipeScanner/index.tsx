@@ -66,7 +66,7 @@ interface ScanResult {
   original: string;
   corrected: string;
   recommendation: OCRRecommendationPayload;
-  matchPercentage?: number;
+  match_percentage?: number;
   isRecommended?: boolean;
   scanId?: string;
   brewingMethods?: string[];
@@ -651,8 +651,8 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
   };
   const showBackButton = currentView !== 'home';
   const brewingMethods = scanResult?.brewingMethods ?? [];
-  const matchLabel = scanResult?.matchPercentage
-    ? `${scanResult.matchPercentage}% zhoda`
+  const matchLabel = scanResult?.match_percentage
+    ? `${scanResult.match_percentage}% zhoda`
     : undefined;
   const tasteSuggestions = useMemo(
     () => [
