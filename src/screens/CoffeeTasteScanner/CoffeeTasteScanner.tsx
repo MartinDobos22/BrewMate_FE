@@ -59,7 +59,7 @@ interface ScanResult {
   corrected: string;
   recommendation: OCRRecommendationPayload;
   hasProfile?: boolean;
-  matchPercentage?: number;
+  match_percentage?: number;
   isRecommended?: boolean;
   scanId?: string;
   source?: 'offline' | 'online';
@@ -980,8 +980,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
         Alert.alert(
           '✅ Skenovanie dokončené',
           normalizedResult.isRecommended
-            ? `Táto káva má ${normalizedResult.matchPercentage}% zhodu s tvojimi preferenciami!`
-            : `Zhoda s preferenciami: ${normalizedResult.matchPercentage}%`,
+            ? `Táto káva má ${normalizedResult.match_percentage}% zhodu s tvojimi preferenciami!`
+            : `Zhoda s preferenciami: ${normalizedResult.match_percentage}%`,
           [
             { text: 'OK', style: 'default' }
           ]
@@ -1159,7 +1159,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
       original: originalText || fallbackText,
       corrected: correctedText || fallbackText,
       recommendation: '',
-      matchPercentage: item.match_percentage,
+      match_percentage: item.match_percentage,
       isRecommended: item.is_recommended,
       isFavorite: item.is_favorite,
       structuredMetadata: historyMetadata,
@@ -1278,7 +1278,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
       const metadata: Record<string, unknown> = {
         source: 'taste-scanner',
         scanId: scanResult.scanId,
-        matchPercentage: scanResult.matchPercentage,
+        match_percentage: scanResult.match_percentage,
         isRecommended: scanResult.isRecommended,
       };
 
@@ -1540,8 +1540,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({ onBack, onH
   };
 
   const showBackButton = currentView !== 'home';
-  const matchLabel = scanResult?.matchPercentage
-    ? `${scanResult.matchPercentage}% zhoda`
+  const matchLabel = scanResult?.match_percentage
+    ? `${scanResult.match_percentage}% zhoda`
     : undefined;
   const refreshControl =
     currentView === 'home'

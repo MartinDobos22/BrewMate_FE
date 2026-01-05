@@ -45,7 +45,7 @@ const mapCoffeeItem = (item: Record<string, any>): CoffeeData => {
           .filter((note: string) => note.length > 0)
       : undefined;
 
-  const matchValue = item.match ?? item.match_score ?? item.match_percentage;
+  const matchValue = item.match_percentage;
   const roastLevelValue =
     typeof item.roast_level === 'number'
       ? item.roast_level
@@ -186,7 +186,7 @@ export const fetchDashboardData = async (): Promise<DashboardData | null> => {
         id: item.id,
         name: item.name,
         rating: item.rating,
-        match: item.match,
+        match: item.match_percentage,
         timestamp: new Date(item.timestamp),
         isRecommended: item.isRecommended,
       })) || [],
@@ -194,7 +194,7 @@ export const fetchDashboardData = async (): Promise<DashboardData | null> => {
         id: item.id,
         name: item.name,
         rating: item.rating,
-        match: item.match,
+        match: item.match_percentage,
         timestamp: new Date(item.timestamp),
         isRecommended: item.isRecommended,
       })) || [],

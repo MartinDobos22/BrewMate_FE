@@ -311,7 +311,7 @@ export const formatCoffeeRecommendation = (text: string): FormattedRecommendatio
 
   // Extrahuj match percentage ak existuje
   const matchMatch = text.match(/(\d+)\s*%\s*(zhoda|match)/i);
-  const matchPercentage = matchMatch ? parseInt(matchMatch[1]) : null;
+  const match_percentage = matchMatch ? parseInt(matchMatch[1]) : null;
 
   // Určí sentiment
   const positivePhrases = ['výborná', 'perfektná', 'ideálna', 'odporúčam', 'skvelá'];
@@ -328,7 +328,7 @@ export const formatCoffeeRecommendation = (text: string): FormattedRecommendatio
 
   return {
     sections: parsed.sections,
-    matchPercentage,
+    match_percentage,
     sentiment,
     summary: parsed.sections[0]?.content[0] || text.substring(0, 100)
   };
@@ -365,7 +365,7 @@ export interface RecipeStep {
 
 export interface FormattedRecommendation {
   sections: Section[];
-  matchPercentage: number | null;
+  match_percentage: number | null;
   sentiment: 'positive' | 'neutral' | 'negative';
   summary: string;
 }

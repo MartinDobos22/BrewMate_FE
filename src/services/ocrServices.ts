@@ -303,7 +303,7 @@ interface OCRResult {
   corrected: string;
   recommendation: OCRRecommendationPayload;
   hasProfile?: boolean;
-  matchPercentage?: number;
+  match_percentage?: number;
   isRecommended?: boolean;
   scanId?: string;
   brewingMethods?: string[];
@@ -958,7 +958,7 @@ export const processOCR = async (
       corrected: correctedText,
       recommendation,
       hasProfile: typeof hasProfile === 'boolean' ? hasProfile : undefined,
-      matchPercentage,
+      match_percentage: matchPercentage,
       isRecommended,
       scanId,
       brewingMethods,

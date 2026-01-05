@@ -82,12 +82,12 @@ const RecommendationDisplay: React.FC<{
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
-      {recommendation.matchPercentage !== null && (
+      {recommendation.match_percentage !== null && (
         <View
           style={[styles.matchBadge, { backgroundColor: getSentimentColor() }]}
         >
           <Text style={styles.matchText}>
-            {recommendation.matchPercentage}% zhoda
+            {recommendation.match_percentage}% zhoda
           </Text>
         </View>
       )}
