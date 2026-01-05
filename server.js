@@ -748,26 +748,38 @@ const parseStructuredPayload = (payload, label) => {
   return payload;
 };
 
+const isEmptyStructuredValue = (value) => {
+  if (value === null || value === undefined) return true;
+  if (typeof value === 'string') return value.trim().length === 0;
+  if (typeof value === 'number') return !Number.isFinite(value);
+  if (typeof value === 'boolean') return false;
+  if (Array.isArray(value)) {
+    return value.length === 0 || value.every(isEmptyStructuredValue);
+  }
+  if (typeof value === 'object') {
+    const values = Object.values(value);
+    return values.length === 0 || values.every(isEmptyStructuredValue);
+  }
+  return false;
+};
+
 const hasStructuredMetadataValue = (structured) => {
   if (!structured || typeof structured !== 'object') return false;
-  return Object.values(structured).some((value) => {
-    if (Array.isArray(value)) {
-      return value.some((entry) => typeof entry === 'string' && entry.trim().length > 0);
+  return !isEmptyStructuredValue(structured);
+};
+
+const mergeStructuredMetadata = (base, extracted) => {
+  if (!base || typeof base !== 'object') return extracted ?? null;
+  if (!extracted || typeof extracted !== 'object') return base;
+
+  const merged = { ...base };
+  Object.entries(extracted).forEach(([key, value]) => {
+    if (isEmptyStructuredValue(merged[key]) && !isEmptyStructuredValue(value)) {
+      merged[key] = value;
     }
-    if (typeof value === 'string') {
-      return value.trim().length > 0;
-    }
-    if (typeof value === 'number') {
-      return Number.isFinite(value);
-    }
-    if (typeof value === 'boolean') {
-      return true;
-    }
-    if (value && typeof value === 'object') {
-      return Object.values(value).some(Boolean);
-    }
-    return value != null;
   });
+
+  return merged;
 };
 
 const extractStructuredMetadataFromText = async (correctedText) => {
@@ -848,7 +860,12 @@ app.post('/api/ocr/save', async (req, res) => {
     const { original_text, corrected_text, structured_metadata: structuredMetadata } = req.body;
 
     let structured = parseStructuredMetadata(structuredMetadata);
-    if (!hasStructuredMetadataValue(structured)) {
+    if (structured === null || structured === undefined) {
+      structured = await extractStructuredMetadataFromText(corrected_text);
+    } else if (hasStructuredMetadataValue(structured)) {
+      const extracted = await extractStructuredMetadataFromText(corrected_text);
+      structured = mergeStructuredMetadata(structured, extracted);
+    } else {
       structured = await extractStructuredMetadataFromText(corrected_text);
     }
 
