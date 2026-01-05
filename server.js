@@ -900,7 +900,7 @@ app.post('/api/ocr/evaluate', async (req, res) => {
     });
 
     const { corrected_text, structured_metadata: structuredMetadata } = req.body;
-    const structured = parseStructuredMetadata(structuredMetadata);
+    let structured = parseStructuredMetadata(structuredMetadata);
     const normalizedText =
       typeof corrected_text === 'string' ? corrected_text.trim() : '';
     const hasStructuredPayload = hasStructuredMetadataValue(structured);
