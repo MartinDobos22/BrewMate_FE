@@ -880,10 +880,18 @@ app.post('/api/ocr/save', async (req, res) => {
     const coffeeName = extractCoffeeName(corrected_text || original_text);
 
     const result = await db.query(
-      `INSERT INTO scan_events (user_id, coffee_name, brand, barcode, image_url, match_score, is_recommended, structured_metadata, detected_at, created_at)
-       VALUES ($1, $2, NULL, NULL, NULL, $3, $4, $5, now(), now())
+      `INSERT INTO scan_events (user_id, coffee_name, brand, barcode, image_url, original_text, corrected_text, match_score, is_recommended, structured_metadata, detected_at, created_at)
+       VALUES ($1, $2, NULL, NULL, NULL, $3, $4, $5, $6, $7, now(), now())
        RETURNING id, structured_metadata`,
-      [uid, coffeeName, matchPercentage, isRecommended, structured]
+      [
+        uid,
+        coffeeName,
+        original_text || null,
+        corrected_text || null,
+        matchPercentage,
+        isRecommended,
+        structured,
+      ]
     );
     const structuredResponse = parseStructuredMetadata(result.rows[0].structured_metadata) ?? {};
 
