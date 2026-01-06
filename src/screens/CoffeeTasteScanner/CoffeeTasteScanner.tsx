@@ -2271,6 +2271,12 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     const rawInsight = evaluation?.insight;
     const insightHeadline = rawInsight?.headline ?? '';
     const insightSections = rawInsight?.sections ?? [];
+    const derivedSections = [
+      { title: 'Čo ti bude chutiť', bullets: evaluationLikes },
+      { title: 'Čo môže rušiť', bullets: evaluationConcerns },
+      { title: 'Tipy na lepšiu zhodu', bullets: evaluationTips },
+      { title: 'Odporúčané prípravy', bullets: evaluationBrewMethods },
+    ].filter((section) => section.bullets.length);
     const isContradictoryClaim = (text: string) => {
       const lower = text.toLowerCase();
       if (verdict === 'not_suitable') {
@@ -2290,6 +2296,15 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
         return bullets.length ? { title: section.title, bullets } : null;
       })
       .filter((section): section is typeof insightSections[number] => Boolean(section));
+    const sanitizedDerivedSections = derivedSections
+      .map(section => {
+        if (section.title && isContradictoryClaim(section.title)) {
+          return null;
+        }
+        const bullets = section.bullets.filter(bullet => !isContradictoryClaim(bullet));
+        return bullets.length ? { title: section.title, bullets } : null;
+      })
+      .filter((section): section is typeof derivedSections[number] => Boolean(section));
     // If the verdict says "not_suitable", drop any "match" copy to avoid insight/verdict contradictions.
     const sanitizedHeadline = insightHeadline && isContradictoryClaim(insightHeadline)
       ? ''
@@ -2309,9 +2324,16 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
         || '';
     return {
       headline: resolvedHeadline,
-      sections: filteredSections,
+      sections: filteredSections.length ? filteredSections : sanitizedDerivedSections,
     };
-  }, [evaluation, evaluationStatus]);
+  }, [
+    evaluation,
+    evaluationStatus,
+    evaluationBrewMethods,
+    evaluationConcerns,
+    evaluationLikes,
+    evaluationTips,
+  ]);
   const insightStatusContent = useMemo(() => {
     if (evaluationStatus === 'profile_missing') {
       return {

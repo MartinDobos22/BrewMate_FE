@@ -199,6 +199,13 @@ const normalizeEvaluationReasons = (value: unknown): CoffeeEvaluationReason[] =>
     .filter((entry): entry is CoffeeEvaluationReason => Boolean(entry));
 };
 
+const normalizeStringArray = (value: unknown): string[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((item): item is string => typeof item === 'string');
+};
+
 const normalizeEvaluationInsight = (value: unknown): CoffeeEvaluationInsight | null => {
   if (typeof value === 'string') {
     const trimmed = value.trim();
@@ -245,10 +252,27 @@ const normalizeEvaluationInsight = (value: unknown): CoffeeEvaluationInsight | n
       return { title, bullets };
     })
     .filter((entry): entry is CoffeeEvaluationInsightSection => Boolean(entry));
-  if (!headline.trim() && sections.length === 0) {
+  const derivedSections: CoffeeEvaluationInsightSection[] = [];
+  const pushSection = (title: string, items: string[]) => {
+    if (items.length) {
+      derivedSections.push({ title, bullets: items });
+    }
+  };
+  const why = normalizeStringArray(parsed.why);
+  const whatYoullLike = normalizeStringArray(parsed.what_youll_like);
+  const whatMightBotherYou = normalizeStringArray(parsed.what_might_bother_you);
+  const tipsToMakeItBetter = normalizeStringArray(parsed.how_to_brew_for_better_match);
+  const recommendedAlternatives = normalizeStringArray(parsed.recommended_alternatives);
+  pushSection('Prečo', why);
+  pushSection('Čo ti bude chutiť', whatYoullLike);
+  pushSection('Čo môže rušiť', whatMightBotherYou);
+  pushSection('Tipy na lepšiu zhodu', tipsToMakeItBetter);
+  pushSection('Odporúčané prípravy', recommendedAlternatives);
+  const resolvedSections = sections.length ? sections : derivedSections;
+  if (!headline.trim() && resolvedSections.length === 0) {
     return null;
   }
-  return { headline, sections };
+  return { headline, sections: resolvedSections };
 };
 
 const normalizeEvaluationText = (value: unknown, fallback = ''): string => {
@@ -405,6 +429,10 @@ const NEUTRAL_EVALUATION_COPY = {
 const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult => {
   const record =
     payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+  const insightRecord =
+    record.insight && typeof record.insight === 'object'
+      ? (record.insight as Record<string, unknown>)
+      : null;
   const normalizedStatus = normalizeEvaluationStatus(record.status);
   const verdict =
     normalizeEvaluationVerdict(record.verdict) ??
@@ -413,6 +441,31 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
     verdict === 'uncertain' ||
     normalizedStatus === 'insufficient_coffee_data' ||
     normalizedStatus === 'unknown';
+  const whatYoullLike = normalizeStringArray(
+    record.what_youll_like ?? insightRecord?.what_youll_like
+  );
+  const whatMightBotherYou = normalizeStringArray(
+    record.what_might_bother_you ?? insightRecord?.what_might_bother_you
+  );
+  const tipsToMakeItBetter = normalizeStringArray(
+    record.tips_to_make_it_better ?? insightRecord?.how_to_brew_for_better_match
+  );
+  const recommendedBrewMethods = normalizeStringArray(
+    record.recommended_brew_methods ?? insightRecord?.recommended_alternatives
+  );
+  const fallbackInsightSections: CoffeeEvaluationInsightSection[] = [];
+  const addFallbackSection = (title: string, items: string[]) => {
+    if (items.length) {
+      fallbackInsightSections.push({ title, bullets: items });
+    }
+  };
+  addFallbackSection('Čo ti bude chutiť', whatYoullLike);
+  addFallbackSection('Čo môže rušiť', whatMightBotherYou);
+  addFallbackSection('Tipy na lepšiu zhodu', tipsToMakeItBetter);
+  addFallbackSection('Odporúčané prípravy', recommendedBrewMethods);
+  const normalizedInsight =
+    normalizeEvaluationInsight(record.insight) ??
+    (fallbackInsightSections.length ? { headline: '', sections: fallbackInsightSections } : null);
   if (normalizedStatus === 'profile_missing') {
     // Preserve profile-missing payloads so the UI can display the CTA and guidance text.
     return {
@@ -421,10 +474,10 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
       confidence: null,
       summary: typeof record.summary === 'string' ? record.summary : '',
       reasons: [],
-      what_youll_like: [],
-      what_might_bother_you: [],
-      tips_to_make_it_better: [],
-      recommended_brew_methods: [],
+      what_youll_like: whatYoullLike,
+      what_might_bother_you: whatMightBotherYou,
+      tips_to_make_it_better: tipsToMakeItBetter,
+      recommended_brew_methods: recommendedBrewMethods,
       cta: {
         action:
           record.cta && typeof record.cta === 'object' && record.cta.action === 'complete_taste_profile'
@@ -437,7 +490,7 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
       },
       disclaimer: normalizeEvaluationText(record.disclaimer),
       verdict_explanation: normalizeVerdictExplanation(record.verdict_explanation),
-      insight: normalizeEvaluationInsight(record.insight),
+      insight: normalizedInsight,
       raw: payload,
     };
   }
@@ -449,10 +502,10 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
       confidence: null,
       summary: typeof record.summary === 'string' ? record.summary : '',
       reasons: [],
-      what_youll_like: [],
-      what_might_bother_you: [],
-      tips_to_make_it_better: [],
-      recommended_brew_methods: [],
+      what_youll_like: whatYoullLike,
+      what_might_bother_you: whatMightBotherYou,
+      tips_to_make_it_better: tipsToMakeItBetter,
+      recommended_brew_methods: recommendedBrewMethods,
       cta: { action: null, label: null },
       disclaimer: useNeutralCopy
         ? normalizeEvaluationText(record.disclaimer, NEUTRAL_EVALUATION_COPY.disclaimer)
@@ -463,7 +516,7 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
             NEUTRAL_EVALUATION_COPY.verdict_explanation
           )
         : normalizeVerdictExplanation(record.verdict_explanation),
-      insight: normalizeEvaluationInsight(record.insight),
+      insight: normalizedInsight,
       raw: payload,
     };
   }
@@ -480,18 +533,10 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
     confidence: confidenceValue,
     summary,
     reasons,
-    what_youll_like: Array.isArray(record.what_youll_like)
-      ? record.what_youll_like.filter((item): item is string => typeof item === 'string')
-      : [],
-    what_might_bother_you: Array.isArray(record.what_might_bother_you)
-      ? record.what_might_bother_you.filter((item): item is string => typeof item === 'string')
-      : [],
-    tips_to_make_it_better: Array.isArray(record.tips_to_make_it_better)
-      ? record.tips_to_make_it_better.filter((item): item is string => typeof item === 'string')
-      : [],
-    recommended_brew_methods: Array.isArray(record.recommended_brew_methods)
-      ? record.recommended_brew_methods.filter((item): item is string => typeof item === 'string')
-      : [],
+    what_youll_like: whatYoullLike,
+    what_might_bother_you: whatMightBotherYou,
+    tips_to_make_it_better: tipsToMakeItBetter,
+    recommended_brew_methods: recommendedBrewMethods,
     cta:
       record.cta && typeof record.cta === 'object'
         ? {
@@ -511,7 +556,7 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
           NEUTRAL_EVALUATION_COPY.verdict_explanation
         )
       : normalizeVerdictExplanation(record.verdict_explanation),
-    insight: normalizeEvaluationInsight(record.insight),
+    insight: normalizedInsight,
     raw: payload,
   };
 };

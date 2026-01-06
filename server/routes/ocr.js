@@ -551,6 +551,7 @@ PRAVIDLÁ:
 - Ak sú dáta dostatočné → status="ok" a verdict je "suitable" | "not_suitable" | "uncertain".
 - Vysvetlenie musí byť porovnávacie: zhrň používateľove preferencie, zhrň profil kávy, porovnaj ich.
 - Insight musí byť konzistentný s verdictom (bez protichodných tvrdení).
+- Použi jediný kontrakt: insight objekt s poliami zo schémy (žiadne top-level zoznamy).
 
 VSTUP:
 user_taste_profile: {
