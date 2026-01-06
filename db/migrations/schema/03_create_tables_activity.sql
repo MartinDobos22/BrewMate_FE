@@ -89,6 +89,8 @@ CREATE TABLE public.scan_events (
   roast_date text,
   varietals jsonb,
   thumbnail_url text,
+  structured_confidence jsonb,
+  structured_uncertainty jsonb,
   match_score numeric(5,2) CHECK (match_score BETWEEN 0 AND 100),
   is_recommended boolean NOT NULL DEFAULT false,
   detected_at timestamptz NOT NULL DEFAULT now(),
