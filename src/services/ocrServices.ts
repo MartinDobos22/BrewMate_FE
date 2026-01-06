@@ -532,13 +532,18 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
   const normalizedInsight =
     normalizeEvaluationInsight(record.insight) ??
     (fallbackInsightSections.length ? { headline: '', sections: fallbackInsightSections } : null);
+  const verdictExplanationFallback = normalizeVerdictExplanation(record.verdict_explanation);
+  const verdictExplanationText = resolveVerdictExplanationText(verdictExplanationFallback);
   if (normalizedStatus === 'profile_missing') {
     // Preserve profile-missing payloads so the UI can display the CTA and guidance text.
     return {
       status: normalizedStatus,
       verdict: null,
       confidence: null,
-      summary: typeof record.summary === 'string' ? record.summary : '',
+      summary: normalizeEvaluationText(
+        record.summary,
+        verdictExplanationText || NEUTRAL_EVALUATION_COPY.summary
+      ),
       reasons: [],
       what_youll_like: whatYoullLike,
       what_might_bother_you: whatMightBotherYou,
@@ -566,7 +571,12 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
       status: normalizedStatus,
       verdict: null,
       confidence: null,
-      summary: typeof record.summary === 'string' ? record.summary : '',
+      summary: normalizeEvaluationText(
+        record.summary,
+        useNeutralCopy
+          ? verdictExplanationText || NEUTRAL_EVALUATION_COPY.summary
+          : verdictExplanationText
+      ),
       reasons: [],
       what_youll_like: whatYoullLike,
       what_might_bother_you: whatMightBotherYou,
@@ -581,7 +591,7 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
             record.verdict_explanation,
             NEUTRAL_EVALUATION_COPY.verdict_explanation
           )
-        : normalizeVerdictExplanation(record.verdict_explanation),
+        : verdictExplanationFallback,
       insight: normalizedInsight,
       raw: payload,
     };
@@ -589,8 +599,11 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
   const confidenceValue =
     typeof record.confidence === 'number' ? record.confidence : null;
   const summary = useNeutralCopy
-    ? normalizeEvaluationText(record.summary, NEUTRAL_EVALUATION_COPY.summary)
-    : normalizeEvaluationText(record.summary);
+    ? normalizeEvaluationText(
+        record.summary,
+        verdictExplanationText || NEUTRAL_EVALUATION_COPY.summary
+      )
+    : normalizeEvaluationText(record.summary, verdictExplanationText);
   const reasons = normalizeEvaluationReasons(record.reasons);
 
   return {
@@ -621,7 +634,7 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
           record.verdict_explanation,
           NEUTRAL_EVALUATION_COPY.verdict_explanation
         )
-      : normalizeVerdictExplanation(record.verdict_explanation),
+      : verdictExplanationFallback,
     insight: normalizedInsight,
     raw: payload,
   };

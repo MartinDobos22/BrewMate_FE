@@ -6,6 +6,7 @@ describe('isValidEvaluationResponse', () => {
       status: 'ok',
       verdict: 'suitable',
       confidence: 0.82,
+      summary: 'Káva sa javí ako vhodná podľa profilu.',
       verdict_explanation: {
         user_preferences_summary: 'Používateľ preferuje sladšie kávy.',
         coffee_profile_summary: 'Káva má ovocné tóny a strednú aciditu.',
@@ -30,6 +31,7 @@ describe('isValidEvaluationResponse', () => {
       status: 'ok',
       verdict: null,
       confidence: null,
+      summary: 'Neplatné hodnotenie.',
       verdict_explanation: {
         user_preferences_summary: 'Chýba verdict.',
         coffee_profile_summary: 'Chýba verdict.',
