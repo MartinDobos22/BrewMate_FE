@@ -1149,7 +1149,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   type ProcessImageExtra = { imagePath?: string; base64?: string };
 
   const processImage = async (base64image: string, extra?: ProcessImageExtra) => {
-    if (!personalizationReady || profile?.preferences == null) {
+    if (!personalizationReady) {
       showToast('Počkajte na načítanie profilu');
       void refreshInsights?.();
       return;
@@ -1161,9 +1161,15 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       setOverlayText('Analyzujem...');
       setOverlayVisible(true);
 
+      const tasteProfile =
+        profile && 'preferences' in profile
+          ? profile.preferences
+            ? profile
+            : null
+          : profile ?? null;
       const result = await processOCR(base64image, {
         imagePath: extra?.imagePath,
-        tasteProfile: profile ?? null,
+        tasteProfile,
       });
 
       if (result) {
