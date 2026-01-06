@@ -38,6 +38,7 @@ DROP TABLE IF EXISTS public.user_recipes CASCADE;
 DROP TABLE IF EXISTS public.user_coffees CASCADE;
 DROP TABLE IF EXISTS public.scan_events CASCADE;
 DROP TABLE IF EXISTS public.user_statistics CASCADE;
+DROP TABLE IF EXISTS public.app_users CASCADE;
 
 -- Safely remove old trigger helpers if present
 DO $$ BEGIN
@@ -87,6 +88,15 @@ DROP FUNCTION IF EXISTS public.handle_user_coffee_delete() CASCADE;
 -- =====================
 
 -- Core taste profile maintained by personalization engine
+CREATE TABLE public.app_users (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  firebase_uid text NOT NULL UNIQUE,
+  email text,
+  name text,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
 CREATE TABLE public.user_taste_profiles (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   sweetness numeric(4,2) NOT NULL DEFAULT 5 CHECK (sweetness BETWEEN 0 AND 10),
@@ -328,6 +338,10 @@ $$ LANGUAGE plpgsql;
 -- =====================
 -- CREATE NEW TRIGGERS
 -- =====================
+
+CREATE TRIGGER trg_touch_app_users
+  BEFORE UPDATE ON public.app_users
+  FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
 
 CREATE TRIGGER trg_touch_user_taste_profiles
   BEFORE UPDATE ON public.user_taste_profiles
