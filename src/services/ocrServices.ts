@@ -739,7 +739,7 @@ interface OCRResult {
  *
  * @returns {Promise<string|null>} ID token string or `null` when no authenticated user is available.
  */
-const getAuthToken = async (): Promise<string | null> => {
+export const getAuthToken = async (): Promise<string | null> => {
   try {
     const user = auth().currentUser;
     if (!user) return null;

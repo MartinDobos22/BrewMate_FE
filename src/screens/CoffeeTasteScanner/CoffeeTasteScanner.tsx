@@ -25,7 +25,6 @@ import { launchImageLibrary, ImagePickerResponse, ImageLibraryOptions } from 're
 import ImageResizer from 'react-native-image-resizer';
 import RNFS from 'react-native-fs';
 import NetInfo from '@react-native-community/netinfo';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { scannerStyles } from './styles';
 import {
   processOCR,
@@ -43,6 +42,7 @@ import {
   toggleFavorite,
   isCoffeeRelatedText,
 } from './services';
+import { getAuthToken } from '../../services/ocrServices';
 import {
   computeSignalWeight,
   CoffeeSignalRecord,
@@ -686,8 +686,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
 
   const loadPreferenceSnapshot = useCallback(async () => {
     try {
-      const token = await AsyncStorage.getItem('@AuthToken');
+      const token = await getAuthToken();
       if (!token) {
+        showToast('Prihlás sa, prosím.');
         return;
       }
       const response = await fetch(`${API_URL}/profile`, {
