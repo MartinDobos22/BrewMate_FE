@@ -494,6 +494,49 @@ const isValidEvaluationResponse = (value) => {
   return true;
 };
 
+const isTasteProfileComplete = (profile) => {
+  if (!profile || typeof profile !== 'object') {
+    return false;
+  }
+
+  if (profile.is_complete === true || profile.taste_profile_completed === true) {
+    return true;
+  }
+
+  const tasteVector =
+    profile.taste_vector && typeof profile.taste_vector === 'object'
+      ? profile.taste_vector
+      : profile.preferences && typeof profile.preferences === 'object'
+      ? profile.preferences
+      : profile;
+
+  const values = [
+    tasteVector.sweetness,
+    tasteVector.acidity,
+    tasteVector.bitterness,
+    tasteVector.body,
+  ];
+
+  return values.every(
+    (value) => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 10
+  );
+};
+
+const normalizeTasteProfileForEvaluation = (profile) => {
+  if (!profile || typeof profile !== 'object') {
+    return profile;
+  }
+
+  const tasteVector =
+    profile.taste_vector && typeof profile.taste_vector === 'object'
+      ? profile.taste_vector
+      : profile.preferences && typeof profile.preferences === 'object'
+      ? profile.preferences
+      : null;
+
+  return tasteVector ? { ...profile, ...tasteVector } : profile;
+};
+
 // ========== OCR ENDPOINTS ==========
 
 /**
@@ -983,7 +1026,13 @@ router.post('/api/ocr/evaluate', async (req, res) => {
       name: decoded.name || decoded.user?.name,
     });
 
-    const { corrected_text, structured_metadata, structuredMetadata, coffee_attributes } = req.body;
+    const {
+      corrected_text,
+      structured_metadata,
+      structuredMetadata,
+      coffee_attributes,
+      taste_profile,
+    } = req.body ?? {};
     if (!corrected_text) return res.status(400).json({ error: 'Chýba text kávy' });
     correctedText = corrected_text;
 
@@ -992,11 +1041,16 @@ router.post('/api/ocr/evaluate', async (req, res) => {
       [uid]
     );
 
-    preferences = result.rows[0];
-    // ⬇️ Use the DB completion flag/view to determine if we can safely evaluate.
-    const isProfileComplete = Boolean(
-      preferences?.is_complete ?? preferences?.taste_profile_completed ?? false
+    const dbPreferences = result.rows[0];
+    const requestTasteProfile =
+      taste_profile && typeof taste_profile === 'object' ? taste_profile : null;
+    const normalizedRequestTasteProfile = normalizeTasteProfileForEvaluation(requestTasteProfile);
+    const isRequestProfileComplete = isTasteProfileComplete(normalizedRequestTasteProfile);
+    const isDbProfileComplete = Boolean(
+      dbPreferences?.is_complete ?? dbPreferences?.taste_profile_completed ?? false
     );
+    preferences = isRequestProfileComplete ? normalizedRequestTasteProfile : dbPreferences;
+    const isProfileComplete = isRequestProfileComplete || isDbProfileComplete;
 
     if (!isProfileComplete) {
       // ⬇️ Short-circuit with the strict JSON schema when profile is incomplete.
