@@ -541,7 +541,7 @@ const normalizeTasteProfileForEvaluation = (profile) => {
 
 /**
  * Spracuje obrázok a pošle ho do Google Vision API na OCR.
- * Loguje dĺžku vstupného obrázka a odpoveď z Vision API.
+ * Loguje dĺžku vstupného obrázka a meta-informácie z Vision API.
  */
 router.post('/ocr', async (req, res) => {
   try {
@@ -564,8 +564,6 @@ router.post('/ocr', async (req, res) => {
     const response = await axios.post(url, payload, {
       headers: { 'Content-Type': 'application/json' },
     });
-    console.log('📥 [Vision] Response:', response.data);
-
     const visionResponse = response.data.responses?.[0] || {};
     const text = visionResponse.fullTextAnnotation?.text || '';
     const labelAnnotations = Array.isArray(visionResponse.labelAnnotations)
@@ -608,6 +606,10 @@ router.post('/ocr', async (req, res) => {
     const isCoffee =
       typeof coffeeConfidence === 'number' ? coffeeConfidence >= 0.6 : undefined;
 
+    console.log('📥 [Vision] Response meta:', {
+      textLength: text.length,
+      labelCount: labels.length,
+    });
     res.json({ text, labels, coffeeConfidence, isCoffee });
   } catch (error) {
     console.error('OCR server error:', error?.message ?? error);
@@ -637,7 +639,10 @@ OCR text:
 ${text}`;
 
   try {
-    console.log('📤 [OpenAI] OCR prompt:', prompt);
+    console.log('📤 [OpenAI] OCR prompt meta:', {
+      model: 'gpt-4o',
+      chars: prompt.length,
+    });
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
@@ -660,7 +665,11 @@ ${text}`;
       }
     );
 
-    console.log('📥 [OpenAI] OCR response:', response.data);
+    console.log('📥 [OpenAI] OCR response meta:', {
+      id: response.data?.id,
+      model: response.data?.model,
+      usage: response.data?.usage,
+    });
     const corrected =
       response.data?.choices?.[0]?.message?.content?.trim() || text;
     return res.json({ corrected_text: corrected });
@@ -689,7 +698,10 @@ router.post('/api/ocr/brewing-methods', async (req, res) => {
     `Odpovedz len zoznamom metód oddelených novým riadkom. Popis: "${text}"`;
 
   try {
-    console.log('📤 [OpenAI] Brewing prompt:', prompt);
+    console.log('📤 [OpenAI] Brewing prompt meta:', {
+      model: 'gpt-4o',
+      chars: prompt.length,
+    });
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
@@ -712,7 +724,11 @@ router.post('/api/ocr/brewing-methods', async (req, res) => {
       }
     );
 
-    console.log('📥 [OpenAI] Brewing response:', response.data);
+    console.log('📥 [OpenAI] Brewing response meta:', {
+      id: response.data?.id,
+      model: response.data?.model,
+      usage: response.data?.usage,
+    });
     const content = response.data?.choices?.[0]?.message?.content || '';
     let methods = content
       .split('\n')
@@ -752,7 +768,10 @@ router.post('/api/ocr/brew-recipe', async (req, res) => {
   } chuť. Uveď ideálny pomer kávy k vode, teplotu vody a ďalšie dôležité kroky. Odpovedz stručne.`;
 
   try {
-    console.log('📤 [OpenAI] Recipe prompt:', prompt);
+    console.log('📤 [OpenAI] Recipe prompt meta:', {
+      model: 'gpt-4o',
+      chars: prompt.length,
+    });
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
@@ -774,7 +793,11 @@ router.post('/api/ocr/brew-recipe', async (req, res) => {
       }
     );
 
-    console.log('📥 [OpenAI] Recipe response:', response.data);
+    console.log('📥 [OpenAI] Recipe response meta:', {
+      id: response.data?.id,
+      model: response.data?.model,
+      usage: response.data?.usage,
+    });
     const recipe = response.data?.choices?.[0]?.message?.content?.trim() || '';
     return res.json({ recipe });
   } catch (error) {
@@ -1008,7 +1031,7 @@ router.post('/api/ocr/save', async (req, res) => {
 
 /**
  * Vyhodnotí text kávy pomocou OpenAI na základe preferencií používateľa.
- * Loguje odoslaný prompt a odpoveď z OpenAI.
+ * Loguje meta-informácie o OpenAI požiadavke a odpovedi.
  */
 router.post('/api/ocr/evaluate', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
@@ -1148,7 +1171,10 @@ SCHEMA:
 ${EVALUATION_RESPONSE_SCHEMA}
 `;
 
-    console.log('📤 [OpenAI] Prompt:', userPrompt);
+    console.log('📤 [OpenAI] Prompt meta:', {
+      model: 'gpt-4o',
+      chars: userPrompt.length,
+    });
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
@@ -1177,7 +1203,11 @@ ${EVALUATION_RESPONSE_SCHEMA}
         },
       }
     );
-    console.log('📥 [OpenAI] Response:', response.data);
+    console.log('📥 [OpenAI] Response meta:', {
+      id: response.data?.id,
+      model: response.data?.model,
+      usage: response.data?.usage,
+    });
 
     const aiMessage = response.data.choices?.[0]?.message?.content?.trim();
     let parsed;

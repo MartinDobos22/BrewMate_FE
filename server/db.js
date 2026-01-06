@@ -56,7 +56,10 @@ const ensureAppUserExists = async (userId, email, options = {}) => {
 // Wrap default query method to log all interactions with Supabase
 const originalQuery = db.query.bind(db);
 db.query = async (text, params) => {
-  console.log('📤 [Supabase] Query:', text, params);
+  console.log('📤 [Supabase] Query:', {
+    text,
+    paramCount: Array.isArray(params) ? params.length : 0,
+  });
   const start = Date.now();
   const res = await originalQuery(text, params);
   console.log('📥 [Supabase] Response:', {
