@@ -256,6 +256,106 @@ const normalizeOpenAiJson = (value) => {
 
 const BRANDED_COFFEE_ALLOWLIST = ['Lavazza', 'Illy', 'Segafredo', 'Kimbo', 'Pellini', 'Bazzara'];
 
+const normalizeCoffeeValue = (value) => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const cleaned = value.replace(/\s+/g, ' ').trim();
+  return cleaned.length > 0 ? cleaned : null;
+};
+
+const parseDelimitedList = (value) => {
+  if (!value || typeof value !== 'string') {
+    return null;
+  }
+  const items = value
+    .split(/[,;|/]+/)
+    .map((item) => item.replace(/[()\[\]]/g, '').trim())
+    .filter(Boolean);
+  return items.length > 0 ? items : null;
+};
+
+const extractCoffeeAttributesFromText = (text) => {
+  if (!text || typeof text !== 'string') {
+    return {
+      origin: null,
+      roast_level: null,
+      flavor_notes: null,
+      processing: null,
+      varietals: null,
+    };
+  }
+
+  const normalizedText = text.replace(/\r/g, '');
+
+  const extractLabelValue = (labels) => {
+    for (const label of labels) {
+      const regex = new RegExp(`${label}\\s*[:\\-]\\s*([^\\n]+)`, 'i');
+      const match = normalizedText.match(regex);
+      if (match && match[1]) {
+        return normalizeCoffeeValue(match[1]);
+      }
+    }
+    return null;
+  };
+
+  const origin =
+    extractLabelValue(['origin', 'pôvod', 'povod', 'country', 'region']) ||
+    null;
+  const flavorNotesRaw = extractLabelValue([
+    'flavor notes',
+    'flavour notes',
+    'tóny',
+    'chut',
+    'notes',
+  ]);
+  const varietalsRaw = extractLabelValue([
+    'varietal',
+    'varietals',
+    'variety',
+    'odroda',
+    'odrody',
+  ]);
+
+  const processingKeywords = [
+    { label: 'washed', keywords: ['washed', 'fully washed', 'wet process', 'mokre'] },
+    { label: 'natural', keywords: ['natural', 'dry process', 'sušené', 'susene'] },
+    { label: 'honey', keywords: ['honey', 'honey process', 'pulped natural'] },
+    { label: 'anaerobic', keywords: ['anaerobic', 'anaeróbne', 'anaerobne'] },
+    { label: 'semi-washed', keywords: ['semi-washed', 'semi washed', 'wet hulled'] },
+    { label: 'carbonic maceration', keywords: ['carbonic', 'maceration'] },
+  ];
+  const lowerText = normalizedText.toLowerCase();
+  const processing =
+    extractLabelValue(['processing', 'process', 'spracovanie']) ||
+    processingKeywords.find(({ keywords }) =>
+      keywords.some((keyword) => lowerText.includes(keyword))
+    )?.label ||
+    null;
+
+  const roastLevelRaw = extractLabelValue(['roast', 'praženie', 'prazenie']);
+  const roastLevelKeywords = [
+    { label: 'light', keywords: ['light', 'svetla', 'cinnamon', 'blonde'] },
+    { label: 'medium', keywords: ['medium', 'stredna', 'city'] },
+    { label: 'medium-dark', keywords: ['medium-dark', 'medium dark', 'full city'] },
+    { label: 'dark', keywords: ['dark', 'tmava', 'french', 'italian', 'espresso'] },
+  ];
+  const roastLevel =
+    normalizeCoffeeValue(roastLevelRaw) ||
+    roastLevelKeywords.find(({ keywords }) =>
+      keywords.some((keyword) => lowerText.includes(keyword))
+    )?.label ||
+    null;
+
+  return {
+    origin,
+    roast_level: roastLevel,
+    flavor_notes: flavorNotesRaw ? parseDelimitedList(flavorNotesRaw) : null,
+    processing: normalizeCoffeeValue(processing),
+    varietals: varietalsRaw ? parseDelimitedList(varietalsRaw) : null,
+  };
+};
+
 const hasMeaningfulCoffeeData = (coffeeAttributes) => {
   if (!coffeeAttributes || typeof coffeeAttributes !== 'object') {
     return false;
@@ -680,6 +780,10 @@ router.post('/api/ocr/save', async (req, res) => {
       structured.confidence_flags ||
       null;
 
+    const derivedAttributes = extractCoffeeAttributesFromText(
+      corrected_text || original_text || ''
+    );
+
     const normalizeTextField = (value) =>
       typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
     const normalizeArrayField = (value) => {
@@ -715,6 +819,25 @@ router.post('/api/ocr/save', async (req, res) => {
       : null;
     const isRecommended = matchPercentage !== null ? matchPercentage > 75 : false;
     const coffeeName = extractCoffeeName(corrected_text || original_text);
+
+    const resolvedOrigin = normalizeTextField(
+      origin ?? structured.origin ?? derivedAttributes.origin
+    );
+    const resolvedRoastLevel = normalizeTextField(
+      roast_level ?? structured.roast_level ?? structured.roastLevel ?? derivedAttributes.roast_level
+    );
+    const resolvedFlavorNotes = normalizeJsonField(
+      flavor_notes ??
+        structured.flavor_notes ??
+        structured.flavorNotes ??
+        derivedAttributes.flavor_notes
+    );
+    const resolvedProcessing = normalizeTextField(
+      processing ?? structured.processing ?? derivedAttributes.processing
+    );
+    const resolvedVarietals = normalizeJsonField(
+      varietals ?? structured.varietals ?? derivedAttributes.varietals
+    );
 
     const result = await db.query(
       `INSERT INTO scan_events (
@@ -763,12 +886,12 @@ router.post('/api/ocr/save', async (req, res) => {
         coffeeName,
         normalizeTextField(original_text),
         normalizeTextField(corrected_text),
-        normalizeTextField(origin ?? structured.origin),
-        normalizeTextField(roast_level ?? structured.roast_level ?? structured.roastLevel),
-        normalizeJsonField(flavor_notes ?? structured.flavor_notes ?? structured.flavorNotes),
-        normalizeTextField(processing ?? structured.processing),
+        resolvedOrigin,
+        resolvedRoastLevel,
+        resolvedFlavorNotes,
+        resolvedProcessing,
         normalizeTextField(roast_date ?? structured.roast_date ?? structured.roastDate),
-        normalizeJsonField(varietals ?? structured.varietals),
+        resolvedVarietals,
         normalizeTextField(thumbnail_url ?? structured.thumbnail_url ?? structured.thumbnailUrl),
         matchPercentage,
         isRecommended,
@@ -782,16 +905,19 @@ router.post('/api/ocr/save', async (req, res) => {
           structured.brand ??
           structured.roastery
       ),
-      origin: normalizeTextField(origin ?? structured.origin),
-      roastLevel: normalizeTextField(
-        roast_level ?? structured.roast_level ?? structured.roastLevel
-      ),
-      processing: normalizeTextField(processing ?? structured.processing),
+      origin: resolvedOrigin,
+      roastLevel: resolvedRoastLevel,
+      processing: resolvedProcessing,
       flavorNotes: normalizeArrayField(
-        flavor_notes ?? structured.flavor_notes ?? structured.flavorNotes
+        flavor_notes ??
+          structured.flavor_notes ??
+          structured.flavorNotes ??
+          derivedAttributes.flavor_notes
       ),
       roastDate: normalizeTextField(roast_date ?? structured.roast_date ?? structured.roastDate),
-      varietals: normalizeArrayField(varietals ?? structured.varietals),
+      varietals: normalizeArrayField(
+        varietals ?? structured.varietals ?? derivedAttributes.varietals
+      ),
       confidenceFlags:
         confidenceFlags && typeof confidenceFlags === 'object' ? confidenceFlags : null,
     };
@@ -872,6 +998,46 @@ router.post('/api/ocr/evaluate', async (req, res) => {
             ocr_text: corrected_text,
             structured_metadata: structured,
           };
+
+    const derivedAttributes = extractCoffeeAttributesFromText(corrected_text);
+    const mergedStructuredMetadata = {
+      ...structured,
+      origin: structured.origin ?? derivedAttributes.origin,
+      roast_level: structured.roast_level ?? derivedAttributes.roast_level,
+      roastLevel: structured.roastLevel ?? derivedAttributes.roast_level,
+      flavor_notes: structured.flavor_notes ?? derivedAttributes.flavor_notes,
+      flavorNotes: structured.flavorNotes ?? derivedAttributes.flavor_notes,
+      processing: structured.processing ?? derivedAttributes.processing,
+      varietals: structured.varietals ?? derivedAttributes.varietals,
+    };
+    coffeeAttributes = {
+      ...coffeeAttributes,
+      origin:
+        coffeeAttributes.origin ??
+        mergedStructuredMetadata.origin ??
+        derivedAttributes.origin,
+      roast_level:
+        coffeeAttributes.roast_level ??
+        coffeeAttributes.roastLevel ??
+        mergedStructuredMetadata.roast_level ??
+        mergedStructuredMetadata.roastLevel ??
+        derivedAttributes.roast_level,
+      flavor_notes:
+        coffeeAttributes.flavor_notes ??
+        coffeeAttributes.flavorNotes ??
+        mergedStructuredMetadata.flavor_notes ??
+        mergedStructuredMetadata.flavorNotes ??
+        derivedAttributes.flavor_notes,
+      processing:
+        coffeeAttributes.processing ??
+        mergedStructuredMetadata.processing ??
+        derivedAttributes.processing,
+      varietals:
+        coffeeAttributes.varietals ??
+        mergedStructuredMetadata.varietals ??
+        derivedAttributes.varietals,
+      structured_metadata: mergedStructuredMetadata,
+    };
 
     if (!hasMeaningfulCoffeeData(coffeeAttributes)) {
       return res.json(INSUFFICIENT_COFFEE_DATA_RESPONSE);

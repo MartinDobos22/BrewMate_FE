@@ -189,6 +189,89 @@ const normalizeStringArray = (value: unknown): string[] => {
   return value.filter((item): item is string => typeof item === 'string');
 };
 
+const parseDelimitedList = (value: string): string[] | null => {
+  const items = value
+    .split(/[,;|/]+/)
+    .map(item => item.replace(/[()\[\]]/g, '').trim())
+    .filter(Boolean);
+  return items.length ? items : null;
+};
+
+const estimateCoffeeAttributesFromText = (
+  text: string,
+): Pick<StructuredCoffeeMetadata, 'origin' | 'roastLevel' | 'processing' | 'flavorNotes' | 'varietals'> => {
+  const normalizedText = text.replace(/\r/g, '');
+  const lowerText = normalizedText.toLowerCase();
+
+  const extractLabelValue = (labels: string[]): string | null => {
+    for (const label of labels) {
+      const regex = new RegExp(`${label}\\s*[:\\-]\\s*([^\\n]+)`, 'i');
+      const match = normalizedText.match(regex);
+      if (match && match[1]) {
+        const cleaned = match[1].replace(/\s+/g, ' ').trim();
+        return cleaned.length ? cleaned : null;
+      }
+    }
+    return null;
+  };
+
+  const origin = extractLabelValue(['origin', 'pôvod', 'povod', 'country', 'region']);
+  const flavorNotesRaw = extractLabelValue([
+    'flavor notes',
+    'flavour notes',
+    'tóny',
+    'chut',
+    'notes',
+  ]);
+  const varietalsRaw = extractLabelValue([
+    'varietal',
+    'varietals',
+    'variety',
+    'odroda',
+    'odrody',
+  ]);
+  const processing =
+    extractLabelValue(['processing', 'process', 'spracovanie']) ||
+    (['washed', 'natural', 'honey', 'anaerobic', 'semi-washed', 'carbonic maceration'].find(
+      keyword => lowerText.includes(keyword),
+    ) ??
+      null);
+  const roastLevelRaw = extractLabelValue(['roast', 'praženie', 'prazenie']);
+  const roastLevel =
+    roastLevelRaw ||
+    (['light', 'medium-dark', 'medium', 'dark'].find(keyword => lowerText.includes(keyword)) ??
+      null);
+
+  return {
+    origin,
+    roastLevel,
+    processing,
+    flavorNotes: flavorNotesRaw ? parseDelimitedList(flavorNotesRaw) : null,
+    varietals: varietalsRaw ? parseDelimitedList(varietalsRaw) : null,
+  };
+};
+
+const mergeStructuredMetadata = (
+  base: StructuredCoffeeMetadata | null,
+  fallback: Pick<
+    StructuredCoffeeMetadata,
+    'origin' | 'roastLevel' | 'processing' | 'flavorNotes' | 'varietals'
+  >,
+): StructuredCoffeeMetadata | null => {
+  if (!base && !fallback) {
+    return null;
+  }
+  const mergedBase = base ?? ({} as StructuredCoffeeMetadata);
+  return {
+    ...mergedBase,
+    origin: mergedBase.origin ?? fallback.origin ?? null,
+    roastLevel: mergedBase.roastLevel ?? fallback.roastLevel ?? null,
+    processing: mergedBase.processing ?? fallback.processing ?? null,
+    flavorNotes: mergedBase.flavorNotes ?? fallback.flavorNotes ?? null,
+    varietals: mergedBase.varietals ?? fallback.varietals ?? null,
+  };
+};
+
 const normalizeEvaluationInsight = (value: unknown): CoffeeEvaluationInsight | null => {
   if (typeof value === 'string') {
     const trimmed = value.trim();
@@ -1178,6 +1261,11 @@ export const processOCR = async (
     };
 
     // 4. Získaj AI hodnotenie a návrhy metód súčasne
+    const estimatedAttributes = estimateCoffeeAttributesFromText(correctedText);
+    const evaluationStructuredMetadata = mergeStructuredMetadata(
+      structuredMetadata,
+      estimatedAttributes,
+    );
     const evaluatePromise =
       isCoffee === false
         ? Promise.resolve({ skipped: true } as const)
@@ -1185,17 +1273,17 @@ export const processOCR = async (
             try {
               const coffeeAttributes = {
                 corrected_text: correctedText,
-                origin: structuredMetadata?.origin ?? null,
-                roast_level: structuredMetadata?.roastLevel ?? null,
-                flavor_notes: structuredMetadata?.flavorNotes ?? null,
-                processing: structuredMetadata?.processing ?? null,
-                varietals: structuredMetadata?.varietals ?? null,
-                roast_date: structuredMetadata?.roastDate ?? null,
-                roaster: structuredMetadata?.roaster ?? null,
+                origin: evaluationStructuredMetadata?.origin ?? null,
+                roast_level: evaluationStructuredMetadata?.roastLevel ?? null,
+                flavor_notes: evaluationStructuredMetadata?.flavorNotes ?? null,
+                processing: evaluationStructuredMetadata?.processing ?? null,
+                varietals: evaluationStructuredMetadata?.varietals ?? null,
+                roast_date: evaluationStructuredMetadata?.roastDate ?? null,
+                roaster: evaluationStructuredMetadata?.roaster ?? null,
               };
               const payload: Record<string, unknown> = {
                 corrected_text: correctedText,
-                structured_metadata: structuredMetadata,
+                structured_metadata: evaluationStructuredMetadata,
                 coffee_attributes: coffeeAttributes,
               };
               if (options?.tasteProfile) {
