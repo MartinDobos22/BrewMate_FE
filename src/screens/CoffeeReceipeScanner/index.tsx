@@ -234,6 +234,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     reason?: string;
     labels?: string[];
     confidence?: number;
+    refreshHistory?: boolean;
   }) => {
     setScanResult(null);
     setEditedText('');
@@ -257,6 +258,9 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     });
     setNonCoffeeModalVisible(true);
     showToast('Skús prosím naskenovať etiketu kávy.');
+    if (details?.refreshHistory) {
+      void Promise.all([loadHistory(), loadRecipeHistory()]);
+    }
   };
 
   /**
@@ -355,6 +359,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
             reason: result.nonCoffeeReason,
             labels: result.detectionLabels,
             confidence: result.detectionConfidence,
+            refreshHistory: Boolean(result.scanId),
           });
           return;
         }
@@ -372,6 +377,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
             reason: result.nonCoffeeReason,
             labels: detectionLabels.length ? detectionLabels : undefined,
             confidence: result.detectionConfidence,
+            refreshHistory: Boolean(result.scanId),
           });
           return;
         }

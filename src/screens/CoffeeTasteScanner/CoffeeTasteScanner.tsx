@@ -933,6 +933,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     reason?: string;
     labels?: string[];
     confidence?: number;
+    refreshHistory?: boolean;
   }) => {
     applyScanResult(null);
     setEditedText('');
@@ -961,6 +962,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     });
     setNonCoffeeModalVisible(true);
     showToast('Skús prosím naskenovať etiketu kávy.');
+    if (details?.refreshHistory) {
+      void loadHistory();
+    }
   };
 
   const resolveCoffeeIdentity = (result: ScanResult | null, nameHint: string): { id: string; name: string } | null => {
@@ -1192,6 +1196,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
             reason: result.nonCoffeeReason,
             labels: detectionLabels.length ? detectionLabels : undefined,
             confidence: result.detectionConfidence,
+            refreshHistory: Boolean(result.scanId),
           });
           return;
         }
@@ -1303,13 +1308,17 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
           reason: existingResult.nonCoffeeReason,
           labels: existingResult.detectionLabels,
           confidence: existingResult.detectionConfidence,
+          refreshHistory: Boolean(existingResult.scanId),
         });
         return;
       }
 
       const label = existingResult?.corrected || (await recognizeCoffee(imagePath));
       if (!label) {
-        handleNonCoffeeDetected({ reason: 'Nepodarilo sa rozpoznať kávu. Skús to znova.' });
+        handleNonCoffeeDetected({
+          reason: 'Nepodarilo sa rozpoznať kávu. Skús to znova.',
+          refreshHistory: Boolean(existingResult?.scanId),
+        });
         return;
       }
 
@@ -1319,6 +1328,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
           reason: existingResult?.nonCoffeeReason ?? `Rozpoznané: ${label}`,
           labels: existingResult?.detectionLabels ?? [label],
           confidence: existingResult?.detectionConfidence,
+          refreshHistory: Boolean(existingResult?.scanId),
         });
         return;
       }
