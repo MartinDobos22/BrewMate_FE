@@ -254,6 +254,8 @@ const normalizeOpenAiJson = (value) => {
   return value.replace(/```json\s*/i, '').replace(/```$/i, '').trim();
 };
 
+const BRANDED_COFFEE_ALLOWLIST = ['Lavazza', 'Illy', 'Segafredo', 'Kimbo', 'Pellini', 'Bazzara'];
+
 const hasMeaningfulCoffeeData = (coffeeAttributes) => {
   if (!coffeeAttributes || typeof coffeeAttributes !== 'object') {
     return false;
@@ -286,13 +288,20 @@ const hasMeaningfulCoffeeData = (coffeeAttributes) => {
     getValue(coffeeAttributes, ['processing']) ?? getValue(structured, ['processing']);
   const varietals =
     getValue(coffeeAttributes, ['varietals']) ?? getValue(structured, ['varietals']);
-  const ocrText =
-    getValue(coffeeAttributes, ['corrected_text', 'ocr_text', 'original_text']) ??
-    getValue(structured, ['corrected_text', 'ocr_text', 'original_text']);
+  const brand =
+    getValue(coffeeAttributes, ['brand', 'roaster', 'roastery', 'roaster_name']) ??
+    getValue(structured, ['brand', 'roaster', 'roastery', 'roaster_name']);
 
-  // Require at least one core attribute or OCR text before AI evaluation.
-  // OCR text allows AI to stay uncertain without claiming specifics.
-  return [origin, roastLevel, flavorNotes, processing, varietals, ocrText].some(hasValue);
+  const hasCoreProfileDetails = [origin, flavorNotes, varietals].some(hasValue);
+  const hasRoastOrProcessing = [roastLevel, processing].some(hasValue);
+  const brandLabel = typeof brand === 'string' ? brand.trim().toLowerCase() : '';
+  const isAllowlistedBrand = BRANDED_COFFEE_ALLOWLIST.some((allowed) =>
+    brandLabel.includes(allowed.toLowerCase())
+  );
+
+  // Require structured attributes before AI evaluation.
+  // Allow recognized brands with roast/processing data to pass the check.
+  return hasCoreProfileDetails || (isAllowlistedBrand && hasRoastOrProcessing);
 };
 
 const isValidEvaluationResponse = (value) => {
