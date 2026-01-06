@@ -16,7 +16,6 @@ import auth from '@react-native-firebase/auth';
 import { getColors, Colors } from '../../theme/colors';
 import { getSafeAreaTop, getSafeAreaBottom, scale, verticalScale } from '../utils/safeArea';
 import { AIResponseDisplay } from './AIResponseDisplay';
-import { CONFIG } from '../../config/config';
 import { API_URL } from '../../services/api';
 import {
   DEFAULT_TASTE_VECTOR,
@@ -27,8 +26,6 @@ import {
   TASTE_AI_SCHEMA_PROMPT,
   TasteVector,
 } from './tasteAiUtils';
-
-const OPENAI_API_KEY = CONFIG.OPENAI_API_KEY;
 
 /**
  * Jednoduchý wrapper pre fetch s logovaním komunikácie FE ↔ BE.
@@ -94,12 +91,6 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
   };
 
   const generateAI = async (additionalNotes: string, options?: { reset?: boolean }) => {
-    if (!OPENAI_API_KEY) {
-      console.error('Chýba OpenAI API key. Odporúčanie sa nevygeneruje.');
-      const fallback = buildFallbackAIResponse(getFallbackTasteVector());
-      return buildRecommendationText(fallback);
-    }
-
     try {
       const fallbackVector = getFallbackTasteVector();
       const fallback = buildFallbackAIResponse(fallbackVector);
@@ -162,8 +153,8 @@ Rules for deltas:
 
 ${TASTE_AI_SCHEMA_PROMPT}`;
 
-      console.log('📤 [OpenAI] prompt:', prompt);
-      const aiResponse = await callOpenAIJsonSchema(OPENAI_API_KEY, systemPrompt, prompt, 0.3);
+      console.log('📤 [BE] prompt:', prompt);
+      const aiResponse = await callOpenAIJsonSchema(systemPrompt, prompt, 0.3);
 
       // Validate and coerce the structured JSON so invalid output does not break the UI.
       const { response: parsedResponse, warnings } = parseTasteAIResponse(

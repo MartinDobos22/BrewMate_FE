@@ -13,7 +13,6 @@ import {
 import auth from '@react-native-firebase/auth';
 import { getColors } from '../../theme/colors';
 import AIResponseDisplay from './AIResponseDisplay';
-import { CONFIG } from '../../config/config';
 import { BOTTOM_NAV_CONTENT_OFFSET } from '../navigation/BottomNav';
 import { API_URL } from '../../services/api';
 import {
@@ -24,8 +23,6 @@ import {
   parseTasteAIResponse,
   TASTE_AI_SCHEMA_PROMPT,
 } from './tasteAiUtils';
-
-const OPENAI_API_KEY = CONFIG.OPENAI_API_KEY;
 
 /**
  * Wrapper pre fetch s logovaním komunikácie FE ↔ BE.
@@ -322,14 +319,6 @@ const CoffeePreferenceForm = ({
     priorProfile: typeof previousProfile,
   ): Promise<{ tasteVector: TasteVector; confidence: number; profileText: string }> => {
     const fallbackResponse = buildFallbackAIResponse(fallbackVector);
-    if (!OPENAI_API_KEY) {
-      console.error('Chýba OpenAI API key. Odporúčanie sa nevygeneruje.');
-      return {
-        tasteVector: fallbackResponse.taste_vector,
-        confidence: fallbackResponse.confidence,
-        profileText: buildRecommendationText(fallbackResponse),
-      };
-    }
 
     try {
       const orderedQuestions = [
@@ -444,13 +433,8 @@ Rules for deltas:
 
 ${TASTE_AI_SCHEMA_PROMPT}`;
 
-      console.log('📤 [OpenAI] prefs prompt:', userPrompt);
-      const aiResponse = await callOpenAIJsonSchema(
-        OPENAI_API_KEY,
-        systemPrompt,
-        userPrompt,
-        0.2,
-      );
+      console.log('📤 [BE] prefs prompt:', userPrompt);
+      const aiResponse = await callOpenAIJsonSchema(systemPrompt, userPrompt, 0.2);
 
       const { response: parsedResponse, warnings } = parseTasteAIResponse(
         aiResponse,
