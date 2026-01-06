@@ -71,10 +71,7 @@ function safeNumber(value: unknown, fallback: number = DEFAULT_SCORE): number {
  * @returns {number|null} Clamped number when valid, otherwise null.
  */
 function parseVectorNumber(value: unknown): number | null {
-  const normalize = (input: number): number => {
-    const scaled = input <= 1 ? input * 10 : input;
-    return clamp(scaled);
-  };
+  const normalize = (input: number): number => clamp(input);
 
   if (typeof value === 'number' && Number.isFinite(value)) {
     return normalize(value);
@@ -507,10 +504,16 @@ export function buildTasteRadarScores({ profile, preferences }: TasteRadarSource
     const hasDetailedPreferences = Boolean(preferences.roast || preferences.intensity || preferences.preferredDrinks.length > 0);
 
     if (preferences.tasteVector && !hasDetailedPreferences) {
-      base.sweetness = blend(base.sweetness, preferences.tasteVector.sweetness, 0.6);
-      base.acidity = blend(base.acidity, preferences.tasteVector.acidity, 0.6);
-      base.body = blend(base.body, preferences.tasteVector.body, 0.6);
-      base.bitterness = blend(base.bitterness, preferences.tasteVector.bitterness, 0.6);
+      const normalizedVector = {
+        sweetness: safeNumber(preferences.tasteVector.sweetness, base.sweetness),
+        acidity: safeNumber(preferences.tasteVector.acidity, base.acidity),
+        body: safeNumber(preferences.tasteVector.body, base.body),
+        bitterness: safeNumber(preferences.tasteVector.bitterness, base.bitterness),
+      };
+      base.sweetness = blend(base.sweetness, normalizedVector.sweetness, 0.6);
+      base.acidity = blend(base.acidity, normalizedVector.acidity, 0.6);
+      base.body = blend(base.body, normalizedVector.body, 0.6);
+      base.bitterness = blend(base.bitterness, normalizedVector.bitterness, 0.6);
     }
 
     const sweetnessScore = mapSweetness(preferences.sugar);
