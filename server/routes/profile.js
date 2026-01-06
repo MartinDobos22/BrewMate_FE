@@ -80,7 +80,7 @@ const clampNumber = (value, min, max) => Math.min(max, Math.max(min, value));
  *
  * Ensures the payload is a plain object with numeric values for the expected keys
  * (sweetness, acidity, bitterness, body, intensity, experimentalism) and clamps
- * each value to a 0–1 or 0–10 range based on scale.
+ * each value to a 0–10 range, scaling 0–1 inputs to the canonical 0–10 scale.
  *
  * @param {unknown} value - Incoming taste vector payload.
  * @returns {Record<string, number> | null} Sanitized taste vector or null when not provided.
@@ -106,11 +106,8 @@ const validateTasteVector = (value) => {
       throw new Error(`Invalid taste_vector.${key}: expected a number.`);
     }
 
-    const clamped =
-      rawValue <= 1
-        ? clampNumber(rawValue, 0, 1)
-        : clampNumber(rawValue, 0, 10);
-    sanitized[key] = clamped;
+    const normalizedValue = rawValue <= 1 ? rawValue * 10 : rawValue;
+    sanitized[key] = clampNumber(normalizedValue, 0, 10);
   });
 
   return sanitized;
@@ -564,26 +561,10 @@ router.put('/api/profile', async (req, res) => {
     const mappedTasteVector =
       !hasExplicitTasteInputs && validatedTasteVector
         ? {
-            sweetness:
-              validatedTasteVector.sweetness !== undefined &&
-              validatedTasteVector.sweetness !== null
-                ? validatedTasteVector.sweetness * 10
-                : undefined,
-            acidity:
-              validatedTasteVector.acidity !== undefined &&
-              validatedTasteVector.acidity !== null
-                ? validatedTasteVector.acidity * 10
-                : undefined,
-            bitterness:
-              validatedTasteVector.bitterness !== undefined &&
-              validatedTasteVector.bitterness !== null
-                ? validatedTasteVector.bitterness * 10
-                : undefined,
-            body:
-              validatedTasteVector.body !== undefined &&
-              validatedTasteVector.body !== null
-                ? validatedTasteVector.body * 10
-                : undefined,
+            sweetness: validatedTasteVector.sweetness ?? undefined,
+            acidity: validatedTasteVector.acidity ?? undefined,
+            bitterness: validatedTasteVector.bitterness ?? undefined,
+            body: validatedTasteVector.body ?? undefined,
           }
         : {};
 
