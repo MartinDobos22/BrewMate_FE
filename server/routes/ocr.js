@@ -184,6 +184,69 @@ const EVALUATION_RESPONSE_SCHEMA = `JSON schema (strict):
 
 Return JSON only. Do not include markdown fences or extra text.`;
 
+const EVALUATION_RESPONSE_JSON_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: [
+    'status',
+    'verdict',
+    'confidence',
+    'verdict_explanation',
+    'insight',
+    'disclaimer',
+  ],
+  properties: {
+    status: {
+      type: 'string',
+      enum: ['ok', 'profile_missing', 'insufficient_coffee_data'],
+    },
+    verdict: {
+      type: ['string', 'null'],
+      enum: ['suitable', 'not_suitable', 'uncertain', null],
+    },
+    confidence: {
+      type: ['number', 'null'],
+    },
+    verdict_explanation: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'user_preferences_summary',
+        'coffee_profile_summary',
+        'comparison_summary',
+      ],
+      properties: {
+        user_preferences_summary: { type: 'string' },
+        coffee_profile_summary: { type: 'string' },
+        comparison_summary: { type: 'string' },
+      },
+    },
+    insight: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'headline',
+        'why',
+        'what_youll_like',
+        'what_might_bother_you',
+        'how_to_brew_for_better_match',
+        'recommended_alternatives',
+      ],
+      properties: {
+        headline: { type: 'string' },
+        why: { type: 'array', items: { type: 'string' } },
+        what_youll_like: { type: 'array', items: { type: 'string' } },
+        what_might_bother_you: { type: 'array', items: { type: 'string' } },
+        how_to_brew_for_better_match: { type: 'array', items: { type: 'string' } },
+        recommended_alternatives: { type: 'array', items: { type: 'string' } },
+      },
+    },
+    disclaimer: {
+      type: 'string',
+    },
+  },
+};
+
 const normalizeOpenAiJson = (value) => {
   if (!value) {
     return value;
@@ -567,7 +630,7 @@ user_taste_profile: {
 coffee_attributes: ${JSON.stringify(coffeeAttributes)}
 
 SCHEMA:
-{ ... (schema from task stub #2) ... }
+${EVALUATION_RESPONSE_SCHEMA}
 `;
 
     console.log('📤 [OpenAI] Prompt:', userPrompt);
@@ -582,6 +645,14 @@ SCHEMA:
           },
           { role: 'user', content: userPrompt },
         ],
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'coffee_evaluation',
+            schema: EVALUATION_RESPONSE_JSON_SCHEMA,
+            strict: true,
+          },
+        },
         temperature: 0.2,
       },
       {
@@ -843,4 +914,5 @@ router.post('/api/ocr/purchase', async (req, res) => {
   }
 });
 
+export { isValidEvaluationResponse };
 export default router;

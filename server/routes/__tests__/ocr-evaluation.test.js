@@ -1,0 +1,51 @@
+import { isValidEvaluationResponse } from '../ocr.js';
+
+describe('isValidEvaluationResponse', () => {
+  it('accepts a valid evaluation response', () => {
+    const response = {
+      status: 'ok',
+      verdict: 'suitable',
+      confidence: 0.82,
+      verdict_explanation: {
+        user_preferences_summary: 'Používateľ preferuje sladšie kávy.',
+        coffee_profile_summary: 'Káva má ovocné tóny a strednú aciditu.',
+        comparison_summary: 'Profil kávy zodpovedá preferenciám.',
+      },
+      insight: {
+        headline: 'Dobrá zhoda',
+        why: ['Profil kávy zapadá do preferencií.'],
+        what_youll_like: ['Jemná sladkosť a ovocné tóny.'],
+        what_might_bother_you: [],
+        how_to_brew_for_better_match: ['Skús kratšiu extrakciu.'],
+        recommended_alternatives: [],
+      },
+      disclaimer: 'Vyhodnotenie je orientačné.',
+    };
+
+    expect(isValidEvaluationResponse(response)).toBe(true);
+  });
+
+  it('rejects responses that violate the schema rules', () => {
+    const response = {
+      status: 'ok',
+      verdict: null,
+      confidence: null,
+      verdict_explanation: {
+        user_preferences_summary: 'Chýba verdict.',
+        coffee_profile_summary: 'Chýba verdict.',
+        comparison_summary: 'Chýba verdict.',
+      },
+      insight: {
+        headline: 'Neplatné',
+        why: ['Nesprávne hodnotenie.'],
+        what_youll_like: [],
+        what_might_bother_you: [],
+        how_to_brew_for_better_match: [],
+        recommended_alternatives: [],
+      },
+      disclaimer: 'Neplatné hodnotenie.',
+    };
+
+    expect(isValidEvaluationResponse(response)).toBe(false);
+  });
+});
