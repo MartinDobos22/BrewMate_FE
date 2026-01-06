@@ -190,14 +190,37 @@ const buildComparisonText = (
   evaluation: CoffeeEvaluationResult | null | undefined,
   preferenceSnapshot: CoffeePreferenceSnapshot | null | undefined,
   aiRecommendation: string | null | undefined,
+  profilePreferences: Record<string, unknown> | null | undefined,
 ): string => {
-  const hasFormText = typeof aiRecommendation === 'string' && aiRecommendation.trim().length > 0;
-  const formSection = hasFormText
-    ? `Z formy vyplýva:\n${aiRecommendation.trim()}`
-    : 'Pre porovnanie potrebujeme vyplnený dotazník.';
+  const normalizePreferenceValue = (value: unknown) =>
+    typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : null;
+  const preferences = profilePreferences ?? null;
+  const preferenceSummaryEntries = preferences
+    ? [
+        { label: 'Kyslosť', value: normalizePreferenceValue(preferences.acidity) },
+        { label: 'Sladkosť', value: normalizePreferenceValue(preferences.sweetness) },
+        { label: 'Horkosť', value: normalizePreferenceValue(preferences.bitterness) },
+        { label: 'Telo', value: normalizePreferenceValue(preferences.body) },
+      ].filter(entry => entry.value !== null)
+    : [];
+  const preferenceSummary = preferenceSummaryEntries.length
+    ? preferenceSummaryEntries
+        .map(entry => `${entry.label} ${entry.value}/10`)
+        .join(', ')
+    : null;
+  const formSection = preferenceSummary
+    ? `Aktuálny profil (dotazník):\n${preferenceSummary}`
+    : 'Aktuálny profil (dotazník): zatiaľ nemáme uložené hodnoty.';
+
+  const hasAiText = typeof aiRecommendation === 'string' && aiRecommendation.trim().length > 0;
+  const aiSection = hasAiText
+    ? `Posledné AI zhrnutie profilu:\n${aiRecommendation.trim()}`
+    : null;
 
   if (!evaluation) {
-    return `${formSection}\n\nZo skenu zatiaľ nemáme dostatok údajov na porovnanie.`;
+    return [formSection, aiSection, 'Zo skenu zatiaľ nemáme dostatok údajov na porovnanie.']
+      .filter(Boolean)
+      .join('\n\n');
   }
 
   const comparison = buildScanPreferenceComparison({
@@ -235,7 +258,7 @@ const buildComparisonText = (
     ? `Rozdiely/zhoda:\n${comparisonSummary}`
     : null;
 
-  return [formSection, scanSection, dimensionSection, reasonSection, comparisonSection]
+  return [formSection, aiSection, scanSection, dimensionSection, reasonSection, comparisonSection]
     .filter(Boolean)
     .join('\n\n');
 };
@@ -1940,8 +1963,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       evaluation,
       preferenceSnapshot,
       preferenceSnapshot?.ai_recommendation ?? null,
+      profile?.preferences ?? null,
     ),
-    [evaluation, preferenceSnapshot],
+    [evaluation, preferenceSnapshot, profile?.preferences],
   );
   // Suppress compatibility scoring whenever the AI evaluation is not ready.
   const shouldSuppressCompatibility = evaluationStatus !== 'ok';
