@@ -283,10 +283,13 @@ const extractCoffeeAttributesFromText = (text) => {
       flavor_notes: null,
       processing: null,
       varietals: null,
+      brand: null,
+      keywords: null,
     };
   }
 
   const normalizedText = text.replace(/\r/g, '');
+  const lowerText = normalizedText.toLowerCase();
 
   const extractLabelValue = (labels) => {
     for (const label of labels) {
@@ -299,9 +302,7 @@ const extractCoffeeAttributesFromText = (text) => {
     return null;
   };
 
-  const origin =
-    extractLabelValue(['origin', 'pôvod', 'povod', 'country', 'region']) ||
-    null;
+  const origin = extractLabelValue(['origin', 'pôvod', 'povod', 'country', 'region']) || null;
   const flavorNotesRaw = extractLabelValue([
     'flavor notes',
     'flavour notes',
@@ -325,12 +326,12 @@ const extractCoffeeAttributesFromText = (text) => {
     { label: 'semi-washed', keywords: ['semi-washed', 'semi washed', 'wet hulled'] },
     { label: 'carbonic maceration', keywords: ['carbonic', 'maceration'] },
   ];
-  const lowerText = normalizedText.toLowerCase();
+  const processingKeywordMatch = processingKeywords.find(({ keywords }) =>
+    keywords.some((keyword) => lowerText.includes(keyword))
+  );
   const processing =
     extractLabelValue(['processing', 'process', 'spracovanie']) ||
-    processingKeywords.find(({ keywords }) =>
-      keywords.some((keyword) => lowerText.includes(keyword))
-    )?.label ||
+    processingKeywordMatch?.label ||
     null;
 
   const roastLevelRaw = extractLabelValue(['roast', 'praženie', 'prazenie']);
@@ -340,12 +341,38 @@ const extractCoffeeAttributesFromText = (text) => {
     { label: 'medium-dark', keywords: ['medium-dark', 'medium dark', 'full city'] },
     { label: 'dark', keywords: ['dark', 'tmava', 'french', 'italian', 'espresso'] },
   ];
+  const roastKeywordMatch = roastLevelKeywords.find(({ keywords }) =>
+    keywords.some((keyword) => lowerText.includes(keyword))
+  );
   const roastLevel =
     normalizeCoffeeValue(roastLevelRaw) ||
-    roastLevelKeywords.find(({ keywords }) =>
-      keywords.some((keyword) => lowerText.includes(keyword))
-    )?.label ||
+    roastKeywordMatch?.label ||
     null;
+
+  const brandRaw = extractLabelValue([
+    'brand',
+    'roaster',
+    'roastery',
+    'roaster name',
+    'pražiareň',
+    'praziaren',
+  ]);
+  const brandAllowlistMatch = BRANDED_COFFEE_ALLOWLIST.find((brandName) =>
+    lowerText.includes(brandName.toLowerCase())
+  );
+  const brand = normalizeCoffeeValue(brandRaw || brandAllowlistMatch);
+
+  const keywordMatches = [
+    roastKeywordMatch?.label,
+    processingKeywordMatch?.label,
+    brandAllowlistMatch ? `brand:${brandAllowlistMatch}` : null,
+    lowerText.includes('single origin') ? 'single origin' : null,
+    lowerText.includes('blend') ? 'blend' : null,
+    lowerText.includes('arabica') ? 'arabica' : null,
+    lowerText.includes('robusta') ? 'robusta' : null,
+    lowerText.includes('espresso') ? 'espresso' : null,
+    lowerText.includes('filter') ? 'filter' : null,
+  ].filter(Boolean);
 
   return {
     origin,
@@ -353,6 +380,8 @@ const extractCoffeeAttributesFromText = (text) => {
     flavor_notes: flavorNotesRaw ? parseDelimitedList(flavorNotesRaw) : null,
     processing: normalizeCoffeeValue(processing),
     varietals: varietalsRaw ? parseDelimitedList(varietalsRaw) : null,
+    brand,
+    keywords: keywordMatches.length > 0 ? keywordMatches : null,
   };
 };
 
@@ -391,6 +420,8 @@ const hasMeaningfulCoffeeData = (coffeeAttributes) => {
   const brand =
     getValue(coffeeAttributes, ['brand', 'roaster', 'roastery', 'roaster_name']) ??
     getValue(structured, ['brand', 'roaster', 'roastery', 'roaster_name']);
+  const keywords =
+    getValue(coffeeAttributes, ['keywords']) ?? getValue(structured, ['keywords']);
 
   const hasCoreProfileDetails = [origin, flavorNotes, varietals].some(hasValue);
   const hasRoastOrProcessing = [roastLevel, processing].some(hasValue);
@@ -398,10 +429,48 @@ const hasMeaningfulCoffeeData = (coffeeAttributes) => {
   const isAllowlistedBrand = BRANDED_COFFEE_ALLOWLIST.some((allowed) =>
     brandLabel.includes(allowed.toLowerCase())
   );
+  const hasKeywordSignals = Array.isArray(keywords) && keywords.length > 0;
+  const hasBrandSignal = hasValue(brand);
 
   // Require structured attributes before AI evaluation.
   // Allow recognized brands with roast/processing data to pass the check.
-  return hasCoreProfileDetails || (isAllowlistedBrand && hasRoastOrProcessing);
+  return (
+    hasCoreProfileDetails ||
+    hasRoastOrProcessing ||
+    hasKeywordSignals ||
+    (isAllowlistedBrand && hasRoastOrProcessing) ||
+    hasBrandSignal
+  );
+};
+
+const buildLowConfidenceFallbackResponse = ({ preferences, coffeeAttributes, correctedText }) => {
+  const base = buildDeterministicFallbackResponse({
+    preferences,
+    coffeeAttributes,
+    correctedText,
+  });
+  const loweredConfidence =
+    typeof base.confidence === 'number' && Number.isFinite(base.confidence)
+      ? Math.min(Number((base.confidence * 0.6).toFixed(2)), 0.45)
+      : 0.3;
+
+  return {
+    ...base,
+    confidence: loweredConfidence,
+    verdict: base.verdict ?? 'uncertain',
+    verdict_explanation: {
+      ...base.verdict_explanation,
+      coffee_profile_summary: `${base.verdict_explanation.coffee_profile_summary} Dáta sú slabšie, takže hodnotenie je orientačné.`,
+    },
+    insight: {
+      ...base.insight,
+      why: [
+        ...base.insight.why,
+        'Použité boli iba čiastočné signály z textu.',
+      ],
+    },
+    disclaimer: 'Výsledok je orientačný a založený na obmedzených údajoch z OCR.',
+  };
 };
 
 const isValidEvaluationResponse = (value) => {
@@ -1131,7 +1200,13 @@ router.post('/api/ocr/evaluate', async (req, res) => {
     };
 
     if (!hasMeaningfulCoffeeData(coffeeAttributes)) {
-      return res.json(INSUFFICIENT_COFFEE_DATA_RESPONSE);
+      return res.json(
+        buildLowConfidenceFallbackResponse({
+          preferences,
+          coffeeAttributes,
+          correctedText,
+        })
+      );
     }
 
     // The comparison-based structure prevents contradictions because verdict and insight share the same summaries.
