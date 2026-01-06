@@ -1,4 +1,4 @@
-INSERT INTO app_users(firebase_uid)
+INSERT INTO app_users(id)
 SELECT DISTINCT user_id
 FROM (
     SELECT user_id FROM user_taste_profiles
