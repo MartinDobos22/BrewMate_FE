@@ -423,6 +423,174 @@ router.post('/ocr', async (req, res) => {
 });
 
 /**
+ * Opraví OCR text pomocou OpenAI.
+ */
+router.post('/api/ocr/fix-text', async (req, res) => {
+  const { text } = req.body ?? {};
+  if (!text || typeof text !== 'string') {
+    return res.status(400).json({ error: 'Chýba OCR text' });
+  }
+
+  if (!process.env.OPENAI_API_KEY) {
+    return res.status(200).json({ corrected_text: text });
+  }
+
+  const prompt = `Toto je text získaný OCR rozpoznávaním z etikety kávy.
+Oprav všetky chyby, ktoré mohli vzniknúť zlým rozpoznaním znakov.
+Zachovaj pôvodný význam a štruktúru, ale oprav OCR chyby.
+Vráť iba opravený text.
+
+OCR text:
+${text}`;
+
+  try {
+    console.log('📤 [OpenAI] OCR prompt:', prompt);
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content:
+              'Si expert na kávu a opravu textov z OCR. Opravuješ chyby v rozpoznaných textoch z etikiet káv.',
+          },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.2,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    console.log('📥 [OpenAI] OCR response:', response.data);
+    const corrected =
+      response.data?.choices?.[0]?.message?.content?.trim() || text;
+    return res.json({ corrected_text: corrected });
+  } catch (error) {
+    console.error('OCR fix error:', error?.message ?? error);
+    return res.json({ corrected_text: text });
+  }
+});
+
+/**
+ * Navrhne spôsoby prípravy kávy na základe textu.
+ */
+router.post('/api/ocr/brewing-methods', async (req, res) => {
+  const { text } = req.body ?? {};
+  if (!text || typeof text !== 'string') {
+    return res.status(400).json({ error: 'Chýba text kávy' });
+  }
+
+  const fallback = ['Espresso', 'French press', 'V60', 'Cold brew'];
+  if (!process.env.OPENAI_API_KEY) {
+    return res.status(200).json({ methods: fallback });
+  }
+
+  const prompt =
+    `Na základe tohto popisu kávy navrhni presne 4 najvhodnejšie spôsoby prípravy kávy. ` +
+    `Odpovedz len zoznamom metód oddelených novým riadkom. Popis: "${text}"`;
+
+  try {
+    console.log('📤 [OpenAI] Brewing prompt:', prompt);
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content:
+              'Si barista, ktorý odporúča spôsoby prípravy kávy na základe popisu z etikety.',
+          },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.7,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    console.log('📥 [OpenAI] Brewing response:', response.data);
+    const content = response.data?.choices?.[0]?.message?.content || '';
+    let methods = content
+      .split('\n')
+      .map((method) => method.replace(/^[-*\d.\s]+/, '').trim())
+      .filter(Boolean);
+
+    if (methods.length === 0) {
+      methods = fallback;
+    } else if (methods.length < 4) {
+      methods = [...methods, ...fallback].slice(0, 4);
+    } else {
+      methods = methods.slice(0, 4);
+    }
+
+    return res.json({ methods });
+  } catch (error) {
+    console.error('Brewing suggestion error:', error?.message ?? error);
+    return res.json({ methods: fallback });
+  }
+});
+
+/**
+ * Vygeneruje recept na kávu podľa zvolenej metódy a preferovanej chuti.
+ */
+router.post('/api/ocr/brew-recipe', async (req, res) => {
+  const { method, taste } = req.body ?? {};
+  if (!method || typeof method !== 'string') {
+    return res.status(400).json({ error: 'Chýba metóda prípravy' });
+  }
+
+  if (!process.env.OPENAI_API_KEY) {
+    return res.status(200).json({ recipe: '' });
+  }
+
+  const prompt = `Priprav detailný recept na kávu pomocou metódy ${method}. Používateľ preferuje ${
+    taste || 'vyvážená'
+  } chuť. Uveď ideálny pomer kávy k vode, teplotu vody a ďalšie dôležité kroky. Odpovedz stručne.`;
+
+  try {
+    console.log('📤 [OpenAI] Recipe prompt:', prompt);
+    const response = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: 'Si skúsený barista, ktorý navrhuje recepty na kávu.',
+          },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.7,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    console.log('📥 [OpenAI] Recipe response:', response.data);
+    const recipe = response.data?.choices?.[0]?.message?.content?.trim() || '';
+    return res.json({ recipe });
+  } catch (error) {
+    console.error('Brew recipe error:', error?.message ?? error);
+    return res.json({ recipe: '' });
+  }
+});
+
+/**
  * Uloží výsledok OCR do databázy a vypočíta zhodu s preferenciami používateľa.
  */
 router.post('/api/ocr/save', async (req, res) => {

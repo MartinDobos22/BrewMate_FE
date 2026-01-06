@@ -1,3 +1,6 @@
+import auth from '@react-native-firebase/auth';
+import { API_URL } from '../../services/api';
+
 export type TasteVector = {
   acidity: number;
   bitterness: number;
@@ -232,32 +235,28 @@ export const TASTE_AI_SCHEMA_PROMPT = `JSON schema (all fields required):
 Return JSON only.`;
 
 export const callOpenAIJsonSchema = async (
-  apiKey: string,
   systemPrompt: string,
   userPrompt: string,
   temperature = 0.2,
 ): Promise<string | undefined> => {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const token = await auth().currentUser?.getIdToken();
+  const response = await fetch(`${API_URL}/profile/taste-profile`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({
-      model: 'gpt-4o',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
+      system_prompt: systemPrompt,
+      user_prompt: userPrompt,
       temperature,
-      response_format: {
-        type: 'json_schema',
-        json_schema: TASTE_AI_RESPONSE_SCHEMA,
-      },
     }),
   });
 
-  const data = await response.json();
-  console.log('📥 [OpenAI] prefs response:', data);
-  return data?.choices?.[0]?.message?.content?.trim();
+  const data = await response.json().catch(() => ({}));
+  console.log('📥 [BE] prefs response:', data);
+  if (!response.ok) {
+    throw new Error(data?.error || 'AI request failed');
+  }
+  return data?.content?.trim();
 };

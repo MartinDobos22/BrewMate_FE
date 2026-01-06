@@ -1,4 +1,5 @@
 import express from 'express';
+import axios from 'axios';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -16,6 +17,58 @@ const TASTE_VECTOR_KEYS = [
   'intensity',
   'experimentalism',
 ];
+const TASTE_AI_RESPONSE_JSON_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    ai_recommendation: {
+      type: 'string',
+    },
+    taste_vector: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        acidity: { type: 'number', minimum: 0, maximum: 1 },
+        bitterness: { type: 'number', minimum: 0, maximum: 1 },
+        sweetness: { type: 'number', minimum: 0, maximum: 1 },
+        body: { type: 'number', minimum: 0, maximum: 1 },
+        intensity: { type: 'number', minimum: 0, maximum: 1 },
+        experimentalism: { type: 'number', minimum: 0, maximum: 1 },
+      },
+      required: [
+        'acidity',
+        'bitterness',
+        'sweetness',
+        'body',
+        'intensity',
+        'experimentalism',
+      ],
+    },
+    confidence: { type: 'number', minimum: 0, maximum: 1 },
+    explanations: {
+      type: 'array',
+      items: { type: 'string' },
+      minItems: 1,
+    },
+    next_steps: {
+      type: 'array',
+      items: { type: 'string' },
+      minItems: 1,
+    },
+    deltas: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+  },
+  required: [
+    'ai_recommendation',
+    'taste_vector',
+    'confidence',
+    'explanations',
+    'next_steps',
+    'deltas',
+  ],
+};
 
 const isPlainObject = (value) =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -185,6 +238,63 @@ router.get('/api/profile', async (req, res) => {
   } catch (err) {
     console.error('❌ Chyba načítania profilu:', err);
     res.status(500).json({ error: 'Nepodarilo sa načítať profil' });
+  }
+});
+
+/**
+ * Vygeneruje AI odporúčanie pre chuťový profil na základe promptov z FE.
+ */
+router.post('/api/profile/taste-profile', async (req, res) => {
+  const idToken = req.headers.authorization?.split(' ')[1];
+  if (!idToken) return res.status(401).json({ error: 'Token chýba' });
+
+  try {
+    const decoded = await admin.auth().verifyIdToken(idToken);
+    await ensureAppUserExists(decoded.uid, decoded.email || decoded.user?.email, {
+      client: db,
+      name: decoded.name || decoded.user?.name,
+    });
+
+    const { system_prompt, user_prompt, temperature } = req.body ?? {};
+    if (!system_prompt || !user_prompt) {
+      return res.status(400).json({ error: 'Chýba systémový alebo používateľský prompt' });
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(503).json({ error: 'OpenAI API key nie je nastavený' });
+    }
+
+    const aiResponse = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: system_prompt },
+          { role: 'user', content: user_prompt },
+        ],
+        temperature: typeof temperature === 'number' ? temperature : 0.2,
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'coffee_preference_profile',
+            schema: TASTE_AI_RESPONSE_JSON_SCHEMA,
+            strict: true,
+          },
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    const content = aiResponse.data?.choices?.[0]?.message?.content?.trim() ?? '';
+    return res.json({ content });
+  } catch (err) {
+    console.error('❌ Chyba AI profilu:', err);
+    return res.status(500).json({ error: 'Nepodarilo sa vygenerovať AI profil' });
   }
 });
 
