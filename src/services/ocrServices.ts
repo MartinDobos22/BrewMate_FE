@@ -628,9 +628,23 @@ interface OCRResult {
   source?: 'offline' | 'online';
   isCoffee?: boolean;
   nonCoffeeReason?: string;
+  /**
+   * Labels returned by Vision label detection (e.g., "coffee", "espresso").
+   * Optional when the backend does not return label annotations.
+   */
   detectionLabels?: string[];
+  /**
+   * Confidence score derived from label detection for coffee-related labels.
+   * Optional and may be undefined when label detection is unavailable.
+   */
   detectionConfidence?: number;
+  /**
+   * Structured metadata extracted from OCR text when available (e.g., origin, roast, notes).
+   */
   structuredMetadata?: StructuredCoffeeMetadata | null;
+  /**
+   * Confidence flags for structured metadata extraction when provided by the backend.
+   */
   structuredConfidence?: Record<string, unknown> | null;
   structuredUncertainty?: Record<string, unknown> | null;
   rawStructuredResponse?: unknown;
@@ -898,7 +912,8 @@ const ensureOfflineImagePath = async (
 
 
 /**
- * Processes OCR using backend services with offline fallbacks, AI enrichment, and structured metadata parsing.
+ * Processes OCR using backend services with offline fallbacks, AI enrichment, label detection,
+ * and structured metadata parsing.
  *
  * @param {string} base64image - Base64 encoded image captured from the coffee label.
  * @param {{ imagePath?: string }} [options] - Optional hints including a pre-saved image path to reuse for offline flow.
