@@ -1434,6 +1434,8 @@ export interface OCRHistory {
   roast_date?: string | null;
   varietals?: string[] | string | null;
   thumbnail_url?: string | null;
+  structured_confidence?: Record<string, unknown> | null;
+  structured_uncertainty?: Record<string, unknown> | null;
 }
 
 /**
@@ -1482,6 +1484,8 @@ export const fetchOCRHistory = async (limit: number = 10): Promise<OCRHistory[]>
       roast_date: item.roast_date ?? null,
       varietals: item.varietals ?? null,
       thumbnail_url: item.thumbnail_url ?? null,
+      structured_confidence: item.structured_confidence ?? null,
+      structured_uncertainty: item.structured_uncertainty ?? null,
     }));
   } catch (error) {
     console.error('Error fetching OCR history:', error);

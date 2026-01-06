@@ -770,6 +770,8 @@ router.post('/api/ocr/save', async (req, res) => {
       structuredMetadata,
       structured_confidence,
       structuredConfidence,
+      structured_uncertainty,
+      structuredUncertainty,
     } = req.body;
 
     const structured = structured_metadata || structuredMetadata || {};
@@ -778,6 +780,12 @@ router.post('/api/ocr/save', async (req, res) => {
       structuredConfidence ||
       structured.confidenceFlags ||
       structured.confidence_flags ||
+      null;
+    const uncertaintyFlags =
+      structured_uncertainty ||
+      structuredUncertainty ||
+      structured.uncertainty ||
+      structured.uncertainty_flags ||
       null;
 
     const derivedAttributes = extractCoffeeAttributesFromText(
@@ -855,6 +863,8 @@ router.post('/api/ocr/save', async (req, res) => {
         roast_date,
         varietals,
         thumbnail_url,
+        structured_confidence,
+        structured_uncertainty,
         match_score,
         is_recommended,
         detected_at,
@@ -875,8 +885,10 @@ router.post('/api/ocr/save', async (req, res) => {
         $9,
         $10::jsonb,
         $11,
-        $12,
-        $13,
+        $12::jsonb,
+        $13::jsonb,
+        $14,
+        $15,
         now(),
         now()
       )
@@ -893,6 +905,8 @@ router.post('/api/ocr/save', async (req, res) => {
         normalizeTextField(roast_date ?? structured.roast_date ?? structured.roastDate),
         resolvedVarietals,
         normalizeTextField(thumbnail_url ?? structured.thumbnail_url ?? structured.thumbnailUrl),
+        normalizeJsonField(confidenceFlags),
+        normalizeJsonField(uncertaintyFlags),
         matchPercentage,
         isRecommended,
       ]
@@ -1259,6 +1273,8 @@ router.get('/api/ocr/history', async (req, res) => {
         roast_date,
         varietals,
         thumbnail_url,
+        structured_confidence,
+        structured_uncertainty,
         match_score,
         is_recommended,
         created_at
@@ -1282,6 +1298,8 @@ router.get('/api/ocr/history', async (req, res) => {
       roast_date: row.roast_date,
       varietals: row.varietals,
       thumbnail_url: row.thumbnail_url,
+      structured_confidence: row.structured_confidence,
+      structured_uncertainty: row.structured_uncertainty,
       created_at: row.created_at,
       rating: null,
       match_percentage: row.match_score || 0,
