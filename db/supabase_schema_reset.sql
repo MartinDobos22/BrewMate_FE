@@ -232,22 +232,32 @@ CREATE TABLE public.user_statistics (
 
 -- Keep updated_at fresh
 CREATE OR REPLACE FUNCTION public.touch_updated_at()
-RETURNS trigger AS $$
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public AS $$
 BEGIN
   NEW.updated_at = now();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Ensure stats row exists
 CREATE OR REPLACE FUNCTION public.ensure_user_stats(u_id uuid)
-RETURNS void AS $$
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public AS $$
 BEGIN
+  IF u_id IS NULL THEN
+    RETURN;
+  END IF;
+
   INSERT INTO public.user_statistics(user_id)
   VALUES (u_id)
   ON CONFLICT (user_id) DO NOTHING;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Generic counter updater
 CREATE OR REPLACE FUNCTION public.update_user_stats_delta(
@@ -256,8 +266,15 @@ CREATE OR REPLACE FUNCTION public.update_user_stats_delta(
   recipe_delta int,
   scan_delta int,
   coffee_delta int
-) RETURNS void AS $$
+) RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public AS $$
 BEGIN
+  IF u_id IS NULL THEN
+    RETURN;
+  END IF;
+
   PERFORM public.ensure_user_stats(u_id);
   UPDATE public.user_statistics
   SET
@@ -268,72 +285,112 @@ BEGIN
     updated_at = now()
   WHERE user_id = u_id;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Trigger handlers for stats
 CREATE OR REPLACE FUNCTION public.handle_brew_history_insert()
-RETURNS trigger AS $$
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public AS $$
 BEGIN
-  PERFORM public.update_user_stats_delta(NEW.user_id, 1, 0, 0, 0);
+  IF NEW.user_id IS NOT NULL THEN
+    PERFORM public.update_user_stats_delta(NEW.user_id, 1, 0, 0, 0);
+  END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 CREATE OR REPLACE FUNCTION public.handle_brew_history_delete()
-RETURNS trigger AS $$
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public AS $$
 BEGIN
-  PERFORM public.update_user_stats_delta(OLD.user_id, -1, 0, 0, 0);
+  IF OLD.user_id IS NOT NULL THEN
+    PERFORM public.update_user_stats_delta(OLD.user_id, -1, 0, 0, 0);
+  END IF;
   RETURN OLD;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 CREATE OR REPLACE FUNCTION public.handle_user_recipe_insert()
-RETURNS trigger AS $$
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public AS $$
 BEGIN
-  PERFORM public.update_user_stats_delta(NEW.user_id, 0, 1, 0, 0);
+  IF NEW.user_id IS NOT NULL THEN
+    PERFORM public.update_user_stats_delta(NEW.user_id, 0, 1, 0, 0);
+  END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 CREATE OR REPLACE FUNCTION public.handle_user_recipe_delete()
-RETURNS trigger AS $$
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public AS $$
 BEGIN
-  PERFORM public.update_user_stats_delta(OLD.user_id, 0, -1, 0, 0);
+  IF OLD.user_id IS NOT NULL THEN
+    PERFORM public.update_user_stats_delta(OLD.user_id, 0, -1, 0, 0);
+  END IF;
   RETURN OLD;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 CREATE OR REPLACE FUNCTION public.handle_scan_event_insert()
-RETURNS trigger AS $$
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public AS $$
 BEGIN
-  PERFORM public.update_user_stats_delta(NEW.user_id, 0, 0, 1, 0);
+  IF NEW.user_id IS NOT NULL THEN
+    PERFORM public.update_user_stats_delta(NEW.user_id, 0, 0, 1, 0);
+  END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 CREATE OR REPLACE FUNCTION public.handle_scan_event_delete()
-RETURNS trigger AS $$
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public AS $$
 BEGIN
-  PERFORM public.update_user_stats_delta(OLD.user_id, 0, 0, -1, 0);
+  IF OLD.user_id IS NOT NULL THEN
+    PERFORM public.update_user_stats_delta(OLD.user_id, 0, 0, -1, 0);
+  END IF;
   RETURN OLD;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 CREATE OR REPLACE FUNCTION public.handle_user_coffee_insert()
-RETURNS trigger AS $$
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public AS $$
 BEGIN
-  PERFORM public.update_user_stats_delta(NEW.user_id, 0, 0, 0, 1);
+  IF NEW.user_id IS NOT NULL THEN
+    PERFORM public.update_user_stats_delta(NEW.user_id, 0, 0, 0, 1);
+  END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 CREATE OR REPLACE FUNCTION public.handle_user_coffee_delete()
-RETURNS trigger AS $$
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public AS $$
 BEGIN
-  PERFORM public.update_user_stats_delta(OLD.user_id, 0, 0, 0, -1);
+  IF OLD.user_id IS NOT NULL THEN
+    PERFORM public.update_user_stats_delta(OLD.user_id, 0, 0, 0, -1);
+  END IF;
   RETURN OLD;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- =====================
 -- CREATE NEW TRIGGERS
@@ -405,43 +462,339 @@ ALTER TABLE public.scan_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_statistics ENABLE ROW LEVEL SECURITY;
 
 -- Ownership based policies
-CREATE POLICY select_own_user_taste_profiles ON public.user_taste_profiles FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY insert_own_user_taste_profiles ON public.user_taste_profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY update_own_user_taste_profiles ON public.user_taste_profiles FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-CREATE POLICY delete_own_user_taste_profiles ON public.user_taste_profiles FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY select_own_user_taste_profiles ON public.user_taste_profiles
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
+CREATE POLICY insert_own_user_taste_profiles ON public.user_taste_profiles
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
+CREATE POLICY update_own_user_taste_profiles ON public.user_taste_profiles
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  ) WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
+CREATE POLICY delete_own_user_taste_profiles ON public.user_taste_profiles
+  FOR DELETE USING (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
 
-CREATE POLICY select_own_brew_history ON public.brew_history FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY insert_own_brew_history ON public.brew_history FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY update_own_brew_history ON public.brew_history FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-CREATE POLICY delete_own_brew_history ON public.brew_history FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY select_own_brew_history ON public.brew_history
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
+CREATE POLICY insert_own_brew_history ON public.brew_history
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
+CREATE POLICY update_own_brew_history ON public.brew_history
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  ) WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
+CREATE POLICY delete_own_brew_history ON public.brew_history
+  FOR DELETE USING (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
 
-CREATE POLICY select_own_learning_events ON public.learning_events FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY insert_own_learning_events ON public.learning_events FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY update_own_learning_events ON public.learning_events FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-CREATE POLICY delete_own_learning_events ON public.learning_events FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY select_own_learning_events ON public.learning_events
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
+CREATE POLICY insert_own_learning_events ON public.learning_events
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
+CREATE POLICY update_own_learning_events ON public.learning_events
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  ) WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
+CREATE POLICY delete_own_learning_events ON public.learning_events
+  FOR DELETE USING (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
 
-CREATE POLICY select_own_onboarding ON public.user_onboarding_responses FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY insert_own_onboarding ON public.user_onboarding_responses FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY update_own_onboarding ON public.user_onboarding_responses FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-CREATE POLICY delete_own_onboarding ON public.user_onboarding_responses FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY select_own_onboarding ON public.user_onboarding_responses
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
+CREATE POLICY insert_own_onboarding ON public.user_onboarding_responses
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
+CREATE POLICY update_own_onboarding ON public.user_onboarding_responses
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  ) WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
+CREATE POLICY delete_own_onboarding ON public.user_onboarding_responses
+  FOR DELETE USING (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
 
-CREATE POLICY select_own_user_recipes ON public.user_recipes FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY insert_own_user_recipes ON public.user_recipes FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY update_own_user_recipes ON public.user_recipes FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-CREATE POLICY delete_own_user_recipes ON public.user_recipes FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY select_own_user_recipes ON public.user_recipes
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
+CREATE POLICY insert_own_user_recipes ON public.user_recipes
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
+CREATE POLICY update_own_user_recipes ON public.user_recipes
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  ) WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
+CREATE POLICY delete_own_user_recipes ON public.user_recipes
+  FOR DELETE USING (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
 
-CREATE POLICY select_own_user_coffees ON public.user_coffees FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY insert_own_user_coffees ON public.user_coffees FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY update_own_user_coffees ON public.user_coffees FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-CREATE POLICY delete_own_user_coffees ON public.user_coffees FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY select_own_user_coffees ON public.user_coffees
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
+CREATE POLICY insert_own_user_coffees ON public.user_coffees
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
+CREATE POLICY update_own_user_coffees ON public.user_coffees
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  ) WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
+CREATE POLICY delete_own_user_coffees ON public.user_coffees
+  FOR DELETE USING (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
 
-CREATE POLICY select_own_scan_events ON public.scan_events FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY insert_own_scan_events ON public.scan_events FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY update_own_scan_events ON public.scan_events FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-CREATE POLICY delete_own_scan_events ON public.scan_events FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY select_own_scan_events ON public.scan_events
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
+CREATE POLICY insert_own_scan_events ON public.scan_events
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
+CREATE POLICY update_own_scan_events ON public.scan_events
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  ) WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
+CREATE POLICY delete_own_scan_events ON public.scan_events
+  FOR DELETE USING (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
 
-CREATE POLICY select_own_statistics ON public.user_statistics FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY update_own_statistics ON public.user_statistics FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY select_own_statistics ON public.user_statistics
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
+CREATE POLICY update_own_statistics ON public.user_statistics
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  ) WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.app_users au
+      WHERE au.id = user_id
+        AND au.firebase_uid = auth.jwt() ->> 'sub'
+    )
+  );
 
 -- =====================
 -- INDEXES
