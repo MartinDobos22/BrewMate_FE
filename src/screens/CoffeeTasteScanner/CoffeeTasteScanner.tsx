@@ -2376,6 +2376,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
           + `Horkosť ${Math.round(bitterness)}/10, `
           + `Telo ${Math.round(body)}/10.`,
       );
+    } else {
+      summaryLines.push('Tvoje preferencie: Chuťový profil nie je k dispozícii.');
     }
 
     const structuredDetails = [
@@ -2389,16 +2391,20 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
 
     if (structuredDetails.length) {
       summaryLines.push(`Profil kávy: ${structuredDetails.join(' • ')}.`);
-    }
-
-    if (tasteAttributes.length) {
+    } else if (tasteAttributes.length) {
       const tasteSummary = tasteAttributes
         .map(attribute => `${attribute.label} ${Math.round(attribute.value)}/10`)
         .join(', ');
-      summaryLines.push(`Odhad chutí z etikety: ${tasteSummary}.`);
+      summaryLines.push(`Profil kávy: odhadnuté chute z etikety ${tasteSummary}.`);
+    } else {
+      summaryLines.push('Profil kávy: máme len základné údaje zo skenu.');
     }
 
-    return summaryLines.length ? summaryLines.join('\n') : null;
+    summaryLines.push(
+      'Porovnanie s tvojím profilom: nemáme dostatok údajov na presné porovnanie.',
+    );
+
+    return summaryLines.join('\n');
   }, [evaluationStatus, profile?.preferences, structuredMetadata, tasteAttributes]);
 
   const verdictLabel = evaluationVerdictLabel;
@@ -2418,15 +2424,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
         // 2) Popíš profil kávy.
         // 3) Jasne porovnaj oba profily v slovenčine.
         const explanationLines = [
-          userPreferencesSummary
-            ? `Tvoje preferencie: ${userPreferencesSummary}`
-            : null,
-          coffeeProfileSummary
-            ? `Profil kávy: ${coffeeProfileSummary}`
-            : null,
-          comparisonSummary
-            ? `Porovnanie s tvojím profilom: ${comparisonSummary}`
-            : null,
+          userPreferencesSummary,
+          coffeeProfileSummary,
+          comparisonSummary,
         ].filter((line): line is string => Boolean(line));
         if (explanationLines.length) {
           return explanationLines.join('\n');
