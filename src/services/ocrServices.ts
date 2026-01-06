@@ -947,6 +947,12 @@ export const processOCR = async (
       : undefined;
     const detectionConfidence =
       typeof ocrData.coffeeConfidence === 'number' ? ocrData.coffeeConfidence : undefined;
+    const initialStructuredMetadata = safeParseJSON<Record<string, unknown>>(
+      ocrData.structured_metadata ?? ocrData.structuredMetadata
+    );
+    const initialStructuredConfidence = safeParseJSON<Record<string, unknown>>(
+      ocrData.structured_confidence ?? ocrData.structuredConfidence
+    );
 
     // 2. Oprav text pomocou AI
     const correctedText = await fixTextWithAI(originalText);
@@ -974,16 +980,24 @@ export const processOCR = async (
       throw new Error('Nie si prihlásený');
     }
 
+    const savePayload: Record<string, unknown> = {
+      original_text: originalText,
+      corrected_text: correctedText,
+    };
+    if (initialStructuredMetadata) {
+      savePayload.structured_metadata = initialStructuredMetadata;
+    }
+    if (initialStructuredConfidence) {
+      savePayload.structured_confidence = initialStructuredConfidence;
+    }
+
     const saveResponse = await loggedFetch(`${API_URL}/ocr/save`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        original_text: originalText,
-        corrected_text: correctedText,
-      }),
+      body: JSON.stringify(savePayload),
     });
 
     let matchPercentage = 0;
@@ -1001,7 +1015,10 @@ export const processOCR = async (
       isRecommended = saveData.is_recommended || false;
       scanId = saveData.id || '';
 
-      const metadataRaw = saveData.structured_metadata;
+      const metadataRaw =
+        saveData.structured_metadata ??
+        saveData.structuredMetadata ??
+        initialStructuredMetadata;
       const metadataParsed = safeParseJSON<Record<string, any>>(metadataRaw);
       if (metadataParsed && typeof metadataParsed === 'object') {
         const normalizeString = (value: unknown): string | null => {
@@ -1097,7 +1114,9 @@ export const processOCR = async (
       }
 
       structuredConfidence = safeParseJSON<Record<string, unknown>>(
-        saveData.structured_confidence
+        saveData.structured_confidence ??
+          saveData.structuredConfidence ??
+          initialStructuredConfidence
       );
       structuredUncertainty = safeParseJSON<Record<string, unknown>>(
         saveData.structured_uncertainty

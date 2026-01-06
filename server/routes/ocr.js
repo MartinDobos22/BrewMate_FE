@@ -627,12 +627,36 @@ router.post('/api/ocr/save', async (req, res) => {
       thumbnail_url,
       structured_metadata,
       structuredMetadata,
+      structured_confidence,
+      structuredConfidence,
     } = req.body;
 
     const structured = structured_metadata || structuredMetadata || {};
+    const confidenceFlags =
+      structured_confidence ||
+      structuredConfidence ||
+      structured.confidenceFlags ||
+      structured.confidence_flags ||
+      null;
 
     const normalizeTextField = (value) =>
       typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+    const normalizeArrayField = (value) => {
+      if (Array.isArray(value)) {
+        const normalized = value
+          .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+          .filter(Boolean);
+        return normalized.length > 0 ? normalized : null;
+      }
+      if (typeof value === 'string') {
+        const normalized = value
+          .split(/[,;\n]/)
+          .map((entry) => entry.trim())
+          .filter(Boolean);
+        return normalized.length > 0 ? normalized : null;
+      }
+      return null;
+    };
     const normalizeJsonField = (value) =>
       value === undefined || value === null ? null : JSON.stringify(value);
 
@@ -710,11 +734,47 @@ router.post('/api/ocr/save', async (req, res) => {
       ]
     );
 
+    const storedStructuredMetadata = {
+      roaster: normalizeTextField(
+        structured.roaster ??
+          structured.roaster_name ??
+          structured.brand ??
+          structured.roastery
+      ),
+      origin: normalizeTextField(origin ?? structured.origin),
+      roastLevel: normalizeTextField(
+        roast_level ?? structured.roast_level ?? structured.roastLevel
+      ),
+      processing: normalizeTextField(processing ?? structured.processing),
+      flavorNotes: normalizeArrayField(
+        flavor_notes ?? structured.flavor_notes ?? structured.flavorNotes
+      ),
+      roastDate: normalizeTextField(roast_date ?? structured.roast_date ?? structured.roastDate),
+      varietals: normalizeArrayField(varietals ?? structured.varietals),
+      confidenceFlags:
+        confidenceFlags && typeof confidenceFlags === 'object' ? confidenceFlags : null,
+    };
+    const hasStructuredPayload = Object.entries(storedStructuredMetadata).some(([key, value]) => {
+      if (key === 'confidenceFlags') {
+        return value !== null;
+      }
+      if (Array.isArray(value)) {
+        return value.length > 0;
+      }
+      return Boolean(value);
+    });
+
     res.status(200).json({
       message: 'OCR uložené',
       id: result.rows[0].id,
       match_percentage: matchPercentage,
       is_recommended: isRecommended,
+      structured_metadata: hasStructuredPayload ? storedStructuredMetadata : null,
+      structured_confidence:
+        storedStructuredMetadata.confidenceFlags &&
+        typeof storedStructuredMetadata.confidenceFlags === 'object'
+          ? storedStructuredMetadata.confidenceFlags
+          : null,
     });
   } catch (err) {
     console.error('❌ Chyba pri ukladaní OCR:', err);
