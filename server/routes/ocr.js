@@ -18,10 +18,10 @@ const PROFILE_MISSING_RESPONSE = {
   confidence: null,
   verdict_explanation: {
     user_preferences_summary:
-      'Používateľský chuťový profil nie je dokončený, takže nemáme kompletné preferencie.',
-    coffee_profile_summary: 'Profil kávy je k dispozícii, no nie je s čím ho porovnať.',
+      'Tvoje preferencie: chuťový profil nie je dokončený, takže nemáme kompletné preferencie.',
+    coffee_profile_summary: 'Profil kávy: údaje o káve sú dostupné, ale nie je s čím ich porovnať.',
     comparison_summary:
-      'Dokonči chuťový profil, aby sme vedeli porovnať kávu s tvojimi preferenciami.',
+      'Porovnanie s tvojím profilom: dokonči chuťový profil, aby sme vedeli porovnať kávu s tvojimi preferenciami.',
   },
   insight: {
     headline: 'Dokonči chuťový profil',
@@ -47,11 +47,11 @@ const INSUFFICIENT_COFFEE_DATA_RESPONSE = {
   confidence: null,
   verdict_explanation: {
     user_preferences_summary:
-      'Tvoje chuťové preferencie máme uložené, ale chýbajú detaily o káve.',
+      'Tvoje preferencie: chuťové preferencie máme uložené, ale chýbajú detaily o káve.',
     coffee_profile_summary:
-      'Z dostupných údajov nevieme spoľahlivo zhrnúť profil kávy, preto zostávame opatrní.',
+      'Profil kávy: z dostupných údajov nevieme spoľahlivo zhrnúť profil kávy, preto zostávame opatrní.',
     comparison_summary:
-      'Skús malý test (napr. cupping alebo jednu dávku) alebo rescan balenia a doplň pôvod, tóny a spracovanie.',
+      'Porovnanie s tvojím profilom: skús malý test (napr. cupping alebo jednu dávku) alebo rescan balenia a doplň pôvod, tóny a spracovanie.',
   },
   insight: {
     headline: 'Máme príliš málo údajov',
@@ -108,22 +108,22 @@ const buildDeterministicFallbackResponse = ({ preferences, coffeeAttributes, cor
 
   const coffeeProfileSummary =
     profileBits.length > 0
-      ? `Profil kávy obsahuje ${profileBits.join(', ')}.`
-      : 'Káva má základné údaje z OCR textu a balenia.';
+      ? `Profil kávy: obsahuje ${profileBits.join(', ')}.`
+      : 'Profil kávy: máme len základné údaje z OCR textu a balenia.';
 
   const formatPreference = (value) =>
     value === null || value === undefined || value === '' ? 'neznáme' : value;
-  const userPreferencesSummary = `Profil používateľa: sladkosť ${formatPreference(
+  const userPreferencesSummary = `Tvoje preferencie: sladkosť ${formatPreference(
     safePreferences.sweetness
   )}, acidita ${formatPreference(safePreferences.acidity)}, horkosť ${formatPreference(
     safePreferences.bitterness
   )}, telo ${formatPreference(safePreferences.body)}.`;
   const comparisonSummary =
     verdict === 'suitable'
-      ? `Textová zhoda vychádza na ${Math.round(
+      ? `Porovnanie s tvojím profilom: textová zhoda vychádza na ${Math.round(
           normalizedScore
         )} %, preto kávu hodnotíme ako vhodnú.`
-      : `Textová zhoda vychádza na ${Math.round(
+      : `Porovnanie s tvojím profilom: textová zhoda vychádza na ${Math.round(
           normalizedScore
         )} %, preto kávu hodnotíme ako menej vhodnú.`;
 
@@ -842,14 +842,17 @@ Odpovedaj výhradne v slovenčine.
 Vráť striktne platný JSON podľa zadanej schémy, bez markdownu a bez dodatočného textu.
 Nikdy nehádaj chýbajúce dáta. Ak chýba profil alebo údaje o káve, priznaj neistotu podľa schémy.
 Verdict a insight musia vychádzať z toho istého porovnania preferencií a atribútov kávy a nesmú si odporovať.`;
-    const userPrompt = `Vyhodnoť vhodnosť naskenovanej kávy pre používateľa.
+const userPrompt = `Vyhodnoť vhodnosť naskenovanej kávy pre používateľa.
 
 PRAVIDLÁ:
 - Výstup musí byť STRICT JSON podľa schémy nižšie.
 - Ak chýba alebo je neúplný chuťový profil → status="profile_missing", verdict=null.
 - Ak chýbajú kľúčové atribúty kávy → status="insufficient_coffee_data", verdict=null.
 - Ak sú dáta dostatočné → status="ok" a verdict je "suitable" | "not_suitable" | "uncertain".
-- Vysvetlenie musí byť porovnávacie: zhrň používateľove preferencie, zhrň profil kávy, porovnaj ich.
+- Každé pole verdict_explanation musí byť presne jedna veta v tomto formáte:
+  - user_preferences_summary začína "Tvoje preferencie:" a stručne zhrnie chuťový profil.
+  - coffee_profile_summary začína "Profil kávy:" a stručne zhrnie profil kávy.
+  - comparison_summary začína "Porovnanie s tvojím profilom:" a jasne porovná oba profily.
 - Insight musí byť konzistentný s verdictom (bez protichodných tvrdení).
 - Použi jediný kontrakt: insight objekt s poliami zo schémy (žiadne top-level zoznamy).
 
