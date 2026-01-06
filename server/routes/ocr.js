@@ -411,7 +411,7 @@ router.post('/ocr', async (req, res) => {
       requests: [
         {
           image: { content: base64image },
-          features: [{ type: 'TEXT_DETECTION' }],
+          features: [{ type: 'TEXT_DETECTION' }, { type: 'LABEL_DETECTION' }],
         },
       ],
     };
@@ -423,8 +423,49 @@ router.post('/ocr', async (req, res) => {
     });
     console.log('📥 [Vision] Response:', response.data);
 
-    const text = response.data.responses?.[0]?.fullTextAnnotation?.text || '';
-    res.json({ text });
+    const visionResponse = response.data.responses?.[0] || {};
+    const text = visionResponse.fullTextAnnotation?.text || '';
+    const labelAnnotations = Array.isArray(visionResponse.labelAnnotations)
+      ? visionResponse.labelAnnotations
+      : [];
+    const labels = labelAnnotations
+      .map((label) => label?.description)
+      .filter((label) => typeof label === 'string' && label.trim().length > 0);
+
+    const coffeeKeywords = [
+      'coffee',
+      'espresso',
+      'cafe',
+      'café',
+      'latte',
+      'cappuccino',
+      'bean',
+      'beans',
+      'roast',
+    ];
+    const coffeeConfidenceCandidates = labelAnnotations
+      .map((label) => ({
+        description: label?.description,
+        score: label?.score,
+      }))
+      .filter(({ description, score }) => {
+        if (typeof description !== 'string' || typeof score !== 'number') {
+          return false;
+        }
+        const normalized = description.toLowerCase();
+        return coffeeKeywords.some((keyword) => normalized.includes(keyword));
+      })
+      .map(({ score }) => score)
+      .filter((score) => Number.isFinite(score));
+
+    const coffeeConfidence =
+      coffeeConfidenceCandidates.length > 0
+        ? Math.max(...coffeeConfidenceCandidates)
+        : null;
+    const isCoffee =
+      typeof coffeeConfidence === 'number' ? coffeeConfidence >= 0.6 : undefined;
+
+    res.json({ text, labels, coffeeConfidence, isCoffee });
   } catch (error) {
     console.error('OCR server error:', error?.message ?? error);
     res.status(500).json({ error: 'OCR failed', detail: error?.message ?? error });
