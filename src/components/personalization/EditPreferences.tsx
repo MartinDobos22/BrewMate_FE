@@ -22,6 +22,7 @@ import {
   buildFallbackAIResponse,
   buildRecommendationText,
   callOpenAIJsonSchema,
+  normalizeTasteVectorTo01,
   parseTasteAIResponse,
   TASTE_AI_SCHEMA_PROMPT,
   TasteVector,
@@ -93,7 +94,8 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
   const generateAI = async (additionalNotes: string, options?: { reset?: boolean }) => {
     try {
       const fallbackVector = getFallbackTasteVector();
-      const fallback = buildFallbackAIResponse(fallbackVector);
+      const normalizedFallbackVector = normalizeTasteVectorTo01(fallbackVector);
+      const fallback = buildFallbackAIResponse(normalizedFallbackVector);
       const isReset = options?.reset;
 
       const systemPrompt = `Si deterministický engine pre chuťové profily kávy.
@@ -109,7 +111,7 @@ Preferences snapshot:
 ${JSON.stringify(profile?.coffee_preferences ?? {}, null, 2)}
 
 Fallback taste vector (computed from profile if available):
-${JSON.stringify(fallbackVector, null, 2)}`;
+${JSON.stringify(normalizedFallbackVector, null, 2)}`;
 
       if (!isReset && currentRecommendation) {
         prompt += `\n\nCurrent recommendation:\n${currentRecommendation}`;
@@ -159,7 +161,7 @@ ${TASTE_AI_SCHEMA_PROMPT}`;
       // Validate and coerce the structured JSON so invalid output does not break the UI.
       const { response: parsedResponse, warnings } = parseTasteAIResponse(
         aiResponse,
-        fallbackVector,
+        normalizedFallbackVector,
       );
       // Fall back to a safe default if the model omitted fields or returned malformed JSON.
       if (warnings.length > 0) {

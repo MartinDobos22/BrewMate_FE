@@ -29,15 +29,21 @@ const TASTE_DIMENSIONS: Array<keyof TasteVector> = [
 ];
 
 export const DEFAULT_TASTE_VECTOR: TasteVector = {
-  acidity: 0.45,
-  bitterness: 0.55,
-  sweetness: 0.5,
-  body: 0.55,
-  intensity: 0.5,
-  experimentalism: 0.35,
+  acidity: 4.5,
+  bitterness: 5.5,
+  sweetness: 5,
+  body: 5.5,
+  intensity: 5,
+  experimentalism: 3.5,
 };
 
-const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
+const TASTE_VECTOR_MAX = 10;
+
+const clampRange = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const clamp01 = (value: number) => clampRange(value, 0, 1);
+
+const clamp10 = (value: number) => clampRange(value, 0, TASTE_VECTOR_MAX);
 
 const coerceNumber = (value: unknown, fallback: number) => {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -76,6 +82,34 @@ const sanitizeTasteVector = (value: unknown, fallback: TasteVector): TasteVector
     sanitized[dimension] = clamp01(coerceNumber(vector[dimension], fallback[dimension]));
   });
   return sanitized;
+};
+
+const normalizeTasteValueTo01 = (value: unknown, fallback: number) => {
+  const raw = coerceNumber(value, fallback);
+  const normalized = raw > 1 ? raw / TASTE_VECTOR_MAX : raw;
+  return clamp01(normalized);
+};
+
+const normalizeTasteValueTo10 = (value: unknown, fallback: number) => {
+  const raw = coerceNumber(value, fallback);
+  const normalized = raw <= 1 ? raw * TASTE_VECTOR_MAX : raw;
+  return clamp10(normalized);
+};
+
+export const normalizeTasteVectorTo01 = (vector: TasteVector): TasteVector => {
+  const normalized: TasteVector = { ...vector };
+  TASTE_DIMENSIONS.forEach(dimension => {
+    normalized[dimension] = normalizeTasteValueTo01(vector[dimension], DEFAULT_TASTE_VECTOR[dimension]);
+  });
+  return normalized;
+};
+
+export const normalizeTasteVectorTo10 = (vector: TasteVector): TasteVector => {
+  const normalized: TasteVector = { ...vector };
+  TASTE_DIMENSIONS.forEach(dimension => {
+    normalized[dimension] = normalizeTasteValueTo10(vector[dimension], DEFAULT_TASTE_VECTOR[dimension]);
+  });
+  return normalized;
 };
 
 export const buildFallbackAIResponse = (fallbackVector: TasteVector): TasteAIResponse => ({

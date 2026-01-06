@@ -20,6 +20,8 @@ import {
   buildFallbackAIResponse,
   buildRecommendationText,
   callOpenAIJsonSchema,
+  normalizeTasteVectorTo01,
+  normalizeTasteVectorTo10,
   parseTasteAIResponse,
   TASTE_AI_SCHEMA_PROMPT,
 } from './tasteAiUtils';
@@ -216,13 +218,17 @@ const CoffeePreferenceForm = ({
 
       if (res.ok) {
         const data = await res.json();
+        const storedTasteVector = data.coffee_preferences?.taste_vector ?? data.taste_vector;
+        const normalizedTasteVector = storedTasteVector
+          ? normalizeTasteVectorTo10(storedTasteVector)
+          : undefined;
         console.log('📥 [BE] Loaded preferences:', data);
         if (data.coffee_preferences?.quiz_answers) {
           setAnswers(data.coffee_preferences.quiz_answers);
         }
         setPreviousProfile({
           quiz_answers: data.coffee_preferences?.quiz_answers,
-          taste_vector: data.coffee_preferences?.taste_vector ?? data.taste_vector,
+          taste_vector: normalizedTasteVector,
           ai_recommendation: data.coffee_preferences?.ai_recommendation ?? data.ai_recommendation,
           consistency_score: data.coffee_preferences?.consistency_score ?? data.consistency_score,
         });
@@ -352,6 +358,10 @@ const CoffeePreferenceForm = ({
         priorProfile?.quiz_answers,
       );
       const deltaSummary = answerDeltas.length > 0 ? answerDeltas.join('\n') : 'Žiadne zmeny.';
+      const normalizedPriorTasteVector = priorProfile?.taste_vector
+        ? normalizeTasteVectorTo01(priorProfile.taste_vector)
+        : null;
+      const normalizedFallbackVector = normalizeTasteVectorTo01(fallbackVector);
 
       const systemPrompt = `Si deterministický engine pre chuťové profily kávy.
 Výstup musí byť výhradne JSON podľa schémy (bez Markdownu, bez extra textu).
@@ -394,7 +404,7 @@ ${deltaSummary}
 Previous profile (if any):
 ${JSON.stringify(
         {
-          taste_vector: priorProfile?.taste_vector ?? null,
+          taste_vector: normalizedPriorTasteVector,
           ai_recommendation: priorProfile?.ai_recommendation ?? null,
           consistency_score: priorProfile?.consistency_score ?? null,
         },
@@ -403,7 +413,7 @@ ${JSON.stringify(
       )}
 
 Fallback taste vector (computed from weights):
-${JSON.stringify(fallbackVector, null, 2)}
+${JSON.stringify(normalizedFallbackVector, null, 2)}
 
 Rules for taste_vector:
 - Output floats between 0.0 and 1.0
@@ -444,7 +454,7 @@ ${TASTE_AI_SCHEMA_PROMPT}`;
         console.warn('⚠️  AI response validation warnings:', warnings);
       }
 
-      const tasteVector = parsedResponse.taste_vector;
+      const tasteVector = normalizeTasteVectorTo10(parsedResponse.taste_vector);
       const confidence = parsedResponse.confidence;
       const profileText = buildRecommendationText(parsedResponse);
 
@@ -456,7 +466,7 @@ ${TASTE_AI_SCHEMA_PROMPT}`;
     } catch (err) {
       console.error('AI error:', err);
       return {
-        tasteVector: fallbackResponse.taste_vector,
+        tasteVector: normalizeTasteVectorTo10(fallbackResponse.taste_vector),
         confidence: fallbackResponse.confidence,
         profileText: buildRecommendationText(fallbackResponse),
       };
@@ -512,12 +522,13 @@ ${TASTE_AI_SCHEMA_PROMPT}`;
       console.log('📥 [BE] Save response:', resData);
       if (!res.ok) throw new Error('Failed to save preferences');
       const updatedProfile = resData?.coffee_preferences ?? null;
+      const updatedTasteVector = updatedProfile?.taste_vector ?? tasteVector;
       setRecommendation(profileText);
       setShowRecommendation(true);
       // Uložíme si aj lokálny snapshot pre ďalšie AI delty bez nutnosti refetchu.
       setPreviousProfile({
         quiz_answers: updatedProfile?.quiz_answers ?? answers,
-        taste_vector: updatedProfile?.taste_vector ?? tasteVector,
+        taste_vector: normalizeTasteVectorTo10(updatedTasteVector),
         ai_recommendation: resData?.ai_recommendation ?? profileText,
         consistency_score: updatedProfile?.consistency_score ?? confidence,
       });

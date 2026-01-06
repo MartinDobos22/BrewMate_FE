@@ -85,6 +85,15 @@ function parseVectorNumber(value: unknown): number | null {
   return null;
 }
 
+const normalizeTasteVectorScore = (value: unknown, fallback: number): number => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  const scaled = parsed <= 1 ? parsed * 10 : parsed;
+  return clamp(scaled);
+};
+
 /**
  * Normalizes a raw taste vector into the expected profile shape.
  *
@@ -504,11 +513,12 @@ export function buildTasteRadarScores({ profile, preferences }: TasteRadarSource
     const hasDetailedPreferences = Boolean(preferences.roast || preferences.intensity || preferences.preferredDrinks.length > 0);
 
     if (preferences.tasteVector && !hasDetailedPreferences) {
+      // tasteVector uses a 0–10 scale across the product; normalize if legacy 0–1 values appear.
       const normalizedVector = {
-        sweetness: safeNumber(preferences.tasteVector.sweetness, base.sweetness),
-        acidity: safeNumber(preferences.tasteVector.acidity, base.acidity),
-        body: safeNumber(preferences.tasteVector.body, base.body),
-        bitterness: safeNumber(preferences.tasteVector.bitterness, base.bitterness),
+        sweetness: normalizeTasteVectorScore(preferences.tasteVector.sweetness, base.sweetness),
+        acidity: normalizeTasteVectorScore(preferences.tasteVector.acidity, base.acidity),
+        body: normalizeTasteVectorScore(preferences.tasteVector.body, base.body),
+        bitterness: normalizeTasteVectorScore(preferences.tasteVector.bitterness, base.bitterness),
       };
       base.sweetness = blend(base.sweetness, normalizedVector.sweetness, 0.6);
       base.acidity = blend(base.acidity, normalizedVector.acidity, 0.6);
