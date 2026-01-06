@@ -98,7 +98,7 @@ CREATE TABLE public.app_users (
 );
 
 CREATE TABLE public.user_taste_profiles (
-  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid PRIMARY KEY REFERENCES public.app_users(id) ON DELETE CASCADE,
   sweetness numeric(4,2) NOT NULL DEFAULT 5 CHECK (sweetness BETWEEN 0 AND 10),
   acidity numeric(4,2) NOT NULL DEFAULT 5 CHECK (acidity BETWEEN 0 AND 10),
   bitterness numeric(4,2) NOT NULL DEFAULT 5 CHECK (bitterness BETWEEN 0 AND 10),
@@ -117,7 +117,7 @@ CREATE TABLE public.user_taste_profiles (
 -- User brew diary entries
 CREATE TABLE public.brew_history (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES public.app_users(id) ON DELETE CASCADE,
   recipe_id uuid,
   beans jsonb NOT NULL DEFAULT '{}'::jsonb,
   grind_size text,
@@ -138,7 +138,7 @@ CREATE TABLE public.brew_history (
 -- Learning signals tied to brews
 CREATE TABLE public.learning_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES public.app_users(id) ON DELETE CASCADE,
   brew_history_id uuid REFERENCES public.brew_history(id) ON DELETE CASCADE,
   event_type text NOT NULL CHECK (event_type IN ('liked','disliked','favorited','repeated','shared')),
   event_weight numeric(6,3) NOT NULL DEFAULT 1.0,
@@ -149,7 +149,7 @@ CREATE TABLE public.learning_events (
 -- Persisted answers from personalization onboarding
 CREATE TABLE public.user_onboarding_responses (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES public.app_users(id) ON DELETE CASCADE,
   answers jsonb NOT NULL,
   analyzed_profile jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
@@ -171,7 +171,7 @@ CREATE TABLE public.recipe_profiles (
 -- User-authored recipes for sharing or history
 CREATE TABLE public.user_recipes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES public.app_users(id) ON DELETE CASCADE,
   title text NOT NULL,
   method text NOT NULL,
   instructions text NOT NULL,
@@ -185,7 +185,7 @@ CREATE TABLE public.user_recipes (
 -- Saved coffees in user library/inventory
 CREATE TABLE public.user_coffees (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES public.app_users(id) ON DELETE CASCADE,
   name text NOT NULL,
   brand text,
   origin text,
@@ -199,7 +199,7 @@ CREATE TABLE public.user_coffees (
 -- OCR/scan events to build lightweight history
 CREATE TABLE public.scan_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES public.app_users(id) ON DELETE CASCADE,
   coffee_name text,
   brand text,
   barcode text,
@@ -218,7 +218,7 @@ CREATE TABLE public.scan_events (
 
 -- Aggregated counters to avoid heavy COUNT(*) calls
 CREATE TABLE public.user_statistics (
-  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid PRIMARY KEY REFERENCES public.app_users(id) ON DELETE CASCADE,
   brew_count integer NOT NULL DEFAULT 0,
   recipe_count integer NOT NULL DEFAULT 0,
   scan_count integer NOT NULL DEFAULT 0,
