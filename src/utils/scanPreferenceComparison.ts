@@ -102,7 +102,7 @@ const parseNumericValue = (value: unknown): number | null => {
   return null;
 };
 
-const normalizeVectorValue = (value: unknown): number | null => {
+export const normalizeVectorValue = (value: unknown): number | null => {
   const parsed = parseNumericValue(value);
   if (parsed == null) {
     return null;
