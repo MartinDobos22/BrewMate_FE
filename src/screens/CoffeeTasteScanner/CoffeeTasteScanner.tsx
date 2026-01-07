@@ -661,6 +661,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     labels?: string[];
     confidence?: number;
   }>({});
+  const [nonCoffeeAllowConfirm, setNonCoffeeAllowConfirm] = useState(false);
+  const [nonCoffeePendingResult, setNonCoffeePendingResult] = useState<ScanResultLike | null>(null);
+  const [nonCoffeePendingImage, setNonCoffeePendingImage] = useState<string | null>(null);
   const [structuredFields, setStructuredFields] = useState<StructuredFieldsState>(() =>
     createStructuredFieldsFromMetadata(null, null)
   );
@@ -950,6 +953,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   const closeNonCoffeeModal = () => {
     setNonCoffeeModalVisible(false);
     setNonCoffeeDetails({});
+    setNonCoffeeAllowConfirm(false);
+    setNonCoffeePendingResult(null);
+    setNonCoffeePendingImage(null);
   };
 
   const handleNonCoffeeDetected = (details?: {
@@ -957,6 +963,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     labels?: string[];
     confidence?: number;
     refreshHistory?: boolean;
+    allowConfirm?: boolean;
+    pendingResult?: ScanResultLike | null;
+    pendingImage?: string | null;
   }) => {
     applyScanResult(null);
     setEditedText('');
@@ -983,10 +992,92 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       labels: details?.labels,
       confidence: details?.confidence,
     });
+    setNonCoffeeAllowConfirm(details?.allowConfirm ?? false);
+    setNonCoffeePendingResult(details?.pendingResult ?? null);
+    setNonCoffeePendingImage(details?.pendingImage ?? null);
     setNonCoffeeModalVisible(true);
     showToast('Skús prosím naskenovať etiketu kávy.');
     if (details?.refreshHistory) {
       void loadHistory();
+    }
+  };
+
+  const finalizeCoffeeScan = async (normalizedResult: ScanResultLike, base64image: string) => {
+    applyScanResult(normalizedResult);
+    setIsFavorite(normalizedResult.isFavorite ?? false);
+    setEditedText(normalizedResult.corrected);
+    setPurchaseSelection(null);
+    setPurchased(null);
+    setIsHistoryReadOnly(false);
+    setConfirmModalVisible(false);
+    setConfirmPayload(null);
+
+    await saveOCRResult(normalizedResult.scanId || 'last', normalizedResult);
+
+    setCurrentView('scan');
+    setOverlayVisible(false);
+    setOverlayText('Analyzujem...');
+
+    const name = extractCoffeeName(normalizedResult.corrected || normalizedResult.original);
+    const scanIdentifier = normalizedResult.scanId || Date.now().toString();
+    await addRecentScan({
+      id: scanIdentifier,
+      name,
+      imageUrl: `data:image/jpeg;base64,${base64image}`,
+    });
+
+    const identity = resolveCoffeeIdentity(normalizedResult as ScanResult, name);
+    if (identity) {
+      try {
+        const signalResult = await recordScanSignal(userId ?? null, identity.id, identity.name);
+        handleSignalOutcome(signalResult, 'scan');
+        setPendingCoffee(identity);
+        setPendingFeedbackChoice(null);
+        setPendingFeedbackReason(null);
+        setFeedbackModalVisible(true);
+      } catch (signalError) {
+        console.warn('CoffeeTasteScanner: failed to record scan signal', signalError);
+      }
+    }
+
+    await loadHistory();
+
+    const alertReason = (normalizedResult.recommendation || '')
+      .split(/[\.\n]/)
+      .map(sentence => sentence.trim())
+      .filter(Boolean)[0];
+
+    Alert.alert(
+      '✅ Skenovanie dokončené',
+      normalizedResult.isRecommended
+        ? alertReason || 'Podľa tvojho profilu by ti mohla chutiť.'
+        : alertReason || 'Vyzerá to, že nesedí na tvoje preferencie.',
+      [{ text: 'OK', style: 'default' }],
+    );
+  };
+
+  const handleConfirmNonCoffee = async () => {
+    const pendingResult = nonCoffeePendingResult;
+    const pendingImage = nonCoffeePendingImage;
+    closeNonCoffeeModal();
+
+    if (!pendingResult || !pendingImage) {
+      return;
+    }
+
+    const confirmedResult: ScanResultLike = {
+      ...pendingResult,
+      isCoffee: true,
+    };
+
+    setIsLoading(true);
+    try {
+      await finalizeCoffeeScan(confirmedResult, pendingImage);
+    } catch (error) {
+      console.error('CoffeeTasteScanner: confirm anyway failed', error);
+      Alert.alert('Chyba', 'Nepodarilo sa potvrdiť sken.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -1207,6 +1298,15 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
         }
 
         const detectionLabels = result.detectionLabels?.filter(Boolean) ?? [];
+        const normalizedResult: ScanResultLike = {
+          ...result,
+          structuredRaw:
+            (result as ScanResultLike).structuredRaw ??
+            (result as ScanResultLike).rawStructuredResponse ??
+            result.structuredMetadata ??
+            null,
+        };
+
         const computedIsCoffee =
           typeof result.isCoffee === 'boolean'
             ? result.isCoffee
@@ -1220,75 +1320,14 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
             labels: detectionLabels.length ? detectionLabels : undefined,
             confidence: result.detectionConfidence,
             refreshHistory: Boolean(result.scanId),
+            allowConfirm: result.isCoffee === false,
+            pendingResult: result.isCoffee === false ? normalizedResult : null,
+            pendingImage: result.isCoffee === false ? base64image : null,
           });
           return;
         }
 
-        const normalizedResult: ScanResultLike = {
-          ...result,
-          structuredRaw:
-            (result as ScanResultLike).structuredRaw ??
-            (result as ScanResultLike).rawStructuredResponse ??
-            result.structuredMetadata ??
-            null,
-        };
-
-        applyScanResult(normalizedResult);
-        setIsFavorite(normalizedResult.isFavorite ?? false);
-        setEditedText(normalizedResult.corrected);
-        setPurchaseSelection(null);
-        setPurchased(null);
-        setIsHistoryReadOnly(false);
-        setConfirmModalVisible(false);
-        setConfirmPayload(null);
-
-        await saveOCRResult(normalizedResult.scanId || 'last', normalizedResult);
-
-        setCurrentView('scan');
-        setOverlayVisible(false);
-        setOverlayText('Analyzujem...');
-
-        // Ulož do zoznamu posledných skenov
-        const name = extractCoffeeName(normalizedResult.corrected || normalizedResult.original);
-        const scanIdentifier = normalizedResult.scanId || Date.now().toString();
-        await addRecentScan({
-          id: scanIdentifier,
-          name,
-          imageUrl: `data:image/jpeg;base64,${base64image}`,
-        });
-
-        const identity = resolveCoffeeIdentity(normalizedResult as ScanResult, name);
-        if (identity) {
-          try {
-            const signalResult = await recordScanSignal(userId ?? null, identity.id, identity.name);
-            handleSignalOutcome(signalResult, 'scan');
-            setPendingCoffee(identity);
-            setPendingFeedbackChoice(null);
-            setPendingFeedbackReason(null);
-            setFeedbackModalVisible(true);
-          } catch (signalError) {
-            console.warn('CoffeeTasteScanner: failed to record scan signal', signalError);
-          }
-        }
-
-        // Načítaj aktualizovanú históriu
-        await loadHistory();
-
-        // Zobraz výsledok
-        const alertReason = (normalizedResult.recommendation || '')
-          .split(/[\.\n]/)
-          .map(sentence => sentence.trim())
-          .filter(Boolean)[0];
-
-        Alert.alert(
-          '✅ Skenovanie dokončené',
-          normalizedResult.isRecommended
-            ? alertReason || 'Podľa tvojho profilu by ti mohla chutiť.'
-            : alertReason || 'Vyzerá to, že nesedí na tvoje preferencie.',
-          [
-            { text: 'OK', style: 'default' }
-          ]
-        );
+        await finalizeCoffeeScan(normalizedResult, base64image);
       }
     } catch (error) {
       console.error('Error processing image:', error);
@@ -2677,13 +2716,26 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
             <Text style={styles.validationModalHint}>
               Tip: Uisti sa, že etiketa kávy je ostrá a zaberá väčšinu fotografie.
             </Text>
-            <TouchableOpacity
-              style={styles.validationModalButton}
-              onPress={closeNonCoffeeModal}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.validationModalButtonText}>Skúsiť znova</Text>
-            </TouchableOpacity>
+            <View style={styles.validationModalActions}>
+              {nonCoffeeAllowConfirm ? (
+                <TouchableOpacity
+                  style={[styles.validationModalButton, styles.validationModalButtonSecondary]}
+                  onPress={handleConfirmNonCoffee}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.validationModalButtonText, styles.validationModalButtonTextSecondary]}>
+                    Potvrdiť aj tak
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity
+                style={styles.validationModalButton}
+                onPress={closeNonCoffeeModal}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.validationModalButtonText}>Skúsiť znova</Text>
+              </TouchableOpacity>
+            </View>
           </LinearGradient>
         </View>
       </Modal>
