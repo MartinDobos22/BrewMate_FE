@@ -109,6 +109,31 @@ const isRateLimited = (uid) => {
   return false;
 };
 
+const isTasteVectorComplete = (tasteVector) => {
+  if (!isPlainObject(tasteVector)) {
+    return false;
+  }
+
+  const requiredKeys = ['sweetness', 'acidity', 'bitterness', 'body'];
+  return requiredKeys.every((key) => {
+    const value = tasteVector[key];
+    return (
+      typeof value === 'number' &&
+      Number.isFinite(value) &&
+      value >= 0 &&
+      value <= 10
+    );
+  });
+};
+
+const hasQuizAnswers = (quizAnswers) => {
+  if (!isPlainObject(quizAnswers)) {
+    return false;
+  }
+
+  return Object.keys(quizAnswers).length > 0;
+};
+
 /**
  * Validate and clamp a taste vector payload.
  *
@@ -708,6 +733,9 @@ router.put('/api/profile', async (req, res) => {
       prefs.preferred_strength ??
       existing?.preferred_strength ??
       null;
+    const resolvedIsComplete =
+      isTasteVectorComplete(resolvedTasteVector) ||
+      hasQuizAnswers(resolvedQuizAnswers);
 
     await client.query(
       `INSERT INTO user_taste_profiles (
@@ -725,12 +753,13 @@ router.put('/api/profile', async (req, res) => {
         quiz_version,
         quiz_answers,
         taste_vector,
+        is_complete,
         consistency_score,
         ai_recommendation,
         manual_input,
         last_recalculated_at,
         updated_at
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,'medium'),COALESCE($9,'balanced'),'[]',$10,$11,$12,$13,$14,$15,$16,now(),now())
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,'medium'),COALESCE($9,'balanced'),'[]',$10,$11,$12,$13,$14,$15,$16,$17,now(),now())
       ON CONFLICT (user_id) DO UPDATE SET
         sweetness = EXCLUDED.sweetness,
         acidity = EXCLUDED.acidity,
@@ -744,6 +773,7 @@ router.put('/api/profile', async (req, res) => {
         quiz_version = EXCLUDED.quiz_version,
         quiz_answers = EXCLUDED.quiz_answers,
         taste_vector = EXCLUDED.taste_vector,
+        is_complete = EXCLUDED.is_complete,
         consistency_score = EXCLUDED.consistency_score,
         ai_recommendation = EXCLUDED.ai_recommendation,
         manual_input = EXCLUDED.manual_input,
@@ -763,6 +793,7 @@ router.put('/api/profile', async (req, res) => {
         resolvedQuizVersion,
         resolvedQuizAnswers,
         resolvedTasteVector,
+        resolvedIsComplete,
         resolvedConsistencyScore,
         resolvedAiRecommendation,
         resolvedManualInput,
