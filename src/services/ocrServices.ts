@@ -704,7 +704,7 @@ interface OCRResult {
   original: string;
   corrected: string;
   recommendation: string;
-  matchPercentage?: number;
+  matchPercentage?: number | null;
   isRecommended?: boolean;
   scanId?: string;
   brewingMethods?: string[];
@@ -1072,7 +1072,7 @@ export const processOCR = async (
       nonCoffeeReason = `Rozpoznané: ${detectionLabels.slice(0, 3).join(', ')}`;
     }
 
-    let matchPercentage = 0;
+    let matchPercentage: number | null = null;
     let isRecommended = false;
     let scanId = '';
     let structuredMetadata: StructuredCoffeeMetadata | null = null;
@@ -1110,7 +1110,8 @@ export const processOCR = async (
       if (saveResponse.ok) {
         const saveData = await saveResponse.json();
         console.log('📥 [BE] Save OCR response:', saveData);
-        matchPercentage = saveData.match_percentage || 0;
+        matchPercentage =
+          typeof saveData.match_percentage === 'number' ? saveData.match_percentage : null;
         isRecommended = saveData.is_recommended || false;
         scanId = saveData.id || '';
 
@@ -1427,7 +1428,7 @@ export interface OCRHistory {
   corrected_text: string;
   created_at: Date;
   rating?: number;
-  match_percentage?: number;
+  match_percentage?: number | null;
   is_recommended?: boolean;
   is_purchased?: boolean;
   is_favorite?: boolean;

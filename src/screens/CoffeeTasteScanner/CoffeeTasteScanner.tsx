@@ -72,7 +72,7 @@ interface ScanResult {
   original: string;
   corrected: string;
   recommendation: string;
-  matchPercentage?: number;
+  matchPercentage?: number | null;
   isRecommended?: boolean;
   scanId?: string;
   source?: 'offline' | 'online';
@@ -2158,8 +2158,12 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     }
     return 'YES';
   }, [compatibility?.bucket, evaluation, evaluationStatus]);
+  const hasExplicitMatchPercentage =
+    typeof scanResult?.matchPercentage === 'number';
   const matchLabel = compatibility
-    ? `${compatibility.score}%`
+    ? hasExplicitMatchPercentage
+      ? `${compatibility.score}%`
+      : 'Neznáme'
     : scanResult
       ? isProfileMissing
         ? undefined
