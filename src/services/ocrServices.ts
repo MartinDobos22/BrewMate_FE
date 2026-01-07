@@ -573,12 +573,15 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
     };
   }
   if (normalizedStatus !== 'ok') {
+    const summary = useNeutralCopy
+      ? normalizeEvaluationText(record.summary, NEUTRAL_EVALUATION_COPY.summary)
+      : normalizeEvaluationText(record.summary);
     // Unknown payloads remain neutral so the UI can display a generic fallback state.
     return {
       status: normalizedStatus,
       verdict: null,
       confidence: null,
-      summary: typeof record.summary === 'string' ? record.summary : '',
+      summary,
       reasons: [],
       what_youll_like: whatYoullLike,
       what_might_bother_you: whatMightBotherYou,
