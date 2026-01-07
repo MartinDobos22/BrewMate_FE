@@ -1248,13 +1248,7 @@ router.post('/api/ocr/evaluate', async (req, res) => {
     };
 
     if (!hasMeaningfulCoffeeData(coffeeAttributes)) {
-      return res.json(
-        buildLowConfidenceFallbackResponse({
-          preferences,
-          coffeeAttributes,
-          correctedText,
-        })
-      );
+      return res.json(INSUFFICIENT_COFFEE_DATA_RESPONSE);
     }
 
     // The comparison-based structure prevents contradictions because verdict and insight share the same summaries.

@@ -48,4 +48,28 @@ describe('isValidEvaluationResponse', () => {
 
     expect(isValidEvaluationResponse(response)).toBe(false);
   });
+
+  it('accepts insufficient coffee data responses without verdicts', () => {
+    const response = {
+      status: 'insufficient_coffee_data',
+      verdict: null,
+      confidence: null,
+      verdict_explanation: {
+        user_preferences_summary: 'Tvoje preferencie sú uložené.',
+        coffee_profile_summary: 'Profil kávy je neúplný.',
+        comparison_summary: 'Porovnanie zatiaľ nie je možné.',
+      },
+      insight: {
+        headline: 'Máme málo údajov',
+        why: ['Chýbajú kľúčové informácie o káve.'],
+        what_youll_like: [],
+        what_might_bother_you: [],
+        how_to_brew_for_better_match: ['Skús doplniť údaje o pôvode.'],
+        recommended_alternatives: [],
+      },
+      disclaimer: 'Vyhodnotenie bude možné po doplnení údajov.',
+    };
+
+    expect(isValidEvaluationResponse(response)).toBe(true);
+  });
 });
