@@ -9,6 +9,10 @@ import { normalizeTasteInput } from '../utils/coffee.js';
 import { LOG_DIR } from '../utils/logging.js';
 
 const router = express.Router();
+const PROMPT_MAX_LENGTH = 8000;
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_MAX_REQUESTS = 5;
+const tasteProfileRateLimits = new Map();
 const TASTE_VECTOR_KEYS = [
   'sweetness',
   'acidity',
@@ -74,6 +78,22 @@ const isPlainObject = (value) =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
 
 const clampNumber = (value, min, max) => Math.min(max, Math.max(min, value));
+
+const isRateLimited = (uid) => {
+  const now = Date.now();
+  const entry = tasteProfileRateLimits.get(uid);
+  if (!entry || now - entry.windowStart >= RATE_LIMIT_WINDOW_MS) {
+    tasteProfileRateLimits.set(uid, { windowStart: now, count: 1 });
+    return false;
+  }
+
+  if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return true;
+  }
+
+  entry.count += 1;
+  return false;
+};
 
 /**
  * Validate and clamp a taste vector payload.
@@ -253,8 +273,41 @@ router.post('/api/profile/taste-profile', async (req, res) => {
     });
 
     const { system_prompt, user_prompt, temperature } = req.body ?? {};
-    if (!system_prompt || !user_prompt) {
+    if (isRateLimited(decoded.uid)) {
+      return res
+        .status(429)
+        .json({ error: 'Príliš veľa žiadostí, skúste to znova o minútu.' });
+    }
+
+    if (typeof system_prompt !== 'string' || typeof user_prompt !== 'string') {
+      return res
+        .status(400)
+        .json({ error: 'Systémový a používateľský prompt musia byť textové.' });
+    }
+
+    if (!system_prompt.trim() || !user_prompt.trim()) {
       return res.status(400).json({ error: 'Chýba systémový alebo používateľský prompt' });
+    }
+
+    if (
+      system_prompt.length > PROMPT_MAX_LENGTH ||
+      user_prompt.length > PROMPT_MAX_LENGTH
+    ) {
+      return res.status(400).json({
+        error: `Prompt je príliš dlhý. Maximálna dĺžka je ${PROMPT_MAX_LENGTH} znakov.`,
+      });
+    }
+
+    if (
+      temperature !== undefined &&
+      (typeof temperature !== 'number' ||
+        Number.isNaN(temperature) ||
+        temperature < 0 ||
+        temperature > 1)
+    ) {
+      return res
+        .status(400)
+        .json({ error: 'Teplota musí byť číslo v rozsahu 0 až 1.' });
     }
 
     if (!process.env.OPENAI_API_KEY) {
