@@ -65,6 +65,7 @@ import { BrewContext } from '../../types/Personalization';
 import { usePersonalization } from '../../hooks/usePersonalization';
 import { showToast } from '../../utils/toast';
 import { buildScanPreferenceComparison } from '../../utils/scanPreferenceComparison';
+import { buildPreferenceSummary } from '../../utils/preferenceSummary';
 import { API_URL } from '../../services/api';
 import { recognizeCoffee } from 'services/VisionService.ts';
 
@@ -191,25 +192,15 @@ const buildComparisonText = (
   preferenceSnapshot: CoffeePreferenceSnapshot | null | undefined,
   aiRecommendation: string | null | undefined,
   profilePreferences: Record<string, unknown> | null | undefined,
+  coffeePreferences: Record<string, unknown> | null | undefined,
 ): string => {
-  const normalizePreferenceValue = (value: unknown) =>
-    typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : null;
-  const preferences = profilePreferences ?? null;
-  const preferenceSummaryEntries = preferences
-    ? [
-        { label: 'Kyslosť', value: normalizePreferenceValue(preferences.acidity) },
-        { label: 'Sladkosť', value: normalizePreferenceValue(preferences.sweetness) },
-        { label: 'Horkosť', value: normalizePreferenceValue(preferences.bitterness) },
-        { label: 'Telo', value: normalizePreferenceValue(preferences.body) },
-      ].filter(entry => entry.value !== null)
-    : [];
-  const preferenceSummary = preferenceSummaryEntries.length
-    ? preferenceSummaryEntries
-        .map(entry => `${entry.label} ${entry.value}/10`)
-        .join(', ')
-    : null;
+  const { summary: preferenceSummary, sourceLabel } = buildPreferenceSummary({
+    profilePreferences,
+    preferenceSnapshot,
+    coffeePreferences,
+  });
   const formSection = preferenceSummary
-    ? `Aktuálny profil (dotazník):\n${preferenceSummary}`
+    ? `Aktuálny profil (${sourceLabel}):\n${preferenceSummary}`
     : 'Aktuálny profil (dotazník): zatiaľ nemáme uložené hodnoty.';
 
   const hasAiText = typeof aiRecommendation === 'string' && aiRecommendation.trim().length > 0;
@@ -2015,14 +2006,18 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   const showBackButton = currentView !== 'home';
   const evaluation = scanResult?.evaluation ?? null;
   const evaluationStatus = evaluation?.status ?? 'unknown';
+  const profileCoffeePreferences =
+    (profile as unknown as { coffee_preferences?: Record<string, unknown> | null })
+      ?.coffee_preferences ?? null;
   const comparisonText = useMemo(
     () => buildComparisonText(
       evaluation,
       preferenceSnapshot,
       preferenceSnapshot?.ai_recommendation ?? null,
       profile?.preferences ?? null,
+      profileCoffeePreferences,
     ),
-    [evaluation, preferenceSnapshot, profile?.preferences],
+    [evaluation, preferenceSnapshot, profile?.preferences, profileCoffeePreferences],
   );
   // Suppress compatibility scoring whenever the AI evaluation is not ready.
   const shouldSuppressCompatibility = evaluationStatus !== 'ok';
