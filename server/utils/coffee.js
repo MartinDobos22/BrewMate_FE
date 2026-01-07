@@ -27,14 +27,10 @@ export const calculateMatch = (coffeeText, preferences) => {
   const hasStrength =
     typeof preferences.preferred_strength === 'string' &&
     preferences.preferred_strength.trim().length > 0;
-  const hasSweetness =
-    preferences.sweetness !== null &&
-    preferences.sweetness !== undefined &&
-    !Number.isNaN(Number(preferences.sweetness));
-  const hasAcidity =
-    preferences.acidity !== null &&
-    preferences.acidity !== undefined &&
-    !Number.isNaN(Number(preferences.acidity));
+  const sweetnessValue = Number(preferences.sweetness);
+  const hasSweetness = Number.isFinite(sweetnessValue);
+  const acidityValue = Number(preferences.acidity);
+  const hasAcidity = Number.isFinite(acidityValue);
   const flavorList = Array.isArray(preferences.flavor_notes)
     ? preferences.flavor_notes
     : Object.keys(preferences.flavor_notes || {});
@@ -62,8 +58,8 @@ export const calculateMatch = (coffeeText, preferences) => {
     }
   });
 
-  if (preferences.sweetness && preferences.sweetness >= 7) score += 5;
-  if (preferences.acidity && preferences.acidity <= 3) score += 5;
+  if (hasSweetness && sweetnessValue >= 7) score += 5;
+  if (hasAcidity && acidityValue <= 3) score += 5;
 
   return Math.min(score, 100);
 };
