@@ -368,6 +368,18 @@ const mapTasteProfilePayload = (
     return null;
   }
 
+  const profileUpdatedAt =
+    'preferences' in profile ? profile.updatedAt ?? profile.lastRecalculatedAt ?? null : null;
+  if (!profileUpdatedAt) {
+    console.warn(
+      '[OCR] Skipping taste_profile payload because timestamps are missing.',
+      {
+        hasPreferencesProfile: 'preferences' in profile,
+      },
+    );
+    return null;
+  }
+
   const tasteVector = extractTasteVector(profile);
   if (!tasteVector) {
     return null;

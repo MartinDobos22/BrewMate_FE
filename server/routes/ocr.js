@@ -1138,6 +1138,13 @@ router.post('/api/ocr/evaluate', async (req, res) => {
       taste_profile && typeof taste_profile === 'object' ? taste_profile : null;
     const requestUpdatedAtRaw =
       requestTasteProfile?.updated_at ?? requestTasteProfile?.last_recalculated_at ?? null;
+    const requestHasTimestamp = Boolean(requestUpdatedAtRaw);
+    if (requestTasteProfile && !requestHasTimestamp) {
+      console.warn('⚠️ [OCR] taste_profile missing timestamp; using DB profile.', {
+        uid,
+        hasTasteProfile: Boolean(requestTasteProfile),
+      });
+    }
 
     const parseTimestamp = (value) => {
       if (!value) {
@@ -1158,28 +1165,26 @@ router.post('/api/ocr/evaluate', async (req, res) => {
 
     let requestUpdatedAt = null;
     if (requestTasteProfile) {
-      if (!requestUpdatedAtRaw) {
-        return res
-          .status(400)
-          .json({ error: 'Chýba taste_profile.updated_at' });
-      }
-      requestUpdatedAt = parseTimestamp(requestUpdatedAtRaw);
-      if (!requestUpdatedAt) {
-        return res
-          .status(400)
-          .json({ error: 'Neplatný taste_profile.updated_at' });
-      }
-      if (dbLatestTimestamp && requestUpdatedAt < dbLatestTimestamp) {
-        return res
-          .status(409)
-          .json({ error: 'Zastaralý chuťový profil' });
+      if (requestUpdatedAtRaw) {
+        requestUpdatedAt = parseTimestamp(requestUpdatedAtRaw);
+        if (!requestUpdatedAt) {
+          return res
+            .status(400)
+            .json({ error: 'Neplatný taste_profile.updated_at' });
+        }
+        if (dbLatestTimestamp && requestUpdatedAt < dbLatestTimestamp) {
+          return res
+            .status(409)
+            .json({ error: 'Zastaralý chuťový profil' });
+        }
       }
     }
 
     const normalizedRequestTasteProfile = normalizeTasteProfileForEvaluation(requestTasteProfile);
     const useRequestProfile =
       Boolean(requestTasteProfile) &&
-      (!dbLatestTimestamp || (requestUpdatedAt && requestUpdatedAt >= dbLatestTimestamp));
+      requestUpdatedAt &&
+      (!dbLatestTimestamp || requestUpdatedAt >= dbLatestTimestamp);
     const candidatePreferences = useRequestProfile
       ? normalizedRequestTasteProfile
       : dbPreferences;
