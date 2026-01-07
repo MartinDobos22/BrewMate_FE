@@ -1136,13 +1136,56 @@ router.post('/api/ocr/evaluate', async (req, res) => {
     const dbPreferences = result.rows[0];
     const requestTasteProfile =
       taste_profile && typeof taste_profile === 'object' ? taste_profile : null;
+    const requestUpdatedAtRaw =
+      requestTasteProfile?.updated_at ?? requestTasteProfile?.last_recalculated_at ?? null;
+
+    const parseTimestamp = (value) => {
+      if (!value) {
+        return null;
+      }
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? null : date;
+    };
+
+    const dbUpdatedAt = parseTimestamp(dbPreferences?.updated_at);
+    const dbRecalculatedAt = parseTimestamp(dbPreferences?.last_recalculated_at);
+    const dbLatestTimestamp =
+      dbUpdatedAt && dbRecalculatedAt
+        ? dbUpdatedAt > dbRecalculatedAt
+          ? dbUpdatedAt
+          : dbRecalculatedAt
+        : dbUpdatedAt || dbRecalculatedAt;
+
+    let requestUpdatedAt = null;
+    if (requestTasteProfile) {
+      if (!requestUpdatedAtRaw) {
+        return res
+          .status(400)
+          .json({ error: 'Chýba taste_profile.updated_at' });
+      }
+      requestUpdatedAt = parseTimestamp(requestUpdatedAtRaw);
+      if (!requestUpdatedAt) {
+        return res
+          .status(400)
+          .json({ error: 'Neplatný taste_profile.updated_at' });
+      }
+      if (dbLatestTimestamp && requestUpdatedAt < dbLatestTimestamp) {
+        return res
+          .status(409)
+          .json({ error: 'Zastaralý chuťový profil' });
+      }
+    }
+
     const normalizedRequestTasteProfile = normalizeTasteProfileForEvaluation(requestTasteProfile);
-    const isRequestProfileComplete = isTasteProfileComplete(normalizedRequestTasteProfile);
-    const isDbProfileComplete = Boolean(
-      dbPreferences?.is_complete ?? dbPreferences?.taste_profile_completed ?? false
-    );
-    preferences = isRequestProfileComplete ? normalizedRequestTasteProfile : dbPreferences;
-    const isProfileComplete = isRequestProfileComplete || isDbProfileComplete;
+    const useRequestProfile =
+      Boolean(requestTasteProfile) &&
+      (!dbLatestTimestamp || (requestUpdatedAt && requestUpdatedAt >= dbLatestTimestamp));
+    const candidatePreferences = useRequestProfile
+      ? normalizedRequestTasteProfile
+      : dbPreferences;
+
+    const isProfileComplete = isTasteProfileComplete(candidatePreferences);
+    preferences = candidatePreferences;
 
     if (!isProfileComplete) {
       // ⬇️ Short-circuit with the strict JSON schema when profile is incomplete.
