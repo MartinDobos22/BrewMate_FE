@@ -218,7 +218,7 @@ const CoffeePreferenceForm = ({
 
       if (res.ok) {
         const data = await res.json();
-        const storedTasteVector = data.coffee_preferences?.taste_vector ?? data.taste_vector;
+        const storedTasteVector = data.coffee_preferences?.taste_vector;
         const normalizedTasteVector = storedTasteVector
           ? normalizeTasteVectorTo10(storedTasteVector)
           : undefined;
@@ -513,7 +513,6 @@ ${TASTE_AI_SCHEMA_PROMPT}`;
         },
         body: JSON.stringify({
           coffee_preferences: preferences,
-          taste_vector: tasteVector,
           ai_recommendation: profileText,
           ai_confidence: confidence,
         }),

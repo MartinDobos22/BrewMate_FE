@@ -195,7 +195,6 @@ const serializeTasteProfile = (taste) => {
     return {
       ai_recommendation: null,
       manual_input: null,
-      taste_vector: null,
       is_complete: false,
       coffee_preferences: null,
     };
@@ -204,7 +203,6 @@ const serializeTasteProfile = (taste) => {
   return {
     ai_recommendation: taste.ai_recommendation ?? null,
     manual_input: taste.manual_input ?? null,
-    taste_vector: taste.taste_vector ?? null,
     is_complete: taste.is_complete ?? false,
     coffee_preferences: {
       sweetness: Number(taste.sweetness),
@@ -602,7 +600,6 @@ router.put('/api/profile', async (req, res) => {
       acidity,
       bitterness,
       body,
-      taste_vector,
       ai_recommendation,
       manual_input,
       flavor_notes,
@@ -631,7 +628,7 @@ router.put('/api/profile', async (req, res) => {
     let validatedQuizAnswers;
     try {
       // Validate taste vector shape and clamp numeric values to safe ranges.
-      validatedTasteVector = validateTasteVector(taste_vector ?? prefs.taste_vector);
+      validatedTasteVector = validateTasteVector(prefs.taste_vector);
       // Validate quiz answers shape and enforce string-only values.
       validatedQuizAnswers = validateQuizAnswers(
         prefs.quiz_answers,
