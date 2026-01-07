@@ -16,6 +16,8 @@ const PROFILE_MISSING_RESPONSE = {
   status: 'profile_missing',
   verdict: null,
   confidence: null,
+  summary:
+    'Chuťový profil nie je dokončený, preto zatiaľ nevieme zhrnúť vhodnosť kávy.',
   verdict_explanation: {
     user_preferences_summary:
       'Tvoje preferencie: chuťový profil nie je dokončený, takže nemáme kompletné preferencie.',
@@ -45,6 +47,7 @@ const INSUFFICIENT_COFFEE_DATA_RESPONSE = {
   status: 'insufficient_coffee_data',
   verdict: null,
   confidence: null,
+  summary: 'Chýbajú dôležité údaje o káve, preto nevieme urobiť stručné zhrnutie.',
   verdict_explanation: {
     user_preferences_summary:
       'Tvoje preferencie: chuťové preferencie máme uložené, ale chýbajú detaily o káve.',
@@ -126,11 +129,16 @@ const buildDeterministicFallbackResponse = ({ preferences, coffeeAttributes, cor
       : `Porovnanie s tvojím profilom: textová zhoda vychádza na ${Math.round(
           normalizedScore
         )} %, preto kávu hodnotíme ako menej vhodnú.`;
+  const summary =
+    verdict === 'suitable'
+      ? 'Na základe dostupných údajov sa káva javí ako vhodná.'
+      : 'Na základe dostupných údajov sa káva javí ako menej vhodná.';
 
   return {
     status: 'ok',
     verdict,
     confidence,
+    summary,
     verdict_explanation: {
       user_preferences_summary: userPreferencesSummary,
       coffee_profile_summary: coffeeProfileSummary,
@@ -166,6 +174,7 @@ const EVALUATION_RESPONSE_SCHEMA = `JSON schema (strict):
   "status": "ok" | "profile_missing" | "insufficient_coffee_data",
   "verdict": "suitable" | "not_suitable" | "uncertain" | null,
   "confidence": number | null,
+  "summary": string,
   "verdict_explanation": {
     "user_preferences_summary": string,
     "coffee_profile_summary": string,
@@ -191,6 +200,7 @@ const EVALUATION_RESPONSE_JSON_SCHEMA = {
     'status',
     'verdict',
     'confidence',
+    'summary',
     'verdict_explanation',
     'insight',
     'disclaimer',
@@ -206,6 +216,9 @@ const EVALUATION_RESPONSE_JSON_SCHEMA = {
     },
     confidence: {
       type: ['number', 'null'],
+    },
+    summary: {
+      type: 'string',
     },
     verdict_explanation: {
       type: 'object',
@@ -482,6 +495,7 @@ const isValidEvaluationResponse = (value) => {
     'status',
     'verdict',
     'confidence',
+    'summary',
     'verdict_explanation',
     'insight',
     'disclaimer',
@@ -494,6 +508,7 @@ const isValidEvaluationResponse = (value) => {
     status,
     verdict,
     confidence,
+    summary,
     verdict_explanation,
     insight,
     disclaimer,
@@ -513,6 +528,10 @@ const isValidEvaluationResponse = (value) => {
   }
 
   if (confidence !== null && (typeof confidence !== 'number' || Number.isNaN(confidence))) {
+    return false;
+  }
+
+  if (typeof summary !== 'string') {
     return false;
   }
 
@@ -1257,7 +1276,8 @@ router.post('/api/ocr/evaluate', async (req, res) => {
 Odpovedaj výhradne v slovenčine.
 Vráť striktne platný JSON podľa zadanej schémy, bez markdownu a bez dodatočného textu.
 Nikdy nehádaj chýbajúce dáta. Ak chýba profil alebo údaje o káve, priznaj neistotu podľa schémy.
-Verdict a insight musia vychádzať z toho istého porovnania preferencií a atribútov kávy a nesmú si odporovať.`;
+Verdict a insight musia vychádzať z toho istého porovnania preferencií a atribútov kávy a nesmú si odporovať.
+Zhrnutie (summary) musí byť stručná, jedno-vetná syntéza výsledku.`;
 const userPrompt = `Vyhodnoť vhodnosť naskenovanej kávy pre používateľa.
 
 PRAVIDLÁ:
@@ -1265,6 +1285,7 @@ PRAVIDLÁ:
 - Ak chýba alebo je neúplný chuťový profil → status="profile_missing", verdict=null.
 - Ak chýbajú kľúčové atribúty kávy → status="insufficient_coffee_data", verdict=null.
 - Ak sú dáta dostatočné → status="ok" a verdict je "suitable" | "not_suitable" | "uncertain".
+- summary je jedna krátka veta, ktorá stručne zhrnie výsledok pre používateľa.
 - Každé pole verdict_explanation musí byť presne jedna veta v tomto formáte:
   - user_preferences_summary začína "Tvoje preferencie:" a stručne zhrnie chuťový profil.
   - coffee_profile_summary začína "Profil kávy:" a stručne zhrnie profil kávy.
