@@ -697,7 +697,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       coffee_preferences?: Record<string, unknown> | null;
       ai_recommendation?: string | null;
       consistency_score?: number | null;
-      taste_vector?: Record<string, number> | null;
     };
     const nestedSnapshot = extractPreferenceSnapshot(profileRecord?.coffee_preferences ?? null);
     if (nestedSnapshot) {
@@ -706,7 +705,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     return extractPreferenceSnapshot({
       ai_recommendation: profileRecord?.ai_recommendation,
       consistency_score: profileRecord?.consistency_score,
-      taste_vector: profileRecord?.taste_vector,
     });
   }, [profile]);
 
@@ -728,7 +726,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       }
       const data = (await response.json()) as Record<string, unknown> | null;
       const snapshot = extractPreferenceSnapshot(
-        (data?.coffee_preferences as Record<string, unknown> | null) ?? data ?? null,
+        (data?.coffee_preferences as Record<string, unknown> | null) ?? null,
       );
       if (snapshot) {
         setPreferenceSnapshot(snapshot);
