@@ -21,6 +21,20 @@ const TASTE_VECTOR_KEYS = [
   'intensity',
   'experimentalism',
 ];
+const QUIZ_ANSWER_KEYS_BY_VERSION = {
+  'taste-2024-10': [
+    'dealbreaker',
+    'go_to_drink',
+    'chocolate',
+    'fruit_notes',
+    'mouthfeel',
+    'reason',
+    'closest_flavor',
+    'experimentation',
+    'frequency',
+    'control',
+  ],
+};
 const TASTE_AI_RESPONSE_JSON_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -133,7 +147,7 @@ const validateTasteVector = (value) => {
   return sanitized;
 };
 
-const validateQuizAnswers = (value) => {
+const validateQuizAnswers = (value, quizVersion) => {
   if (value === undefined || value === null) {
     return null;
   }
@@ -144,8 +158,23 @@ const validateQuizAnswers = (value) => {
     );
   }
 
+  const expectedKeys = quizVersion
+    ? QUIZ_ANSWER_KEYS_BY_VERSION[quizVersion]
+    : null;
+
+  if (quizVersion && !expectedKeys) {
+    throw new Error(`Invalid quiz_version "${quizVersion}" for quiz_answers.`);
+  }
+
+  const expectedKeySet = expectedKeys ? new Set(expectedKeys) : null;
   const sanitized = {};
   Object.entries(value).forEach(([key, entryValue]) => {
+    if (expectedKeySet && !expectedKeySet.has(key)) {
+      throw new Error(
+        `Invalid quiz_answers key "${key}" for quiz_version "${quizVersion}".`
+      );
+    }
+
     if (typeof entryValue !== 'string') {
       throw new Error(`Invalid quiz_answers.${key}: expected a string.`);
     }
@@ -596,13 +625,18 @@ router.put('/api/profile', async (req, res) => {
     const flavorNotes = flavor_notes ?? prefs.flavor_notes ?? existing?.flavor_notes ?? {};
     const milkPrefs = milk_preferences ?? prefs.milk_preferences ?? existing?.milk_preferences ?? {};
 
+    const resolvedQuizVersion = prefs.quiz_version ?? existing?.quiz_version ?? null;
+
     let validatedTasteVector;
     let validatedQuizAnswers;
     try {
       // Validate taste vector shape and clamp numeric values to safe ranges.
       validatedTasteVector = validateTasteVector(taste_vector ?? prefs.taste_vector);
       // Validate quiz answers shape and enforce string-only values.
-      validatedQuizAnswers = validateQuizAnswers(prefs.quiz_answers);
+      validatedQuizAnswers = validateQuizAnswers(
+        prefs.quiz_answers,
+        resolvedQuizVersion
+      );
     } catch (validationError) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: validationError.message });
@@ -659,7 +693,6 @@ router.put('/api/profile', async (req, res) => {
       validatedTasteVector ?? existing?.taste_vector ?? {};
     const resolvedQuizAnswers =
       validatedQuizAnswers ?? existing?.quiz_answers ?? {};
-    const resolvedQuizVersion = prefs.quiz_version ?? existing?.quiz_version ?? null;
     const resolvedConsistencyScore =
       prefs.consistency_score ??
       confidenceOverride ??
