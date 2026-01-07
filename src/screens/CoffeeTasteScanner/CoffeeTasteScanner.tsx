@@ -1000,7 +1000,26 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     }
   };
 
-  const finalizeCoffeeScan = async (normalizedResult: ScanResultLike, base64image: string) => {
+  const MAX_RECENT_SCAN_THUMBNAIL_LENGTH = 8000;
+
+  const selectRecentScanImage = (imagePath?: string, base64image?: string) => {
+    if (imagePath) {
+      return imagePath;
+    }
+
+    if (!base64image) {
+      return undefined;
+    }
+
+    const dataUri = `data:image/jpeg;base64,${base64image}`;
+    return dataUri.length <= MAX_RECENT_SCAN_THUMBNAIL_LENGTH ? dataUri : undefined;
+  };
+
+  const finalizeCoffeeScan = async (
+    normalizedResult: ScanResultLike,
+    base64image: string,
+    imagePath?: string,
+  ) => {
     applyScanResult(normalizedResult);
     setIsFavorite(normalizedResult.isFavorite ?? false);
     setEditedText(normalizedResult.corrected);
@@ -1018,10 +1037,11 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
 
     const name = extractCoffeeName(normalizedResult.corrected || normalizedResult.original);
     const scanIdentifier = normalizedResult.scanId || Date.now().toString();
+    const recentImage = selectRecentScanImage(imagePath, base64image);
     await addRecentScan({
       id: scanIdentifier,
       name,
-      imageUrl: `data:image/jpeg;base64,${base64image}`,
+      imageUrl: recentImage,
     });
 
     const identity = resolveCoffeeIdentity(normalizedResult as ScanResult, name);
@@ -1070,7 +1090,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
 
     setIsLoading(true);
     try {
-      await finalizeCoffeeScan(confirmedResult, pendingImage);
+        await finalizeCoffeeScan(confirmedResult, pendingImage);
     } catch (error) {
       console.error('CoffeeTasteScanner: confirm anyway failed', error);
       Alert.alert('Chyba', 'Nepodarilo sa potvrdiť sken.');
@@ -1325,7 +1345,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
           return;
         }
 
-        await finalizeCoffeeScan(normalizedResult, base64image);
+        await finalizeCoffeeScan(normalizedResult, base64image, extra?.imagePath);
       }
     } catch (error) {
       console.error('Error processing image:', error);
@@ -1452,7 +1472,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
         await addRecentScan({
           id: scanId,
           name,
-          imageUrl: `data:image/jpeg;base64,${base64image}`,
+          imageUrl: selectRecentScanImage(imagePath, base64image),
         });
 
         const identity = resolveCoffeeIdentity(offlineResult as ScanResult, name);

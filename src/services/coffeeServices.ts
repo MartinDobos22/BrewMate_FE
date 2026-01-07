@@ -12,6 +12,8 @@ export interface RecentScan {
 const STORAGE_KEY = 'recentScans';
 const MAX_RECENT_SCANS = 20;
 const MAX_IMAGE_URL_LENGTH = 1000;
+const MAX_IMAGE_DATA_URI_LENGTH = 8000;
+const MAX_STORAGE_BYTES = 150 * 1024;
 
 /**
  * Normalizes loose scan payloads coming from network or storage into a consistent shape.
@@ -40,18 +42,48 @@ const sanitizeRecentScan = (scan: RecentScan | Record<string, any>): RecentScan 
     (typeof (scan as any).image_url === 'string' && (scan as any).image_url) ||
     (typeof (scan as any).image === 'string' && (scan as any).image);
 
-  const sanitizedImage =
-    rawImage &&
-    rawImage.length <= MAX_IMAGE_URL_LENGTH &&
-    !rawImage.startsWith('data:')
-      ? rawImage
-      : undefined;
+  const sanitizedImage = (() => {
+    if (typeof rawImage !== 'string') {
+      return undefined;
+    }
+
+    const trimmed = rawImage.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+
+    if (trimmed.startsWith('data:')) {
+      return trimmed.length <= MAX_IMAGE_DATA_URI_LENGTH ? trimmed : undefined;
+    }
+
+    return trimmed.length <= MAX_IMAGE_URL_LENGTH ? trimmed : undefined;
+  })();
 
   return {
     id: idSource || Date.now().toString(),
     name: nameSource,
     imageUrl: sanitizedImage,
   };
+};
+
+const estimateStorageBytes = (value: string): number => {
+  if (typeof TextEncoder !== 'undefined') {
+    return new TextEncoder().encode(value).length;
+  }
+
+  return value.length;
+};
+
+const trimScansToStorageLimit = (scans: RecentScan[]): RecentScan[] => {
+  const trimmed = [...scans];
+  while (trimmed.length > 0) {
+    const size = estimateStorageBytes(JSON.stringify(trimmed));
+    if (size <= MAX_STORAGE_BYTES) {
+      break;
+    }
+    trimmed.pop();
+  }
+  return trimmed;
 };
 
 /**
@@ -64,10 +96,10 @@ export const addRecentScan = async (scan: RecentScan): Promise<void> => {
   try {
     const scans = await readCachedScans();
     const sanitized = sanitizeRecentScan(scan);
-    const updated = [
+    const updated = trimScansToStorageLimit([
       sanitized,
       ...scans.filter((s) => s.id !== sanitized.id),
-    ].slice(0, MAX_RECENT_SCANS);
+    ].slice(0, MAX_RECENT_SCANS));
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   } catch (err) {
     console.error('Failed to store recent scan', err);
@@ -90,9 +122,14 @@ const readCachedScans = async (): Promise<RecentScan[]> => {
     }
 
     const parsed = JSON.parse(cachedRaw);
-    return Array.isArray(parsed)
+    const sanitized = Array.isArray(parsed)
       ? parsed.map((item) => sanitizeRecentScan(item))
       : [];
+    const trimmed = trimScansToStorageLimit(sanitized);
+    if (trimmed.length !== sanitized.length) {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+    }
+    return trimmed;
   } catch (error: any) {
     if (
       typeof error?.message === 'string' &&
@@ -147,8 +184,9 @@ export const fetchRecentScans = async (limit: number): Promise<RecentScan[]> => 
       const normalized: RecentScan[] = Array.isArray(data)
         ? data.map((item) => sanitizeRecentScan(item)).slice(0, MAX_RECENT_SCANS)
         : [];
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
-      cached = normalized;
+      const trimmed = trimScansToStorageLimit(normalized);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
+      cached = trimmed;
     }
 
     return cached.slice(0, limit);
