@@ -1329,6 +1329,10 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       marginBottom: 20,
       lineHeight: 18,
     },
+    validationModalActions: {
+      width: '100%',
+      gap: 12,
+    },
     validationModalButton: {
       width: '100%',
       backgroundColor: palette.primary,
@@ -1342,10 +1346,21 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       shadowRadius: 20,
       elevation: 6,
     },
+    validationModalButtonSecondary: {
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: palette.primary,
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      elevation: 0,
+    },
     validationModalButtonText: {
       fontSize: 16,
       fontWeight: '700',
       color: '#FFFFFF',
+    },
+    validationModalButtonTextSecondary: {
+      color: palette.primary,
     },
     confirmModalOverlay: {
       flex: 1,
