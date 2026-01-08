@@ -1308,11 +1308,15 @@ export const processOCR = async (
                 structured_metadata: evaluationStructuredMetadata,
                 coffee_attributes: coffeeAttributes,
               };
+              const isLocalTasteProfile =
+                Boolean(options?.tasteProfile) &&
+                options?.tasteProfile &&
+                !('preferences' in options.tasteProfile);
               if (options?.tasteProfile) {
                 const tasteProfilePayload = mapTasteProfilePayload(options.tasteProfile);
                 if (tasteProfilePayload) {
                   payload.taste_profile = tasteProfilePayload;
-                  if (!('preferences' in options.tasteProfile)) {
+                  if (isLocalTasteProfile) {
                     payload.taste_profile_source = 'client';
                   }
                 }
