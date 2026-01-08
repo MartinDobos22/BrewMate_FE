@@ -362,7 +362,7 @@ export const fetchScanHistory = async (limit: number = 5): Promise<CoffeeData[]>
       id: item.id.toString(),
       name: item.coffee_name || 'Neznáma káva',
       rating: parseFloat(item.rating || 0),
-      match: parseInt(item.match_percentage || 0),
+      match: typeof item.match_percentage === 'number' ? item.match_percentage : undefined,
       timestamp: new Date(item.created_at),
       isRecommended: item.is_recommended || false,
       brand: item.brand,

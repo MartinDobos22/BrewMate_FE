@@ -53,7 +53,7 @@ interface OCRHistory {
   corrected_text: string;
   created_at: Date;
   rating?: number;
-  match_percentage?: number;
+  match_percentage?: number | null;
   is_recommended?: boolean;
   is_favorite?: boolean;
 }
@@ -62,7 +62,7 @@ interface ScanResult {
   original: string;
   corrected: string;
   recommendation: string;
-  matchPercentage?: number;
+  matchPercentage?: number | null;
   isRecommended?: boolean;
   scanId?: string;
   brewingMethods?: string[];
@@ -643,8 +643,10 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
   };
   const showBackButton = currentView !== 'home';
   const brewingMethods = scanResult?.brewingMethods ?? [];
-  const matchLabel = scanResult?.matchPercentage
-    ? `${scanResult.matchPercentage}% zhoda`
+  const matchLabel = scanResult
+    ? typeof scanResult.matchPercentage === 'number'
+      ? `${scanResult.matchPercentage}% zhoda`
+      : 'Profil chýba'
     : undefined;
   const tasteSuggestions = useMemo(
     () => [

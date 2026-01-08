@@ -21,7 +21,10 @@ const ScanDetailScreen: React.FC<ScanDetailScreenProps> = ({ scan }) => {
     { label: 'Pražiareň / Značka', value: scan.brand },
     { label: 'Pôvod', value: scan.origin },
     { label: 'Praženie', value: scan.roast_level },
-    { label: 'Zhoda s profilom', value: scan.match_percentage ? `${scan.match_percentage}%` : null },
+    {
+      label: 'Zhoda s profilom',
+      value: typeof scan.match_percentage === 'number' ? `${scan.match_percentage}%` : 'Profil chýba',
+    },
     { label: 'Hodnotenie', value: typeof scan.rating === 'number' ? `${scan.rating}/5` : null },
     { label: 'Odporúčanie AI', value: scan.is_recommended === false ? 'Skôr NIE' : scan.is_recommended ? 'Skôr ÁNO' : null },
     { label: 'Obľúbená', value: scan.is_favorite ? 'Áno' : null },
