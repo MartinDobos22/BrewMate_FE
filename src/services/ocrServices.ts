@@ -375,19 +375,6 @@ const mapTasteProfilePayload = (
     return null;
   }
 
-  if ('preferences' in profile) {
-    const profileUpdatedAt = profile.updatedAt ?? profile.lastRecalculatedAt ?? null;
-    if (!profileUpdatedAt) {
-      console.warn(
-        '[OCR] Skipping taste_profile payload because timestamps are missing.',
-        {
-          hasPreferencesProfile: true,
-        },
-      );
-      return null;
-    }
-  }
-
   const tasteVector = extractTasteVector(profile);
   if (!tasteVector) {
     return null;
@@ -757,6 +744,7 @@ interface OCRResult {
   structuredUncertainty?: Record<string, unknown> | null;
   rawStructuredResponse?: unknown;
   evaluation?: CoffeeEvaluationResult | null;
+  tasteProfileSent?: boolean;
 }
 
 /**
@@ -1294,6 +1282,7 @@ export const processOCR = async (
       structuredMetadata,
       estimatedAttributes,
     );
+    let tasteProfileSent = false;
     const evaluatePromise =
       isCoffee === false
         ? Promise.resolve({ skipped: true } as const)
@@ -1325,6 +1314,7 @@ export const processOCR = async (
                 const tasteProfilePayload = mapTasteProfilePayload(options.tasteProfile);
                 if (tasteProfilePayload) {
                   payload.taste_profile = tasteProfilePayload;
+                  tasteProfileSent = true;
                   if (isLocalTasteProfile) {
                     payload.taste_profile_source = 'client';
                   }
@@ -1449,6 +1439,7 @@ export const processOCR = async (
       structuredUncertainty,
       rawStructuredResponse,
       evaluation,
+      tasteProfileSent,
     };
   } catch (error) {
     console.error('OCR processing error:', error);
