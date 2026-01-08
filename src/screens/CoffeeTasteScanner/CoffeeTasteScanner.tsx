@@ -171,7 +171,11 @@ const extractPreferenceSnapshot = (
   const aiRecommendation =
     typeof payload.ai_recommendation === 'string' ? payload.ai_recommendation : null;
   const consistencyScore =
-    typeof payload.consistency_score === 'number' ? payload.consistency_score : null;
+    typeof payload.consistency_score === 'number'
+      ? payload.consistency_score
+      : typeof payload.ai_confidence === 'number'
+        ? payload.ai_confidence
+        : null;
   const tasteVector =
     payload.taste_vector && typeof payload.taste_vector === 'object'
       ? (payload.taste_vector as Record<string, number>)
@@ -755,6 +759,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       coffee_preferences?: Record<string, unknown> | null;
       ai_recommendation?: string | null;
       consistency_score?: number | null;
+      ai_confidence?: number | null;
     };
     const nestedSnapshot = extractPreferenceSnapshot(profileRecord?.coffee_preferences ?? null);
     if (nestedSnapshot) {
@@ -763,6 +768,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     return extractPreferenceSnapshot({
       ai_recommendation: profileRecord?.ai_recommendation,
       consistency_score: profileRecord?.consistency_score,
+      ai_confidence: profileRecord?.ai_confidence,
     });
   }, [profile]);
 

@@ -230,7 +230,11 @@ const CoffeePreferenceForm = ({
           quiz_answers: data.coffee_preferences?.quiz_answers,
           taste_vector: normalizedTasteVector,
           ai_recommendation: data.coffee_preferences?.ai_recommendation ?? data.ai_recommendation,
-          consistency_score: data.coffee_preferences?.consistency_score ?? data.consistency_score,
+          consistency_score:
+            data.coffee_preferences?.consistency_score ??
+            data.coffee_preferences?.ai_confidence ??
+            data.consistency_score ??
+            data.ai_confidence,
         });
       }
     } catch (err) {
