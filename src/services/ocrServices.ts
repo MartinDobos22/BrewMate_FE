@@ -361,6 +361,13 @@ const extractTasteVector = (
   return profile;
 };
 
+const mapOcrTasteVector = (vector: TasteProfileVector): TasteProfileVector => ({
+  sweetness: vector.sweetness,
+  acidity: vector.acidity,
+  bitterness: vector.bitterness,
+  body: vector.body,
+});
+
 const mapTasteProfilePayload = (
   profile?: TasteProfileVector | UserTasteProfile | null,
 ): Record<string, unknown> | null => {
@@ -385,17 +392,19 @@ const mapTasteProfilePayload = (
   if (!tasteVector) {
     return null;
   }
+  // OCR evaluácia používa len 4D chuťový profil (sweetness/acidity/bitterness/body).
+  const ocrTasteVector = mapOcrTasteVector(tasteVector);
 
   if ('preferences' in profile) {
     const flavorNoteEntries = profile.flavorNotes ?? {};
     const flavorNotes = Object.keys(flavorNoteEntries).filter(Boolean);
     return {
       user_id: profile.userId,
-      taste_vector: tasteVector,
-      sweetness: tasteVector.sweetness,
-      acidity: tasteVector.acidity,
-      bitterness: tasteVector.bitterness,
-      body: tasteVector.body,
+      taste_vector: ocrTasteVector,
+      sweetness: ocrTasteVector.sweetness,
+      acidity: ocrTasteVector.acidity,
+      bitterness: ocrTasteVector.bitterness,
+      body: ocrTasteVector.body,
       flavor_notes: flavorNotes,
       flavor_note_weights: flavorNoteEntries,
       milk_preferences: profile.milkPreferences,
@@ -413,11 +422,11 @@ const mapTasteProfilePayload = (
   }
 
   return {
-    taste_vector: tasteVector,
-    sweetness: tasteVector.sweetness,
-    acidity: tasteVector.acidity,
-    bitterness: tasteVector.bitterness,
-    body: tasteVector.body,
+    taste_vector: ocrTasteVector,
+    sweetness: ocrTasteVector.sweetness,
+    acidity: ocrTasteVector.acidity,
+    bitterness: ocrTasteVector.bitterness,
+    body: ocrTasteVector.body,
   };
 };
 
@@ -1323,6 +1332,7 @@ export const processOCR = async (
               }
               // Manual QA: submit the questionnaire flow (TasteProfileVector) and confirm
               // `/ocr/evaluate` receives `taste_profile` with only taste_vector + sweetness/acidity/bitterness/body.
+              // Extra dimensions (intensity/experimentalism) are intentionally dropped for OCR evaluation.
               const evaluationResult = await loggedFetchWithStatusRetry(
                 `${API_URL}/ocr/evaluate`,
                 {
