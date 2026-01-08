@@ -1124,6 +1124,7 @@ router.post('/api/ocr/evaluate', async (req, res) => {
       structuredMetadata,
       coffee_attributes,
       taste_profile,
+      taste_profile_source,
     } = req.body ?? {};
     if (!corrected_text) return res.status(400).json({ error: 'Chýba text kávy' });
     correctedText = corrected_text;
@@ -1136,10 +1137,14 @@ router.post('/api/ocr/evaluate', async (req, res) => {
     const dbPreferences = result.rows[0];
     const requestTasteProfile =
       taste_profile && typeof taste_profile === 'object' ? taste_profile : null;
+    const requestTasteProfileSource =
+      typeof taste_profile_source === 'string' ? taste_profile_source : null;
     const requestUpdatedAtRaw =
       requestTasteProfile?.updated_at ?? requestTasteProfile?.last_recalculated_at ?? null;
     const requestHasTimestamp = Boolean(requestUpdatedAtRaw);
-    if (requestTasteProfile && !requestHasTimestamp) {
+    const allowTimestamplessProfile =
+      Boolean(requestTasteProfile) && (!dbPreferences || requestTasteProfileSource === 'client');
+    if (requestTasteProfile && !requestHasTimestamp && !allowTimestamplessProfile) {
       console.warn('⚠️ [OCR] taste_profile missing timestamp; using DB profile.', {
         uid,
         hasTasteProfile: Boolean(requestTasteProfile),
@@ -1183,8 +1188,9 @@ router.post('/api/ocr/evaluate', async (req, res) => {
     const normalizedRequestTasteProfile = normalizeTasteProfileForEvaluation(requestTasteProfile);
     const useRequestProfile =
       Boolean(requestTasteProfile) &&
-      requestUpdatedAt &&
-      (!dbLatestTimestamp || requestUpdatedAt >= dbLatestTimestamp);
+      (requestUpdatedAt
+        ? !dbLatestTimestamp || requestUpdatedAt >= dbLatestTimestamp
+        : allowTimestamplessProfile);
     const candidatePreferences = useRequestProfile
       ? normalizedRequestTasteProfile
       : dbPreferences;

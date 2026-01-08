@@ -1312,6 +1312,9 @@ export const processOCR = async (
                 const tasteProfilePayload = mapTasteProfilePayload(options.tasteProfile);
                 if (tasteProfilePayload) {
                   payload.taste_profile = tasteProfilePayload;
+                  if (!('preferences' in options.tasteProfile)) {
+                    payload.taste_profile_source = 'client';
+                  }
                 }
               }
               // Manual QA: submit the questionnaire flow (TasteProfileVector) and confirm
