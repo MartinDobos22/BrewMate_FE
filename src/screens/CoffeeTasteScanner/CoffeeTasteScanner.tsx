@@ -87,6 +87,7 @@ interface ScanResult {
   structuredConfidence?: Record<string, unknown> | null;
   structuredRaw?: unknown;
   evaluation?: CoffeeEvaluationResult | null;
+  tasteProfileSent?: boolean;
 }
 
 type ScanResultLike = ScanResult & { rawStructuredResponse?: unknown };
@@ -2111,7 +2112,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   // Suppress compatibility scoring whenever the AI evaluation is not ready.
   const shouldSuppressCompatibility = evaluationStatus !== 'ok';
   const neutralVerdictCopy = 'Čakáme na AI hodnotenie';
-  const isProfileMissing = evaluationStatus === 'profile_missing';
+  const didSendTasteProfile = Boolean(scanResult?.tasteProfileSent);
+  const isProfileMissing = evaluationStatus === 'profile_missing' && !didSendTasteProfile;
   const profileMissingText = evaluation?.summary
     || evaluation?.disclaimer
     || 'Vyplň krátky dotazník a získaš osobné hodnotenie zhody pre každú kávu.';
@@ -2521,7 +2523,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     evaluationTips,
   ]);
   const insightStatusContent = useMemo(() => {
-    if (evaluationStatus === 'profile_missing') {
+    if (evaluationStatus === 'profile_missing' && !didSendTasteProfile) {
       return {
         headline: 'Získaj presnejší insight',
         body: profileMissingText,
@@ -2547,7 +2549,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       };
     }
     return null;
-  }, [evaluation, evaluationStatus, profileMissingCtaLabel, profileMissingText]);
+  }, [didSendTasteProfile, evaluation, evaluationStatus, profileMissingCtaLabel, profileMissingText]);
 
   const fallbackVerdictExplanation = useMemo(() => {
     if (evaluationStatus !== 'ok') {
