@@ -1496,7 +1496,7 @@ export const fetchOCRHistory = async (limit: number = 10): Promise<OCRHistory[]>
       corrected_text: item.corrected_text,
       created_at: new Date(item.created_at),
       rating: item.rating,
-      match_percentage: item.match_percentage,
+      match_percentage: typeof item.match_percentage === 'number' ? item.match_percentage : null,
       is_recommended: item.is_recommended,
       is_purchased: item.is_purchased,
       is_favorite: item.is_favorite,

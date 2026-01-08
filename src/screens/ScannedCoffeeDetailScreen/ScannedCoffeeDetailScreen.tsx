@@ -93,7 +93,7 @@ const ScannedCoffeeDetailScreen: React.FC<{ coffeeId: string; onBack: () => void
         />
         <DetailRow
           label="Zhoda s profilom"
-          value={typeof coffee.match === 'number' ? `${coffee.match}%` : undefined}
+          value={typeof coffee.match === 'number' ? `${coffee.match}%` : '—'}
         />
         {coffee.flavorNotes && coffee.flavorNotes.length > 0 ? (
           <DetailRow label="Chuťové tóny" value={coffee.flavorNotes.join(', ')} />

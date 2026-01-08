@@ -1503,7 +1503,7 @@ router.get('/api/ocr/history', async (req, res) => {
       structured_uncertainty: row.structured_uncertainty,
       created_at: row.created_at,
       rating: null,
-      match_percentage: row.match_score || 0,
+      match_percentage: row.match_score,
       is_recommended: row.is_recommended || false,
       is_purchased: false,
     }));
