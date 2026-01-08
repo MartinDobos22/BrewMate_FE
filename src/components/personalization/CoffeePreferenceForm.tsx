@@ -294,6 +294,13 @@ const CoffeePreferenceForm = ({
     return result;
   };
 
+  const mapTasteVectorForStorage = (vector: TasteVector) => ({
+    sweetness: vector.sweetness,
+    acidity: vector.acidity,
+    bitterness: vector.bitterness,
+    body: vector.body,
+  });
+
   const getAnswerLabel = (questionId: string, quizAnswers: Record<string, string>) => {
     const question = allQuestions.find(q => q.id === questionId);
     const selectedValue = quizAnswers[questionId];
@@ -500,7 +507,8 @@ ${TASTE_AI_SCHEMA_PROMPT}`;
     const preferences = {
       quiz_version: 'taste-2024-10',
       quiz_answers: answers,
-      taste_vector: tasteVector,
+      // OCR evaluácia používa iba 4D profil, preto pri ukladaní odrezávame extra dimenzie.
+      taste_vector: mapTasteVectorForStorage(tasteVector),
       consistency_score: confidence,
       ai_confidence: confidence,
     };
