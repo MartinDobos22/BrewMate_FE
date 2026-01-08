@@ -368,16 +368,17 @@ const mapTasteProfilePayload = (
     return null;
   }
 
-  const profileUpdatedAt =
-    'preferences' in profile ? profile.updatedAt ?? profile.lastRecalculatedAt ?? null : null;
-  if (!profileUpdatedAt) {
-    console.warn(
-      '[OCR] Skipping taste_profile payload because timestamps are missing.',
-      {
-        hasPreferencesProfile: 'preferences' in profile,
-      },
-    );
-    return null;
+  if ('preferences' in profile) {
+    const profileUpdatedAt = profile.updatedAt ?? profile.lastRecalculatedAt ?? null;
+    if (!profileUpdatedAt) {
+      console.warn(
+        '[OCR] Skipping taste_profile payload because timestamps are missing.',
+        {
+          hasPreferencesProfile: true,
+        },
+      );
+      return null;
+    }
   }
 
   const tasteVector = extractTasteVector(profile);
@@ -1313,6 +1314,8 @@ export const processOCR = async (
                   payload.taste_profile = tasteProfilePayload;
                 }
               }
+              // Manual QA: submit the questionnaire flow (TasteProfileVector) and confirm
+              // `/ocr/evaluate` receives `taste_profile` with only taste_vector + sweetness/acidity/bitterness/body.
               const evaluationResult = await loggedFetchWithStatusRetry(
                 `${API_URL}/ocr/evaluate`,
                 {
