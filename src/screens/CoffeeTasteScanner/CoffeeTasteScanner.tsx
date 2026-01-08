@@ -1178,13 +1178,29 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   };
 
   const buildMetadataFromHistory = useCallback((item: OCRHistory): StructuredCoffeeMetadata | null => {
-    const roaster = normalizeStructuredStringValue(item.brand);
-    const origin = normalizeStructuredStringValue(item.origin);
-    const roastLevel = normalizeStructuredStringValue(item.roast_level);
-    const processing = normalizeStructuredStringValue(item.processing);
-    const roastDate = normalizeStructuredStringValue(item.roast_date);
-    const flavorNotes = normalizeStructuredStringArrayValue(item.flavor_notes);
-    const varietals = normalizeStructuredStringArrayValue(item.varietals);
+    const confirmed = item.confirmed_structured_metadata;
+    const confirmedFlavorNotes =
+      confirmed && 'flavor_notes' in confirmed
+        ? (confirmed as StructuredCoffeeMetadata & { flavor_notes?: string[] | null }).flavor_notes
+        : null;
+    const confirmedRoastLevel =
+      confirmed && 'roast_level' in confirmed
+        ? (confirmed as StructuredCoffeeMetadata & { roast_level?: string | null }).roast_level
+        : null;
+
+    const roaster = normalizeStructuredStringValue(confirmed?.roaster ?? item.brand);
+    const origin = normalizeStructuredStringValue(confirmed?.origin ?? item.origin);
+    const roastLevel = normalizeStructuredStringValue(
+      confirmed?.roastLevel ?? confirmedRoastLevel ?? item.roast_level
+    );
+    const processing = normalizeStructuredStringValue(confirmed?.processing ?? item.processing);
+    const roastDate = normalizeStructuredStringValue(confirmed?.roastDate ?? item.roast_date);
+    const flavorNotes = normalizeStructuredStringArrayValue(
+      confirmed?.flavorNotes ?? confirmedFlavorNotes ?? item.flavor_notes
+    );
+    const varietals = normalizeStructuredStringArrayValue(
+      confirmed?.varietals ?? item.varietals
+    );
 
     const metadata: StructuredCoffeeMetadata = {
       roaster,
@@ -1194,7 +1210,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       flavorNotes,
       roastDate,
       varietals,
-      confidenceFlags: null,
+      confidenceFlags: confirmed?.confidenceFlags ?? null,
     };
 
     const hasAnyLabelValue =

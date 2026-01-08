@@ -1374,8 +1374,7 @@ ${EVALUATION_RESPONSE_SCHEMA}
  * Potvrdí štruktúrované údaje skenu a uchová ich pre budúce odporúčania.
  *
  * Endpoint len validuje vstup a uloží auditný log, aby FE vedel, že
- * potvrdenie prebehlo úspešne. DB schéma aktuálne neobsahuje
- * dedikované polia na štruktúrované dáta, preto hodnoty iba logujeme.
+ * potvrdenie prebehlo úspešne.
  */
 router.post('/api/ocr/:id/structured/confirm', async (req, res) => {
   const idToken = req.headers.authorization?.split(' ')[1];
@@ -1410,9 +1409,35 @@ router.post('/api/ocr/:id/structured/confirm', async (req, res) => {
       if (err) console.error('❌ Chyba pri logovaní structured confirm:', err);
     });
 
-    return res
-      .status(200)
-      .json({ message: 'Štruktúrované dáta potvrdené', ok: true });
+    const normalizeJsonField = (value) =>
+      value === undefined || value === null ? null : JSON.stringify(value);
+    const normalizedMetadata = metadata && typeof metadata === 'object' ? metadata : null;
+    const normalizedConfidence = confidence && typeof confidence === 'object' ? confidence : null;
+
+    const updateResult = await db.query(
+      `UPDATE scan_events
+       SET confirmed_structured_metadata = $1::jsonb,
+           confirmed_structured_confidence = $2::jsonb,
+           confirmed_structured_raw = $3::jsonb
+       WHERE id = $4 AND user_id = $5
+       RETURNING id`,
+      [
+        normalizeJsonField(normalizedMetadata),
+        normalizeJsonField(normalizedConfidence),
+        normalizeJsonField(raw),
+        scanId,
+        decoded.uid,
+      ]
+    );
+
+    if (updateResult.rowCount === 0) {
+      return res.status(404).json({ error: 'Sken neexistuje' });
+    }
+
+    return res.status(200).json({
+      message: 'Štruktúrované dáta potvrdené',
+      ok: true,
+    });
   } catch (err) {
     console.error('❌ Chyba pri potvrdení štruktúrovaných dát:', err);
     return res
@@ -1487,6 +1512,9 @@ router.get('/api/ocr/history', async (req, res) => {
         thumbnail_url,
         structured_confidence,
         structured_uncertainty,
+        confirmed_structured_metadata,
+        confirmed_structured_confidence,
+        confirmed_structured_raw,
         match_score,
         is_recommended,
         created_at
@@ -1512,6 +1540,9 @@ router.get('/api/ocr/history', async (req, res) => {
       thumbnail_url: row.thumbnail_url,
       structured_confidence: row.structured_confidence,
       structured_uncertainty: row.structured_uncertainty,
+      confirmed_structured_metadata: row.confirmed_structured_metadata,
+      confirmed_structured_confidence: row.confirmed_structured_confidence,
+      confirmed_structured_raw: row.confirmed_structured_raw,
       created_at: row.created_at,
       rating: null,
       match_percentage: row.match_score,

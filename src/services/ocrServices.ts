@@ -1467,6 +1467,9 @@ export interface OCRHistory {
   thumbnail_url?: string | null;
   structured_confidence?: Record<string, unknown> | null;
   structured_uncertainty?: Record<string, unknown> | null;
+  confirmed_structured_metadata?: StructuredCoffeeMetadata | null;
+  confirmed_structured_confidence?: Record<string, unknown> | null;
+  confirmed_structured_raw?: unknown | null;
 }
 
 /**
@@ -1517,6 +1520,9 @@ export const fetchOCRHistory = async (limit: number = 10): Promise<OCRHistory[]>
       thumbnail_url: item.thumbnail_url ?? null,
       structured_confidence: item.structured_confidence ?? null,
       structured_uncertainty: item.structured_uncertainty ?? null,
+      confirmed_structured_metadata: item.confirmed_structured_metadata ?? null,
+      confirmed_structured_confidence: item.confirmed_structured_confidence ?? null,
+      confirmed_structured_raw: item.confirmed_structured_raw ?? null,
     }));
   } catch (error) {
     console.error('Error fetching OCR history:', error);
