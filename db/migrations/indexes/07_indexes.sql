@@ -17,7 +17,7 @@ CREATE INDEX idx_user_recipes_user_created_at ON public.user_recipes(user_id, cr
 CREATE INDEX idx_user_coffees_user ON public.user_coffees(user_id);
 CREATE INDEX idx_user_coffees_flavor_notes ON public.user_coffees USING gin (flavor_notes);
 
-CREATE INDEX idx_scan_events_user_created_at ON public.scan_events(user_id, created_at DESC);
-CREATE INDEX idx_scan_events_barcode ON public.scan_events(barcode);
+CREATE INDEX IF NOT EXISTS idx_scan_events_user_created_at ON public.scan_events(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_scan_events_barcode ON public.scan_events(barcode);
 
 CREATE INDEX idx_user_statistics_updated_at ON public.user_statistics(updated_at DESC);
