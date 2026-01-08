@@ -78,9 +78,18 @@ const sanitizeTasteVector = (value: unknown, fallback: TasteVector): TasteVector
 
   const vector = value as Partial<Record<keyof TasteVector, unknown>>;
   const sanitized: TasteVector = { ...fallback };
+  let detectedTenScale = false;
   TASTE_DIMENSIONS.forEach(dimension => {
-    sanitized[dimension] = clamp01(coerceNumber(vector[dimension], fallback[dimension]));
+    const raw = coerceNumber(vector[dimension], fallback[dimension]);
+    if (raw > 1) {
+      detectedTenScale = true;
+    }
+    const normalized = raw > 1 ? raw / TASTE_VECTOR_MAX : raw;
+    sanitized[dimension] = clamp01(normalized);
   });
+  if (detectedTenScale) {
+    console.warn('AI taste_vector appears to be on a 0–10 scale; normalizing to 0–1.');
+  }
   return sanitized;
 };
 
