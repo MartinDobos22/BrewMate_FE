@@ -1177,7 +1177,11 @@ router.post('/api/ocr/evaluate', async (req, res) => {
             .status(400)
             .json({ error: 'Neplatný taste_profile.updated_at' });
         }
-        if (dbLatestTimestamp && requestUpdatedAt < dbLatestTimestamp) {
+        if (
+          requestTasteProfileSource !== 'client' &&
+          dbLatestTimestamp &&
+          requestUpdatedAt < dbLatestTimestamp
+        ) {
           return res
             .status(409)
             .json({ error: 'Zastaralý chuťový profil' });
@@ -1188,9 +1192,10 @@ router.post('/api/ocr/evaluate', async (req, res) => {
     const normalizedRequestTasteProfile = normalizeTasteProfileForEvaluation(requestTasteProfile);
     const useRequestProfile =
       Boolean(requestTasteProfile) &&
-      (requestUpdatedAt
-        ? !dbLatestTimestamp || requestUpdatedAt >= dbLatestTimestamp
-        : allowTimestamplessProfile);
+      (requestTasteProfileSource === 'client' ||
+        (requestUpdatedAt
+          ? !dbLatestTimestamp || requestUpdatedAt >= dbLatestTimestamp
+          : allowTimestamplessProfile));
     const candidatePreferences = useRequestProfile
       ? normalizedRequestTasteProfile
       : dbPreferences;
