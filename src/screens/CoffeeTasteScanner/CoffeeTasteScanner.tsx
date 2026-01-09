@@ -795,9 +795,25 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
         return;
       }
       const data = (await response.json()) as Record<string, unknown> | null;
-      const snapshot = extractPreferenceSnapshot(
-        (data?.coffee_preferences as Record<string, unknown> | null) ?? null,
-      );
+      const coffeePreferences =
+        (data?.coffee_preferences as Record<string, unknown> | null) ?? null;
+      const snapshot = extractPreferenceSnapshot({
+        ...(coffeePreferences ?? {}),
+        ai_recommendation:
+          typeof data?.ai_recommendation === 'string'
+            ? data.ai_recommendation
+            : coffeePreferences?.ai_recommendation,
+        consistency_score:
+          typeof data?.consistency_score === 'number'
+            ? data.consistency_score
+            : typeof data?.ai_confidence === 'number'
+              ? data.ai_confidence
+              : coffeePreferences?.consistency_score ?? coffeePreferences?.ai_confidence,
+        ai_confidence:
+          typeof data?.ai_confidence === 'number'
+            ? data.ai_confidence
+            : coffeePreferences?.ai_confidence,
+      });
       if (snapshot) {
         setPreferenceSnapshot(snapshot);
       }
