@@ -1301,11 +1301,12 @@ export const processOCR = async (
                 roast_date: evaluationStructuredMetadata?.roastDate ?? null,
                 roaster: evaluationStructuredMetadata?.roaster ?? null,
               };
-              const payload: Record<string, unknown> = {
+              const basePayload: Record<string, unknown> = {
                 corrected_text: correctedText,
                 structured_metadata: evaluationStructuredMetadata,
                 coffee_attributes: coffeeAttributes,
               };
+              const payload: Record<string, unknown> = { ...basePayload };
               const isLocalTasteProfile =
                 Boolean(options?.tasteProfile) &&
                 options?.tasteProfile &&
@@ -1335,6 +1336,34 @@ export const processOCR = async (
                   body: JSON.stringify(payload),
                 },
               );
+
+              if (evaluationResult.response?.status === 409) {
+                console.warn(
+                  'Stale taste profile detected. Retrying evaluation without taste profile.',
+                );
+                const retryPayload = { ...basePayload };
+                const retryResult = await loggedFetchWithStatusRetry(
+                  `${API_URL}/ocr/evaluate`,
+                  {
+                    method: 'POST',
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(retryPayload),
+                  },
+                );
+                if (retryResult.response) {
+                  return {
+                    response: retryResult.response,
+                    exhaustedRetries: retryResult.exhaustedRetries,
+                  } as const;
+                }
+                return {
+                  error: retryResult.error,
+                  exhaustedRetries: retryResult.exhaustedRetries,
+                } as const;
+              }
 
               if (evaluationResult.response) {
                 return {
