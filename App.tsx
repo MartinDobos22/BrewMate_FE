@@ -463,7 +463,7 @@ class ApiLearningStorageAdapter implements LearningStorageAdapter {
       };
 
       const response = await authorizedFetch(`${API_URL}/profile`, {
-        method: 'POST',
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
