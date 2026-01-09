@@ -23,6 +23,7 @@ import {
   buildRecommendationText,
   callOpenAIJsonSchema,
   normalizeTasteVectorTo01,
+  normalizeTasteVectorTo10,
   parseTasteAIResponse,
   TASTE_AI_SCHEMA_PROMPT,
   TasteVector,
@@ -88,7 +89,9 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
    * Vygeneruje nové AI odporúčanie podľa zadaných poznámok.
    */
   const getFallbackTasteVector = () => {
-    return profile?.coffee_preferences?.taste_vector ?? profile?.taste_vector ?? DEFAULT_TASTE_VECTOR;
+    const vector =
+      profile?.coffee_preferences?.taste_vector ?? profile?.taste_vector ?? DEFAULT_TASTE_VECTOR;
+    return normalizeTasteVectorTo10(vector);
   };
 
   const generateAI = async (additionalNotes: string, options?: { reset?: boolean }) => {
@@ -137,6 +140,7 @@ ${JSON.stringify(normalizedFallbackVector, null, 2)}`;
 
 Rules for taste_vector:
 - Output floats between 0.0 and 1.0
+- Include all 6 dimensions (acidity, bitterness, sweetness, body, intensity, experimentalism)
 - Adjust based on the notes and preferences
 
 Rules for confidence:

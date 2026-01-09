@@ -299,6 +299,8 @@ const CoffeePreferenceForm = ({
     acidity: vector.acidity,
     bitterness: vector.bitterness,
     body: vector.body,
+    intensity: vector.intensity,
+    experimentalism: vector.experimentalism,
   });
 
   const getAnswerLabel = (questionId: string, quizAnswers: Record<string, string>) => {
@@ -428,6 +430,7 @@ ${JSON.stringify(normalizedFallbackVector, null, 2)}
 
 Rules for taste_vector:
 - Output floats between 0.0 and 1.0
+- Include all 6 dimensions (acidity, bitterness, sweetness, body, intensity, experimentalism)
 - Adjust based on current answers
 - Reflect meaningful deltas vs previous answers (see delta summary)
 
@@ -507,7 +510,7 @@ ${TASTE_AI_SCHEMA_PROMPT}`;
     const preferences = {
       quiz_version: 'taste-2024-10',
       quiz_answers: answers,
-      // OCR evaluácia používa iba 4D profil, preto pri ukladaní odrezávame extra dimenzie.
+      // OCR evaluácia použije iba známe dimenzie, extra hodnoty ostanú zachované.
       taste_vector: mapTasteVectorForStorage(tasteVector),
       consistency_score: confidence,
       ai_confidence: confidence,
