@@ -492,6 +492,32 @@ const resolveVerdictExplanationText = (value: VerdictExplanation | null | undefi
   );
 };
 
+const resolveInsightSummary = (insight: CoffeeEvaluationInsight | null | undefined): string => {
+  if (!insight) {
+    return '';
+  }
+  const headline = typeof insight.headline === 'string' ? insight.headline.trim() : '';
+  if (headline) {
+    return headline;
+  }
+  const sections = Array.isArray(insight.sections) ? insight.sections : [];
+  for (const section of sections) {
+    if (!section) {
+      continue;
+    }
+    if (typeof section.title === 'string' && section.title.trim()) {
+      return section.title.trim();
+    }
+    if (Array.isArray(section.bullets)) {
+      const bullet = section.bullets.find((item) => typeof item === 'string' && item.trim());
+      if (bullet) {
+        return bullet.trim();
+      }
+    }
+  }
+  return '';
+};
+
 const NEUTRAL_EVALUATION_COPY = {
   summary: 'Na spoľahlivé vyhodnotenie potrebujeme doplniť detaily o káve.',
   verdict_explanation:
@@ -1398,7 +1424,10 @@ export const processOCR = async (
     let recommendation = '';
     let evaluation: CoffeeEvaluationResult = fallbackEvaluation;
     if ('skipped' in evaluationResult) {
-      recommendation = fallbackEvaluation.summary;
+      recommendation =
+        resolveVerdictExplanationText(fallbackEvaluation.verdict_explanation) ||
+        resolveInsightSummary(fallbackEvaluation.insight) ||
+        '';
     } else if ('error' in evaluationResult) {
       console.warn('Evaluation failed:', evaluationResult.error);
       recommendation =
@@ -1428,7 +1457,7 @@ export const processOCR = async (
           }
           recommendation =
             resolveVerdictExplanationText(evaluation.verdict_explanation) ||
-            evaluation.summary ||
+            resolveInsightSummary(evaluation.insight) ||
             '';
         } else {
           recommendation =

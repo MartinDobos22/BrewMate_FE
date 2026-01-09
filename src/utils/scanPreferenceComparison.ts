@@ -1,4 +1,4 @@
-import type { CoffeeEvaluationReason, CoffeeEvaluationResult } from '../services/ocrServices';
+import type { CoffeeEvaluationResult } from '../services/ocrServices';
 
 type TasteDimensionKey = 'sweetness' | 'acidity' | 'bitterness' | 'body';
 
@@ -177,21 +177,26 @@ const detectDimensionKey = (text: string | null | undefined): TasteDimensionKey 
   return null;
 };
 
-const extractReasonSummaries = (reasons: CoffeeEvaluationReason[] | null | undefined): string[] => {
-  if (!reasons?.length) {
+const extractInsightSummaries = (
+  evaluation: CoffeeEvaluationResult | null | undefined
+): string[] => {
+  const insight = evaluation?.insight;
+  if (!insight) {
     return [];
   }
-  return reasons
-    .map(reason => {
-      const parts = [
-        reason.signal ? reason.signal : null,
-        reason.user_preference ? reason.user_preference : null,
-        reason.coffee_attribute ? reason.coffee_attribute : null,
-        reason.explanation ? reason.explanation : null,
-      ].filter(Boolean);
-      return parts.length ? parts.join(' – ') : null;
-    })
-    .filter((reason): reason is string => Boolean(reason));
+  const sections = Array.isArray(insight.sections) ? insight.sections : [];
+  const bullets = sections.flatMap(section =>
+    Array.isArray(section?.bullets) ? section.bullets : []
+  );
+  const normalizedBullets = bullets
+    .filter((bullet): bullet is string => typeof bullet === 'string')
+    .map(bullet => bullet.trim())
+    .filter(Boolean);
+  if (normalizedBullets.length) {
+    return normalizedBullets;
+  }
+  const headline = typeof insight.headline === 'string' ? insight.headline.trim() : '';
+  return headline ? [headline] : [];
 };
 
 const buildReasonLevelMap = (
@@ -204,33 +209,31 @@ const buildReasonLevelMap = (
     body: { preferenceLevel: null, coffeeLevel: null },
   };
 
-  if (!evaluation?.reasons?.length) {
+  if (!evaluation?.insight?.sections?.length) {
     return base;
   }
 
-  evaluation.reasons.forEach(reason => {
-    const combinedText = [
-      reason.signal,
-      reason.user_preference,
-      reason.coffee_attribute,
-      reason.explanation,
-    ]
-      .filter(Boolean)
-      .join(' ');
-    const dimension = detectDimensionKey(combinedText);
-    if (!dimension) {
+  evaluation.insight.sections.forEach(section => {
+    if (!section?.bullets?.length) {
       return;
     }
-    const entry = base[dimension];
-    if (!entry.preferenceLevel) {
-      entry.preferenceLevel = detectLevelFromText(reason.user_preference);
-    }
-    if (!entry.coffeeLevel) {
-      entry.coffeeLevel =
-        detectLevelFromText(reason.coffee_attribute)
-        || detectLevelFromText(reason.explanation)
-        || detectLevelFromText(reason.signal);
-    }
+    section.bullets.forEach(bullet => {
+      if (typeof bullet !== 'string') {
+        return;
+      }
+      const dimension = detectDimensionKey(bullet);
+      if (!dimension) {
+        return;
+      }
+      const entry = base[dimension];
+      const detectedLevel = detectLevelFromText(bullet);
+      if (!detectedLevel) {
+        return;
+      }
+      if (!entry.coffeeLevel) {
+        entry.coffeeLevel = detectedLevel;
+      }
+    });
   });
 
   return base;
@@ -333,6 +336,6 @@ export const buildScanPreferenceComparison = (
 
   return {
     dimensions,
-    reasons: extractReasonSummaries(evaluation?.reasons ?? null),
+    reasons: extractInsightSummaries(evaluation),
   };
 };

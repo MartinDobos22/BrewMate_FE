@@ -235,8 +235,27 @@ const buildComparisonText = (
       ? verdictExplanation.comparison_summary ?? null
       : null;
 
+  const resolveVerdictExplanationText = (
+    value: CoffeeEvaluationResult['verdict_explanation'] | null | undefined,
+  ): string => {
+    if (!value) {
+      return '';
+    }
+    if (typeof value === 'string') {
+      return value.trim();
+    }
+    return (
+      value.comparison_summary
+      || value.user_preferences_summary
+      || value.coffee_profile_summary
+      || ''
+    ).trim();
+  };
+  const verdictExplanationText = resolveVerdictExplanationText(verdictExplanation);
+  const insightHeadline = evaluation?.insight?.headline?.trim() ?? '';
   const scanLines = [
-    evaluation.summary ? `• ${evaluation.summary}` : null,
+    verdictExplanationText ? `• ${verdictExplanationText}` : null,
+    insightHeadline && insightHeadline !== verdictExplanationText ? `• ${insightHeadline}` : null,
   ].filter((line): line is string => Boolean(line));
 
   const scanSection = scanLines.length
@@ -362,6 +381,30 @@ const hasVerdictExplanation = (
     );
   }
   return false;
+};
+
+const resolveVerdictExplanationText = (
+  payload: CoffeeEvaluationResult['verdict_explanation'] | null | undefined,
+): string => {
+  if (!payload) {
+    return '';
+  }
+  if (typeof payload === 'string') {
+    return payload.trim();
+  }
+  return (
+    payload.comparison_summary
+    || payload.user_preferences_summary
+    || payload.coffee_profile_summary
+    || ''
+  ).trim();
+};
+
+const resolveInsightHeadline = (insight: CoffeeEvaluationResult['insight'] | null | undefined): string => {
+  if (!insight || typeof insight.headline !== 'string') {
+    return '';
+  }
+  return insight.headline.trim();
 };
 
 const STRUCTURED_FIELD_ORDER: Array<{
@@ -2130,7 +2173,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   const neutralVerdictCopy = 'Čakáme na AI hodnotenie';
   const didSendTasteProfile = Boolean(scanResult?.tasteProfileSent);
   const isProfileMissing = evaluationStatus === 'profile_missing' && !didSendTasteProfile;
-  const profileMissingText = evaluation?.summary
+  const profileMissingText =
+    resolveVerdictExplanationText(evaluation?.verdict_explanation)
+    || resolveInsightHeadline(evaluation?.insight)
     || evaluation?.disclaimer
     || 'Vyplň krátky dotazník a získaš osobné hodnotenie zhody pre každú kávu.';
   const profileMissingCtaLabel = evaluation?.cta?.label || 'Vyplniť dotazník';
@@ -2436,33 +2481,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     return ['N/A'];
   }, [combinedLowerText, structuredFields.flavorNotes.value]);
 
-  // Normalize AI evaluation blocks so the UI can render consistent sections.
-  const evaluationReasonEntries = useMemo(() => {
-    if (evaluationStatus !== 'ok' || !evaluation?.reasons?.length) {
-      return [];
-    }
-    return evaluation.reasons.map((reason, index) => {
-      const detailParts = [
-        reason.user_preference ? `Preferencia: ${reason.user_preference}` : null,
-        reason.coffee_attribute ? `Atribút: ${reason.coffee_attribute}` : null,
-        reason.explanation ? reason.explanation : null,
-      ].filter(Boolean);
-      return {
-        key: `${reason.signal || 'reason'}-${index}`,
-        title: reason.signal || `Signál ${index + 1}`,
-        detail: detailParts.join(' • '),
-      };
-    });
-  }, [evaluation, evaluationStatus]);
-  const evaluationLikes =
-    evaluationStatus === 'ok' ? evaluation?.what_youll_like ?? [] : [];
-  const evaluationConcerns =
-    evaluationStatus === 'ok' ? evaluation?.what_might_bother_you ?? [] : [];
-  const evaluationTips =
-    evaluationStatus === 'ok' ? evaluation?.tips_to_make_it_better ?? [] : [];
-  const evaluationBrewMethods =
-    evaluationStatus === 'ok' ? evaluation?.recommended_brew_methods ?? [] : [];
-
   const insightBadgeStyle =
     evaluation?.verdict === 'not_suitable'
       ? styles.reasonBadgeNegative
@@ -2475,12 +2493,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     const rawInsight = evaluation?.insight;
     const insightHeadline = rawInsight?.headline ?? '';
     const insightSections = rawInsight?.sections ?? [];
-    const derivedSections = [
-      { title: 'Čo ti bude chutiť', bullets: evaluationLikes },
-      { title: 'Čo môže rušiť', bullets: evaluationConcerns },
-      { title: 'Tipy na lepšiu zhodu', bullets: evaluationTips },
-      { title: 'Odporúčané prípravy', bullets: evaluationBrewMethods },
-    ].filter((section) => section.bullets.length);
     const isContradictoryClaim = (text: string) => {
       const lower = text.toLowerCase();
       if (verdict === 'not_suitable') {
@@ -2500,15 +2512,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
         return bullets.length ? { title: section.title, bullets } : null;
       })
       .filter((section): section is typeof insightSections[number] => Boolean(section));
-    const sanitizedDerivedSections = derivedSections
-      .map(section => {
-        if (section.title && isContradictoryClaim(section.title)) {
-          return null;
-        }
-        const bullets = section.bullets.filter(bullet => !isContradictoryClaim(bullet));
-        return bullets.length ? { title: section.title, bullets } : null;
-      })
-      .filter((section): section is typeof derivedSections[number] => Boolean(section));
     // If the verdict says "not_suitable", drop any "match" copy to avoid insight/verdict contradictions.
     const sanitizedHeadline = insightHeadline && isContradictoryClaim(insightHeadline)
       ? ''
@@ -2523,20 +2526,15 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
           || '';
     const resolvedHeadline =
       sanitizedHeadline
-        || verdictExplanationText
-        || evaluation?.summary
-        || '';
+      || verdictExplanationText
+      || '';
     return {
       headline: resolvedHeadline,
-      sections: filteredSections.length ? filteredSections : sanitizedDerivedSections,
+      sections: filteredSections,
     };
   }, [
     evaluation,
     evaluationStatus,
-    evaluationBrewMethods,
-    evaluationConcerns,
-    evaluationLikes,
-    evaluationTips,
   ]);
   const insightStatusContent = useMemo(() => {
     if (evaluationStatus === 'profile_missing' && !didSendTasteProfile) {
@@ -2550,7 +2548,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       return {
         headline: 'Potrebujeme viac detailov',
         body:
-          evaluation?.summary
+          resolveVerdictExplanationText(evaluation?.verdict_explanation)
+          || resolveInsightHeadline(evaluation?.insight)
           || evaluation?.disclaimer
           || 'Z etikety sme nezískali dosť údajov na personalizovaný insight. Skús ostriejší záber alebo viac informácií.',
       };
@@ -2559,7 +2558,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       return {
         headline: 'Insight zatiaľ nie je pripravený',
         body:
-          evaluation?.summary
+          resolveVerdictExplanationText(evaluation?.verdict_explanation)
+          || resolveInsightHeadline(evaluation?.insight)
           || evaluation?.disclaimer
           || 'Insight sa nepodarilo pripraviť, skús to prosím neskôr.',
       };
@@ -2642,12 +2642,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       if (!hasVerdictExplanation(verdictExplanationPayload) && fallbackVerdictExplanation) {
         return fallbackVerdictExplanation;
       }
-      if (evaluation?.summary) {
-        return evaluation.summary;
-      }
-      if (evaluation?.reasons?.length) {
-        return evaluation.reasons[0].explanation;
-      }
     }
     if (compatibility) {
       return compatibility.description;
@@ -2686,6 +2680,16 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     scanResult,
     fallbackVerdictExplanation,
   ]);
+  const evaluationIntroText = useMemo(() => {
+    if (evaluationStatus !== 'ok') {
+      return '';
+    }
+    return (
+      resolveVerdictExplanationText(evaluation?.verdict_explanation)
+      || resolveInsightHeadline(evaluation?.insight)
+      || ''
+    );
+  }, [evaluation, evaluationStatus]);
 
   const ratingDisplay =
     userRating > 0
@@ -3237,72 +3241,24 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                           <View style={styles.sectionHeaderRow}>
                             <Text style={styles.sectionTitle}>AI hodnotenie zhody</Text>
                           </View>
-                          {evaluation?.summary ? (
-                            <Text style={styles.compatibilityIntro}>{evaluation.summary}</Text>
+                          {evaluationIntroText ? (
+                            <Text style={styles.compatibilityIntro}>{evaluationIntroText}</Text>
                           ) : null}
-                          {evaluationReasonEntries.length ? (
+                          {insightContent?.sections.length ? (
                             <View style={styles.reasonBlocksWrapper}>
-                              {evaluationReasonEntries.map(entry => (
-                                <View key={entry.key} style={styles.reasonBlock}>
-                                  <Text style={styles.reasonTitle}>{entry.title}</Text>
-                                  <View style={styles.reasonRow}>
-                                    <View style={[styles.reasonBadge, styles.reasonBadgePositive]}>
-                                      <Text style={styles.reasonBadgeText}>◎</Text>
+                              {insightContent.sections.map((section, index) => (
+                                <View key={`${section.title}-${index}`} style={styles.reasonBlock}>
+                                  {section.title ? (
+                                    <Text style={styles.reasonTitle}>{section.title}</Text>
+                                  ) : null}
+                                  {section.bullets.map(bullet => (
+                                    <View key={bullet} style={styles.reasonRow}>
+                                      <View style={[styles.reasonBadge, insightBadgeStyle]}>
+                                        <Text style={styles.reasonBadgeText}>•</Text>
+                                      </View>
+                                      <Text style={styles.reasonText}>{bullet}</Text>
                                     </View>
-                                    <Text style={styles.reasonText}>{entry.detail}</Text>
-                                  </View>
-                                </View>
-                              ))}
-                            </View>
-                          ) : null}
-                          {evaluationLikes.length ? (
-                            <View style={styles.reasonBlock}>
-                              <Text style={styles.reasonTitle}>Čo ti bude chutiť</Text>
-                              {evaluationLikes.map((item, index) => (
-                                <View key={`like-${index}-${item}`} style={styles.reasonRow}>
-                                  <View style={[styles.reasonBadge, styles.reasonBadgePositive]}>
-                                    <Text style={styles.reasonBadgeText}>✓</Text>
-                                  </View>
-                                  <Text style={styles.reasonText}>{item}</Text>
-                                </View>
-                              ))}
-                            </View>
-                          ) : null}
-                          {evaluationConcerns.length ? (
-                            <View style={styles.reasonBlock}>
-                              <Text style={styles.reasonTitle}>Čo môže rušiť</Text>
-                              {evaluationConcerns.map((item, index) => (
-                                <View key={`concern-${index}-${item}`} style={styles.reasonRow}>
-                                  <View style={[styles.reasonBadge, styles.reasonBadgeNegative]}>
-                                    <Text style={styles.reasonBadgeText}>!</Text>
-                                  </View>
-                                  <Text style={styles.reasonText}>{item}</Text>
-                                </View>
-                              ))}
-                            </View>
-                          ) : null}
-                          {evaluationTips.length ? (
-                            <View style={styles.reasonBlock}>
-                              <Text style={styles.reasonTitle}>Tipy na lepšiu zhodu</Text>
-                              {evaluationTips.map((item, index) => (
-                                <View key={`tip-${index}-${item}`} style={styles.reasonRow}>
-                                  <View style={[styles.reasonBadge, styles.reasonBadgePositive]}>
-                                    <Text style={styles.reasonBadgeText}>💡</Text>
-                                  </View>
-                                  <Text style={styles.reasonText}>{item}</Text>
-                                </View>
-                              ))}
-                            </View>
-                          ) : null}
-                          {evaluationBrewMethods.length ? (
-                            <View style={styles.reasonBlock}>
-                              <Text style={styles.reasonTitle}>Odporúčané prípravy</Text>
-                              {evaluationBrewMethods.map((item, index) => (
-                                <View key={`brew-${index}-${item}`} style={styles.reasonRow}>
-                                  <View style={[styles.reasonBadge, styles.reasonBadgePositive]}>
-                                    <Text style={styles.reasonBadgeText}>☕</Text>
-                                  </View>
-                                  <Text style={styles.reasonText}>{item}</Text>
+                                  ))}
                                 </View>
                               ))}
                             </View>
