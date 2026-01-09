@@ -1048,11 +1048,19 @@ router.post('/api/ocr/save', async (req, res) => {
     );
 
     const storedStructuredMetadata = {
+      brand: normalizeTextField(
+        structured.brand ??
+          structured.roaster ??
+          structured.roaster_name ??
+          structured.roastery ??
+          derivedAttributes.brand
+      ),
       roaster: normalizeTextField(
         structured.roaster ??
           structured.roaster_name ??
+          structured.roastery ??
           structured.brand ??
-          structured.roastery
+          derivedAttributes.brand
       ),
       origin: resolvedOrigin,
       roastLevel: resolvedRoastLevel,
@@ -1221,6 +1229,18 @@ router.post('/api/ocr/evaluate', async (req, res) => {
     const derivedAttributes = extractCoffeeAttributesFromText(corrected_text);
     const mergedStructuredMetadata = {
       ...structured,
+      brand:
+        structured.brand ??
+        structured.roaster ??
+        structured.roaster_name ??
+        structured.roastery ??
+        derivedAttributes.brand,
+      roaster:
+        structured.roaster ??
+        structured.roaster_name ??
+        structured.roastery ??
+        structured.brand ??
+        derivedAttributes.brand,
       origin: structured.origin ?? derivedAttributes.origin,
       roast_level: structured.roast_level ?? derivedAttributes.roast_level,
       roastLevel: structured.roastLevel ?? derivedAttributes.roast_level,
@@ -1231,6 +1251,18 @@ router.post('/api/ocr/evaluate', async (req, res) => {
     };
     coffeeAttributes = {
       ...coffeeAttributes,
+      brand:
+        coffeeAttributes.brand ??
+        coffeeAttributes.roaster ??
+        mergedStructuredMetadata.brand ??
+        mergedStructuredMetadata.roaster ??
+        derivedAttributes.brand,
+      roaster:
+        coffeeAttributes.roaster ??
+        coffeeAttributes.brand ??
+        mergedStructuredMetadata.roaster ??
+        mergedStructuredMetadata.brand ??
+        derivedAttributes.brand,
       origin:
         coffeeAttributes.origin ??
         mergedStructuredMetadata.origin ??
