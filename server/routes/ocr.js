@@ -1259,9 +1259,14 @@ router.post('/api/ocr/save', async (req, res) => {
       ),
       confidenceFlags:
         confidenceFlags && typeof confidenceFlags === 'object' ? confidenceFlags : null,
+      uncertaintyFlags:
+        uncertaintyFlags && typeof uncertaintyFlags === 'object' ? uncertaintyFlags : null,
     };
     const hasStructuredPayload = Object.entries(storedStructuredMetadata).some(([key, value]) => {
       if (key === 'confidenceFlags') {
+        return value !== null;
+      }
+      if (key === 'uncertaintyFlags') {
         return value !== null;
       }
       if (Array.isArray(value)) {
@@ -1280,6 +1285,11 @@ router.post('/api/ocr/save', async (req, res) => {
         storedStructuredMetadata.confidenceFlags &&
         typeof storedStructuredMetadata.confidenceFlags === 'object'
           ? storedStructuredMetadata.confidenceFlags
+          : null,
+      structured_uncertainty:
+        storedStructuredMetadata.uncertaintyFlags &&
+        typeof storedStructuredMetadata.uncertaintyFlags === 'object'
+          ? storedStructuredMetadata.uncertaintyFlags
           : null,
     });
   } catch (err) {

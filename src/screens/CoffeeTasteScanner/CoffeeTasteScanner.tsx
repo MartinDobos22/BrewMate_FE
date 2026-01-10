@@ -85,6 +85,7 @@ interface ScanResult {
   detectionConfidence?: number;
   structuredMetadata?: StructuredCoffeeMetadata | null;
   structuredConfidence?: Record<string, unknown> | null;
+  structuredUncertainty?: Record<string, unknown> | null;
   structuredRaw?: unknown;
   evaluation?: CoffeeEvaluationResult | null;
   tasteProfileSent?: boolean;
@@ -1077,6 +1078,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
         ...result,
         structuredMetadata: result.structuredMetadata ?? null,
         structuredConfidence: result.structuredConfidence ?? null,
+        structuredUncertainty: result.structuredUncertainty ?? null,
         structuredRaw,
         evaluation: result.evaluation ?? null,
       };
@@ -1091,6 +1093,15 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     },
     [],
   );
+
+  useEffect(() => {
+    if (scanResult?.structuredUncertainty) {
+      console.info('CoffeeTasteScanner: structured uncertainty signals', {
+        scanId: scanResult.scanId,
+        uncertainty: scanResult.structuredUncertainty,
+      });
+    }
+  }, [scanResult]);
 
   useEffect(() => {
     if (!hasPermission) {
