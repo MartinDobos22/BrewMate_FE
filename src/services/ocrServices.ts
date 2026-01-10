@@ -146,6 +146,27 @@ const safeParseJSON = <T>(value: unknown): T | null => {
   }
 };
 
+const toSnakeCaseKey = (key: string): string =>
+  key
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/[\s-]+/g, '_')
+    .toLowerCase();
+
+const normalizeKeysToSnakeCase = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map(item => normalizeKeysToSnakeCase(item));
+  }
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+
+  const record = value as Record<string, unknown>;
+  return Object.keys(record).reduce<Record<string, unknown>>((acc, key) => {
+    acc[toSnakeCaseKey(key)] = normalizeKeysToSnakeCase(record[key]);
+    return acc;
+  }, {});
+};
+
 const normalizeEvaluationStatus = (value: unknown): CoffeeEvaluationStatus => {
   if (value === 'ok' || value === 'profile_missing' || value === 'insufficient_coffee_data') {
     return value;
@@ -852,7 +873,7 @@ const fixTextWithAI = async (ocrText: string): Promise<string> => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ text: ocrText }),
+      body: JSON.stringify(normalizeKeysToSnakeCase({ text: ocrText })),
     });
 
     const data = await response.json();
@@ -885,7 +906,7 @@ export const suggestBrewingMethods = async (
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ text: coffeeText }),
+      body: JSON.stringify(normalizeKeysToSnakeCase({ text: coffeeText })),
     });
     const data = await response.json();
     console.log('📥 [BE] Brewing methods response:', data);
@@ -943,7 +964,7 @@ export const getBrewRecipe = async (
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(normalizeKeysToSnakeCase(payload)),
     });
     const data = await response.json();
     console.log('📥 [BE] Brew recipe response:', data);
@@ -1086,7 +1107,7 @@ export const processOCR = async (
     const ocrResponse = await loggedFetch(`${API_HOST}/ocr`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ base64image }),
+      body: JSON.stringify(normalizeKeysToSnakeCase({ base64image })),
     });
 
     if (!ocrResponse.ok) {
@@ -1189,7 +1210,8 @@ export const processOCR = async (
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(savePayload),
+        // Expect snake_case keys for OCR payloads (manual QA: verify request body format).
+        body: JSON.stringify(normalizeKeysToSnakeCase(savePayload)),
       });
 
       if (saveResponse.ok) {
@@ -1426,7 +1448,7 @@ export const processOCR = async (
                     'Content-Type': 'application/json',
                   },
                   // Send structured metadata to help the backend ground the evaluation in actual coffee attributes.
-                  body: JSON.stringify(payload),
+                  body: JSON.stringify(normalizeKeysToSnakeCase(payload)),
                 },
               );
 
@@ -1443,7 +1465,7 @@ export const processOCR = async (
                       Authorization: `Bearer ${token}`,
                       'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify(retryPayload),
+                    body: JSON.stringify(normalizeKeysToSnakeCase(retryPayload)),
                   },
                 );
                 if (retryResult.response) {
@@ -1701,7 +1723,7 @@ export const markCoffeePurchased = async (
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(normalizeKeysToSnakeCase(body)),
   });
 };
 
@@ -1729,7 +1751,7 @@ export const confirmStructuredScan = async (
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload ?? {}),
+      body: JSON.stringify(normalizeKeysToSnakeCase(payload ?? {})),
     }
   );
 
@@ -1783,10 +1805,12 @@ export const rateOCRResult = async (scanId: string, rating: number): Promise<boo
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        coffee_id: scanId,
-        rating: rating,
-      }),
+      body: JSON.stringify(
+        normalizeKeysToSnakeCase({
+          coffee_id: scanId,
+          rating: rating,
+        })
+      ),
     });
 
     console.log('📥 [BE] Rate status:', response.status);

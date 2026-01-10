@@ -1374,6 +1374,7 @@ router.post('/api/ocr/evaluate', async (req, res) => {
     // inside `coffee_attributes.corrected_text` for downstream normalization.
     // Accept structured metadata from the FE (or any upstream source) to ground the explanation.
     const structured = structured_metadata || structuredMetadata || {};
+    const structuredRecord = structured && typeof structured === 'object' ? structured : {};
     coffeeAttributes =
       coffee_attributes && typeof coffee_attributes === 'object'
         ? coffee_attributes
@@ -1383,27 +1384,34 @@ router.post('/api/ocr/evaluate', async (req, res) => {
           };
 
     const derivedAttributes = extractCoffeeAttributesFromText(corrected_text);
-    const mergedStructuredMetadata = {
-      ...structured,
+    // Expected format: snake_case keys (camelCase accepted only as a fallback).
+    const normalizedStructured = {
       brand:
-        structured.brand ??
-        structured.roaster ??
-        structured.roaster_name ??
-        structured.roastery ??
-        derivedAttributes.brand,
+        structuredRecord.brand ??
+        structuredRecord.roaster ??
+        structuredRecord.roaster_name ??
+        structuredRecord.roastery ??
+        null,
       roaster:
-        structured.roaster ??
-        structured.roaster_name ??
-        structured.roastery ??
-        structured.brand ??
-        derivedAttributes.brand,
-      origin: structured.origin ?? derivedAttributes.origin,
-      roast_level: structured.roast_level ?? derivedAttributes.roast_level,
-      roastLevel: structured.roastLevel ?? derivedAttributes.roast_level,
-      flavor_notes: structured.flavor_notes ?? derivedAttributes.flavor_notes,
-      flavorNotes: structured.flavorNotes ?? derivedAttributes.flavor_notes,
-      processing: structured.processing ?? derivedAttributes.processing,
-      varietals: structured.varietals ?? derivedAttributes.varietals,
+        structuredRecord.roaster ??
+        structuredRecord.roaster_name ??
+        structuredRecord.roastery ??
+        structuredRecord.brand ??
+        null,
+      origin: structuredRecord.origin ?? null,
+      roast_level: structuredRecord.roast_level ?? structuredRecord.roastLevel ?? null,
+      flavor_notes: structuredRecord.flavor_notes ?? structuredRecord.flavorNotes ?? null,
+      processing: structuredRecord.processing ?? null,
+      varietals: structuredRecord.varietals ?? null,
+    };
+    const mergedStructuredMetadata = {
+      brand: normalizedStructured.brand ?? derivedAttributes.brand,
+      roaster: normalizedStructured.roaster ?? derivedAttributes.brand,
+      origin: normalizedStructured.origin ?? derivedAttributes.origin,
+      roast_level: normalizedStructured.roast_level ?? derivedAttributes.roast_level,
+      flavor_notes: normalizedStructured.flavor_notes ?? derivedAttributes.flavor_notes,
+      processing: normalizedStructured.processing ?? derivedAttributes.processing,
+      varietals: normalizedStructured.varietals ?? derivedAttributes.varietals,
     };
     coffeeAttributes = {
       ...coffeeAttributes,
@@ -1428,13 +1436,11 @@ router.post('/api/ocr/evaluate', async (req, res) => {
         coffeeAttributes.roast_level ??
         coffeeAttributes.roastLevel ??
         mergedStructuredMetadata.roast_level ??
-        mergedStructuredMetadata.roastLevel ??
         derivedAttributes.roast_level,
       flavor_notes:
         coffeeAttributes.flavor_notes ??
         coffeeAttributes.flavorNotes ??
         mergedStructuredMetadata.flavor_notes ??
-        mergedStructuredMetadata.flavorNotes ??
         derivedAttributes.flavor_notes,
       processing:
         coffeeAttributes.processing ??
