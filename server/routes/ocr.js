@@ -1301,6 +1301,8 @@ router.post('/api/ocr/evaluate', async (req, res) => {
       return res.json(PROFILE_MISSING_RESPONSE);
     }
 
+    // Contract: `corrected_text` is canonical at top-level and may be mirrored
+    // inside `coffee_attributes.corrected_text` for downstream normalization.
     // Accept structured metadata from the FE (or any upstream source) to ground the explanation.
     const structured = structured_metadata || structuredMetadata || {};
     coffeeAttributes =
@@ -1336,6 +1338,7 @@ router.post('/api/ocr/evaluate', async (req, res) => {
     };
     coffeeAttributes = {
       ...coffeeAttributes,
+      corrected_text: coffeeAttributes.corrected_text ?? correctedText,
       brand:
         coffeeAttributes.brand ??
         coffeeAttributes.roaster ??
