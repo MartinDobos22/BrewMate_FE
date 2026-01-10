@@ -1102,6 +1102,24 @@ router.post('/api/ocr/save', async (req, res) => {
     const normalizeJsonField = (value) =>
       value === undefined || value === null ? null : JSON.stringify(value);
 
+    const normalizedOriginInput = normalizeTextField(origin);
+    const normalizedRoastLevelInput = normalizeTextField(roast_level);
+    const normalizedFlavorNotesInput = normalizeArrayField(flavor_notes);
+    const normalizedProcessingInput = normalizeTextField(processing);
+    const normalizedRoastDateInput = normalizeTextField(roast_date);
+    const normalizedVarietalsInput = normalizeArrayField(varietals);
+    const normalizedThumbnailInput = normalizeTextField(thumbnail_url);
+    const hasStructuredMetadataInput = structured && Object.keys(structured).length > 0;
+    const isTextOnlyScan =
+      !hasStructuredMetadataInput &&
+      !normalizedOriginInput &&
+      !normalizedRoastLevelInput &&
+      !normalizedFlavorNotesInput &&
+      !normalizedProcessingInput &&
+      !normalizedRoastDateInput &&
+      !normalizedVarietalsInput &&
+      !normalizedThumbnailInput;
+
     const prefResult = await db.query(
       `SELECT * FROM user_taste_profiles_with_completion WHERE user_id = $1 LIMIT 1`,
       [uid]
@@ -1118,22 +1136,25 @@ router.post('/api/ocr/save', async (req, res) => {
     const coffeeName = extractCoffeeName(corrected_text || original_text);
 
     const resolvedOrigin = normalizeTextField(
-      origin ?? structured.origin ?? derivedAttributes.origin
+      normalizedOriginInput ?? structured.origin ?? derivedAttributes.origin
     );
     const resolvedRoastLevel = normalizeTextField(
-      roast_level ?? structured.roast_level ?? structured.roastLevel ?? derivedAttributes.roast_level
+      normalizedRoastLevelInput ??
+        structured.roast_level ??
+        structured.roastLevel ??
+        derivedAttributes.roast_level
     );
     const resolvedFlavorNotes = normalizeJsonField(
-      flavor_notes ??
+      normalizedFlavorNotesInput ??
         structured.flavor_notes ??
         structured.flavorNotes ??
         derivedAttributes.flavor_notes
     );
     const resolvedProcessing = normalizeTextField(
-      processing ?? structured.processing ?? derivedAttributes.processing
+      normalizedProcessingInput ?? structured.processing ?? derivedAttributes.processing
     );
     const resolvedVarietals = normalizeJsonField(
-      varietals ?? structured.varietals ?? derivedAttributes.varietals
+      normalizedVarietalsInput ?? structured.varietals ?? derivedAttributes.varietals
     );
 
     const result = await db.query(
@@ -1154,6 +1175,7 @@ router.post('/api/ocr/save', async (req, res) => {
         thumbnail_url,
         structured_confidence,
         structured_uncertainty,
+        scan_quality,
         match_score,
         is_recommended,
         detected_at,
@@ -1178,6 +1200,7 @@ router.post('/api/ocr/save', async (req, res) => {
         $13::jsonb,
         $14,
         $15,
+        $16,
         now(),
         now()
       )
@@ -1191,11 +1214,16 @@ router.post('/api/ocr/save', async (req, res) => {
         resolvedRoastLevel,
         resolvedFlavorNotes,
         resolvedProcessing,
-        normalizeTextField(roast_date ?? structured.roast_date ?? structured.roastDate),
+        normalizeTextField(
+          normalizedRoastDateInput ?? structured.roast_date ?? structured.roastDate
+        ),
         resolvedVarietals,
-        normalizeTextField(thumbnail_url ?? structured.thumbnail_url ?? structured.thumbnailUrl),
+        normalizeTextField(
+          normalizedThumbnailInput ?? structured.thumbnail_url ?? structured.thumbnailUrl
+        ),
         normalizeJsonField(confidenceFlags),
         normalizeJsonField(uncertaintyFlags),
+        isTextOnlyScan ? 'text_only' : null,
         matchPercentage,
         isRecommended,
       ]

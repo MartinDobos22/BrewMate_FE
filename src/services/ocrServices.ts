@@ -1180,8 +1180,15 @@ export const processOCR = async (
     const hasCoffeeTextSignals =
       hasReadableText &&
       (isCoffeeRelatedText(trimmedCorrectedText) || isCoffeeRelatedText(originalText));
+    const minTextOnlyLength = 40;
+    const hasTextOnlyCoffeeSignal =
+      !detectionLabels?.length &&
+      !initialStructuredMetadata &&
+      trimmedCorrectedText.length >= minTextOnlyLength &&
+      isCoffeeRelatedText(trimmedCorrectedText);
     const shouldPersistScan =
       hasCoffeeTextSignals ||
+      hasTextOnlyCoffeeSignal ||
       (isCoffee &&
         (Boolean(detectionLabels?.length) || Boolean(initialStructuredMetadata)));
     const shouldEvaluate = isCoffee !== false && hasReadableText;
