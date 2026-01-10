@@ -1343,7 +1343,7 @@ router.post('/api/ocr/evaluate', async (req, res) => {
       requestTasteProfile?.updated_at ?? requestTasteProfile?.last_recalculated_at ?? null;
     const requestHasTimestamp = Boolean(requestUpdatedAtRaw);
     const allowTimestamplessProfile =
-      Boolean(requestTasteProfile) && (!dbPreferences || requestTasteProfileSource === 'client');
+      Boolean(requestTasteProfile) && !dbPreferences;
     if (requestTasteProfile && !requestHasTimestamp && !allowTimestamplessProfile) {
       console.warn('⚠️ [OCR] taste_profile missing timestamp; using DB profile.', {
         uid,
