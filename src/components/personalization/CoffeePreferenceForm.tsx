@@ -463,7 +463,7 @@ Rules for deltas:
 ${TASTE_AI_SCHEMA_PROMPT}`;
 
       console.log('📤 [BE] prefs prompt:', userPrompt);
-      const aiResponse = await callOpenAIJsonSchema(systemPrompt, userPrompt, 0.2);
+      const aiResponse = await callOpenAIJsonSchema(systemPrompt, userPrompt, 0);
 
       const { response: parsedResponse, warnings } = parseTasteAIResponse(
         aiResponse,

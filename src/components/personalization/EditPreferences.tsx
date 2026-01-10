@@ -160,7 +160,7 @@ Rules for deltas:
 ${TASTE_AI_SCHEMA_PROMPT}`;
 
       console.log('📤 [BE] prompt:', prompt);
-      const aiResponse = await callOpenAIJsonSchema(systemPrompt, prompt, 0.3);
+      const aiResponse = await callOpenAIJsonSchema(systemPrompt, prompt, 0);
 
       // Validate and coerce the structured JSON so invalid output does not break the UI.
       const { response: parsedResponse, warnings } = parseTasteAIResponse(

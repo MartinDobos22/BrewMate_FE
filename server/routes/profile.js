@@ -379,7 +379,7 @@ router.post('/api/profile/taste-profile', async (req, res) => {
           { role: 'system', content: system_prompt },
           { role: 'user', content: user_prompt },
         ],
-        temperature: typeof temperature === 'number' ? temperature : 0.2,
+        temperature: typeof temperature === 'number' ? temperature : 0,
         response_format: {
           type: 'json_schema',
           json_schema: {
