@@ -1114,6 +1114,8 @@ export const processOCR = async (
 
     // 2. Oprav text pomocou AI
     const correctedText = await fixTextWithAI(originalText);
+    const trimmedCorrectedText = correctedText.trim();
+    const hasReadableText = trimmedCorrectedText.length > 0;
 
     let isCoffee: boolean | undefined;
     if (typeof ocrData.isCoffee === 'boolean') {
@@ -1121,7 +1123,7 @@ export const processOCR = async (
     } else {
       isCoffee =
         (detectionLabels?.some(label => isCoffeeRelatedText(label)) ?? false) ||
-        isCoffeeRelatedText(correctedText) ||
+        isCoffeeRelatedText(trimmedCorrectedText) ||
         isCoffeeRelatedText(originalText);
     }
 
@@ -1141,7 +1143,9 @@ export const processOCR = async (
     let rawStructuredResponse: unknown = null;
 
     let token: string | null = null;
-    if (isCoffee) {
+    const shouldPersistScan =
+      isCoffee && (Boolean(detectionLabels?.length) || Boolean(initialStructuredMetadata));
+    if (shouldPersistScan) {
       token = await getAuthToken();
       if (!token) {
         throw new Error('Nie si prihlásený');
@@ -1149,7 +1153,7 @@ export const processOCR = async (
 
       const savePayload: Record<string, unknown> = {
         original_text: originalText,
-        corrected_text: correctedText,
+        corrected_text: trimmedCorrectedText,
       };
       if (initialStructuredMetadata) {
         savePayload.structured_metadata = initialStructuredMetadata;
@@ -1324,22 +1328,40 @@ export const processOCR = async (
     };
 
     // 4. Získaj AI hodnotenie a návrhy metód súčasne
-    const estimatedAttributes = estimateCoffeeAttributesFromText(correctedText);
+    const estimatedAttributes = estimateCoffeeAttributesFromText(trimmedCorrectedText);
     const evaluationStructuredMetadata = mergeStructuredMetadata(
       structuredMetadata,
       estimatedAttributes,
     );
     let tasteProfileSent = false;
+    const emptyTextEvaluation: CoffeeEvaluationResult = {
+      status: 'insufficient_coffee_data',
+      verdict: null,
+      confidence: null,
+      summary: 'Z etikety nebolo možné prečítať text.',
+      reasons: [],
+      what_youll_like: [],
+      what_might_bother_you: [],
+      tips_to_make_it_better: [],
+      recommended_brew_methods: [],
+      cta: { action: null, label: null },
+      disclaimer: NEUTRAL_EVALUATION_COPY.disclaimer,
+      verdict_explanation: 'Z etikety nebolo možné prečítať text.',
+      insight: null,
+      raw: null,
+    };
     const evaluatePromise =
       isCoffee === false
-        ? Promise.resolve({ skipped: true } as const)
+        ? Promise.resolve({ skipped: true, reason: 'non_coffee' } as const)
+        : !hasReadableText
+          ? Promise.resolve({ skipped: true, reason: 'empty_text' } as const)
           : (async () => {
             try {
               if (!token) {
                 throw new Error('Nie si prihlásený');
               }
               const coffeeAttributes = {
-                corrected_text: correctedText,
+                corrected_text: trimmedCorrectedText,
                 origin: evaluationStructuredMetadata?.origin ?? null,
                 roast_level: evaluationStructuredMetadata?.roastLevel ?? null,
                 flavor_notes: evaluationStructuredMetadata?.flavorNotes ?? null,
@@ -1349,7 +1371,7 @@ export const processOCR = async (
                 roaster: evaluationStructuredMetadata?.roaster ?? null,
               };
               const basePayload: Record<string, unknown> = {
-                corrected_text: correctedText,
+                corrected_text: trimmedCorrectedText,
                 structured_metadata: evaluationStructuredMetadata,
                 coffee_attributes: coffeeAttributes,
               };
@@ -1431,7 +1453,10 @@ export const processOCR = async (
 
     const methodsPromise = (async () => {
       try {
-        return await suggestBrewingMethods(correctedText);
+        if (!hasReadableText) {
+          return [] as string[];
+        }
+        return await suggestBrewingMethods(trimmedCorrectedText);
       } catch (error) {
         console.warn('Brewing suggestion promise failed:', error);
         return [] as string[];
@@ -1447,10 +1472,15 @@ export const processOCR = async (
     let recommendation = '';
     let evaluation: CoffeeEvaluationResult = fallbackEvaluation;
     if ('skipped' in evaluationResult) {
-      recommendation =
-        resolveVerdictExplanationText(fallbackEvaluation.verdict_explanation) ||
-        resolveInsightSummary(fallbackEvaluation.insight) ||
-        '';
+      if (evaluationResult.reason === 'empty_text') {
+        evaluation = emptyTextEvaluation;
+        recommendation = emptyTextEvaluation.summary;
+      } else {
+        recommendation =
+          resolveVerdictExplanationText(fallbackEvaluation.verdict_explanation) ||
+          resolveInsightSummary(fallbackEvaluation.insight) ||
+          '';
+      }
     } else if ('error' in evaluationResult) {
       console.warn('Evaluation failed:', evaluationResult.error);
       recommendation =
@@ -1503,7 +1533,7 @@ export const processOCR = async (
 
     return {
       original: originalText,
-      corrected: correctedText,
+      corrected: trimmedCorrectedText,
       recommendation,
       evaluation,
       matchPercentage,
