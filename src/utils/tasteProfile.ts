@@ -71,7 +71,10 @@ function safeNumber(value: unknown, fallback: number = DEFAULT_SCORE): number {
  * @returns {number|null} Clamped number when valid, otherwise null.
  */
 function parseVectorNumber(value: unknown): number | null {
-  const normalize = (input: number): number => clamp(input);
+  const normalize = (input: number): number => {
+    const scaled = input <= 1 ? input * 10 : input;
+    return clamp(scaled);
+  };
 
   if (typeof value === 'number' && Number.isFinite(value)) {
     return normalize(value);
