@@ -44,6 +44,7 @@ CREATE TABLE public.user_taste_profiles (
   consistency_score numeric(4,3) NOT NULL DEFAULT 1,
   ai_recommendation text,
   manual_input text,
+  ai_raw_response jsonb,
   last_recalculated_at timestamptz NOT NULL DEFAULT now(),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
