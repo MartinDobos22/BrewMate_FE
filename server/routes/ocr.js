@@ -974,11 +974,18 @@ router.post('/api/ocr/brew-recipe', async (req, res) => {
 
   const tasteProfileSummary = formatTasteProfileSummary(tasteProfile);
   const coffeeSummary = formatCoffeeAttributesSummary(coffeeAttributes);
+  const correctedText =
+    typeof coffeeAttributes?.corrected_text === 'string'
+      ? coffeeAttributes.corrected_text.trim()
+      : '';
+  const correctedTextSnippet =
+    correctedText.length > 0 ? correctedText.slice(0, 600) : '';
   const promptSections = [
     `Priprav detailný recept na kávu pomocou metódy ${method}.`,
     `Používateľ preferuje ${taste || 'vyvážená'} chuť.`,
     tasteProfileSummary ? `Chuťový profil používateľa: ${tasteProfileSummary}.` : null,
     coffeeSummary ? `Profil kávy: ${coffeeSummary}.` : null,
+    correctedTextSnippet ? `Text z etikety: "${correctedTextSnippet}".` : null,
     'Uveď ideálny pomer kávy k vode, teplotu vody a ďalšie dôležité kroky. Odpovedz stručne.',
   ].filter(Boolean);
   const prompt = promptSections.join(' ');

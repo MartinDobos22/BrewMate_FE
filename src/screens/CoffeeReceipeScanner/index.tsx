@@ -211,11 +211,19 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     if (!scanResult) {
       return null;
     }
+    const structuredMetadata = scanResult.structuredMetadata ?? null;
     const coffeeAttributes: Record<string, unknown> = {
       corrected_text: editedText || scanResult.corrected || scanResult.original,
     };
-    if (scanResult.structuredMetadata) {
-      coffeeAttributes.structured_metadata = scanResult.structuredMetadata;
+    if (structuredMetadata) {
+      coffeeAttributes.structured_metadata = structuredMetadata;
+      coffeeAttributes.origin = structuredMetadata.origin ?? null;
+      coffeeAttributes.roast_level = structuredMetadata.roastLevel ?? null;
+      coffeeAttributes.processing = structuredMetadata.processing ?? null;
+      coffeeAttributes.flavor_notes = structuredMetadata.flavorNotes ?? null;
+      coffeeAttributes.varietals = structuredMetadata.varietals ?? null;
+      coffeeAttributes.roast_date = structuredMetadata.roastDate ?? null;
+      coffeeAttributes.roaster = structuredMetadata.roaster ?? null;
     }
     return coffeeAttributes;
   }, [editedText, scanResult]);
