@@ -238,6 +238,7 @@ const serializeTasteProfile = (taste) => {
       acidity: Number(taste.acidity),
       bitterness: Number(taste.bitterness),
       body: Number(taste.body),
+      ai_raw_response: taste.ai_raw_response ?? null,
       flavor_notes: taste.flavor_notes,
       milk_preferences: taste.milk_preferences,
       caffeine_sensitivity: taste.caffeine_sensitivity,
@@ -648,6 +649,8 @@ router.put('/api/profile', async (req, res) => {
       [uid]
     );
     const existing = existingResult.rows[0] ?? null;
+    const resolvedAiRawResponse =
+      prefs.ai_raw_response ?? req.body?.ai_raw_response ?? existing?.ai_raw_response ?? null;
     const flavorNotes = flavor_notes ?? prefs.flavor_notes ?? existing?.flavor_notes ?? {};
     const milkPrefs = milk_preferences ?? prefs.milk_preferences ?? existing?.milk_preferences ?? {};
 
@@ -761,9 +764,10 @@ router.put('/api/profile', async (req, res) => {
         consistency_score,
         ai_recommendation,
         manual_input,
+        ai_raw_response,
         last_recalculated_at,
         updated_at
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,'medium'),COALESCE($9,'balanced'),'[]',$10,$11,$12,$13,$14,$15,$16,$17,now(),now())
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8,'medium'),COALESCE($9,'balanced'),'[]',$10,$11,$12,$13,$14,$15,$16,$17,$18,now(),now())
       ON CONFLICT (user_id) DO UPDATE SET
         sweetness = EXCLUDED.sweetness,
         acidity = EXCLUDED.acidity,
@@ -781,6 +785,7 @@ router.put('/api/profile', async (req, res) => {
         consistency_score = EXCLUDED.consistency_score,
         ai_recommendation = EXCLUDED.ai_recommendation,
         manual_input = EXCLUDED.manual_input,
+        ai_raw_response = EXCLUDED.ai_raw_response,
         last_recalculated_at = now(),
         updated_at = now()`,
       [
@@ -801,6 +806,7 @@ router.put('/api/profile', async (req, res) => {
         resolvedConsistencyScore,
         resolvedAiRecommendation,
         resolvedManualInput,
+        resolvedAiRawResponse,
       ]
     );
 

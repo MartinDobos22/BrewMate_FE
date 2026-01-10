@@ -336,7 +336,12 @@ const CoffeePreferenceForm = ({
     quizAnswers: Record<string, string>,
     variant: 'concise' | 'deep',
     priorProfile: typeof previousProfile,
-  ): Promise<{ tasteVector: TasteVector; confidence: number; profileText: string }> => {
+  ): Promise<{
+    tasteVector: TasteVector;
+    confidence: number;
+    profileText: string;
+    aiRawResponse: string | null;
+  }> => {
     const fallbackResponse = buildFallbackAIResponse(fallbackVector);
 
     try {
@@ -468,6 +473,11 @@ ${TASTE_AI_SCHEMA_PROMPT}`;
         console.warn('⚠️  AI response validation warnings:', warnings);
       }
 
+      const canStoreRawResponse =
+        typeof aiResponse === 'string' &&
+        aiResponse.trim().length > 0 &&
+        !warnings.includes('AI response JSON parse failed');
+
       const tasteVector = normalizeTasteVectorTo10(parsedResponse.taste_vector);
       const confidence = parsedResponse.confidence;
       const profileText = buildRecommendationText(parsedResponse);
@@ -476,6 +486,7 @@ ${TASTE_AI_SCHEMA_PROMPT}`;
         tasteVector,
         confidence,
         profileText,
+        aiRawResponse: canStoreRawResponse ? aiResponse : null,
       };
     } catch (err) {
       console.error('AI error:', err);
@@ -483,6 +494,7 @@ ${TASTE_AI_SCHEMA_PROMPT}`;
         tasteVector: normalizeTasteVectorTo10(fallbackResponse.taste_vector),
         confidence: fallbackResponse.confidence,
         profileText: buildRecommendationText(fallbackResponse),
+        aiRawResponse: null,
       };
     }
   };
@@ -500,7 +512,7 @@ ${TASTE_AI_SCHEMA_PROMPT}`;
     setIsLoading(true);
     const fallbackTasteVector = calculateTasteVector(answers);
 
-    const { tasteVector, confidence, profileText } = await generateAIRecommendation(
+    const { tasteVector, confidence, profileText, aiRawResponse } = await generateAIRecommendation(
       fallbackTasteVector,
       answers,
       responseVariant,
@@ -514,6 +526,7 @@ ${TASTE_AI_SCHEMA_PROMPT}`;
       taste_vector: mapTasteVectorForStorage(tasteVector),
       consistency_score: confidence,
       ai_confidence: confidence,
+      ai_raw_response: aiRawResponse,
     };
 
     try {
