@@ -1145,7 +1145,9 @@ export const processOCR = async (
     let token: string | null = null;
     const shouldPersistScan =
       isCoffee && (Boolean(detectionLabels?.length) || Boolean(initialStructuredMetadata));
+    const shouldEvaluate = isCoffee !== false && hasReadableText;
     if (shouldPersistScan) {
+      await ensureOnline();
       token = await getAuthToken();
       if (!token) {
         throw new Error('Nie si prihlásený');
@@ -1289,6 +1291,10 @@ export const processOCR = async (
           rawStructuredResponse = metadataRaw ?? null;
         }
       }
+    }
+    if (shouldEvaluate && !token) {
+      await ensureOnline();
+      token = await getAuthToken();
     }
 
     const fallbackEvaluation: CoffeeEvaluationResult = {
