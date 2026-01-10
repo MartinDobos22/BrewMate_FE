@@ -1143,8 +1143,14 @@ export const processOCR = async (
     let rawStructuredResponse: unknown = null;
 
     let token: string | null = null;
+    const hasCoffeeTextSignals =
+      hasReadableText &&
+      (isCoffeeRelatedText(trimmedCorrectedText) || isCoffeeRelatedText(originalText));
     const shouldPersistScan =
-      isCoffee && (Boolean(detectionLabels?.length) || Boolean(initialStructuredMetadata));
+      isCoffee &&
+      (Boolean(detectionLabels?.length) ||
+        Boolean(initialStructuredMetadata) ||
+        hasCoffeeTextSignals);
     const shouldEvaluate = isCoffee !== false && hasReadableText;
     if (shouldPersistScan) {
       await ensureOnline();
