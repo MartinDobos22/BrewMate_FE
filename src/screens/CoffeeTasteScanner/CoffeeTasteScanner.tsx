@@ -96,6 +96,8 @@ type CoffeePreferenceSnapshot = {
   ai_recommendation?: string | null;
   consistency_score?: number | null;
   taste_vector?: Record<string, number> | null;
+  updatedAt?: string | null;
+  lastRecalculatedAt?: string | null;
 };
 
 type StructuredConfirmPayload = ConfirmStructuredPayload & {
@@ -181,6 +183,18 @@ const extractPreferenceSnapshot = (
     payload.taste_vector && typeof payload.taste_vector === 'object'
       ? (payload.taste_vector as Record<string, number>)
       : null;
+  const updatedAt =
+    typeof payload.updated_at === 'string'
+      ? payload.updated_at
+      : typeof payload.updatedAt === 'string'
+        ? payload.updatedAt
+        : null;
+  const lastRecalculatedAt =
+    typeof payload.last_recalculated_at === 'string'
+      ? payload.last_recalculated_at
+      : typeof payload.lastRecalculatedAt === 'string'
+        ? payload.lastRecalculatedAt
+        : null;
 
   if (!aiRecommendation && consistencyScore == null && !tasteVector) {
     return null;
@@ -190,6 +204,8 @@ const extractPreferenceSnapshot = (
     ai_recommendation: aiRecommendation,
     consistency_score: consistencyScore,
     taste_vector: tasteVector,
+    updatedAt,
+    lastRecalculatedAt,
   };
 };
 
@@ -820,6 +836,21 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     () => normalizeTasteVectorTo10(preferenceSnapshot?.taste_vector ?? null),
     [preferenceSnapshot],
   );
+  const preferenceSnapshotProfile = useMemo(() => {
+    if (!preferenceSnapshotVector) {
+      return null;
+    }
+    const updatedAt = preferenceSnapshot?.updatedAt ?? null;
+    const lastRecalculatedAt = preferenceSnapshot?.lastRecalculatedAt ?? null;
+    if (!updatedAt && !lastRecalculatedAt) {
+      return preferenceSnapshotVector;
+    }
+    return {
+      ...preferenceSnapshotVector,
+      updatedAt: updatedAt ?? undefined,
+      lastRecalculatedAt: lastRecalculatedAt ?? undefined,
+    };
+  }, [preferenceSnapshot, preferenceSnapshotVector]);
 
   const loadPreferenceSnapshot = useCallback(async () => {
     try {
@@ -856,6 +887,14 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
           typeof data?.ai_confidence === 'number'
             ? data.ai_confidence
             : coffeePreferences?.ai_confidence,
+        updated_at:
+          typeof data?.updated_at === 'string'
+            ? data.updated_at
+            : coffeePreferences?.updated_at,
+        last_recalculated_at:
+          typeof data?.last_recalculated_at === 'string'
+            ? data.last_recalculated_at
+            : coffeePreferences?.last_recalculated_at,
       });
       if (snapshot) {
         setPreferenceSnapshot(snapshot);
@@ -1443,7 +1482,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       setOverlayText('Analyzujem...');
       setOverlayVisible(true);
 
-      const tasteProfile = resolveTasteProfile(profile, preferenceSnapshotVector);
+      const tasteProfile = resolveTasteProfile(profile, preferenceSnapshotProfile);
       const result = await processOCR(base64image, {
         imagePath: extra?.imagePath,
         tasteProfile,
