@@ -47,11 +47,15 @@ const mapCoffeeItem = (item: Record<string, any>): CoffeeData => {
 
   const matchValue = item.match ?? item.match_score ?? item.match_percentage;
   const roastLevelValue =
-    typeof item.roast_level === 'number'
+    typeof item.roast_level === 'string'
       ? item.roast_level
-      : typeof item.roastLevel === 'number'
+      : typeof item.roastLevel === 'string'
         ? item.roastLevel
-        : undefined;
+        : typeof item.roast_level === 'number'
+          ? item.roast_level.toString()
+          : typeof item.roastLevel === 'number'
+            ? item.roastLevel.toString()
+            : undefined;
   const intensityValue =
     typeof item.intensity === 'number'
       ? item.intensity

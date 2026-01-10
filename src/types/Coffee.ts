@@ -6,7 +6,7 @@
  * @property {string} name - Product or bean name displayed to users.
  * @property {string} [brand] - Coffee roaster or brand name.
  * @property {string} [origin] - Country or region of origin.
- * @property {number} [roastLevel] - Numeric roast level (e.g., 1-10) inferred from scans or metadata.
+ * @property {string} [roastLevel] - Roast level label (e.g., light, medium, dark) inferred from scans or metadata.
  * @property {number} [intensity] - Flavor intensity indicator used in UI summaries.
  * @property {string[]} [flavorNotes] - List of tasting notes associated with the coffee.
  * @property {number} [rating] - User or community rating score.
@@ -20,7 +20,7 @@ export interface Coffee {
   name: string;
   brand?: string;
   origin?: string;
-  roastLevel?: number;
+  roastLevel?: string;
   intensity?: number;
   flavorNotes?: string[];
   rating?: number;

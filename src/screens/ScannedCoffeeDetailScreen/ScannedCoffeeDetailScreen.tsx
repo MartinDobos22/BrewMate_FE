@@ -79,10 +79,7 @@ const ScannedCoffeeDetailScreen: React.FC<{ coffeeId: string; onBack: () => void
         <DetailRow label="Pôvod" value={coffee.origin} />
         <DetailRow label="Proces" value={coffee.process} />
         <DetailRow label="Odroda" value={coffee.variety} />
-        <DetailRow
-          label="Praženie"
-          value={typeof coffee.roastLevel === 'number' ? coffee.roastLevel.toString() : undefined}
-        />
+        <DetailRow label="Praženie" value={coffee.roastLevel} />
         <DetailRow
           label="Intenzita"
           value={typeof coffee.intensity === 'number' ? coffee.intensity.toString() : undefined}
