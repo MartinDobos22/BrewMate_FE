@@ -229,12 +229,10 @@ const CoffeePreferenceForm = ({
         setPreviousProfile({
           quiz_answers: data.coffee_preferences?.quiz_answers,
           taste_vector: normalizedTasteVector,
-          ai_recommendation: data.coffee_preferences?.ai_recommendation ?? data.ai_recommendation,
+          ai_recommendation: data.coffee_preferences?.ai_recommendation,
           consistency_score:
             data.coffee_preferences?.consistency_score ??
-            data.coffee_preferences?.ai_confidence ??
-            data.consistency_score ??
-            data.ai_confidence,
+            data.coffee_preferences?.ai_confidence,
         });
       }
     } catch (err) {
@@ -556,7 +554,7 @@ ${TASTE_AI_SCHEMA_PROMPT}`;
       setPreviousProfile({
         quiz_answers: updatedProfile?.quiz_answers ?? answers,
         taste_vector: normalizeTasteVectorTo10(updatedTasteVector),
-        ai_recommendation: resData?.ai_recommendation ?? profileText,
+        ai_recommendation: updatedProfile?.ai_recommendation ?? profileText,
         consistency_score: updatedProfile?.consistency_score ?? confidence,
       });
       onPreferencesSaved?.();

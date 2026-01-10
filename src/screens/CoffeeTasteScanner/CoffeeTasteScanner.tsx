@@ -826,19 +826,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   const contextPreferenceSnapshot = useMemo(() => {
     const profileRecord = profile as unknown as {
       coffee_preferences?: Record<string, unknown> | null;
-      ai_recommendation?: string | null;
-      consistency_score?: number | null;
-      ai_confidence?: number | null;
     };
-    const nestedSnapshot = extractPreferenceSnapshot(profileRecord?.coffee_preferences ?? null);
-    if (nestedSnapshot) {
-      return nestedSnapshot;
-    }
-    return extractPreferenceSnapshot({
-      ai_recommendation: profileRecord?.ai_recommendation,
-      consistency_score: profileRecord?.consistency_score,
-      ai_confidence: profileRecord?.ai_confidence,
-    });
+    return extractPreferenceSnapshot(profileRecord?.coffee_preferences ?? null);
   }, [profile]);
 
   const preferenceSnapshotVector = useMemo(
@@ -880,31 +869,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       const data = (await response.json()) as Record<string, unknown> | null;
       const coffeePreferences =
         (data?.coffee_preferences as Record<string, unknown> | null) ?? null;
-      const snapshot = extractPreferenceSnapshot({
-        ...(coffeePreferences ?? {}),
-        ai_recommendation:
-          typeof data?.ai_recommendation === 'string'
-            ? data.ai_recommendation
-            : coffeePreferences?.ai_recommendation,
-        consistency_score:
-          typeof data?.consistency_score === 'number'
-            ? data.consistency_score
-            : typeof data?.ai_confidence === 'number'
-              ? data.ai_confidence
-              : coffeePreferences?.consistency_score ?? coffeePreferences?.ai_confidence,
-        ai_confidence:
-          typeof data?.ai_confidence === 'number'
-            ? data.ai_confidence
-            : coffeePreferences?.ai_confidence,
-        updated_at:
-          typeof data?.updated_at === 'string'
-            ? data.updated_at
-            : coffeePreferences?.updated_at,
-        last_recalculated_at:
-          typeof data?.last_recalculated_at === 'string'
-            ? data.last_recalculated_at
-            : coffeePreferences?.last_recalculated_at,
-      });
+      const snapshot = extractPreferenceSnapshot(coffeePreferences);
       if (snapshot) {
         setPreferenceSnapshot(snapshot);
       }
