@@ -520,6 +520,45 @@ const hasMeaningfulCoffeeData = (coffeeAttributes) => {
   );
 };
 
+const isMinimumCoffeeData = (coffeeAttributes) => {
+  if (!coffeeAttributes || typeof coffeeAttributes !== 'object') {
+    return false;
+  }
+
+  const { structured_metadata } = coffeeAttributes;
+  const structured =
+    structured_metadata && typeof structured_metadata === 'object' ? structured_metadata : {};
+
+  const getValue = (record, keys) =>
+    keys.reduce((acc, key) => (acc !== undefined ? acc : record?.[key]), undefined);
+  const hasValue = (value) => {
+    if (Array.isArray(value)) {
+      return value.length > 0;
+    }
+    if (typeof value === 'string') {
+      return value.trim().length > 0;
+    }
+    return value !== null && value !== undefined;
+  };
+
+  const origin = getValue(coffeeAttributes, ['origin']) ?? getValue(structured, ['origin']);
+  const roastLevel =
+    getValue(coffeeAttributes, ['roast_level', 'roastLevel']) ??
+    getValue(structured, ['roast_level', 'roastLevel']);
+  const flavorNotes =
+    getValue(coffeeAttributes, ['flavor_notes', 'flavorNotes']) ??
+    getValue(structured, ['flavor_notes', 'flavorNotes']);
+  const processing =
+    getValue(coffeeAttributes, ['processing']) ?? getValue(structured, ['processing']);
+  const varietals =
+    getValue(coffeeAttributes, ['varietals']) ?? getValue(structured, ['varietals']);
+
+  const hasCoreProfileDetails = [origin, flavorNotes, varietals].some(hasValue);
+  const hasRoastOrProcessing = [roastLevel, processing].some(hasValue);
+
+  return hasRoastOrProcessing && !hasCoreProfileDetails;
+};
+
 const buildLowConfidenceFallbackResponse = ({ preferences, coffeeAttributes, correctedText }) => {
   const base = buildDeterministicFallbackResponse({
     preferences,
@@ -547,6 +586,29 @@ const buildLowConfidenceFallbackResponse = ({ preferences, coffeeAttributes, cor
       ],
     },
     disclaimer: 'Výsledok je orientačný a založený na obmedzených údajoch z OCR.',
+  };
+};
+
+const applyLowDataAdjustments = (response) => {
+  if (!response || typeof response !== 'object') {
+    return response;
+  }
+  const loweredConfidence =
+    typeof response.confidence === 'number' && Number.isFinite(response.confidence)
+      ? Math.min(Number((response.confidence * 0.6).toFixed(2)), 0.45)
+      : 0.3;
+  const disclaimer = response.disclaimer || '';
+  const lowDataSentence =
+    'Máme len minimum údajov (napr. iba praženie alebo spracovanie), preto je hodnotenie orientačné.';
+  const nextDisclaimer = disclaimer.includes('minimum údajov')
+    ? disclaimer
+    : `${disclaimer}${disclaimer ? ' ' : ''}${lowDataSentence} Skús prosím rescan etikety.`;
+
+  return {
+    ...response,
+    confidence: loweredConfidence,
+    verdict_explanation: response.verdict_explanation ?? {},
+    disclaimer: nextDisclaimer,
   };
 };
 
@@ -1381,6 +1443,7 @@ router.post('/api/ocr/evaluate', async (req, res) => {
     if (!hasMeaningfulCoffeeData(coffeeAttributes)) {
       return res.json(INSUFFICIENT_COFFEE_DATA_RESPONSE);
     }
+    const hasMinimumData = isMinimumCoffeeData(coffeeAttributes);
 
     // The comparison-based structure prevents contradictions because verdict and insight share the same summaries.
     const systemPrompt = `Si expert na kávu a chuťové profily.
@@ -1473,23 +1536,35 @@ ${EVALUATION_RESPONSE_SCHEMA}
     // ⬇️ Validate AI JSON strictly to prevent malformed payloads from breaking the FE.
     if (!isValidEvaluationResponse(parsed) || parsed.status !== 'ok') {
       return res.json(
-        buildDeterministicFallbackResponse({
-          preferences,
-          coffeeAttributes,
-          correctedText,
-        })
+        hasMinimumData
+          ? buildLowConfidenceFallbackResponse({
+              preferences,
+              coffeeAttributes,
+              correctedText,
+            })
+          : buildDeterministicFallbackResponse({
+              preferences,
+              coffeeAttributes,
+              correctedText,
+            })
       );
     }
 
-    return res.json(parsed);
+    return res.json(hasMinimumData ? applyLowDataAdjustments(parsed) : parsed);
   } catch (err) {
     console.error('❌ Chyba AI vyhodnotenia:', err);
     return res.json(
-      buildDeterministicFallbackResponse({
-        preferences,
-        coffeeAttributes,
-        correctedText,
-      })
+      isMinimumCoffeeData(coffeeAttributes)
+        ? buildLowConfidenceFallbackResponse({
+            preferences,
+            coffeeAttributes,
+            correctedText,
+          })
+        : buildDeterministicFallbackResponse({
+            preferences,
+            coffeeAttributes,
+            correctedText,
+          })
     );
   }
 });
