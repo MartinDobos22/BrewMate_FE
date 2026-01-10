@@ -258,24 +258,10 @@ export const TASTE_AI_RESPONSE_SCHEMA = {
   },
 };
 
-export const TASTE_AI_SCHEMA_PROMPT = `JSON schema (all fields required):
-{
-  "ai_recommendation": "string",
-  "taste_vector": {
-    "acidity": 0-1,
-    "bitterness": 0-1,
-    "sweetness": 0-1,
-    "body": 0-1,
-    "intensity": 0-1,
-    "experimentalism": 0-1
-  },
-  "confidence": 0-1,
-  "explanations": ["string", ...],
-  "next_steps": ["string", ...],
-  "deltas": ["string", ...]
-}
+const formatSchemaPrompt = (schema: unknown) =>
+  `JSON schema (all fields required):\n${JSON.stringify(schema, null, 2)}\n\nReturn JSON only.`;
 
-Return JSON only.`;
+export const TASTE_AI_SCHEMA_PROMPT = formatSchemaPrompt(TASTE_AI_RESPONSE_SCHEMA.schema);
 
 export const callOpenAIJsonSchema = async (
   systemPrompt: string,
