@@ -1392,6 +1392,10 @@ PRAVIDLÁ:
 - Ak chýba alebo je neúplný chuťový profil → status="profile_missing", verdict=null.
 - Ak chýbajú kľúčové atribúty kávy → status="insufficient_coffee_data", verdict=null.
 - Ak sú dáta dostatočné → status="ok" a verdict je "suitable" | "not_suitable" | "uncertain".
+- Ak sú k dispozícii len roast_level a/alebo processing (bez pôvodu, odrôd, chuťových tónov),
+  zhrň len všeobecný charakter (napr. vyššia acidita pri light/omni roaste),
+  nezadávaj konkrétne chuťové tóny, explicitne priznaj neistotu a nastav nižší confidence.
+- V prípade obmedzených údajov vždy uveď v coffee_profile_summary alebo disclaimer, že hodnotenie je orientačné.
 - Každé pole verdict_explanation musí byť presne jedna veta v tomto formáte:
   - user_preferences_summary začína "Tvoje preferencie:" a stručne zhrnie chuťový profil.
   - coffee_profile_summary začína "Profil kávy:" a stručne zhrnie profil kávy.
