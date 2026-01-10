@@ -1160,13 +1160,14 @@ export const processOCR = async (
         Boolean(initialStructuredMetadata) ||
         hasCoffeeTextSignals);
     const shouldEvaluate = isCoffee !== false && hasReadableText;
-    if (shouldPersistScan) {
+    if (shouldEvaluate || shouldPersistScan) {
       await ensureOnline();
       token = await getAuthToken();
       if (!token) {
         throw new Error('Nie si prihlásený');
       }
-
+    }
+    if (shouldPersistScan) {
       const savePayload: Record<string, unknown> = {
         original_text: originalText,
         corrected_text: trimmedCorrectedText,
@@ -1306,11 +1307,6 @@ export const processOCR = async (
         }
       }
     }
-    if (shouldEvaluate && !token) {
-      await ensureOnline();
-      token = await getAuthToken();
-    }
-
     const fallbackEvaluation: CoffeeEvaluationResult = {
       status: 'unknown',
       verdict: null,
