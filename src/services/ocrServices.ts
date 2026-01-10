@@ -1375,6 +1375,8 @@ export const processOCR = async (
               if (!token) {
                 throw new Error('Nie si prihlásený');
               }
+              // Contract: `corrected_text` is required at top-level; we also mirror it
+              // inside `coffee_attributes` for BE normalization without re-parsing.
               const coffeeAttributes = {
                 corrected_text: trimmedCorrectedText,
                 origin: evaluationStructuredMetadata?.origin ?? null,
