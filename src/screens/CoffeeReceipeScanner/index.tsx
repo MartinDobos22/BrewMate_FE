@@ -73,6 +73,7 @@ interface ScanResult {
   detectionLabels?: string[];
   detectionConfidence?: number;
   structuredMetadata?: StructuredCoffeeMetadata | null;
+  structuredUncertainty?: Record<string, unknown> | null;
 }
 
 interface BrewScannerProps {
@@ -259,6 +260,15 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
       unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (scanResult?.structuredUncertainty) {
+      console.info('CoffeeReceipeScanner: structured uncertainty signals', {
+        scanId: scanResult.scanId,
+        uncertainty: scanResult.structuredUncertainty,
+      });
+    }
+  }, [scanResult]);
 
   const closeNonCoffeeModal = () => {
     setNonCoffeeModalVisible(false);
