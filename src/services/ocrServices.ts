@@ -1155,10 +1155,9 @@ export const processOCR = async (
       hasReadableText &&
       (isCoffeeRelatedText(trimmedCorrectedText) || isCoffeeRelatedText(originalText));
     const shouldPersistScan =
-      isCoffee &&
-      (Boolean(detectionLabels?.length) ||
-        Boolean(initialStructuredMetadata) ||
-        hasCoffeeTextSignals);
+      hasCoffeeTextSignals ||
+      (isCoffee &&
+        (Boolean(detectionLabels?.length) || Boolean(initialStructuredMetadata)));
     const shouldEvaluate = isCoffee !== false && hasReadableText;
     if (shouldEvaluate || shouldPersistScan) {
       await ensureOnline();
