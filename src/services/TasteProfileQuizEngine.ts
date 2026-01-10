@@ -414,10 +414,10 @@ export class TasteProfileQuizEngine {
 
     const strength = answersById.get('strength-slider');
     if (strength && typeof strength.value === 'number') {
-      const normalized = Number(strength.value) / 10;
+      const strengthValue = Number(strength.value);
       vector.body = Math.min(
-        1,
-        Math.max(0, vector.body * 0.6 + normalized * 0.4),
+        10,
+        Math.max(0, vector.body * 0.6 + strengthValue * 0.4),
       );
     }
 
