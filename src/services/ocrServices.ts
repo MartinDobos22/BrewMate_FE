@@ -368,6 +368,24 @@ const mapOcrTasteVector = (vector: TasteProfileVector): TasteProfileVector => ({
   body: vector.body,
 });
 
+const extractTasteProfileTimestamps = (
+  profile?: TasteProfileVector | UserTasteProfile | null,
+): { updatedAt: string | null; lastRecalculatedAt: string | null } => {
+  if (!profile || typeof profile !== 'object') {
+    return { updatedAt: null, lastRecalculatedAt: null };
+  }
+  const record = profile as Record<string, unknown>;
+  const updatedAt =
+    typeof record.updatedAt === 'string' && record.updatedAt.trim().length > 0
+      ? record.updatedAt
+      : null;
+  const lastRecalculatedAt =
+    typeof record.lastRecalculatedAt === 'string' && record.lastRecalculatedAt.trim().length > 0
+      ? record.lastRecalculatedAt
+      : null;
+  return { updatedAt, lastRecalculatedAt };
+};
+
 const mapTasteProfilePayload = (
   profile?: TasteProfileVector | UserTasteProfile | null,
 ): Record<string, unknown> | null => {
@@ -408,12 +426,15 @@ const mapTasteProfilePayload = (
     };
   }
 
+  const { updatedAt, lastRecalculatedAt } = extractTasteProfileTimestamps(profile);
   return {
     taste_vector: ocrTasteVector,
     sweetness: ocrTasteVector.sweetness,
     acidity: ocrTasteVector.acidity,
     bitterness: ocrTasteVector.bitterness,
     body: ocrTasteVector.body,
+    ...(updatedAt ? { updated_at: updatedAt } : {}),
+    ...(lastRecalculatedAt ? { last_recalculated_at: lastRecalculatedAt } : {}),
   };
 };
 
@@ -1333,16 +1354,18 @@ export const processOCR = async (
                 coffee_attributes: coffeeAttributes,
               };
               const payload: Record<string, unknown> = { ...basePayload };
-              const isLocalTasteProfile =
-                Boolean(options?.tasteProfile) &&
-                options?.tasteProfile &&
-                !('preferences' in options.tasteProfile);
               if (options?.tasteProfile) {
                 const tasteProfilePayload = mapTasteProfilePayload(options.tasteProfile);
                 if (tasteProfilePayload) {
+                  const { updatedAt, lastRecalculatedAt } = extractTasteProfileTimestamps(
+                    options.tasteProfile,
+                  );
+                  const hasServerTimestamps = Boolean(updatedAt || lastRecalculatedAt);
                   payload.taste_profile = tasteProfilePayload;
                   tasteProfileSent = true;
-                  if (isLocalTasteProfile) {
+                  if (hasServerTimestamps) {
+                    payload.taste_profile_source = 'server';
+                  } else {
                     payload.taste_profile_source = 'client';
                   }
                 }
