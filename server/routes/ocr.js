@@ -275,6 +275,83 @@ const parseDelimitedList = (value) => {
   return items.length > 0 ? items : null;
 };
 
+const resolveTasteVector = (profile) => {
+  if (!profile || typeof profile !== 'object') {
+    return null;
+  }
+  if (profile.taste_vector && typeof profile.taste_vector === 'object') {
+    return profile.taste_vector;
+  }
+  if (profile.preferences && typeof profile.preferences === 'object') {
+    return profile.preferences;
+  }
+  return profile;
+};
+
+const formatTasteProfileSummary = (profile) => {
+  const vector = resolveTasteVector(profile);
+  if (!vector || typeof vector !== 'object') {
+    return null;
+  }
+  const { sweetness, acidity, bitterness, body } = vector;
+  const values = [sweetness, acidity, bitterness, body];
+  if (!values.some((value) => typeof value === 'number' && Number.isFinite(value))) {
+    return null;
+  }
+  const formatValue = (value) =>
+    typeof value === 'number' && Number.isFinite(value) ? `${value}/10` : 'neznáme';
+  return `sladkosť ${formatValue(sweetness)}, acidita ${formatValue(
+    acidity
+  )}, horkosť ${formatValue(bitterness)}, telo ${formatValue(body)}`;
+};
+
+const formatCoffeeAttributesSummary = (attributes) => {
+  if (!attributes || typeof attributes !== 'object') {
+    return null;
+  }
+  const structured =
+    attributes.structured_metadata && typeof attributes.structured_metadata === 'object'
+      ? attributes.structured_metadata
+      : {};
+
+  const getValue = (record, keys) =>
+    keys.reduce((acc, key) => (acc !== undefined ? acc : record?.[key]), undefined);
+
+  const origin = getValue(attributes, ['origin']) ?? getValue(structured, ['origin']);
+  const roastLevel =
+    getValue(attributes, ['roast_level', 'roastLevel']) ??
+    getValue(structured, ['roast_level', 'roastLevel']);
+  const processing =
+    getValue(attributes, ['processing']) ?? getValue(structured, ['processing']);
+  const roaster =
+    getValue(attributes, ['roaster', 'roastery', 'brand']) ??
+    getValue(structured, ['roaster', 'roastery', 'brand']);
+  const flavorNotes =
+    getValue(attributes, ['flavor_notes', 'flavorNotes']) ??
+    getValue(structured, ['flavor_notes', 'flavorNotes']);
+  const varietals =
+    getValue(attributes, ['varietals']) ?? getValue(structured, ['varietals']);
+
+  const summaryBits = [
+    origin ? `pôvod ${origin}` : null,
+    roastLevel ? `praženie ${roastLevel}` : null,
+    processing ? `spracovanie ${processing}` : null,
+    roaster ? `pražiareň ${roaster}` : null,
+    Array.isArray(flavorNotes) && flavorNotes.length > 0
+      ? `tóny ${flavorNotes.join(', ')}`
+      : typeof flavorNotes === 'string' && flavorNotes.trim().length > 0
+      ? `tóny ${flavorNotes}`
+      : null,
+    Array.isArray(varietals) && varietals.length > 0
+      ? `odrody ${varietals.join(', ')}`
+      : typeof varietals === 'string' && varietals.trim().length > 0
+      ? `odrody ${varietals}`
+      : null,
+  ].filter(Boolean);
+
+  return summaryBits.length > 0 ? summaryBits.join(', ') : null;
+};
+
 const extractCoffeeAttributesFromText = (text) => {
   if (!text || typeof text !== 'string') {
     return {
@@ -823,7 +900,8 @@ router.post('/api/ocr/brewing-methods', async (req, res) => {
  * Vygeneruje recept na kávu podľa zvolenej metódy a preferovanej chuti.
  */
 router.post('/api/ocr/brew-recipe', async (req, res) => {
-  const { method, taste } = req.body ?? {};
+  const { method, taste, taste_profile: tasteProfile, coffee_attributes: coffeeAttributes } =
+    req.body ?? {};
   if (!method || typeof method !== 'string') {
     return res.status(400).json({ error: 'Chýba metóda prípravy' });
   }
@@ -832,9 +910,16 @@ router.post('/api/ocr/brew-recipe', async (req, res) => {
     return res.status(200).json({ recipe: '' });
   }
 
-  const prompt = `Priprav detailný recept na kávu pomocou metódy ${method}. Používateľ preferuje ${
-    taste || 'vyvážená'
-  } chuť. Uveď ideálny pomer kávy k vode, teplotu vody a ďalšie dôležité kroky. Odpovedz stručne.`;
+  const tasteProfileSummary = formatTasteProfileSummary(tasteProfile);
+  const coffeeSummary = formatCoffeeAttributesSummary(coffeeAttributes);
+  const promptSections = [
+    `Priprav detailný recept na kávu pomocou metódy ${method}.`,
+    `Používateľ preferuje ${taste || 'vyvážená'} chuť.`,
+    tasteProfileSummary ? `Chuťový profil používateľa: ${tasteProfileSummary}.` : null,
+    coffeeSummary ? `Profil kávy: ${coffeeSummary}.` : null,
+    'Uveď ideálny pomer kávy k vode, teplotu vody a ďalšie dôležité kroky. Odpovedz stručne.',
+  ].filter(Boolean);
+  const prompt = promptSections.join(' ');
 
   try {
     console.log('📤 [OpenAI] Recipe prompt meta:', {

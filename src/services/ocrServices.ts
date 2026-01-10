@@ -919,9 +919,15 @@ export const suggestBrewingMethods = async (
  */
 export const getBrewRecipe = async (
   method: string,
-  taste: string
+  taste: string,
+  options?: {
+    tasteProfile?: TasteProfileVector | UserTasteProfile | null;
+    coffeeAttributes?: Record<string, unknown> | null;
+  }
 ): Promise<string> => {
   try {
+    const tasteProfilePayload = mapTasteProfilePayload(options?.tasteProfile);
+    const coffeeAttributes = options?.coffeeAttributes ?? null;
     const response = await loggedFetch(`${API_URL}/ocr/brew-recipe`, {
       method: 'POST',
       headers: {
@@ -930,6 +936,8 @@ export const getBrewRecipe = async (
       body: JSON.stringify({
         method,
         taste,
+        ...(tasteProfilePayload ? { taste_profile: tasteProfilePayload } : {}),
+        ...(coffeeAttributes ? { coffee_attributes: coffeeAttributes } : {}),
       }),
     });
     const data = await response.json();

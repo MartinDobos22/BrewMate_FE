@@ -42,7 +42,8 @@ import {
   isCoffeeRelatedText,
 } from './services';
 import type { RecipeHistory } from './services';
-import { BrewContext } from '../../types/Personalization';
+import type { StructuredCoffeeMetadata } from '../../services/ocrServices';
+import { BrewContext, UserTasteProfile } from '../../types/Personalization';
 import { usePersonalization } from '../../hooks/usePersonalization';
 import { showToast } from '../../utils/toast';
 
@@ -71,6 +72,7 @@ interface ScanResult {
   nonCoffeeReason?: string;
   detectionLabels?: string[];
   detectionConfidence?: number;
+  structuredMetadata?: StructuredCoffeeMetadata | null;
 }
 
 interface BrewScannerProps {
@@ -144,7 +146,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
   onRecipeHistoryPress,
   onSeeAllRecipes,
 }) => {
-  const { coffeeDiary: personalizationDiary, refreshInsights } = usePersonalization();
+  const { coffeeDiary: personalizationDiary, refreshInsights, profile } = usePersonalization();
   const diary = personalizationDiary ;
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [editedText, setEditedText] = useState<string>('');
@@ -192,6 +194,31 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     }
     showToast('Pripravujeme prehľad receptov.');
   }, [onSeeAllRecipes]);
+
+  const resolveTasteProfileForRecipe = useCallback(async (): Promise<UserTasteProfile | null> => {
+    if (profile) {
+      return profile;
+    }
+    try {
+      return await preferenceEngine.getProfile();
+    } catch (error) {
+      console.warn('CoffeeReceipeScanner: failed to resolve taste profile', error);
+      return null;
+    }
+  }, [profile]);
+
+  const buildCoffeeAttributes = useCallback((): Record<string, unknown> | null => {
+    if (!scanResult) {
+      return null;
+    }
+    const coffeeAttributes: Record<string, unknown> = {
+      corrected_text: editedText || scanResult.corrected || scanResult.original,
+    };
+    if (scanResult.structuredMetadata) {
+      coffeeAttributes.structured_metadata = scanResult.structuredMetadata;
+    }
+    return coffeeAttributes;
+  }, [editedText, scanResult]);
 
   const nonCoffeeConfidence = useMemo(() => {
     if (typeof nonCoffeeDetails.confidence !== 'number') {
@@ -436,9 +463,15 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     try {
       setOverlayText('Generujem recept...');
       setOverlayVisible(true);
+      const tasteProfile = await resolveTasteProfileForRecipe();
+      const coffeeAttributes = buildCoffeeAttributes();
       const recipe = await getBrewRecipe(
         selectedMethod,
-        tastePreference || 'vyvážená'
+        tastePreference || 'vyvážená',
+        {
+          tasteProfile,
+          coffeeAttributes,
+        }
       );
 
       setGeneratedRecipe(recipe);
