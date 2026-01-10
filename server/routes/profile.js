@@ -227,29 +227,36 @@ const serializeTasteProfile = (taste) => {
     };
   }
 
-  return {
+  // coffee_preferences je jediný zdroj pravdy pre chuťový profil.
+  const coffeePreferences = {
+    sweetness: Number(taste.sweetness),
+    acidity: Number(taste.acidity),
+    bitterness: Number(taste.bitterness),
+    body: Number(taste.body),
+    updated_at: taste.updated_at ?? null,
+    last_recalculated_at: taste.last_recalculated_at ?? null,
+    ai_raw_response: taste.ai_raw_response ?? null,
+    flavor_notes: taste.flavor_notes,
+    milk_preferences: taste.milk_preferences,
+    caffeine_sensitivity: taste.caffeine_sensitivity,
+    preferred_strength: taste.preferred_strength,
+    quiz_version: taste.quiz_version ?? null,
+    quiz_answers: taste.quiz_answers ?? {},
+    consistency_score: taste.consistency_score ?? null,
+    taste_vector: taste.taste_vector ?? null,
     ai_recommendation: taste.ai_recommendation ?? null,
     manual_input: taste.manual_input ?? null,
     is_complete: taste.is_complete ?? false,
-    updated_at: taste.updated_at ?? null,
-    last_recalculated_at: taste.last_recalculated_at ?? null,
-    coffee_preferences: {
-      sweetness: Number(taste.sweetness),
-      acidity: Number(taste.acidity),
-      bitterness: Number(taste.bitterness),
-      body: Number(taste.body),
-      updated_at: taste.updated_at ?? null,
-      last_recalculated_at: taste.last_recalculated_at ?? null,
-      ai_raw_response: taste.ai_raw_response ?? null,
-      flavor_notes: taste.flavor_notes,
-      milk_preferences: taste.milk_preferences,
-      caffeine_sensitivity: taste.caffeine_sensitivity,
-      preferred_strength: taste.preferred_strength,
-      quiz_version: taste.quiz_version ?? null,
-      quiz_answers: taste.quiz_answers ?? {},
-      consistency_score: taste.consistency_score ?? null,
-      taste_vector: taste.taste_vector ?? null,
-    },
+  };
+
+  return {
+    // Legacy top-level fields mirror coffee_preferences for backwards compatibility.
+    ai_recommendation: coffeePreferences.ai_recommendation,
+    manual_input: coffeePreferences.manual_input,
+    is_complete: coffeePreferences.is_complete,
+    updated_at: coffeePreferences.updated_at,
+    last_recalculated_at: coffeePreferences.last_recalculated_at,
+    coffee_preferences: coffeePreferences,
   };
 };
 
