@@ -399,10 +399,15 @@ const extractTasteProfileTimestamps = (
   const updatedAt =
     typeof record.updatedAt === 'string' && record.updatedAt.trim().length > 0
       ? record.updatedAt
+      : typeof record.updated_at === 'string' && record.updated_at.trim().length > 0
+        ? record.updated_at
       : null;
   const lastRecalculatedAt =
     typeof record.lastRecalculatedAt === 'string' && record.lastRecalculatedAt.trim().length > 0
       ? record.lastRecalculatedAt
+      : typeof record.last_recalculated_at === 'string'
+        && record.last_recalculated_at.trim().length > 0
+        ? record.last_recalculated_at
       : null;
   return { updatedAt, lastRecalculatedAt };
 };

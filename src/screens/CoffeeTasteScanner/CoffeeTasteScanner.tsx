@@ -171,6 +171,10 @@ const extractPreferenceSnapshot = (
   if (!payload) {
     return null;
   }
+  const coffeePreferences =
+    payload.coffee_preferences && typeof payload.coffee_preferences === 'object'
+      ? (payload.coffee_preferences as Record<string, unknown>)
+      : null;
   const aiRecommendation =
     typeof payload.ai_recommendation === 'string' ? payload.ai_recommendation : null;
   const consistencyScore =
@@ -186,12 +190,16 @@ const extractPreferenceSnapshot = (
   const updatedAt =
     typeof payload.updated_at === 'string'
       ? payload.updated_at
+      : typeof coffeePreferences?.updated_at === 'string'
+        ? coffeePreferences.updated_at
       : typeof payload.updatedAt === 'string'
         ? payload.updatedAt
         : null;
   const lastRecalculatedAt =
     typeof payload.last_recalculated_at === 'string'
       ? payload.last_recalculated_at
+      : typeof coffeePreferences?.last_recalculated_at === 'string'
+        ? coffeePreferences.last_recalculated_at
       : typeof payload.lastRecalculatedAt === 'string'
         ? payload.lastRecalculatedAt
         : null;

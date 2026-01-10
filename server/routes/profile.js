@@ -238,6 +238,8 @@ const serializeTasteProfile = (taste) => {
       acidity: Number(taste.acidity),
       bitterness: Number(taste.bitterness),
       body: Number(taste.body),
+      updated_at: taste.updated_at ?? null,
+      last_recalculated_at: taste.last_recalculated_at ?? null,
       ai_raw_response: taste.ai_raw_response ?? null,
       flavor_notes: taste.flavor_notes,
       milk_preferences: taste.milk_preferences,
