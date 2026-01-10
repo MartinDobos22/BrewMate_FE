@@ -2218,6 +2218,27 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     || evaluation?.disclaimer
     || 'Vyplň krátky dotazník a získaš osobné hodnotenie zhody pre každú kávu.';
   const profileMissingCtaLabel = evaluation?.cta?.label || 'Vyplniť dotazník';
+  const lowDataWarning = useMemo(() => {
+    if (evaluationStatus !== 'ok') {
+      return null;
+    }
+    const sources = [
+      evaluation?.disclaimer ?? '',
+      resolveVerdictExplanationText(evaluation?.verdict_explanation),
+    ];
+    const combined = sources.join(' ').toLowerCase();
+    if (!combined) {
+      return null;
+    }
+    const isLowData = /minimum údajov|obmedzených údajov|málo údajov|len (praženie|spracovanie)/i.test(
+      combined,
+    );
+    if (!isLowData) {
+      return null;
+    }
+    return evaluation?.disclaimer
+      || 'Máme len minimum údajov z etikety, odporúčame rescan alebo doplnenie detailov.';
+  }, [evaluation, evaluationStatus]);
   // Normalize AI confidence to a readable percentage label for the verdict section.
   const evaluationConfidenceLabel = useMemo(() => {
     if (!evaluation || typeof evaluation.confidence !== 'number') {
@@ -3271,6 +3292,21 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                             <Text style={styles.verdictConfidence}>{evaluationConfidenceLabel}</Text>
                           ) : null}
                           <Text style={styles.verdictDescription}>{verdictExplanation}</Text>
+                          {lowDataWarning ? (
+                            <View style={styles.lowDataCard}>
+                              <View style={styles.lowDataBadge}>
+                                <Text style={styles.lowDataBadgeText}>Minimum údajov</Text>
+                              </View>
+                              <Text style={styles.lowDataText}>{lowDataWarning}</Text>
+                              <TouchableOpacity
+                                style={styles.lowDataButton}
+                                onPress={openCamera}
+                                activeOpacity={0.85}
+                              >
+                                <Text style={styles.lowDataButtonText}>Rescanovať etiketu</Text>
+                              </TouchableOpacity>
+                            </View>
+                          ) : null}
                         </View>
                       )}
 
