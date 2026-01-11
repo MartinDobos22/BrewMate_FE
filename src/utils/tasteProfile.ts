@@ -327,7 +327,7 @@ function mapAcidity(preferences: CoffeePreferenceSnapshot): number | null {
         return 5.5;
       case 'high':
       case 'vysoká':
-        return 7.8;
+        return 8.5;
       default:
         break;
     }
@@ -479,9 +479,13 @@ function applyFruitFlavorAdjustments(base: TasteRadarScores, notes: string[]): v
   const normalizedNotes = Array.from(new Set(notes.map(note => note.toLowerCase())));
   const hasCitrusBerry = normalizedNotes.some(note => citrusBerryKeywords.some(keyword => note.includes(keyword)));
   const hasFruitSweetness = normalizedNotes.some(note => fruitSweetnessKeywords.some(keyword => note.includes(keyword)));
+  const hasFruitHeavy = normalizedNotes.some(note => note.includes('fruit-heavy') || note.includes('fruit heavy'));
 
   if (hasCitrusBerry) {
     base.acidity = clamp(base.acidity + 0.4);
+  }
+  if (hasFruitHeavy) {
+    base.acidity = clamp(Math.max(base.acidity, 6.6));
   }
   if (hasFruitSweetness) {
     base.sweetness = clamp(base.sweetness + 0.3);
