@@ -352,6 +352,28 @@ const CoffeePreferenceForm = ({
       .filter(Boolean);
   };
 
+  const formatQuestionContext = (question: Question) =>
+    question.title.replace(/^(?:\d+\uFE0F?\u20E3|🔟)\s*/u, '').trim();
+
+  const buildAnswerPromptMap = (
+    orderedQuestions: string[],
+    quizAnswers: Record<string, string>,
+    fallbackLabel = 'neodpovedané',
+  ) => {
+    const answerPromptMap: Record<string, string> = {};
+    orderedQuestions.forEach((id, idx) => {
+      const question = allQuestions.find(q => q.id === id);
+      const selectedValue = quizAnswers[id];
+      const answerLabel = question?.options.find(opt => opt.value === selectedValue)?.label ?? fallbackLabel;
+      if (!question) {
+        answerPromptMap[`Q${idx + 1}`] = `Q${idx + 1}: ${answerLabel}`;
+        return;
+      }
+      const context = formatQuestionContext(question);
+      answerPromptMap[`Q${idx + 1}`] = `Q${idx + 1} (${context}): ${answerLabel}`;
+    });
+    return answerPromptMap;
+  };
 
   /**
    * Zavolá OpenAI a vygeneruje odporúčanie podľa nového chuťového vektora.
@@ -383,17 +405,10 @@ const CoffeePreferenceForm = ({
         'control',
       ];
 
-      const answerMap: Record<string, string> = {};
-      orderedQuestions.forEach((id, idx) => {
-        answerMap[`Q${idx + 1}`] = getAnswerLabel(id, quizAnswers);
-      });
-
-      const previousAnswerMap: Record<string, string> = {};
-      orderedQuestions.forEach((id, idx) => {
-        previousAnswerMap[`Q${idx + 1}`] = priorProfile?.quiz_answers
-          ? getAnswerLabel(id, priorProfile.quiz_answers)
-          : 'neznáme';
-      });
+      const answerMap = buildAnswerPromptMap(orderedQuestions, quizAnswers);
+      const previousAnswerMap = priorProfile?.quiz_answers
+        ? buildAnswerPromptMap(orderedQuestions, priorProfile.quiz_answers)
+        : buildAnswerPromptMap(orderedQuestions, {}, 'neznáme');
 
       const answerDeltas = buildAnswerDeltaSummary(
         orderedQuestions,
