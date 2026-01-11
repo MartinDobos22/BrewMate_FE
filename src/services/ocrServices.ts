@@ -362,12 +362,27 @@ const extractTasteVector = (
   return profile;
 };
 
-const mapOcrTasteVector = (vector: TasteProfileVector): TasteProfileVector => ({
-  sweetness: vector.sweetness,
-  acidity: vector.acidity,
-  bitterness: vector.bitterness,
-  body: vector.body,
-});
+type ExtendedTasteVector = TasteProfileVector & {
+  intensity?: number;
+  experimentalism?: number;
+};
+
+const extractExtendedDimensions = (vector: TasteProfileVector): ExtendedTasteVector => {
+  const record = vector as Record<string, unknown>;
+  return {
+    sweetness: vector.sweetness,
+    acidity: vector.acidity,
+    bitterness: vector.bitterness,
+    body: vector.body,
+    ...(typeof record.intensity === 'number' ? { intensity: record.intensity } : {}),
+    ...(typeof record.experimentalism === 'number'
+      ? { experimentalism: record.experimentalism }
+      : {}),
+  };
+};
+
+const mapOcrTasteVector = (vector: TasteProfileVector): ExtendedTasteVector =>
+  extractExtendedDimensions(vector);
 
 const extractTasteProfileTimestamps = (
   profile?: TasteProfileVector | UserTasteProfile | null,
@@ -423,8 +438,16 @@ const mapTasteProfilePayload = (
   if (!tasteVector) {
     return null;
   }
-  // OCR evaluácia používa len 4D chuťový profil (sweetness/acidity/bitterness/body).
+  // OCR hodnotenie používa základné 4D, ale ak existujú, pošleme aj extra dimenzie.
   const ocrTasteVector = mapOcrTasteVector(tasteVector);
+  const extraDimensions = {
+    ...(typeof ocrTasteVector.intensity === 'number'
+      ? { intensity: ocrTasteVector.intensity }
+      : {}),
+    ...(typeof ocrTasteVector.experimentalism === 'number'
+      ? { experimentalism: ocrTasteVector.experimentalism }
+      : {}),
+  };
 
   if ('preferences' in profile) {
     const flavorNoteEntries = profile.flavorNotes ?? {};
@@ -436,6 +459,7 @@ const mapTasteProfilePayload = (
       acidity: ocrTasteVector.acidity,
       bitterness: ocrTasteVector.bitterness,
       body: ocrTasteVector.body,
+      ...extraDimensions,
       flavor_notes: flavorNotes,
       flavor_note_weights: flavorNoteEntries,
       milk_preferences: profile.milkPreferences,
@@ -469,6 +493,7 @@ const mapTasteProfilePayload = (
     acidity: ocrTasteVector.acidity,
     bitterness: ocrTasteVector.bitterness,
     body: ocrTasteVector.body,
+    ...extraDimensions,
     ...timestampPayload,
   };
 };
@@ -1454,9 +1479,9 @@ export const processOCR = async (
                 }
               }
               // Manual QA: submit the questionnaire flow (TasteProfileVector) and confirm
-              // `/ocr/evaluate` receives `taste_profile` with only taste_vector + sweetness/acidity/bitterness/body.
+              // `/ocr/evaluate` receives `taste_profile` with the 4D core plus optional extra dimensions when present.
               // Contract: `taste_profile.taste_vector` values are on a 0–10 scale across FE/BE (no 0–1 normalization).
-              // Extra dimensions (intensity/experimentalism) are intentionally dropped for OCR evaluation.
+              // OCR evaluation uses the 4D core (sweetness/acidity/bitterness/body); extra dims are ignored downstream.
               const evaluationResult = await loggedFetchWithStatusRetry(
                 `${API_URL}/ocr/evaluate`,
                 {
