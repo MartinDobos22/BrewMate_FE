@@ -184,6 +184,62 @@ const normalizeEvaluationReasons = (value: unknown): CoffeeEvaluationReason[] =>
     .filter((entry): entry is CoffeeEvaluationReason => Boolean(entry));
 };
 
+const normalizePercentValue = (value: unknown): number | null => {
+  const raw =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number(value.replace(',', '.'))
+        : NaN;
+  if (!Number.isFinite(raw)) {
+    return null;
+  }
+  const scaled = raw <= 1 ? raw * 100 : raw;
+  const bounded = Math.max(0, Math.min(100, scaled));
+  return Number.isFinite(bounded) ? bounded : null;
+};
+
+const normalizeEvaluationDimensionDiffs = (value: unknown): CoffeeEvaluationDimensionDiff[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return null;
+      }
+      const record = entry as Record<string, unknown>;
+      const dimension =
+        typeof record.dimension === 'string'
+          ? record.dimension
+          : typeof record.key === 'string'
+            ? record.key
+            : '';
+      const explanation =
+        typeof record.explanation === 'string'
+          ? record.explanation
+          : typeof record.description === 'string'
+            ? record.description
+            : '';
+      const percent = normalizePercentValue(
+        record.percent ??
+          record.percentage ??
+          record.diff_percent ??
+          record.difference_percent
+      );
+      if (!dimension || (!explanation && percent == null)) {
+        return null;
+      }
+      return {
+        dimension,
+        percent,
+        explanation,
+      };
+    })
+    .filter((entry): entry is CoffeeEvaluationDimensionDiff => Boolean(entry));
+};
+
 const normalizeStringArray = (value: unknown): string[] => {
   if (!Array.isArray(value)) {
     return [];
@@ -743,6 +799,7 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
   const normalizedInsight =
     normalizeEvaluationInsight(record.insight) ??
     (fallbackInsightSections.length ? { headline: '', sections: fallbackInsightSections } : null);
+  const dimensionDiffs = normalizeEvaluationDimensionDiffs(record.dimension_diffs);
   if (normalizedStatus === 'profile_missing') {
     // Preserve profile-missing payloads so the UI can display the CTA and guidance text.
     return {
@@ -755,6 +812,7 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
       what_might_bother_you: whatMightBotherYou,
       tips_to_make_it_better: tipsToMakeItBetter,
       recommended_brew_methods: recommendedBrewMethods,
+      dimension_diffs: dimensionDiffs,
       cta: {
         action:
           record.cta && typeof record.cta === 'object' && record.cta.action === 'complete_taste_profile'
@@ -786,6 +844,7 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
       what_might_bother_you: whatMightBotherYou,
       tips_to_make_it_better: tipsToMakeItBetter,
       recommended_brew_methods: recommendedBrewMethods,
+      dimension_diffs: dimensionDiffs,
       cta: { action: null, label: null },
       disclaimer: useNeutralCopy
         ? normalizeEvaluationText(record.disclaimer, NEUTRAL_EVALUATION_COPY.disclaimer)
@@ -813,6 +872,7 @@ const normalizeEvaluationResponse = (payload: unknown): CoffeeEvaluationResult =
     confidence: confidenceValue,
     summary,
     reasons,
+    dimension_diffs: dimensionDiffs,
     what_youll_like: whatYoullLike,
     what_might_bother_you: whatMightBotherYou,
     tips_to_make_it_better: tipsToMakeItBetter,
@@ -882,6 +942,12 @@ export interface CoffeeEvaluationReason {
   explanation: string;
 }
 
+export interface CoffeeEvaluationDimensionDiff {
+  dimension: string;
+  percent: number | null;
+  explanation: string;
+}
+
 export interface CoffeeEvaluationCta {
   action: 'complete_taste_profile' | null;
   label: string | null;
@@ -903,6 +969,7 @@ export interface CoffeeEvaluationResult {
   confidence: number | null;
   summary: string;
   reasons: CoffeeEvaluationReason[];
+  dimension_diffs: CoffeeEvaluationDimensionDiff[];
   what_youll_like: string[];
   what_might_bother_you: string[];
   tips_to_make_it_better: string[];
@@ -1404,6 +1471,7 @@ export const processOCR = async (
       confidence: null,
       summary: NEUTRAL_EVALUATION_COPY.summary,
       reasons: [],
+      dimension_diffs: [],
       what_youll_like: [],
       what_might_bother_you: [],
       tips_to_make_it_better: [],
@@ -1421,6 +1489,7 @@ export const processOCR = async (
       confidence: null,
       summary: 'Hodnotenie kávy je momentálne nedostupné.',
       reasons: [],
+      dimension_diffs: [],
       what_youll_like: [],
       what_might_bother_you: [],
       tips_to_make_it_better: [],
@@ -1450,6 +1519,7 @@ export const processOCR = async (
       confidence: null,
       summary: 'Z etikety nebolo možné prečítať text.',
       reasons: [],
+      dimension_diffs: [],
       what_youll_like: [],
       what_might_bother_you: [],
       tips_to_make_it_better: [],

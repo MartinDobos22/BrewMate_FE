@@ -635,6 +635,47 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       color: palette.textSecondary,
       lineHeight: 20,
     },
+    verdictDiffs: {
+      marginTop: 12,
+      paddingTop: 12,
+      borderTopWidth: 1,
+      borderTopColor: palette.borderLight,
+      gap: 10,
+    },
+    verdictDiffsTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: palette.textPrimary,
+    },
+    verdictDiffRow: {
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: palette.borderLight,
+      backgroundColor: palette.surfaceElevated,
+    },
+    verdictDiffHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 4,
+    },
+    verdictDiffLabel: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: palette.textPrimary,
+    },
+    verdictDiffPercent: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: palette.textSecondary,
+    },
+    verdictDiffExplanation: {
+      fontSize: 12,
+      color: palette.textSecondary,
+      lineHeight: 18,
+    },
     comparisonText: {
       fontSize: 13,
       color: palette.textSecondary,
