@@ -2271,6 +2271,41 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     const rounded = Math.round(Math.max(0, Math.min(100, normalized)));
     return `${rounded}% istota`;
   }, [evaluation]);
+  const dimensionDiffs = useMemo(() => {
+    const diffs = evaluation?.dimension_diffs ?? [];
+    const labelMap: Record<string, string> = {
+      acidity: 'Acidita',
+      sweetness: 'Sladkosť',
+      bitterness: 'Horkosť',
+      body: 'Telo',
+    };
+
+    return diffs
+      .map((diff, index) => {
+        if (!diff) {
+          return null;
+        }
+        const label = labelMap[diff.dimension] ?? diff.dimension;
+        const percent =
+          typeof diff.percent === 'number' ? `${Math.round(diff.percent)}%` : null;
+        const explanation = diff.explanation?.trim() ?? '';
+        if (!label || (!percent && !explanation)) {
+          return null;
+        }
+        return {
+          key: `${diff.dimension}-${index}`,
+          label,
+          percent,
+          explanation,
+        };
+      })
+      .filter(
+        (
+          entry
+        ): entry is { key: string; label: string; percent: string | null; explanation: string } =>
+          Boolean(entry),
+      );
+  }, [evaluation?.dimension_diffs]);
   const refreshControl =
     currentView === 'home'
       ? (
@@ -3314,6 +3349,24 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                             <Text style={styles.verdictConfidence}>{evaluationConfidenceLabel}</Text>
                           ) : null}
                           <Text style={styles.verdictDescription}>{verdictExplanation}</Text>
+                          {dimensionDiffs.length ? (
+                            <View style={styles.verdictDiffs}>
+                              <Text style={styles.verdictDiffsTitle}>Rozdiely v chutiach</Text>
+                              {dimensionDiffs.map(diff => (
+                                <View key={diff.key} style={styles.verdictDiffRow}>
+                                  <View style={styles.verdictDiffHeader}>
+                                    <Text style={styles.verdictDiffLabel}>{diff.label}</Text>
+                                    {diff.percent ? (
+                                      <Text style={styles.verdictDiffPercent}>{diff.percent}</Text>
+                                    ) : null}
+                                  </View>
+                                  {diff.explanation ? (
+                                    <Text style={styles.verdictDiffExplanation}>{diff.explanation}</Text>
+                                  ) : null}
+                                </View>
+                              ))}
+                            </View>
+                          ) : null}
                           {lowDataWarning ? (
                             <View style={styles.lowDataCard}>
                               <View style={styles.lowDataBadge}>
