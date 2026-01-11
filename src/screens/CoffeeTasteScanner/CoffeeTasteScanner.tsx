@@ -89,6 +89,7 @@ interface ScanResult {
   structuredRaw?: unknown;
   evaluation?: CoffeeEvaluationResult | null;
   tasteProfileSent?: boolean;
+  tasteProfileRejectedAsStale?: boolean;
 }
 
 type ScanResultLike = ScanResult & { rawStructuredResponse?: unknown };
@@ -235,15 +236,19 @@ const buildComparisonText = (
   aiRecommendation: string | null | undefined,
   profilePreferences: Record<string, unknown> | null | undefined,
   coffeePreferences: Record<string, unknown> | null | undefined,
+  isProfileStale: boolean,
 ): string => {
   const { summary: preferenceSummary, sourceLabel } = buildPreferenceSummary({
-    profilePreferences,
+    profilePreferences: isProfileStale ? null : profilePreferences,
     preferenceSnapshot,
     coffeePreferences,
+    isProfileStale,
   });
   const formSection = preferenceSummary
     ? `Aktuálny profil (${sourceLabel}):\n${preferenceSummary}`
-    : 'Aktuálny profil (dotazník): zatiaľ nemáme uložené hodnoty.';
+    : isProfileStale
+      ? 'Profil je zastaraný.'
+      : 'Aktuálny profil (dotazník): zatiaľ nemáme uložené hodnoty.';
 
   const hasAiText = typeof aiRecommendation === 'string' && aiRecommendation.trim().length > 0;
   const aiSection = hasAiText
@@ -2192,6 +2197,21 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   const profileCoffeePreferences =
     (profile as unknown as { coffee_preferences?: Record<string, unknown> | null })
       ?.coffee_preferences ?? null;
+  const profileTimestamps = useMemo(() => {
+    if (!profile || typeof profile !== 'object') {
+      return { updatedAt: null, lastRecalculatedAt: null };
+    }
+    const record = profile as Partial<UserTasteProfile>;
+    const updatedAt = typeof record.updatedAt === 'string' ? record.updatedAt : null;
+    const lastRecalculatedAt =
+      typeof record.lastRecalculatedAt === 'string' ? record.lastRecalculatedAt : null;
+    return { updatedAt, lastRecalculatedAt };
+  }, [profile]);
+  const hasProfileTimestamps = Boolean(
+    profileTimestamps.updatedAt || profileTimestamps.lastRecalculatedAt,
+  );
+  const isProfileStale =
+    Boolean(scanResult?.tasteProfileRejectedAsStale) || (Boolean(profile) && !hasProfileTimestamps);
   const comparisonText = useMemo(
     () => buildComparisonText(
       evaluation,
@@ -2199,8 +2219,15 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       preferenceSnapshot?.ai_recommendation ?? null,
       profile?.preferences ?? null,
       profileCoffeePreferences,
+      isProfileStale,
     ),
-    [evaluation, preferenceSnapshot, profile?.preferences, profileCoffeePreferences],
+    [
+      evaluation,
+      preferenceSnapshot,
+      profile?.preferences,
+      profileCoffeePreferences,
+      isProfileStale,
+    ],
   );
   // Suppress compatibility scoring whenever the AI evaluation is not ready.
   const shouldSuppressCompatibility = evaluationStatus !== 'ok';
