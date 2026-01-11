@@ -253,6 +253,91 @@ const estimateCoffeeAttributesFromText = (
   };
 };
 
+const normalizeStructuredMetadataPayload = (
+  payload: Record<string, any> | null,
+): StructuredCoffeeMetadata | null => {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  const normalizeString = (value: unknown): string | null => {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+
+  const normalizeStringArray = (value: unknown): string[] | null => {
+    if (Array.isArray(value)) {
+      const cleaned = value
+        .map(item => (typeof item === 'string' ? item.trim() : ''))
+        .filter(Boolean);
+      return cleaned.length ? cleaned : null;
+    }
+    if (typeof value === 'string') {
+      const parts = value
+        .split(/[,;\n]/)
+        .map(part => part.trim())
+        .filter(Boolean);
+      return parts.length ? parts : null;
+    }
+    return null;
+  };
+
+  const confidenceSource =
+    payload.confidenceFlags ?? payload.confidence_flags ?? payload.flags ?? null;
+
+  let confidenceFlags: StructuredCoffeeMetadata['confidenceFlags'] = null;
+  if (confidenceSource && typeof confidenceSource === 'object') {
+    confidenceFlags = {
+      roaster:
+        typeof confidenceSource.roaster === 'boolean'
+          ? confidenceSource.roaster
+          : null,
+      origin:
+        typeof confidenceSource.origin === 'boolean'
+          ? confidenceSource.origin
+          : null,
+      roastLevel:
+        typeof confidenceSource.roastLevel === 'boolean'
+          ? confidenceSource.roastLevel
+          : typeof confidenceSource.roast_level === 'boolean'
+          ? confidenceSource.roast_level
+          : null,
+      processing:
+        typeof confidenceSource.processing === 'boolean'
+          ? confidenceSource.processing
+          : null,
+      flavorNotes:
+        typeof confidenceSource.flavorNotes === 'boolean'
+          ? confidenceSource.flavorNotes
+          : typeof confidenceSource.flavor_notes === 'boolean'
+          ? confidenceSource.flavor_notes
+          : null,
+      roastDate:
+        typeof confidenceSource.roastDate === 'boolean'
+          ? confidenceSource.roastDate
+          : typeof confidenceSource.roast_date === 'boolean'
+          ? confidenceSource.roast_date
+          : null,
+      varietals:
+        typeof confidenceSource.varietals === 'boolean'
+          ? confidenceSource.varietals
+          : null,
+    };
+  }
+
+  return {
+    roaster: normalizeString(payload.roaster ?? payload.roaster_name) ?? null,
+    origin: normalizeString(payload.origin),
+    roastLevel: normalizeString(payload.roastLevel ?? payload.roast_level) ?? null,
+    processing: normalizeString(payload.processing),
+    flavorNotes: normalizeStringArray(payload.flavorNotes ?? payload.flavor_notes),
+    roastDate: normalizeString(payload.roastDate ?? payload.roast_date) ?? null,
+    varietals: normalizeStringArray(payload.varietals),
+    confidenceFlags,
+  };
+};
+
 const mergeStructuredMetadata = (
   base: StructuredCoffeeMetadata | null,
   fallback: Pick<
@@ -1192,6 +1277,8 @@ export const processOCR = async (
     const initialStructuredMetadata = safeParseJSON<Record<string, unknown>>(
       ocrData.structured_metadata ?? ocrData.structuredMetadata
     );
+    const initialNormalizedStructuredMetadata =
+      normalizeStructuredMetadataPayload(initialStructuredMetadata);
     const initialStructuredConfidence = safeParseJSON<Record<string, unknown>>(
       ocrData.structured_confidence ?? ocrData.structuredConfidence
     );
@@ -1284,96 +1371,8 @@ export const processOCR = async (
           saveData.structuredMetadata ??
           initialStructuredMetadata;
         const metadataParsed = safeParseJSON<Record<string, any>>(metadataRaw);
-        if (metadataParsed && typeof metadataParsed === 'object') {
-          const normalizeString = (value: unknown): string | null => {
-            if (typeof value !== 'string') return null;
-            const trimmed = value.trim();
-            return trimmed.length > 0 ? trimmed : null;
-          };
-
-          const normalizeStringArray = (value: unknown): string[] | null => {
-            if (Array.isArray(value)) {
-              const cleaned = value
-                .map(item => (typeof item === 'string' ? item.trim() : ''))
-                .filter(Boolean);
-              return cleaned.length ? cleaned : null;
-            }
-            if (typeof value === 'string') {
-              const parts = value
-                .split(/[,;\n]/)
-                .map(part => part.trim())
-                .filter(Boolean);
-              return parts.length ? parts : null;
-            }
-            return null;
-          };
-
-          const confidenceSource =
-            metadataParsed.confidenceFlags ??
-            metadataParsed.confidence_flags ??
-            metadataParsed.flags ??
-            null;
-
-          let confidenceFlags: StructuredCoffeeMetadata['confidenceFlags'] = null;
-          if (confidenceSource && typeof confidenceSource === 'object') {
-            confidenceFlags = {
-              roaster:
-                typeof confidenceSource.roaster === 'boolean'
-                  ? confidenceSource.roaster
-                  : null,
-              origin:
-                typeof confidenceSource.origin === 'boolean'
-                  ? confidenceSource.origin
-                  : null,
-              roastLevel:
-                typeof confidenceSource.roastLevel === 'boolean'
-                  ? confidenceSource.roastLevel
-                  : typeof confidenceSource.roast_level === 'boolean'
-                  ? confidenceSource.roast_level
-                  : null,
-              processing:
-                typeof confidenceSource.processing === 'boolean'
-                  ? confidenceSource.processing
-                  : null,
-              flavorNotes:
-                typeof confidenceSource.flavorNotes === 'boolean'
-                  ? confidenceSource.flavorNotes
-                  : typeof confidenceSource.flavor_notes === 'boolean'
-                  ? confidenceSource.flavor_notes
-                  : null,
-              roastDate:
-                typeof confidenceSource.roastDate === 'boolean'
-                  ? confidenceSource.roastDate
-                  : typeof confidenceSource.roast_date === 'boolean'
-                  ? confidenceSource.roast_date
-                  : null,
-              varietals:
-                typeof confidenceSource.varietals === 'boolean'
-                  ? confidenceSource.varietals
-                  : null,
-            };
-          }
-
-          structuredMetadata = {
-            roaster:
-              normalizeString(metadataParsed.roaster ?? metadataParsed.roaster_name) ??
-              null,
-            origin: normalizeString(metadataParsed.origin),
-            roastLevel:
-              normalizeString(metadataParsed.roastLevel ?? metadataParsed.roast_level) ??
-              null,
-            processing: normalizeString(metadataParsed.processing),
-            flavorNotes:
-              normalizeStringArray(
-                metadataParsed.flavorNotes ?? metadataParsed.flavor_notes
-              ),
-            roastDate:
-              normalizeString(metadataParsed.roastDate ?? metadataParsed.roast_date) ??
-              null,
-            varietals: normalizeStringArray(metadataParsed.varietals),
-            confidenceFlags,
-          };
-
+        structuredMetadata = normalizeStructuredMetadataPayload(metadataParsed);
+        if (structuredMetadata) {
           rawStructuredResponse = metadataParsed;
         }
 
@@ -1389,6 +1388,15 @@ export const processOCR = async (
           rawStructuredResponse = metadataRaw ?? null;
         }
       }
+    }
+    if (!structuredMetadata && initialNormalizedStructuredMetadata) {
+      structuredMetadata = initialNormalizedStructuredMetadata;
+      if (rawStructuredResponse == null) {
+        rawStructuredResponse = initialStructuredMetadata;
+      }
+    }
+    if (!structuredConfidence && initialStructuredConfidence) {
+      structuredConfidence = initialStructuredConfidence;
     }
     const fallbackEvaluation: CoffeeEvaluationResult = {
       status: 'unknown',
@@ -1428,10 +1436,12 @@ export const processOCR = async (
 
     // 4. Získaj AI hodnotenie a návrhy metód súčasne
     const estimatedAttributes = estimateCoffeeAttributesFromText(trimmedCorrectedText);
-    const evaluationStructuredMetadata = mergeStructuredMetadata(
+    const mergedStructuredMetadata = mergeStructuredMetadata(
       structuredMetadata,
       estimatedAttributes,
     );
+    structuredMetadata = mergedStructuredMetadata;
+    const evaluationStructuredMetadata = mergedStructuredMetadata;
     let tasteProfileSent = false;
     let tasteProfileRejectedAsStale = false;
     const emptyTextEvaluation: CoffeeEvaluationResult = {
