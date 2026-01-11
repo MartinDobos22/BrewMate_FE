@@ -33,6 +33,8 @@ const DEFAULT_PROFILE_CONFIDENCE_THRESHOLD = 0.4;
 
 const fruitKeywords = ['fruit', 'fruity', 'berry', 'berries', 'citrus', 'orange', 'lemon', 'lime', 'apple', 'pear', 'peach', 'stone', 'wine'];
 const warmAromaKeywords = ['chocolate', 'cocoa', 'nut', 'nutty', 'caramel', 'spice', 'spicy', 'vanilla', 'floral', 'flower'];
+const citrusBerryKeywords = ['citrus', 'orange', 'lemon', 'lime', 'grapefruit', 'berry', 'berries', 'raspberry', 'strawberry', 'blueberry'];
+const fruitSweetnessKeywords = ['fruit', 'fruity', 'apple', 'pear', 'peach', 'stone', 'mango', 'pineapple', 'melon', 'plum', 'cherry'];
 
 /**
  * Restricts a numeric value to the provided minimum and maximum range for radar charts.
@@ -469,6 +471,23 @@ function mergeFruitiness(existing: number, incoming: number | null, notes: strin
   return clamp(existing);
 }
 
+function applyFruitFlavorAdjustments(base: TasteRadarScores, notes: string[]): void {
+  if (!notes.length) {
+    return;
+  }
+
+  const normalizedNotes = Array.from(new Set(notes.map(note => note.toLowerCase())));
+  const hasCitrusBerry = normalizedNotes.some(note => citrusBerryKeywords.some(keyword => note.includes(keyword)));
+  const hasFruitSweetness = normalizedNotes.some(note => fruitSweetnessKeywords.some(keyword => note.includes(keyword)));
+
+  if (hasCitrusBerry) {
+    base.acidity = clamp(base.acidity + 0.4);
+  }
+  if (hasFruitSweetness) {
+    base.sweetness = clamp(base.sweetness + 0.3);
+  }
+}
+
 /**
  * Builds composite taste radar scores by blending stored profile data with recent preference inputs.
  *
@@ -544,6 +563,7 @@ export function buildTasteRadarScores({ profile, preferences }: TasteRadarSource
     const { aroma, fruitiness } = evaluateFlavorNotes(preferences.flavorNotes);
     base.aroma = aroma === null ? blend(base.aroma, clamp(DEFAULT_SCORE + preferences.flavorNotes.length * 0.6)) : blend(base.aroma, aroma, 1.5);
     base.fruitiness = mergeFruitiness(base.fruitiness, fruitiness, preferences.flavorNotes);
+    applyFruitFlavorAdjustments(base, preferences.flavorNotes);
 
     if (preferences.preferredDrinks.includes('espresso') || preferences.preferredDrinks.includes('ristretto')) {
       base.body = blend(base.body, clamp(base.body + 1.2));
