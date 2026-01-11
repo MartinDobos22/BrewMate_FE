@@ -223,7 +223,9 @@ const serializeTasteProfile = (taste) => {
       is_complete: false,
       updated_at: null,
       last_recalculated_at: null,
-      coffee_preferences: null,
+      coffee_preferences: {
+        ai_recommendation: null,
+      },
     };
   }
 
