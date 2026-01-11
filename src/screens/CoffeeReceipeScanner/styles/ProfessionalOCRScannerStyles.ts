@@ -1406,6 +1406,28 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       color: palette.textPrimary,
       lineHeight: 20,
     },
+    scanPreferenceDerivedRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 10,
+      paddingHorizontal: 8,
+      paddingVertical: 6,
+      borderRadius: 12,
+      backgroundColor: 'rgba(255, 140, 66, 0.12)',
+      borderWidth: 1,
+      borderColor: 'rgba(255, 140, 66, 0.3)',
+      columnGap: 6,
+    },
+    scanPreferenceDerivedLabel: {
+      fontSize: 12,
+      color: palette.textSecondary,
+      fontWeight: '600',
+    },
+    scanPreferenceDerivedValue: {
+      fontSize: 12,
+      color: palette.textPrimary,
+      fontWeight: '700',
+    },
     scanSuggestionsRow: {
       flexDirection: 'row',
       flexWrap: 'wrap',
