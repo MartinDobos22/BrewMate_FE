@@ -702,6 +702,7 @@ const isValidEvaluationResponse = (value) => {
   return true;
 };
 
+// OCR evaluation uses the 4D core; extra taste dimensions are accepted but ignored here.
 const isTasteProfileComplete = (profile) => {
   if (!profile || typeof profile !== 'object') {
     return false;
