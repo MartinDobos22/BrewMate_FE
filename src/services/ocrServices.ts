@@ -862,6 +862,7 @@ interface OCRResult {
   rawStructuredResponse?: unknown;
   evaluation?: CoffeeEvaluationResult | null;
   tasteProfileSent?: boolean;
+  tasteProfileRejectedAsStale?: boolean;
 }
 
 /**
@@ -1432,6 +1433,7 @@ export const processOCR = async (
       estimatedAttributes,
     );
     let tasteProfileSent = false;
+    let tasteProfileRejectedAsStale = false;
     const emptyTextEvaluation: CoffeeEvaluationResult = {
       status: 'insufficient_coffee_data',
       verdict: null,
@@ -1518,6 +1520,7 @@ export const processOCR = async (
                 console.warn(
                   'Stale taste profile detected. Retrying evaluation without taste profile.',
                 );
+                tasteProfileRejectedAsStale = true;
                 const retryPayload = { ...basePayload };
                 const retryResult = await loggedFetchWithStatusRetry(
                   `${API_URL}/ocr/evaluate`,
@@ -1657,6 +1660,7 @@ export const processOCR = async (
       rawStructuredResponse,
       evaluation,
       tasteProfileSent,
+      tasteProfileRejectedAsStale,
     };
   } catch (error) {
     console.error('OCR processing error:', error);

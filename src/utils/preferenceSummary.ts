@@ -10,6 +10,7 @@ type PreferenceSummaryInput = {
   profilePreferences?: TasteVector | null;
   preferenceSnapshot?: PreferenceSnapshot | null;
   coffeePreferences?: TasteVector | null;
+  isProfileStale?: boolean;
 };
 
 type PreferenceSummaryResult = {
@@ -54,10 +55,13 @@ export const buildPreferenceSummary = ({
   profilePreferences,
   preferenceSnapshot,
   coffeePreferences,
+  isProfileStale = false,
 }: PreferenceSummaryInput): PreferenceSummaryResult => {
-  const primaryEntries = buildEntries(profilePreferences ?? null);
+  const primaryEntries = buildEntries(isProfileStale ? null : (profilePreferences ?? null));
   let entries = primaryEntries;
-  let sourceLabel: PreferenceSummaryResult['sourceLabel'] = 'dotazník';
+  let sourceLabel: PreferenceSummaryResult['sourceLabel'] = isProfileStale
+    ? 'uložené preferencie'
+    : 'dotazník';
 
   if (entries.length === 0) {
     const fallbackVector =
