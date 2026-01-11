@@ -15,6 +15,7 @@ import { getColors } from '../../theme/colors';
 import AIResponseDisplay from './AIResponseDisplay';
 import { BOTTOM_NAV_CONTENT_OFFSET } from '../navigation/BottomNav';
 import { API_URL } from '../../services/api';
+import { normalizeKeysToSnakeCase, normalizeProfileResponse } from '../../utils/normalize';
 import {
   TasteVector,
   buildFallbackAIResponse,
@@ -48,6 +49,23 @@ interface Question {
   title: string;
   subtitle: string;
   options: QuestionOption[];
+}
+
+interface ProfilePayload {
+  coffee_preferences?: {
+    taste_vector?: TasteVector;
+    quiz_answers?: Record<string, string>;
+    ai_recommendation?: string;
+    consistency_score?: number;
+    ai_confidence?: number;
+    ai_raw_response?: string | null;
+  };
+  taste_vector?: TasteVector;
+  ai_recommendation?: string;
+  ai_confidence?: number;
+  quiz_answers?: Record<string, string>;
+  consistency_score?: number;
+  ai_raw_response?: string | null;
 }
 
 /**
@@ -217,7 +235,10 @@ const CoffeePreferenceForm = ({
       });
 
       if (res.ok) {
-        const data = await res.json();
+        const data = normalizeProfileResponse(await res.json()) as ProfilePayload | null;
+        if (!data) {
+          return;
+        }
         const storedTasteVector = data.coffee_preferences?.taste_vector;
         const normalizedTasteVector = storedTasteVector
           ? normalizeTasteVectorTo10(storedTasteVector)
@@ -537,13 +558,15 @@ ${TASTE_AI_SCHEMA_PROMPT}`;
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          coffee_preferences: preferences,
-          ai_recommendation: profileText,
-          ai_confidence: confidence,
-        }),
+        body: JSON.stringify(
+          normalizeKeysToSnakeCase({
+            coffee_preferences: preferences,
+            ai_recommendation: profileText,
+            ai_confidence: confidence,
+          }),
+        ),
       });
-      const resData = await res.json().catch(() => null);
+      const resData = normalizeProfileResponse(await res.json().catch(() => null)) as ProfilePayload | null;
       console.log('📥 [BE] Save response:', resData);
       if (!res.ok) throw new Error('Failed to save preferences');
       const updatedProfile = resData?.coffee_preferences ?? null;

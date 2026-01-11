@@ -4,6 +4,7 @@ import NetInfo from '@react-native-community/netinfo';
 import RNFS from 'react-native-fs';
 import { API_HOST, API_URL } from './api';
 import type { TasteProfileVector, UserTasteProfile } from '../types/Personalization';
+import { normalizeKeysToSnakeCase } from '../utils/normalize';
 
 
 /**
@@ -144,27 +145,6 @@ const safeParseJSON = <T>(value: unknown): T | null => {
     console.warn('Failed to parse JSON payload', error);
     return null;
   }
-};
-
-const toSnakeCaseKey = (key: string): string =>
-  key
-    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
-    .replace(/[\s-]+/g, '_')
-    .toLowerCase();
-
-const normalizeKeysToSnakeCase = (value: unknown): unknown => {
-  if (Array.isArray(value)) {
-    return value.map(item => normalizeKeysToSnakeCase(item));
-  }
-  if (!value || typeof value !== 'object') {
-    return value;
-  }
-
-  const record = value as Record<string, unknown>;
-  return Object.keys(record).reduce<Record<string, unknown>>((acc, key) => {
-    acc[toSnakeCaseKey(key)] = normalizeKeysToSnakeCase(record[key]);
-    return acc;
-  }, {});
 };
 
 const normalizeEvaluationStatus = (value: unknown): CoffeeEvaluationStatus => {
