@@ -43,25 +43,166 @@ export const calculateMatch = (coffeeText, preferences) => {
 
   if (!passesCompletionCheck) return null;
 
-  let score = 50;
   const lower = (coffeeText || '').toLowerCase();
 
-  if (preferences.preferred_strength) {
-    if (lower.includes(preferences.preferred_strength.toLowerCase())) {
-      score += 10;
+  const weights = {
+    strength: 25,
+    flavor: 35,
+    sweetness: 20,
+    acidity: 20,
+  };
+
+  const totalWeight =
+    (hasStrength ? weights.strength : 0) +
+    (hasFlavorNotes ? weights.flavor : 0) +
+    (hasSweetness ? weights.sweetness : 0) +
+    (hasAcidity ? weights.acidity : 0);
+
+  if (totalWeight === 0) return null;
+
+  let points = 0;
+  let penalties = 0;
+
+  const strengthKeywords = [
+    'light',
+    'mild',
+    'medium',
+    'balanced',
+    'strong',
+    'bold',
+    'dark',
+    'intense',
+    'jemn',
+    'stredn',
+    'siln',
+  ];
+  const sweetKeywords = [
+    'sweet',
+    'caramel',
+    'honey',
+    'chocolate',
+    'vanilla',
+    'sugar',
+    'candied',
+    'sirup',
+    'sladk',
+  ];
+  const bitterKeywords = [
+    'bitter',
+    'dry',
+    'unsweetened',
+    'dark chocolate',
+    'astringent',
+    'hork',
+  ];
+  const highAcidKeywords = [
+    'acidic',
+    'bright',
+    'citrus',
+    'lemon',
+    'berry',
+    'tart',
+    'sharp',
+    'wine',
+    'vibrant',
+    'sour',
+    'kysl',
+  ];
+  const lowAcidKeywords = [
+    'low acidity',
+    'smooth',
+    'mellow',
+    'soft',
+    'balanced',
+    'jemn',
+  ];
+
+  const containsAny = (keywords) =>
+    keywords.some((keyword) => lower.includes(keyword));
+
+  if (hasStrength) {
+    const preferredStrength = preferences.preferred_strength.toLowerCase();
+    const hasPreferredStrength = lower.includes(preferredStrength);
+    const hasAnyStrengthSignal = containsAny(strengthKeywords);
+
+    if (hasPreferredStrength) {
+      points += weights.strength;
+    } else if (hasAnyStrengthSignal) {
+      penalties += weights.strength * 0.6;
+    } else {
+      penalties += weights.strength * 0.3;
     }
   }
 
-  flavorList.forEach((flavor) => {
-    if (typeof flavor === 'string' && lower.includes(flavor.toLowerCase())) {
-      score += 5;
+  if (hasFlavorNotes) {
+    const flavorWeightPerNote = weights.flavor / flavorList.length;
+    let matchedFlavors = 0;
+
+    flavorList.forEach((flavor) => {
+      if (typeof flavor === 'string' && lower.includes(flavor.toLowerCase())) {
+        matchedFlavors += 1;
+      }
+    });
+
+    points += Math.min(matchedFlavors * flavorWeightPerNote, weights.flavor);
+
+    if (matchedFlavors === 0) {
+      penalties += weights.flavor * 0.3;
     }
-  });
+  }
 
-  if (hasSweetness && sweetnessValue >= 7) score += 5;
-  if (hasAcidity && acidityValue <= 3) score += 5;
+  if (hasSweetness) {
+    const hasSweetSignal = containsAny(sweetKeywords);
+    const hasBitterSignal = containsAny(bitterKeywords);
 
-  return Math.min(score, 100);
+    if (sweetnessValue >= 7) {
+      if (hasSweetSignal) points += weights.sweetness;
+      if (hasBitterSignal) penalties += weights.sweetness * 0.6;
+      if (!hasSweetSignal && !hasBitterSignal) {
+        penalties += weights.sweetness * 0.3;
+      }
+    } else if (sweetnessValue <= 3) {
+      if (hasBitterSignal) points += weights.sweetness;
+      if (hasSweetSignal) penalties += weights.sweetness * 0.6;
+      if (!hasSweetSignal && !hasBitterSignal) {
+        penalties += weights.sweetness * 0.3;
+      }
+    } else {
+      if (hasSweetSignal || hasBitterSignal) {
+        points += weights.sweetness * 0.5;
+      } else {
+        penalties += weights.sweetness * 0.2;
+      }
+    }
+  }
+
+  if (hasAcidity) {
+    const hasHighAcidSignal = containsAny(highAcidKeywords);
+    const hasLowAcidSignal = containsAny(lowAcidKeywords);
+
+    if (acidityValue >= 7) {
+      if (hasHighAcidSignal) points += weights.acidity;
+      if (hasLowAcidSignal) penalties += weights.acidity * 0.6;
+      if (!hasHighAcidSignal && !hasLowAcidSignal) {
+        penalties += weights.acidity * 0.3;
+      }
+    } else if (acidityValue <= 3) {
+      if (hasLowAcidSignal) points += weights.acidity;
+      if (hasHighAcidSignal) penalties += weights.acidity * 0.6;
+      if (!hasHighAcidSignal && !hasLowAcidSignal) {
+        penalties += weights.acidity * 0.3;
+      }
+    } else {
+      if (hasHighAcidSignal || hasLowAcidSignal) {
+        points += weights.acidity * 0.5;
+      } else {
+        penalties += weights.acidity * 0.2;
+      }
+    }
+  }
+
+  const normalized = ((points - penalties) / totalWeight) * 100;
+  return Math.max(0, Math.min(100, normalized));
 };
 
 /**
