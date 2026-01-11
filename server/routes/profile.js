@@ -161,11 +161,20 @@ const validateTasteVector = (value) => {
       return;
     }
 
-    if (typeof rawValue !== 'number' || Number.isNaN(rawValue)) {
+    let numericValue = rawValue;
+    if (typeof rawValue === 'string') {
+      const parsedValue = Number(rawValue);
+      if (Number.isFinite(parsedValue)) {
+        numericValue = parsedValue;
+      }
+    }
+
+    if (typeof numericValue !== 'number' || !Number.isFinite(numericValue)) {
       throw new Error(`Invalid taste_vector.${key}: expected a number.`);
     }
 
-    const normalizedValue = rawValue <= 1 ? rawValue * 10 : rawValue;
+    const normalizedValue =
+      numericValue <= 1 ? numericValue * 10 : numericValue;
     sanitized[key] = clampNumber(normalizedValue, 0, 10);
   });
 
