@@ -2,9 +2,10 @@
  * Vypočíta percentuálnu zhodu medzi opisom kávy a preferenciami používateľa.
  * @param {string} coffeeText - Textový opis kávy.
  * @param {object} preferences - Preferencie používateľa z databázy.
+ * @param {object} [structuredMetadata] - Štruktúrované metadáta kávy (origin, processing, roast_level, varietals).
  * @returns {number | null} Hodnota zhody v percentách alebo null pri neúplných preferenciách.
  */
-export const calculateMatch = (coffeeText, preferences) => {
+export const calculateMatch = (coffeeText, preferences, structuredMetadata = null) => {
   if (!preferences) return null;
 
   const hasCompletionFlag =
@@ -43,7 +44,75 @@ export const calculateMatch = (coffeeText, preferences) => {
 
   if (!passesCompletionCheck) return null;
 
-  const lower = (coffeeText || '').toLowerCase();
+  const normalizeStructuredValue = (value) =>
+    typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+  const normalizeStructuredList = (value) => {
+    if (Array.isArray(value)) {
+      return value
+        .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+        .filter(Boolean);
+    }
+    if (typeof value === 'string') {
+      return value
+        .split(/[,;\n]/)
+        .map((entry) => entry.trim())
+        .filter(Boolean);
+    }
+    return [];
+  };
+
+  const structured = structuredMetadata && typeof structuredMetadata === 'object'
+    ? structuredMetadata
+    : null;
+  const structuredOrigin = normalizeStructuredValue(structured?.origin);
+  const structuredProcessing = normalizeStructuredValue(structured?.processing);
+  const structuredRoastLevel = normalizeStructuredValue(
+    structured?.roast_level ?? structured?.roastLevel
+  );
+  const structuredVarietals = normalizeStructuredList(structured?.varietals);
+
+  const derivedSignals = [];
+  const roastLower = structuredRoastLevel?.toLowerCase() ?? '';
+  if (roastLower) {
+    if (/(light|blonde|svetl|light roast|omni)/.test(roastLower)) {
+      derivedSignals.push('light', 'mild', 'bright');
+    }
+    if (/(medium|stred|omni)/.test(roastLower)) {
+      derivedSignals.push('medium', 'balanced');
+    }
+    if (/(dark|espresso|tmav)/.test(roastLower)) {
+      derivedSignals.push('dark', 'bold', 'strong', 'intense');
+    }
+  }
+
+  const processingLower = structuredProcessing?.toLowerCase() ?? '';
+  if (processingLower) {
+    if (/(natural|dry)/.test(processingLower)) {
+      derivedSignals.push('sweet', 'berry', 'fruit');
+    }
+    if (/(honey|pulped)/.test(processingLower)) {
+      derivedSignals.push('sweet', 'caramel');
+    }
+    if (/(washed|wet)/.test(processingLower)) {
+      derivedSignals.push('bright', 'citrus', 'clean');
+    }
+    if (/(anaerobic|ferment)/.test(processingLower)) {
+      derivedSignals.push('intense', 'fruit');
+    }
+  }
+
+  const structuredText = [
+    coffeeText,
+    structuredOrigin,
+    structuredProcessing,
+    structuredRoastLevel,
+    ...structuredVarietals,
+    ...derivedSignals,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const lower = structuredText.toLowerCase();
 
   const weights = {
     strength: 25,

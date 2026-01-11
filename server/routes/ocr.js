@@ -72,17 +72,20 @@ const INSUFFICIENT_COFFEE_DATA_RESPONSE = {
 };
 
 const buildDeterministicFallbackResponse = ({ preferences, coffeeAttributes, correctedText }) => {
-  const safePreferences = preferences || {};
-  const matchScore = calculateMatch(correctedText || '', safePreferences);
-  const normalizedScore =
-    typeof matchScore === 'number' && Number.isFinite(matchScore) ? matchScore : 50;
-  const verdict = normalizedScore >= 75 ? 'suitable' : 'not_suitable';
-  const confidence = Number((normalizedScore / 100).toFixed(2));
-
   const structured =
     coffeeAttributes && typeof coffeeAttributes === 'object'
       ? coffeeAttributes.structured_metadata || {}
       : {};
+  const safePreferences = preferences || {};
+  const matchScore = calculateMatch(
+    correctedText || '',
+    safePreferences,
+    structured
+  );
+  const normalizedScore =
+    typeof matchScore === 'number' && Number.isFinite(matchScore) ? matchScore : 50;
+  const verdict = normalizedScore >= 75 ? 'suitable' : 'not_suitable';
+  const confidence = Number((normalizedScore / 100).toFixed(2));
   const origin = coffeeAttributes?.origin ?? structured?.origin;
   const roastLevel =
     coffeeAttributes?.roast_level ?? coffeeAttributes?.roastLevel ?? structured?.roast_level;
@@ -1290,8 +1293,18 @@ router.post('/api/ocr/save', async (req, res) => {
     const isProfileComplete = Boolean(
       preferences?.is_complete ?? preferences?.taste_profile_completed ?? false
     );
+    const structuredMatchMetadata = {
+      origin: normalizedOriginInput ?? structured.origin ?? derivedAttributes.origin,
+      roast_level:
+        normalizedRoastLevelInput ??
+        structured.roast_level ??
+        structured.roastLevel ??
+        derivedAttributes.roast_level,
+      processing: normalizedProcessingInput ?? structured.processing ?? derivedAttributes.processing,
+      varietals: normalizedVarietalsInput ?? structured.varietals ?? derivedAttributes.varietals,
+    };
     const matchPercentage = isProfileComplete
-      ? calculateMatch(corrected_text, preferences)
+      ? calculateMatch(corrected_text, preferences, structuredMatchMetadata)
       : null;
     const isRecommended = matchPercentage !== null ? matchPercentage > 75 : false;
     const coffeeName = extractCoffeeName(corrected_text || original_text);
