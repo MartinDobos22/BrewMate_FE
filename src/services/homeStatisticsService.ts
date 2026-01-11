@@ -179,12 +179,25 @@ export const fetchHomeStatistics = async (): Promise<HomeStatistics> => {
 
     const payload = await response.json();
 
+    const scanCountSource =
+      payload?.scanCount ??
+      payload?.scan_count ??
+      payload?.scans ??
+      payload?.totalScans ??
+      payload?.total_scans;
+
+    const recipeGenerationSource =
+      payload?.recipeGenerationCount ??
+      payload?.recipe_generation_count ??
+      payload?.recipeGenerations ??
+      payload?.recipe_generations;
+
     return {
       monthlyBrewCount: Math.round(coerceNumber(payload?.monthlyBrewCount, 0)),
       topRecipe: sanitizeTopRecipe(payload?.topRecipe),
       topTastingNotes: sanitizeTopTastingNotes(payload?.topTastingNotes),
-      scanCount: Math.round(coerceNumber(payload?.scanCount, 0)),
-      recipeGenerationCount: Math.round(coerceNumber(payload?.recipeGenerationCount, 0)),
+      scanCount: Math.round(coerceNumber(scanCountSource, 0)),
+      recipeGenerationCount: Math.round(coerceNumber(recipeGenerationSource, 0)),
     };
   } catch (error) {
     console.warn('homeStatisticsService: nepodarilo sa načítať štatistiky', error);
