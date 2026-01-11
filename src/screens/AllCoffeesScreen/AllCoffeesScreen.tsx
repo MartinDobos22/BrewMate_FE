@@ -17,6 +17,7 @@ import BottomNav, {
 } from '../../components/navigation/BottomNav';
 import type { NavItem } from '../../components/navigation/BottomNav';
 import type { Coffee } from '../../types/Coffee';
+import { resolveLocalizedLabel } from '../../utils/localization';
 
 type CoffeeLibraryMode = 'all' | 'favorites';
 
@@ -102,8 +103,9 @@ const CoffeeLibraryScreen: React.FC<CoffeeLibraryInternalProps> = ({
   const brandOptions = useMemo(() => {
     const values = new Set<string>();
     coffees.forEach((coffee) => {
-      if (coffee.brand) {
-        values.add(coffee.brand);
+      const normalized = resolveLocalizedLabel(coffee.brand);
+      if (normalized) {
+        values.add(normalized);
       }
     });
     return Array.from(values).sort((a, b) => a.localeCompare(b));
@@ -112,8 +114,9 @@ const CoffeeLibraryScreen: React.FC<CoffeeLibraryInternalProps> = ({
   const processOptions = useMemo(() => {
     const values = new Set<string>();
     coffees.forEach((coffee) => {
-      if (coffee.process) {
-        values.add(coffee.process);
+      const normalized = resolveLocalizedLabel(coffee.process);
+      if (normalized) {
+        values.add(normalized);
       }
     });
     return Array.from(values).sort((a, b) => a.localeCompare(b));
@@ -122,8 +125,9 @@ const CoffeeLibraryScreen: React.FC<CoffeeLibraryInternalProps> = ({
   const varietyOptions = useMemo(() => {
     const values = new Set<string>();
     coffees.forEach((coffee) => {
-      if (coffee.variety) {
-        values.add(coffee.variety);
+      const normalized = resolveLocalizedLabel(coffee.variety);
+      if (normalized) {
+        values.add(normalized);
       }
     });
     return Array.from(values).sort((a, b) => a.localeCompare(b));
@@ -256,16 +260,22 @@ const CoffeeLibraryScreen: React.FC<CoffeeLibraryInternalProps> = ({
                 {coffee.isFavorite ? <Text style={styles.favoriteBadge}>❤️</Text> : null}
               </View>
               {coffee.brand ? (
-                <Text style={baseStyles.coffeeOrigin}>{coffee.brand}</Text>
+                <Text style={baseStyles.coffeeOrigin}>
+                  {resolveLocalizedLabel(coffee.brand)}
+                </Text>
               ) : null}
               {coffee.origin ? (
                 <Text style={baseStyles.coffeeOrigin}>{coffee.origin}</Text>
               ) : null}
               {coffee.process ? (
-                <Text style={baseStyles.coffeeOrigin}>Proces: {coffee.process}</Text>
+                <Text style={baseStyles.coffeeOrigin}>
+                  Proces: {resolveLocalizedLabel(coffee.process)}
+                </Text>
               ) : null}
               {coffee.variety ? (
-                <Text style={baseStyles.coffeeOrigin}>Odroda: {coffee.variety}</Text>
+                <Text style={baseStyles.coffeeOrigin}>
+                  Odroda: {resolveLocalizedLabel(coffee.variety)}
+                </Text>
               ) : null}
               {coffee.flavorNotes && coffee.flavorNotes.length > 0 ? (
                 <Text style={baseStyles.coffeeOrigin}>
@@ -459,21 +469,21 @@ const applyCoffeeFilter = (
 
     if (
       selectedBrand !== ALL_OPTION_VALUE &&
-      (coffee.brand ?? '').toLowerCase() !== selectedBrand.toLowerCase()
+      resolveLocalizedLabel(coffee.brand)?.toLowerCase() !== selectedBrand.toLowerCase()
     ) {
       return false;
     }
 
     if (
       selectedProcess !== ALL_OPTION_VALUE &&
-      (coffee.process ?? '').toLowerCase() !== selectedProcess.toLowerCase()
+      resolveLocalizedLabel(coffee.process)?.toLowerCase() !== selectedProcess.toLowerCase()
     ) {
       return false;
     }
 
     if (
       selectedVariety !== ALL_OPTION_VALUE &&
-      (coffee.variety ?? '').toLowerCase() !== selectedVariety.toLowerCase()
+      resolveLocalizedLabel(coffee.variety)?.toLowerCase() !== selectedVariety.toLowerCase()
     ) {
       return false;
     }
