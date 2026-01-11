@@ -1,4 +1,8 @@
-import { isValidEvaluationResponse, resolveCorrectedText } from '../ocr.js';
+import {
+  formatTasteProfileSummary,
+  isValidEvaluationResponse,
+  resolveCorrectedText,
+} from '../ocr.js';
 
 describe('isValidEvaluationResponse', () => {
   it('accepts a valid evaluation response', () => {
@@ -82,5 +86,23 @@ describe('resolveCorrectedText', () => {
     });
 
     expect(resolved).toBe('Valid fallback text.');
+  });
+});
+
+describe('formatTasteProfileSummary', () => {
+  it('includes intensity and experimentalism for a 6D taste vector', () => {
+    const summary = formatTasteProfileSummary({
+      taste_vector: {
+        sweetness: 6,
+        acidity: 5,
+        bitterness: 4,
+        body: 7,
+        intensity: 8,
+        experimentalism: 3,
+      },
+    });
+
+    expect(summary).toContain('intenzita 8/10');
+    expect(summary).toContain('experimentalnosť 3/10');
   });
 });

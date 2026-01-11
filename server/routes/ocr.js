@@ -113,19 +113,37 @@ const buildDeterministicFallbackResponse = ({ preferences, coffeeAttributes, cor
 
   const formatPreference = (value) =>
     value === null || value === undefined || value === '' ? 'neznáme' : value;
+  const extraPreferenceBits = [];
+  if (safePreferences.intensity !== undefined && safePreferences.intensity !== null) {
+    extraPreferenceBits.push(`intenzita ${formatPreference(safePreferences.intensity)}`);
+  }
+  if (
+    safePreferences.experimentalism !== undefined &&
+    safePreferences.experimentalism !== null
+  ) {
+    extraPreferenceBits.push(
+      `experimentalnosť ${formatPreference(safePreferences.experimentalism)}`
+    );
+  }
+  const extraPreferenceSummary =
+    extraPreferenceBits.length > 0 ? `, ${extraPreferenceBits.join(', ')}` : '';
   const userPreferencesSummary = `Tvoje preferencie: sladkosť ${formatPreference(
     safePreferences.sweetness
   )}, acidita ${formatPreference(safePreferences.acidity)}, horkosť ${formatPreference(
     safePreferences.bitterness
-  )}, telo ${formatPreference(safePreferences.body)}.`;
+  )}, telo ${formatPreference(safePreferences.body)}${extraPreferenceSummary}.`;
+  const extraComparisonSummary =
+    extraPreferenceBits.length > 0
+      ? ` Zohľadnili sme aj ${extraPreferenceBits.join(' a ')}.`
+      : '';
   const comparisonSummary =
     verdict === 'suitable'
       ? `Porovnanie s tvojím profilom: textová zhoda vychádza na ${Math.round(
           normalizedScore
-        )} %, preto kávu hodnotíme ako vhodnú.`
+        )} %, preto kávu hodnotíme ako vhodnú.${extraComparisonSummary}`
       : `Porovnanie s tvojím profilom: textová zhoda vychádza na ${Math.round(
           normalizedScore
-        )} %, preto kávu hodnotíme ako menej vhodnú.`;
+        )} %, preto kávu hodnotíme ako menej vhodnú.${extraComparisonSummary}`;
 
   return {
     status: 'ok',
@@ -303,16 +321,26 @@ const formatTasteProfileSummary = (profile) => {
   if (!vector || typeof vector !== 'object') {
     return null;
   }
-  const { sweetness, acidity, bitterness, body } = vector;
-  const values = [sweetness, acidity, bitterness, body];
+  const { sweetness, acidity, bitterness, body, intensity, experimentalism } = vector;
+  const values = [sweetness, acidity, bitterness, body, intensity, experimentalism];
   if (!values.some((value) => typeof value === 'number' && Number.isFinite(value))) {
     return null;
   }
   const formatValue = (value) =>
     typeof value === 'number' && Number.isFinite(value) ? `${value}/10` : 'neznáme';
-  return `sladkosť ${formatValue(sweetness)}, acidita ${formatValue(
-    acidity
-  )}, horkosť ${formatValue(bitterness)}, telo ${formatValue(body)}`;
+  const summaryBits = [
+    `sladkosť ${formatValue(sweetness)}`,
+    `acidita ${formatValue(acidity)}`,
+    `horkosť ${formatValue(bitterness)}`,
+    `telo ${formatValue(body)}`,
+  ];
+  if (intensity !== undefined && intensity !== null) {
+    summaryBits.push(`intenzita ${formatValue(intensity)}`);
+  }
+  if (experimentalism !== undefined && experimentalism !== null) {
+    summaryBits.push(`experimentalnosť ${formatValue(experimentalism)}`);
+  }
+  return summaryBits.join(', ');
 };
 
 const formatCoffeeAttributesSummary = (attributes) => {
@@ -1534,6 +1562,7 @@ PRAVIDLÁ:
   - user_preferences_summary začína "Tvoje preferencie:" a stručne zhrnie chuťový profil.
   - coffee_profile_summary začína "Profil kávy:" a stručne zhrnie profil kávy.
   - comparison_summary začína "Porovnanie s tvojím profilom:" a jasne porovná oba profily.
+- Ak sú v chuťovom profile dostupné intensity alebo experimentalism, explicitne ich zahrň do user_preferences_summary a comparison_summary.
 - Insight musí byť konzistentný s verdictom (bez protichodných tvrdení).
 - Použi jediný kontrakt: insight objekt s poliami zo schémy (žiadne top-level zoznamy).
 
@@ -1543,6 +1572,8 @@ user_taste_profile: {
   "acidity": ${preferences.acidity},
   "bitterness": ${preferences.bitterness},
   "body": ${preferences.body},
+  "intensity": ${preferences.intensity ?? null},
+  "experimentalism": ${preferences.experimentalism ?? null},
   "flavor_notes": ${JSON.stringify(preferences.flavor_notes ?? [])},
   "milk_preferences": ${JSON.stringify(preferences.milk_preferences || {})},
   "caffeine_sensitivity": ${JSON.stringify(preferences.caffeine_sensitivity ?? null)},
@@ -1889,5 +1920,5 @@ router.post('/api/ocr/purchase', async (req, res) => {
   }
 });
 
-export { isValidEvaluationResponse, resolveCorrectedText };
+export { isValidEvaluationResponse, resolveCorrectedText, formatTasteProfileSummary };
 export default router;
