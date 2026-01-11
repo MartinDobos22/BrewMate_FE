@@ -52,6 +52,10 @@ interface Question {
 }
 
 interface ProfilePayload {
+  /**
+   * BE kontrakt: ai_recommendation je primárne v coffee_preferences.
+   * Legacy fallback: top-level ai_recommendation môže byť ešte prítomné.
+   */
   coffee_preferences?: {
     taste_vector?: TasteVector;
     quiz_answers?: Record<string, string>;
@@ -247,10 +251,12 @@ const CoffeePreferenceForm = ({
         if (data.coffee_preferences?.quiz_answers) {
           setAnswers(data.coffee_preferences.quiz_answers);
         }
+        const storedAiRecommendation =
+          data.coffee_preferences?.ai_recommendation ?? data.ai_recommendation;
         setPreviousProfile({
           quiz_answers: data.coffee_preferences?.quiz_answers,
           taste_vector: normalizedTasteVector,
-          ai_recommendation: data.coffee_preferences?.ai_recommendation,
+          ai_recommendation: storedAiRecommendation,
           consistency_score:
             data.coffee_preferences?.consistency_score ??
             data.coffee_preferences?.ai_confidence,
