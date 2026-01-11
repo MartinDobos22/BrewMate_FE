@@ -32,6 +32,7 @@ import BottomNav from '../../components/navigation/BottomNav';
 import { usePersonalization } from '../../hooks/usePersonalization';
 import TasteProfileRadarCard from './components/TasteProfileRadarCard';
 import {
+  areTasteRadarScoresDefault,
   buildTasteRadarScores,
   normalizeCoffeePreferenceSnapshot,
   CoffeePreferenceSnapshot,
@@ -217,7 +218,7 @@ const HomeScreen: React.FC<HomeScreenProps> = ({
       profile: personalizationProfile ?? null,
       preferences: tastePreferenceSnapshot,
     });
-    setTasteRadarScores(computed);
+    setTasteRadarScores(areTasteRadarScoresDefault(computed) ? null : computed);
   }, [personalizationProfile, tastePreferenceSnapshot]);
 
   /**
