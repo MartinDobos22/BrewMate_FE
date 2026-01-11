@@ -254,6 +254,16 @@ const normalizeOpenAiJson = (value) => {
   return value.replace(/```json\s*/i, '').replace(/```$/i, '').trim();
 };
 
+const resolveCorrectedText = ({ corrected_text, coffee_attributes } = {}) => {
+  const normalizeText = (value) =>
+    typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+  const topLevelText = normalizeText(corrected_text);
+  if (topLevelText) {
+    return topLevelText;
+  }
+  return normalizeText(coffee_attributes?.corrected_text);
+};
+
 const BRANDED_COFFEE_ALLOWLIST = ['Lavazza', 'Illy', 'Segafredo', 'Kimbo', 'Pellini', 'Bazzara'];
 
 const normalizeCoffeeValue = (value) => {
@@ -1327,8 +1337,14 @@ router.post('/api/ocr/evaluate', async (req, res) => {
       taste_profile,
       taste_profile_source,
     } = req.body ?? {};
-    if (!corrected_text) return res.status(400).json({ error: 'Chýba text kávy' });
-    correctedText = corrected_text;
+    const resolvedCorrectedText = resolveCorrectedText({
+      corrected_text,
+      coffee_attributes,
+    });
+    if (!resolvedCorrectedText) {
+      return res.status(400).json({ error: 'Chýba text kávy' });
+    }
+    correctedText = resolvedCorrectedText;
 
     const result = await db.query(
       `SELECT * FROM user_taste_profiles_with_completion WHERE user_id = $1 LIMIT 1`,
@@ -1418,11 +1434,11 @@ router.post('/api/ocr/evaluate', async (req, res) => {
       coffee_attributes && typeof coffee_attributes === 'object'
         ? coffee_attributes
         : {
-            ocr_text: corrected_text,
+            ocr_text: correctedText,
             structured_metadata: structured,
           };
 
-    const derivedAttributes = extractCoffeeAttributesFromText(corrected_text);
+    const derivedAttributes = extractCoffeeAttributesFromText(correctedText);
     // Expected format: snake_case keys (camelCase accepted only as a fallback).
     const normalizedStructured = {
       brand:
@@ -1873,5 +1889,5 @@ router.post('/api/ocr/purchase', async (req, res) => {
   }
 });
 
-export { isValidEvaluationResponse };
+export { isValidEvaluationResponse, resolveCorrectedText };
 export default router;
