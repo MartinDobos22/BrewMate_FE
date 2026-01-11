@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { fetchCoffeeById } from '../../services/homePagesService';
 import type { Coffee } from '../../types/Coffee';
+import { resolveLocalizedLabel } from '../../utils/localization';
 
 /**
  * Screen displaying detailed information about a single scanned coffee.
@@ -73,12 +74,14 @@ const ScannedCoffeeDetailScreen: React.FC<{ coffeeId: string; onBack: () => void
         ← Späť
       </Text>
       <Text style={styles.title}>{coffee.name}</Text>
-      {coffee.brand ? <Text style={styles.subtitle}>{coffee.brand}</Text> : null}
+      {coffee.brand ? (
+        <Text style={styles.subtitle}>{resolveLocalizedLabel(coffee.brand)}</Text>
+      ) : null}
 
       <View style={styles.card}>
         <DetailRow label="Pôvod" value={coffee.origin} />
-        <DetailRow label="Proces" value={coffee.process} />
-        <DetailRow label="Odroda" value={coffee.variety} />
+        <DetailRow label="Proces" value={resolveLocalizedLabel(coffee.process)} />
+        <DetailRow label="Odroda" value={resolveLocalizedLabel(coffee.variety)} />
         <DetailRow label="Praženie" value={coffee.roastLevel} />
         <DetailRow
           label="Intenzita"
