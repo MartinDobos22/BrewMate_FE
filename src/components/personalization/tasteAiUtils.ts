@@ -138,7 +138,7 @@ export const buildFallbackAIResponse = (fallbackVector: TasteVector): TasteAIRes
 });
 
 export const parseTasteAIResponse = (
-  aiResponse: string | undefined,
+  aiResponse: unknown,
   fallbackVector: TasteVector,
 ): { response: TasteAIResponse; warnings: string[] } => {
   const warnings: string[] = [];
@@ -150,7 +150,12 @@ export const parseTasteAIResponse = (
   }
 
   try {
-    const parsed = JSON.parse(aiResponse);
+    const parsed =
+      typeof aiResponse === 'string' ? JSON.parse(aiResponse) : aiResponse;
+    if (!parsed || typeof parsed !== 'object') {
+      warnings.push('AI response JSON parse failed');
+      return { response: fallback, warnings };
+    }
     const recommendation =
       typeof parsed?.ai_recommendation === 'string' && parsed.ai_recommendation.trim()
         ? parsed.ai_recommendation.trim()
@@ -267,7 +272,7 @@ export const callOpenAIJsonSchema = async (
   systemPrompt: string,
   userPrompt: string,
   temperature = 0.2,
-): Promise<string | undefined> => {
+): Promise<string | Record<string, unknown> | undefined> => {
   const token = await auth().currentUser?.getIdToken();
   const response = await fetch(`${API_URL}/profile/taste-profile`, {
     method: 'POST',
@@ -284,8 +289,17 @@ export const callOpenAIJsonSchema = async (
 
   const data = await response.json().catch(() => ({}));
   console.log('📥 [BE] prefs response:', data);
+  const content = data?.content;
+  const contentType = Array.isArray(content) ? 'array' : typeof content;
+  console.log('📥 [BE] prefs content type:', contentType);
   if (!response.ok) {
     throw new Error(data?.error || 'AI request failed');
   }
-  return data?.content?.trim();
+  if (typeof content === 'string') {
+    return content.trim();
+  }
+  if (content && typeof content === 'object') {
+    return content as Record<string, unknown>;
+  }
+  return undefined;
 };

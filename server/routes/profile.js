@@ -425,7 +425,15 @@ router.post('/api/profile/taste-profile', async (req, res) => {
       }
     );
 
-    const content = aiResponse.data?.choices?.[0]?.message?.content?.trim() ?? '';
+    const rawContent = aiResponse.data?.choices?.[0]?.message?.content;
+    let content = '';
+    if (typeof rawContent === 'string') {
+      content = rawContent.trim();
+    } else if (rawContent && typeof rawContent === 'object') {
+      content = JSON.stringify(rawContent);
+    } else if (rawContent !== undefined && rawContent !== null) {
+      content = String(rawContent);
+    }
     return res.json({ content });
   } catch (err) {
     console.error('❌ Chyba AI profilu:', err);
