@@ -1,4 +1,4 @@
-import { isValidEvaluationResponse } from '../ocr.js';
+import { isValidEvaluationResponse, resolveCorrectedText } from '../ocr.js';
 
 describe('isValidEvaluationResponse', () => {
   it('accepts a valid evaluation response', () => {
@@ -71,5 +71,16 @@ describe('isValidEvaluationResponse', () => {
     };
 
     expect(isValidEvaluationResponse(response)).toBe(true);
+  });
+});
+
+describe('resolveCorrectedText', () => {
+  it('falls back to coffee_attributes.corrected_text when top-level is null', () => {
+    const resolved = resolveCorrectedText({
+      corrected_text: null,
+      coffee_attributes: { corrected_text: 'Valid fallback text.' },
+    });
+
+    expect(resolved).toBe('Valid fallback text.');
   });
 });
