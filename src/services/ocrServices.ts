@@ -3,6 +3,7 @@ import auth from '@react-native-firebase/auth';
 import NetInfo from '@react-native-community/netinfo';
 import RNFS from 'react-native-fs';
 import { API_HOST, API_URL } from './api';
+import { preferenceEngine } from './Personalization';
 import type { TasteProfileVector, UserTasteProfile } from '../types/Personalization';
 import { normalizeKeysToSnakeCase } from '../utils/normalize';
 
@@ -407,6 +408,13 @@ const extractTasteProfileTimestamps = (
   return { updatedAt, lastRecalculatedAt };
 };
 
+const needsTasteProfileTimestamps = (
+  profile?: TasteProfileVector | UserTasteProfile | null,
+): boolean => {
+  const { updatedAt, lastRecalculatedAt } = extractTasteProfileTimestamps(profile);
+  return !updatedAt || !lastRecalculatedAt;
+};
+
 const isServerTasteProfile = (
   profile?: TasteProfileVector | UserTasteProfile | null,
 ): boolean => {
@@ -429,6 +437,10 @@ const isServerTasteProfile = (
 
 const mapTasteProfilePayload = (
   profile?: TasteProfileVector | UserTasteProfile | null,
+  options?: {
+    tasteProfileSource?: 'client' | 'server';
+    dbProfile?: UserTasteProfile | null;
+  },
 ): Record<string, unknown> | null => {
   if (!profile) {
     return null;
@@ -448,6 +460,10 @@ const mapTasteProfilePayload = (
       ? { experimentalism: ocrTasteVector.experimentalism }
       : {}),
   };
+  const resolvedTimestamps =
+    options?.tasteProfileSource !== 'client' && options?.dbProfile
+      ? extractTasteProfileTimestamps(options.dbProfile)
+      : extractTasteProfileTimestamps(profile);
 
   if ('preferences' in profile) {
     const flavorNoteEntries = profile.flavorNotes ?? {};
@@ -471,13 +487,16 @@ const mapTasteProfilePayload = (
         last_applied: adjustment.lastApplied,
       })),
       preference_confidence: profile.preferenceConfidence,
-      last_recalculated_at: profile.lastRecalculatedAt,
-      updated_at: profile.updatedAt,
+      last_recalculated_at: resolvedTimestamps.lastRecalculatedAt ?? null,
+      updated_at: resolvedTimestamps.updatedAt ?? null,
     };
   }
 
-  const { updatedAt, lastRecalculatedAt } = extractTasteProfileTimestamps(profile);
-  const hasServerOrigin = isServerTasteProfile(profile);
+  const { updatedAt, lastRecalculatedAt } = resolvedTimestamps;
+  const hasServerOrigin =
+    options?.tasteProfileSource !== undefined
+      ? options.tasteProfileSource !== 'client'
+      : isServerTasteProfile(profile);
   const timestampPayload = hasServerOrigin
     ? {
         updated_at: updatedAt,
@@ -1448,6 +1467,14 @@ export const processOCR = async (
               if (!token) {
                 throw new Error('Nie si prihlásený');
               }
+              const tasteProfileSource =
+                options?.tasteProfile && isServerTasteProfile(options.tasteProfile)
+                  ? 'server'
+                  : 'client';
+              const dbTasteProfile =
+                options?.tasteProfile && needsTasteProfileTimestamps(options.tasteProfile)
+                  ? await preferenceEngine.getProfile()
+                  : null;
               // Contract: `corrected_text` is required at top-level; we also mirror it
               // inside `coffee_attributes` for BE normalization without re-parsing.
               const coffeeAttributes = {
@@ -1467,21 +1494,22 @@ export const processOCR = async (
               };
               const payload: Record<string, unknown> = { ...basePayload };
               if (options?.tasteProfile) {
-                const tasteProfilePayload = mapTasteProfilePayload(options.tasteProfile);
+                const tasteProfilePayload = mapTasteProfilePayload(options.tasteProfile, {
+                  tasteProfileSource,
+                  dbProfile: dbTasteProfile,
+                });
                 if (tasteProfilePayload) {
                   payload.taste_profile = tasteProfilePayload;
                   tasteProfileSent = true;
-                  if (isServerTasteProfile(options.tasteProfile)) {
-                    payload.taste_profile_source = 'server';
-                  } else {
-                    payload.taste_profile_source = 'client';
-                  }
+                  payload.taste_profile_source = tasteProfileSource;
                 }
               }
               // Manual QA: submit the questionnaire flow (TasteProfileVector) and confirm
               // `/ocr/evaluate` receives `taste_profile` with the 4D core plus optional extra dimensions when present.
               // Contract: `taste_profile.taste_vector` values are on a 0–10 scale across FE/BE (no 0–1 normalization).
               // OCR evaluation uses the 4D core (sweetness/acidity/bitterness/body); extra dims are ignored downstream.
+              // Contract: `updated_at`/`last_recalculated_at` timestamps are forwarded as ISO strings
+              // compatible with BE conflict checks when comparing client vs. DB profile freshness.
               const evaluationResult = await loggedFetchWithStatusRetry(
                 `${API_URL}/ocr/evaluate`,
                 {
