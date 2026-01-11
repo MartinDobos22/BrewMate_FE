@@ -1455,6 +1455,7 @@ export const processOCR = async (
               }
               // Manual QA: submit the questionnaire flow (TasteProfileVector) and confirm
               // `/ocr/evaluate` receives `taste_profile` with only taste_vector + sweetness/acidity/bitterness/body.
+              // Contract: `taste_profile.taste_vector` values are on a 0–10 scale across FE/BE (no 0–1 normalization).
               // Extra dimensions (intensity/experimentalism) are intentionally dropped for OCR evaluation.
               const evaluationResult = await loggedFetchWithStatusRetry(
                 `${API_URL}/ocr/evaluate`,
