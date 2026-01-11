@@ -22,6 +22,8 @@ const TASTE_VECTOR_KEYS = [
   'experimentalism',
 ];
 // Keep in sync with FE question IDs (CoffeePreferenceForm.tsx).
+// NOTE: Unknown quiz_version falls back to soft validation to avoid hard errors,
+// so keep FE/BE updates synchronized when adding new questions.
 const QUIZ_ANSWER_KEYS_BY_VERSION = {
   'taste-2024-10': [
     'dealbreaker',
@@ -200,7 +202,7 @@ const validateQuizAnswers = (value, quizVersion) => {
   if (quizVersion && !expectedKeys) {
     console.warn(
       `[profile] Unknown quiz_version "${quizVersion}" for quiz_answers; ` +
-        'falling back to soft validation.'
+        'falling back to soft validation. Ensure FE/BE question sync.'
     );
   }
 
