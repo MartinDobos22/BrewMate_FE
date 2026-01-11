@@ -545,6 +545,7 @@ ${TASTE_AI_SCHEMA_PROMPT}`;
     );
 
     const preferences = {
+      // Ak sa zmenia question IDs, treba zosúladiť QUIZ_ANSWER_KEYS_BY_VERSION na BE.
       quiz_version: 'taste-2024-10',
       quiz_answers: answers,
       // OCR evaluácia použije iba známe dimenzie, extra hodnoty ostanú zachované.
