@@ -90,6 +90,7 @@ interface ScanResult {
   evaluation?: CoffeeEvaluationResult | null;
   tasteProfileSent?: boolean;
   tasteProfileRejectedAsStale?: boolean;
+  evaluationWithoutProfile?: boolean;
 }
 
 type ScanResultLike = ScanResult & { rawStructuredResponse?: unknown };
@@ -237,7 +238,20 @@ const buildComparisonText = (
   profilePreferences: Record<string, unknown> | null | undefined,
   coffeePreferences: Record<string, unknown> | null | undefined,
   isProfileStale: boolean,
+  evaluationWithoutProfile: boolean,
 ): string => {
+  if (evaluationWithoutProfile) {
+    const hasAiText = typeof aiRecommendation === 'string' && aiRecommendation.trim().length > 0;
+    return [
+      'Profil bol pri hodnotení vynechaný, preto sa porovnanie s profilom nezobrazuje.',
+      hasAiText
+        ? `Posledné AI zhrnutie profilu:\n${aiRecommendation.trim()}`
+        : null,
+      'Zo skenu zatiaľ nemáme dostatok údajov na porovnanie.',
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+  }
   const { summary: preferenceSummary, sourceLabel } = buildPreferenceSummary({
     profilePreferences: isProfileStale ? null : profilePreferences,
     preferenceSnapshot,
@@ -2220,6 +2234,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       profile?.preferences ?? null,
       profileCoffeePreferences,
       isProfileStale,
+      Boolean(scanResult?.evaluationWithoutProfile),
     ),
     [
       evaluation,
@@ -2227,6 +2242,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       profile?.preferences,
       profileCoffeePreferences,
       isProfileStale,
+      scanResult?.evaluationWithoutProfile,
     ],
   );
   // Suppress compatibility scoring whenever the AI evaluation is not ready.
