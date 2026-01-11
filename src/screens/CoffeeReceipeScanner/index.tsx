@@ -43,7 +43,7 @@ import {
 } from './services';
 import type { RecipeHistory } from './services';
 import type { StructuredCoffeeMetadata } from '../../services/ocrServices';
-import { BrewContext, UserTasteProfile } from '../../types/Personalization';
+import { BrewContext, TasteProfileVector, UserTasteProfile } from '../../types/Personalization';
 import { usePersonalization } from '../../hooks/usePersonalization';
 import { showToast } from '../../utils/toast';
 
@@ -114,6 +114,44 @@ const buildBrewContext = (metadata?: Record<string, unknown>): BrewContext => {
   }
 
   return context;
+};
+
+const tastePreferenceLabels: Record<keyof TasteProfileVector, string> = {
+  sweetness: 'sladšia',
+  acidity: 'kyslejšia',
+  bitterness: 'horkejšia',
+  body: 'viac telo',
+};
+
+const resolveTastePreferenceFromProfile = (
+  tasteProfile?: UserTasteProfile | null,
+): string | null => {
+  if (!tasteProfile?.preferences) {
+    return null;
+  }
+
+  const entries = Object.entries(tasteProfile.preferences) as [
+    keyof TasteProfileVector,
+    number,
+  ][];
+  const values = entries.map(([, value]) =>
+    Number.isFinite(value) ? value : Number.NEGATIVE_INFINITY
+  );
+  const maxValue = Math.max(...values);
+
+  if (!Number.isFinite(maxValue)) {
+    return null;
+  }
+
+  const topDimensions = entries
+    .filter(([, value]) => value === maxValue)
+    .map(([dimension]) => dimension);
+
+  if (topDimensions.length !== 1) {
+    return 'vyvážená';
+  }
+
+  return tastePreferenceLabels[topDimensions[0]];
 };
 
 
@@ -238,6 +276,10 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     const bounded = Math.round(Math.max(0, Math.min(100, percent)));
     return Number.isNaN(bounded) ? null : bounded;
   }, [nonCoffeeDetails.confidence]);
+  const derivedTastePreference = useMemo(
+    () => resolveTastePreferenceFromProfile(profile),
+    [profile],
+  );
 
   useEffect(() => {
     if (!hasPermission) {
@@ -482,10 +524,16 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
       setOverlayText('Generujem recept...');
       setOverlayVisible(true);
       const tasteProfile = await resolveTasteProfileForRecipe();
+      const fallbackTastePreference =
+        resolveTastePreferenceFromProfile(tasteProfile) ?? derivedTastePreference;
+      const resolvedTastePreference =
+        tastePreference.trim().length > 0
+          ? tastePreference
+          : fallbackTastePreference || 'vyvážená';
       const coffeeAttributes = buildCoffeeAttributes();
       const recipe = await getBrewRecipe(
         selectedMethod,
-        tastePreference || 'vyvážená',
+        resolvedTastePreference,
         {
           tasteProfile,
           coffeeAttributes,
@@ -503,7 +551,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
 
       void saveRecipe(
         selectedMethod,
-        tastePreference || 'vyvážená',
+        resolvedTastePreference,
         recipe
       )
         .then((saved) => {
@@ -536,9 +584,13 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
 
     const fallbackId = `recipe-${Date.now()}`;
     const recordId = scanResult.scanId ?? fallbackId;
+    const resolvedTastePreference =
+      tastePreference.trim().length > 0
+        ? tastePreference
+        : derivedTastePreference || '';
     const notesSegments = [
       selectedMethod ? `Metóda: ${selectedMethod}` : undefined,
-      tastePreference ? `Preferencia: ${tastePreference}` : undefined,
+      resolvedTastePreference ? `Preferencia: ${resolvedTastePreference}` : undefined,
     ].filter((part): part is string => Boolean(part));
     const notes = notesSegments.length > 0 ? notesSegments.join('\n') : undefined;
 
@@ -562,7 +614,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
         scanId: scanResult.scanId,
         brewingMethods: scanResult.brewingMethods ?? [],
         selectedMethod: selectedMethod ?? undefined,
-        tastePreference: tastePreference || undefined,
+        tastePreference: resolvedTastePreference || undefined,
         generatedRecipe: generatedRecipe || undefined,
         correctedText: editedText,
       };
@@ -709,6 +761,7 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
     ],
     []
   );
+  const isTastePreferenceEmpty = tastePreference.trim().length === 0;
   const recognizedLines = useMemo(() => {
     const sourceText =
       editedText || scanResult?.corrected || scanResult?.original || '';
@@ -1081,6 +1134,16 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
                             onChangeText={handleTastePreferenceChange}
                             textAlignVertical="top"
                           />
+                          {isTastePreferenceEmpty && derivedTastePreference ? (
+                            <View style={styles.scanPreferenceDerivedRow}>
+                              <Text style={styles.scanPreferenceDerivedLabel}>
+                                Odvodená preferencia:
+                              </Text>
+                              <Text style={styles.scanPreferenceDerivedValue}>
+                                {derivedTastePreference}
+                              </Text>
+                            </View>
+                          ) : null}
                           <View style={styles.scanSuggestionsRow}>
                             {tasteSuggestions.map((suggestion) => {
                               const isSelected = selectedTasteTags.includes(suggestion);
