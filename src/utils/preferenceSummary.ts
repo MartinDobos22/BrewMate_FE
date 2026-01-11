@@ -3,7 +3,7 @@ import { normalizeVectorValue } from './scanPreferenceComparison';
 type TasteVector = Record<string, unknown>;
 
 type PreferenceSnapshot = {
-  taste_vector?: Record<string, number> | null;
+  taste_vector: Record<string, number> | null;
 } | null;
 
 type PreferenceSummaryInput = {
