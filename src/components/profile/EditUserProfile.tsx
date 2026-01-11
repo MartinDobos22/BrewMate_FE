@@ -16,6 +16,7 @@ import auth from '@react-native-firebase/auth';
 import { getColors, Colors } from '../../theme/colors';
 import { getSafeAreaTop, getSafeAreaBottom, scale } from '../utils/safeArea';
 import { API_URL } from '../../services/api';
+import { normalizeKeysToSnakeCase } from '../../utils/normalize';
 
 
 /**
@@ -51,11 +52,11 @@ const EditUserProfile = ({ onBack }: { onBack: () => void }) => {
         });
 
         if (!res.ok) throw new Error('Nepodarilo sa načítať profil');
-        const data = await res.json();
+        const data = normalizeKeysToSnakeCase(await res.json()) as Record<string, unknown>;
 
-        setName(data.name || '');
-        setBio(data.bio || '');
-        setAvatarUrl(data.avatar_url || '');
+        setName((data.name as string) || '');
+        setBio((data.bio as string) || '');
+        setAvatarUrl((data.avatar_url as string) || '');
       } catch (err) {
         Alert.alert('Chyba', 'Nepodarilo sa načítať profil');
       } finally {
@@ -83,7 +84,13 @@ const EditUserProfile = ({ onBack }: { onBack: () => void }) => {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name, bio, avatar_url: avatarUrl }),
+        body: JSON.stringify(
+          normalizeKeysToSnakeCase({
+            name,
+            bio,
+            avatarUrl,
+          }),
+        ),
       });
 
       if (!res.ok) throw new Error('Nepodarilo sa uložiť profil');

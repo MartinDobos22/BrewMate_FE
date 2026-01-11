@@ -17,6 +17,7 @@ import { getColors, Colors } from '../../theme/colors';
 import { getSafeAreaTop, getSafeAreaBottom, scale, verticalScale } from '../utils/safeArea';
 import { AIResponseDisplay } from './AIResponseDisplay';
 import { API_URL } from '../../services/api';
+import { normalizeKeysToSnakeCase, normalizeProfileResponse } from '../../utils/normalize';
 import {
   DEFAULT_TASTE_VECTOR,
   buildFallbackAIResponse,
@@ -70,8 +71,11 @@ const EditPreferences = ({ onBack }: { onBack: () => void }) => {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error('Nepodarilo sa načítať profil');
-        const data = await res.json();
+        const data = normalizeProfileResponse(await res.json()) as ProfileData | null;
         console.log('📥 [BE] Profile:', data);
+        if (!data) {
+          throw new Error('Invalid profile response');
+        }
         setProfile(data);
         setCurrentRecommendation(data.ai_recommendation || '');
         setUserNotes('');
@@ -207,10 +211,12 @@ ${TASTE_AI_SCHEMA_PROMPT}`;
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ai_recommendation: newRecommendation,
-          manual_input: updatedManualInput,
-        }),
+        body: JSON.stringify(
+          normalizeKeysToSnakeCase({
+            ai_recommendation: newRecommendation,
+            manual_input: updatedManualInput,
+          }),
+        ),
       });
 
       if (!res.ok) throw new Error('Uloženie zlyhalo');
@@ -249,10 +255,12 @@ ${TASTE_AI_SCHEMA_PROMPT}`;
                   Authorization: `Bearer ${token}`,
                   'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                  ai_recommendation: newRecommendation,
-                  manual_input: null,
-                }),
+                body: JSON.stringify(
+                  normalizeKeysToSnakeCase({
+                    ai_recommendation: newRecommendation,
+                    manual_input: null,
+                  }),
+                ),
               });
 
               if (!res.ok) throw new Error('Reset zlyhal');
