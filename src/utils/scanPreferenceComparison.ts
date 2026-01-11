@@ -267,10 +267,35 @@ const fillFromVerdictExplanation = (
   }
 };
 
+const hasCoffeeProfileSignals = (evaluation: CoffeeEvaluationResult | null | undefined): boolean => {
+  if (!evaluation || typeof evaluation.verdict_explanation !== 'object') {
+    return false;
+  }
+  const coffeeSummary = evaluation.verdict_explanation.coffee_profile_summary;
+  if (typeof coffeeSummary !== 'string' || !coffeeSummary.trim()) {
+    return false;
+  }
+  const lower = coffeeSummary.toLowerCase();
+  return [
+    'pôvod',
+    'povod',
+    'pražen',
+    'prazen',
+    'spracovan',
+    'odrod',
+    'varietal',
+    'tóny',
+    'tony',
+    'chuť',
+    'chut',
+  ].some((keyword) => lower.includes(keyword));
+};
+
 const buildDimensionLine = (
   config: DimensionConfig,
   preferenceLevel: TasteLevel | null,
   coffeeLevel: TasteLevel | null,
+  hasCoffeeSignals: boolean,
 ): string | null => {
   if (!preferenceLevel && !coffeeLevel) {
     return null;
@@ -287,7 +312,9 @@ const buildDimensionLine = (
     return `Profil preferuje ${preferenceAdj} ${config.noun}, káva má ${coffeeAdj} → ${MATCH_LABELS[match]}.`;
   }
   if (preferenceAdj) {
-    return `Profil preferuje ${preferenceAdj} ${config.noun}, no profil kávy je nejasný.`;
+    return hasCoffeeSignals
+      ? `Profil preferuje ${preferenceAdj} ${config.noun}, no profil kávy je dostupný čiastočne.`
+      : `Profil preferuje ${preferenceAdj} ${config.noun}, no profil kávy je nejasný.`;
   }
   if (coffeeAdj) {
     return `Káva má ${coffeeAdj} ${config.noun}, no preferencia nie je známa.`;
@@ -310,6 +337,7 @@ export const buildScanPreferenceComparison = (
 
   const reasonLevelMap = buildReasonLevelMap(evaluation);
   fillFromVerdictExplanation(evaluation, reasonLevelMap);
+  const hasCoffeeSignals = hasCoffeeProfileSignals(evaluation);
 
   const dimensions = DIMENSIONS.map(config => {
     const rawPreferenceValue = normalizedTasteVector?.[config.key] ?? null;
@@ -317,7 +345,7 @@ export const buildScanPreferenceComparison = (
       ? scoreToLevel(rawPreferenceValue)
       : reasonLevelMap[config.key].preferenceLevel;
     const coffeeLevel = reasonLevelMap[config.key].coffeeLevel;
-    const line = buildDimensionLine(config, preferenceLevel, coffeeLevel);
+    const line = buildDimensionLine(config, preferenceLevel, coffeeLevel, hasCoffeeSignals);
     const match = preferenceLevel && coffeeLevel
       ? preferenceLevel === coffeeLevel
         ? 'match'
