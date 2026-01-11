@@ -493,19 +493,10 @@ const mapTasteProfilePayload = (
   }
 
   const { updatedAt, lastRecalculatedAt } = resolvedTimestamps;
-  const hasServerOrigin =
-    options?.tasteProfileSource !== undefined
-      ? options.tasteProfileSource !== 'client'
-      : isServerTasteProfile(profile);
-  const timestampPayload = hasServerOrigin
-    ? {
-        updated_at: updatedAt,
-        last_recalculated_at: lastRecalculatedAt,
-      }
-    : {
-        ...(updatedAt ? { updated_at: updatedAt } : {}),
-        ...(lastRecalculatedAt ? { last_recalculated_at: lastRecalculatedAt } : {}),
-      };
+  const timestampPayload = {
+    updated_at: updatedAt ?? null,
+    last_recalculated_at: lastRecalculatedAt ?? null,
+  };
   return {
     taste_vector: ocrTasteVector,
     sweetness: ocrTasteVector.sweetness,
