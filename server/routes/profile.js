@@ -137,6 +137,27 @@ const hasQuizAnswers = (quizAnswers) => {
   return Object.keys(quizAnswers).length > 0;
 };
 
+const resolveTasteVector = (value) => {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  if (isPlainObject(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return isPlainObject(parsed) ? parsed : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  return null;
+};
+
 /**
  * Validate and clamp a taste vector payload.
  *
@@ -261,6 +282,10 @@ const serializeTasteProfile = (taste) => {
     };
   }
 
+  const resolvedTasteVector =
+    resolveTasteVector(taste.taste_vector) ??
+    resolveTasteVector(taste.ai_raw_response?.taste_vector);
+
   // coffee_preferences je jediný zdroj pravdy pre chuťový profil.
   const coffeePreferences = {
     sweetness: Number(taste.sweetness),
@@ -277,7 +302,7 @@ const serializeTasteProfile = (taste) => {
     quiz_version: taste.quiz_version ?? null,
     quiz_answers: taste.quiz_answers ?? {},
     consistency_score: taste.consistency_score ?? null,
-    taste_vector: taste.taste_vector ?? null,
+    taste_vector: resolvedTasteVector,
     ai_recommendation: taste.ai_recommendation ?? null,
     manual_input: taste.manual_input ?? null,
     is_complete: taste.is_complete ?? false,
