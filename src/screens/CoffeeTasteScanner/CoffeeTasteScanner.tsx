@@ -2229,8 +2229,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       isProfileStale,
     ],
   );
-  // Suppress compatibility scoring whenever the AI evaluation is not ready.
-  const shouldSuppressCompatibility = evaluationStatus !== 'ok';
+  // Suppress compatibility scoring whenever the AI verdict is available.
+  const shouldSuppressCompatibility = evaluationStatus === 'ok' || Boolean(evaluation?.verdict);
   const neutralVerdictCopy = 'Čakáme na AI hodnotenie';
   const didSendTasteProfile = Boolean(scanResult?.tasteProfileSent);
   const isProfileMissing = evaluationStatus === 'profile_missing' && !didSendTasteProfile;
@@ -2368,7 +2368,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   }, [recognizedText, structuredFields.roastLevel.value]);
 
   const compatibility = useMemo(() => {
-    // Skip compatibility scoring when the backend signals a non-ok status.
+    // Skip compatibility scoring once the AI verdict is available.
     if (!scanResult || shouldSuppressCompatibility) {
       return null;
     }
@@ -2481,6 +2481,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   }, [compatibility?.bucket, evaluation, evaluationStatus]);
   const hasExplicitMatchPercentage =
     typeof scanResult?.matchPercentage === 'number';
+  const shouldHideCompatibilityUI = evaluationStatus === 'ok' || Boolean(evaluation?.verdict);
   const matchLabel = compatibility
     ? hasExplicitMatchPercentage
       ? `${compatibility.score}%`
@@ -2488,7 +2489,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     : scanResult
       ? isProfileMissing
         ? undefined
-        : shouldSuppressCompatibility
+        : shouldHideCompatibilityUI
           ? undefined
         : scanResult.isRecommended === false
           ? 'Mimo preferencií'
@@ -3278,7 +3279,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                             </View>
                           ))}
                         </View>
-                        {compatibility ? (
+                        {compatibility && !shouldHideCompatibilityUI ? (
                           <View
                             style={[
                               styles.compatibilityBanner,
