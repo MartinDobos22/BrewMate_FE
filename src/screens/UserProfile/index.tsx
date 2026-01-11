@@ -27,7 +27,7 @@ import {
 import type { TrackingPreferences, TasteProfileVector } from '../../types/Personalization';
 import { palette, styles } from './styles';
 import { API_URL } from '../../services/api';
-import { buildTasteRadarScores, normalizeCoffeePreferenceSnapshot } from '../../utils/tasteProfile';
+import { areTasteRadarScoresDefault, buildTasteRadarScores, normalizeCoffeePreferenceSnapshot } from '../../utils/tasteProfile';
 
 const PRIMARY_GRADIENT = [palette.espresso, palette.medium];
 
@@ -466,6 +466,7 @@ const UserProfile = ({
       () => buildTasteRadarScores({ profile: personalizationProfile, preferences: normalizedPreferences }),
       [normalizedPreferences, personalizationProfile],
     );
+    const hasRadarScores = radarScores && !areTasteRadarScoresDefault(radarScores);
 
     return (
       <>
@@ -482,7 +483,7 @@ const UserProfile = ({
             <Text style={styles.levelBadgeText}>{levelLabel}</Text>
           </LinearGradient>
 
-          {radarScores ? (
+          {hasRadarScores ? (
             <View style={styles.tasteCard}>
               <Text style={styles.tasteTitle}>Chuťový profil</Text>
               <View style={styles.radarWrapper}>

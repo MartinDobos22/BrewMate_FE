@@ -14,6 +14,10 @@ export interface CoffeePreferenceSnapshot {
   tasteVector?: TasteProfileVector | null;
 }
 
+export type TasteRadarAxisKey = 'acidity' | 'sweetness' | 'body' | 'bitterness' | 'aroma' | 'fruitiness';
+
+export type TasteRadarDefaults = Partial<Record<TasteRadarAxisKey, boolean>>;
+
 export interface TasteRadarScores {
   acidity: number;
   sweetness: number;
@@ -21,6 +25,7 @@ export interface TasteRadarScores {
   bitterness: number;
   aroma: number;
   fruitiness: number;
+  defaults?: TasteRadarDefaults;
 }
 
 interface TasteRadarSources {
@@ -471,9 +476,12 @@ function mergeFruitiness(existing: number, incoming: number | null, notes: strin
   return clamp(existing);
 }
 
-function applyFruitFlavorAdjustments(base: TasteRadarScores, notes: string[]): void {
+function applyFruitFlavorAdjustments(
+  base: TasteRadarScores,
+  notes: string[],
+): { acidityAdjusted: boolean; sweetnessAdjusted: boolean } {
   if (!notes.length) {
-    return;
+    return { acidityAdjusted: false, sweetnessAdjusted: false };
   }
 
   const normalizedNotes = Array.from(new Set(notes.map(note => note.toLowerCase())));
@@ -490,6 +498,7 @@ function applyFruitFlavorAdjustments(base: TasteRadarScores, notes: string[]): v
   if (hasFruitSweetness) {
     base.sweetness = clamp(base.sweetness + 0.3);
   }
+  return { acidityAdjusted: hasCitrusBerry || hasFruitHeavy, sweetnessAdjusted: hasFruitSweetness };
 }
 
 /**
@@ -505,9 +514,15 @@ export function buildTasteRadarScores({ profile, preferences }: TasteRadarSource
     return null;
   }
 
-  if (isDefaultProfile(profile) && !hasMeaningfulPreferences(preferences ?? null)) {
-    return null;
-  }
+  const profileIsDefault = isDefaultProfile(profile);
+  const defaults: TasteRadarDefaults = {
+    acidity: true,
+    sweetness: true,
+    body: true,
+    bitterness: true,
+    aroma: true,
+    fruitiness: true,
+  };
 
   const base: TasteRadarScores = {
     acidity: DEFAULT_SCORE,
@@ -519,19 +534,37 @@ export function buildTasteRadarScores({ profile, preferences }: TasteRadarSource
   };
 
   if (profile) {
-    base.acidity = safeNumber(profile.preferences?.acidity, DEFAULT_SCORE);
-    base.sweetness = safeNumber(profile.preferences?.sweetness, DEFAULT_SCORE);
-    base.body = safeNumber(profile.preferences?.body, DEFAULT_SCORE);
-    base.bitterness = safeNumber(profile.preferences?.bitterness, DEFAULT_SCORE);
+    const acidityValue = profile.preferences?.acidity;
+    if (Number.isFinite(Number(acidityValue))) {
+      base.acidity = safeNumber(acidityValue, DEFAULT_SCORE);
+      defaults.acidity = profileIsDefault ? defaults.acidity : false;
+    }
+    const sweetnessValue = profile.preferences?.sweetness;
+    if (Number.isFinite(Number(sweetnessValue))) {
+      base.sweetness = safeNumber(sweetnessValue, DEFAULT_SCORE);
+      defaults.sweetness = profileIsDefault ? defaults.sweetness : false;
+    }
+    const bodyValue = profile.preferences?.body;
+    if (Number.isFinite(Number(bodyValue))) {
+      base.body = safeNumber(bodyValue, DEFAULT_SCORE);
+      defaults.body = profileIsDefault ? defaults.body : false;
+    }
+    const bitternessValue = profile.preferences?.bitterness;
+    if (Number.isFinite(Number(bitternessValue))) {
+      base.bitterness = safeNumber(bitternessValue, DEFAULT_SCORE);
+      defaults.bitterness = profileIsDefault ? defaults.bitterness : false;
+    }
 
     const flavorValues = profile.flavorNotes ? Object.values(profile.flavorNotes).map(value => safeNumber(value, DEFAULT_SCORE)) : [];
     if (flavorValues.length > 0) {
       const average = flavorValues.reduce((sum, value) => sum + value, 0) / flavorValues.length;
       base.aroma = clamp(Number(average.toFixed(1)));
+      defaults.aroma = profileIsDefault ? defaults.aroma : false;
     }
     const fruitVector = profile.flavorNotes?.fruity;
     if (typeof fruitVector === 'number') {
       base.fruitiness = clamp(Number(fruitVector.toFixed(1)));
+      defaults.fruitiness = profileIsDefault ? defaults.fruitiness : false;
     }
   }
 
@@ -550,43 +583,93 @@ export function buildTasteRadarScores({ profile, preferences }: TasteRadarSource
       base.acidity = blend(base.acidity, normalizedVector.acidity, 0.6);
       base.body = blend(base.body, normalizedVector.body, 0.6);
       base.bitterness = blend(base.bitterness, normalizedVector.bitterness, 0.6);
+      if (Number.isFinite(Number(preferences.tasteVector.sweetness))) {
+        defaults.sweetness = false;
+      }
+      if (Number.isFinite(Number(preferences.tasteVector.acidity))) {
+        defaults.acidity = false;
+      }
+      if (Number.isFinite(Number(preferences.tasteVector.body))) {
+        defaults.body = false;
+      }
+      if (Number.isFinite(Number(preferences.tasteVector.bitterness))) {
+        defaults.bitterness = false;
+      }
     }
 
     const sweetnessScore = mapSweetness(preferences.sugar);
-    base.sweetness = sweetnessScore === null ? base.sweetness : blend(base.sweetness, sweetnessScore, 1);
+    if (sweetnessScore !== null) {
+      base.sweetness = blend(base.sweetness, sweetnessScore, 1);
+      defaults.sweetness = false;
+    }
 
     const acidityScore = mapAcidity(preferences);
-    base.acidity = acidityScore === null ? base.acidity : blend(base.acidity, acidityScore, 1);
+    if (acidityScore !== null) {
+      base.acidity = blend(base.acidity, acidityScore, 1);
+      defaults.acidity = false;
+    }
 
     const bodyScore = mapBody(preferences);
-    base.body = bodyScore === null ? base.body : blend(base.body, bodyScore, 1);
+    if (bodyScore !== null) {
+      base.body = blend(base.body, bodyScore, 1);
+      defaults.body = false;
+    }
 
     const bitternessScore = mapBitterness(preferences);
-    base.bitterness = bitternessScore === null ? base.bitterness : blend(base.bitterness, bitternessScore, 1.5);
+    if (bitternessScore !== null) {
+      base.bitterness = blend(base.bitterness, bitternessScore, 1.5);
+      defaults.bitterness = false;
+    }
 
     const { aroma, fruitiness } = evaluateFlavorNotes(preferences.flavorNotes);
-    base.aroma = aroma === null ? blend(base.aroma, clamp(DEFAULT_SCORE + preferences.flavorNotes.length * 0.6)) : blend(base.aroma, aroma, 1.5);
-    base.fruitiness = mergeFruitiness(base.fruitiness, fruitiness, preferences.flavorNotes);
-    applyFruitFlavorAdjustments(base, preferences.flavorNotes);
+    if (aroma === null && preferences.flavorNotes.length > 0) {
+      base.aroma = blend(base.aroma, clamp(DEFAULT_SCORE + preferences.flavorNotes.length * 0.6));
+      defaults.aroma = false;
+    } else if (aroma !== null) {
+      base.aroma = blend(base.aroma, aroma, 1.5);
+      defaults.aroma = false;
+    }
+    const mergedFruitiness = mergeFruitiness(base.fruitiness, fruitiness, preferences.flavorNotes);
+    if (mergedFruitiness !== base.fruitiness || preferences.flavorNotes.length > 0) {
+      base.fruitiness = mergedFruitiness;
+      defaults.fruitiness = false;
+    } else {
+      base.fruitiness = mergedFruitiness;
+    }
+    const fruitAdjustments = applyFruitFlavorAdjustments(base, preferences.flavorNotes);
+    if (fruitAdjustments.acidityAdjusted) {
+      defaults.acidity = false;
+    }
+    if (fruitAdjustments.sweetnessAdjusted) {
+      defaults.sweetness = false;
+    }
 
     if (preferences.preferredDrinks.includes('espresso') || preferences.preferredDrinks.includes('ristretto')) {
       base.body = blend(base.body, clamp(base.body + 1.2));
       base.bitterness = blend(base.bitterness, clamp(base.bitterness + 0.8));
+      defaults.body = false;
+      defaults.bitterness = false;
     }
 
     if (preferences.preferredDrinks.includes('latte') || preferences.preferredDrinks.includes('flatwhite')) {
       base.body = blend(base.body, clamp(base.body - 0.6));
       base.sweetness = blend(base.sweetness, clamp(base.sweetness + 0.5));
+      defaults.body = false;
+      defaults.sweetness = false;
     }
 
     if (preferences.milk === true) {
       base.bitterness = blend(base.bitterness, clamp(base.bitterness - 0.6));
       base.body = blend(base.body, clamp(base.body + 0.4));
+      defaults.bitterness = false;
+      defaults.body = false;
     }
 
     if (preferences.temperature === 'iced') {
       base.acidity = blend(base.acidity, clamp(base.acidity - 0.5));
       base.sweetness = blend(base.sweetness, clamp(base.sweetness + 0.3));
+      defaults.acidity = false;
+      defaults.sweetness = false;
     }
   }
 
@@ -597,5 +680,15 @@ export function buildTasteRadarScores({ profile, preferences }: TasteRadarSource
     bitterness: clamp(Number(base.bitterness.toFixed(1))),
     aroma: clamp(Number(base.aroma.toFixed(1))),
     fruitiness: clamp(Number(base.fruitiness.toFixed(1))),
+    defaults,
   };
+}
+
+export function areTasteRadarScoresDefault(scores: TasteRadarScores | null): boolean {
+  if (!scores?.defaults) {
+    return false;
+  }
+  return (['acidity', 'sweetness', 'body', 'bitterness', 'aroma', 'fruitiness'] as TasteRadarAxisKey[]).every(
+    key => scores.defaults?.[key] !== false,
+  );
 }

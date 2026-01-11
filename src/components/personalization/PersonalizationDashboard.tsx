@@ -1,8 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { TasteQuizResult } from '../../types/PersonalizationAI';
 import { UserTasteProfile } from '../../types/Personalization';
 import { usePersonalization } from '../../hooks/usePersonalization';
+import { buildTasteRadarScores } from '../../utils/tasteProfile';
 
 interface PersonalizationDashboardProps {
   quizResult?: TasteQuizResult;
@@ -34,6 +35,16 @@ export const PersonalizationDashboard: React.FC<PersonalizationDashboardProps> =
   profile,
 }) => {
   const { insights, refreshInsights, ready } = usePersonalization();
+  const tasteScores = useMemo(() => (profile ? buildTasteRadarScores({ profile }) : null), [profile]);
+  const resolveScoreLabel = (key: 'sweetness' | 'acidity' | 'bitterness' | 'body') => {
+    if (!tasteScores) {
+      return 'Odhad';
+    }
+    if (tasteScores.defaults?.[key]) {
+      return 'Odhad';
+    }
+    return `${tasteScores[key].toFixed(1)}/10`;
+  };
 
   useEffect(() => {
     if (!refreshInsights || !ready) {
@@ -55,19 +66,19 @@ export const PersonalizationDashboard: React.FC<PersonalizationDashboardProps> =
           <Text style={styles.sectionTitle}>Tvoj chuťový profil</Text>
           <View style={styles.profileRow}>
             <Text style={styles.profileLabel}>Sladkosť</Text>
-            <Text style={styles.profileValue}>{profile.preferences.sweetness.toFixed(1)}/10</Text>
+            <Text style={styles.profileValue}>{resolveScoreLabel('sweetness')}</Text>
           </View>
           <View style={styles.profileRow}>
             <Text style={styles.profileLabel}>Kyslosť</Text>
-            <Text style={styles.profileValue}>{profile.preferences.acidity.toFixed(1)}/10</Text>
+            <Text style={styles.profileValue}>{resolveScoreLabel('acidity')}</Text>
           </View>
           <View style={styles.profileRow}>
             <Text style={styles.profileLabel}>Horkosť</Text>
-            <Text style={styles.profileValue}>{profile.preferences.bitterness.toFixed(1)}/10</Text>
+            <Text style={styles.profileValue}>{resolveScoreLabel('bitterness')}</Text>
           </View>
           <View style={styles.profileRow}>
             <Text style={styles.profileLabel}>Telo</Text>
-            <Text style={styles.profileValue}>{profile.preferences.body.toFixed(1)}/10</Text>
+            <Text style={styles.profileValue}>{resolveScoreLabel('body')}</Text>
           </View>
           <View style={styles.profileMeta}>
             <Text style={styles.profileMetaText}>Preferovaná sila: {profile.preferredStrength}</Text>
