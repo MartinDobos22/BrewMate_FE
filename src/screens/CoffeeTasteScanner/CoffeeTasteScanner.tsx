@@ -3637,20 +3637,11 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                           ))}
                         </View>
                         <View style={styles.flavorTagsRow}>
-                          {flavorTags.map(tag => {
-                            const isPlaceholder = tag === 'N/A';
-                            return (
-                              <TouchableOpacity
-                                key={tag}
-                                style={styles.flavorTag}
-                                onPress={() => handleFlavorPress(tag)}
-                                activeOpacity={0.85}
-                                disabled={isPlaceholder}
-                              >
-                                <Text style={styles.flavorTagText}>{tag}</Text>
-                              </TouchableOpacity>
-                            );
-                          })}
+                          {flavorTags.map(tag => (
+                            <View key={tag} style={styles.flavorTag}>
+                              <Text style={styles.flavorTagText}>{tag}</Text>
+                            </View>
+                          ))}
                         </View>
                       </View>
 
