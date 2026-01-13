@@ -493,14 +493,6 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
 
         // Načítaj aktualizovanú históriu
         await loadHistory();
-
-        // Zobraz výsledok
-        Alert.alert(
-          '✅ Skenovanie dokončené',
-          result.recommendation ||
-            'Skontroluj výsledok nižšie.',
-          [{ text: 'OK', style: 'default' }],
-        );
       }
     } catch (error) {
       console.error('Error processing image:', error);
