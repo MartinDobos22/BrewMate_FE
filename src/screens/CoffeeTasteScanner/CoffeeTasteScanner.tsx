@@ -236,27 +236,46 @@ const buildComparisonText = (
   coffeePreferences: Record<string, unknown> | null | undefined,
   isProfileStale: boolean,
 ): string => {
+  const truncateText = (value: string, maxLength: number): string => {
+    const trimmed = value.trim();
+    if (trimmed.length <= maxLength) {
+      return trimmed;
+    }
+    return `${trimmed.slice(0, maxLength).trimEnd()}…`;
+  };
+
+  const firstSentence = (value: string, maxLength = 160): string => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return '';
+    }
+    const match = trimmed.match(/[^.!?\n]+[.!?]?/);
+    const sentence = match ? match[0] : trimmed;
+    return truncateText(sentence, maxLength);
+  };
+
   const { summary: preferenceSummary, sourceLabel } = buildPreferenceSummary({
     profilePreferences: isProfileStale ? null : profilePreferences,
     preferenceSnapshot,
     coffeePreferences,
     isProfileStale,
   });
-  const formSection = preferenceSummary
-    ? `Aktuálny profil (${sourceLabel}):\n${preferenceSummary}`
+  const profileSentence = preferenceSummary
+    ? `Profil (${sourceLabel}): ${preferenceSummary}.`
     : isProfileStale
       ? 'Profil je zastaraný.'
-      : 'Aktuálny profil (dotazník): zatiaľ nemáme uložené hodnoty.';
+      : 'Profil ešte nemá uložené hodnoty.';
 
   const hasAiText = typeof aiRecommendation === 'string' && aiRecommendation.trim().length > 0;
-  const aiSection = hasAiText
-    ? `Posledné AI zhrnutie profilu:\n${aiRecommendation.trim()}`
-    : null;
+  const aiSummary = hasAiText ? firstSentence(aiRecommendation) : '';
 
   if (!evaluation) {
-    return [formSection, aiSection, 'Zo skenu zatiaľ nemáme dostatok údajov na porovnanie.']
-      .filter(Boolean)
-      .join('\n\n');
+    const sentences = [
+      profileSentence,
+      aiSummary ? `AI profil: ${aiSummary}.` : null,
+      'Zo skenu zatiaľ nemáme dostatok údajov na porovnanie.',
+    ].filter(Boolean);
+    return sentences.join(' ');
   }
 
   const comparison = buildScanPreferenceComparison({
@@ -297,25 +316,23 @@ const buildComparisonText = (
     insightHeadline && insightHeadline !== verdictExplanationText ? `• ${insightHeadline}` : null,
   ].filter((line): line is string => Boolean(line));
 
-  const scanSection = scanLines.length
-    ? `Zo skenu vyplýva:\n${scanLines.join('\n')}`
-    : 'Zo skenu zatiaľ nemáme dostatok údajov na porovnanie.';
+  const scanSummary = firstSentence(
+    verdictExplanationText || comparisonSummary || 'Zo skenu zatiaľ nemáme dostatok údajov.',
+  );
+  const sentences = [profileSentence, `Zo skenu: ${scanSummary}.`];
 
-  const dimensionSection = dimensionLines.length
-    ? `Porovnanie po dimenziách:\n${dimensionLines.map(line => `• ${line}`).join('\n')}`
-    : null;
+  const bulletCandidates = [
+    aiSummary ? `AI profil: ${aiSummary}` : null,
+    ...scanLines,
+    ...dimensionLines,
+    ...comparison.reasons,
+  ].filter((line): line is string => Boolean(line));
+  const bullets = bulletCandidates
+    .map(line => line.replace(/^•\s*/, ''))
+    .filter((line, index, array) => array.indexOf(line) === index)
+    .slice(0, 3);
 
-  const reasonSection = comparison.reasons.length
-    ? `Argumenty od AI:\n${comparison.reasons.map(reason => `• ${reason}`).join('\n')}`
-    : null;
-
-  const comparisonSection = comparisonSummary
-    ? `Rozdiely/zhoda:\n${comparisonSummary}`
-    : null;
-
-  return [formSection, aiSection, scanSection, dimensionSection, reasonSection, comparisonSection]
-    .filter(Boolean)
-    .join('\n\n');
+  return bullets.length ? `${sentences.join(' ')}\n${bullets.map(line => `• ${line}`).join('\n')}` : sentences.join(' ');
 };
 
 const WELCOME_GRADIENT = ['#FF9966', '#A86B8C'];
