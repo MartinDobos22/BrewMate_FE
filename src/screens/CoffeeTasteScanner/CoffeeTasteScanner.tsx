@@ -521,6 +521,8 @@ const resolveConfidenceEntry = (
   key: StructuredFieldKey,
   fallbackFlag?: boolean | null,
 ): { confidence: number | null; warning: string | null } => {
+  const booleanConfidenceEstimate = 0.8;
+  const lowConfidenceThreshold = 0.85;
   const aliases = STRUCTURED_CONFIDENCE_KEYS[key] ?? [key];
   let confidence: number | null = null;
   let warning: string | null = null;
@@ -531,7 +533,7 @@ const resolveConfidenceEntry = (
       return;
     }
     if (typeof entry === 'boolean') {
-      confidence = entry ? 1 : 0;
+      confidence = entry ? booleanConfidenceEstimate : null;
       return;
     }
     if (typeof entry === 'string') {
@@ -572,7 +574,14 @@ const resolveConfidenceEntry = (
   }
 
   if (confidence == null && typeof fallbackFlag === 'boolean') {
-    confidence = fallbackFlag ? 1 : 0;
+    confidence = fallbackFlag ? booleanConfidenceEstimate : null;
+  }
+
+  if (confidence != null) {
+    const normalized = confidence > 1 ? confidence / 100 : confidence;
+    if (normalized < lowConfidenceThreshold && warning == null) {
+      warning = 'AI si nie je isté';
+    }
   }
 
   return { confidence, warning };
