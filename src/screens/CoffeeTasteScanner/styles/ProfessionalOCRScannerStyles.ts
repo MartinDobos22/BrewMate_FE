@@ -496,15 +496,6 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       color: palette.textSecondary,
       lineHeight: 18,
     },
-    profileMissingCard: {
-      backgroundColor: palette.surface,
-      borderRadius: 24,
-      padding: 20,
-      borderWidth: 1,
-      borderColor: 'rgba(255,154,118,0.35)',
-      marginBottom: 16,
-      ...baseShadow,
-    },
     profileMissingTitle: {
       fontSize: 18,
       fontWeight: '800',
@@ -528,15 +519,6 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       fontSize: 14,
       fontWeight: '700',
       color: palette.surface,
-    },
-    verdictCard: {
-      backgroundColor: palette.surface,
-      borderRadius: 24,
-      padding: 20,
-      borderWidth: 1,
-      borderColor: palette.borderLight,
-      marginBottom: 16,
-      ...baseShadow,
     },
     lowDataCard: {
       marginTop: 14,
@@ -686,6 +668,12 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       fontWeight: '600',
       color: palette.textTertiary,
       marginBottom: 6,
+    },
+    aiSummarySection: {
+      marginTop: 16,
+      paddingTop: 16,
+      borderTopWidth: 1,
+      borderTopColor: palette.borderLight,
     },
     sectionSubtitle: {
       fontSize: 12,
@@ -923,43 +911,6 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       fontSize: 13,
       fontWeight: '600',
       color: palette.textSecondary,
-    },
-    insightCard: {
-      borderRadius: 24,
-      padding: 22,
-      marginBottom: 16,
-      overflow: 'hidden',
-      ...baseShadow,
-    },
-    insightHeaderRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 12,
-      columnGap: 12,
-    },
-    insightIconWrapper: {
-      width: 36,
-      height: 36,
-      borderRadius: 12,
-      backgroundColor: 'rgba(255,255,255,0.18)',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    insightIcon: {
-      fontSize: 18,
-      color: '#FFFFFF',
-    },
-    insightTitle: {
-      fontSize: 13,
-      fontWeight: '800',
-      color: '#FFFFFF',
-      letterSpacing: 0.8,
-      textTransform: 'uppercase',
-    },
-    insightText: {
-      fontSize: 15,
-      color: '#FFFFFF',
-      lineHeight: 22,
     },
     structuredCard: {
       backgroundColor: palette.surface,

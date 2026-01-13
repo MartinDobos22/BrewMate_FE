@@ -3190,119 +3190,173 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                         <Text style={styles.comparisonText}>{comparisonText}</Text>
                       </View>
 
-                      {isProfileMissing ? (
-                        // Profile is missing -> guide the user to the questionnaire instead of showing a score.
-                        <View style={styles.profileMissingCard}>
-                          <Text style={styles.profileMissingTitle}>Chýba chuťový profil</Text>
-                          <Text style={styles.profileMissingText}>
-                            {profileMissingText}
-                          </Text>
-                          <TouchableOpacity
-                            style={styles.profileMissingButton}
-                            onPress={handleQuestionnaireCTA}
-                            activeOpacity={0.85}
-                          >
-                            <Text style={styles.profileMissingButtonText}>{profileMissingCtaLabel}</Text>
-                          </TouchableOpacity>
+                      <View style={styles.compatibilityCardModern}>
+                        <View style={styles.sectionHeaderRow}>
+                          <Text style={styles.sectionTitle}>AI hodnotenie zhody</Text>
                         </View>
-                      ) : (
-                        <View style={styles.verdictCard}>
-                          <View style={styles.sectionHeaderRow}>
-                            <Text style={styles.sectionTitle}>Verdikt</Text>
-                          <View
-                              style={[
-                                styles.verdictBadge,
-                                evaluationVerdictTone === 'NO'
-                                  ? styles.verdictBadgeNo
-                                  : evaluationVerdictTone === 'RISKY'
-                                    ? styles.verdictBadgeRisky
-                                    : styles.verdictBadgeYes,
-                              ]}
+                        {isProfileMissing ? (
+                          <>
+                            <Text style={styles.profileMissingTitle}>Chýba chuťový profil</Text>
+                            <Text style={styles.profileMissingText}>
+                              {profileMissingText}
+                            </Text>
+                            <TouchableOpacity
+                              style={styles.profileMissingButton}
+                              onPress={handleQuestionnaireCTA}
+                              activeOpacity={0.85}
                             >
-                              <Text
+                              <Text style={styles.profileMissingButtonText}>
+                                {profileMissingCtaLabel}
+                              </Text>
+                            </TouchableOpacity>
+                          </>
+                        ) : (
+                          <>
+                            <View style={styles.sectionHeaderRow}>
+                              <Text style={styles.verdictDiffsTitle}>Verdikt</Text>
+                              <View
                                 style={[
-                                  styles.verdictBadgeText,
+                                  styles.verdictBadge,
                                   evaluationVerdictTone === 'NO'
-                                    ? styles.verdictBadgeTextNo
+                                    ? styles.verdictBadgeNo
                                     : evaluationVerdictTone === 'RISKY'
-                                      ? styles.verdictBadgeTextRisky
-                                      : styles.verdictBadgeTextYes,
+                                      ? styles.verdictBadgeRisky
+                                      : styles.verdictBadgeYes,
                                 ]}
                               >
-                                {verdictLabel}
-                              </Text>
+                                <Text
+                                  style={[
+                                    styles.verdictBadgeText,
+                                    evaluationVerdictTone === 'NO'
+                                      ? styles.verdictBadgeTextNo
+                                      : evaluationVerdictTone === 'RISKY'
+                                        ? styles.verdictBadgeTextRisky
+                                        : styles.verdictBadgeTextYes,
+                                  ]}
+                                >
+                                  {verdictLabel}
+                                </Text>
+                              </View>
                             </View>
-                          </View>
-                          {evaluationConfidenceLabel ? (
-                            <Text style={styles.verdictConfidence}>{evaluationConfidenceLabel}</Text>
-                          ) : null}
-                          <Text style={styles.verdictDescription}>{verdictExplanation}</Text>
-                          {dimensionDiffs.length ? (
-                            <View style={styles.verdictDiffs}>
-                              <Text style={styles.verdictDiffsTitle}>Rozdiely v chutiach</Text>
-                              {dimensionDiffs.map(diff => (
-                                <View key={diff.key} style={styles.verdictDiffRow}>
-                                  <View style={styles.verdictDiffHeader}>
-                                    <Text style={styles.verdictDiffLabel}>{diff.label}</Text>
-                                    {diff.percent ? (
-                                      <Text style={styles.verdictDiffPercent}>{diff.percent}</Text>
+                            {evaluationConfidenceLabel ? (
+                              <Text style={styles.verdictConfidence}>{evaluationConfidenceLabel}</Text>
+                            ) : null}
+                            <Text style={styles.verdictDescription}>{verdictExplanation}</Text>
+                            {dimensionDiffs.length ? (
+                              <View style={styles.verdictDiffs}>
+                                <Text style={styles.verdictDiffsTitle}>Rozdiely v chutiach</Text>
+                                {dimensionDiffs.map(diff => (
+                                  <View key={diff.key} style={styles.verdictDiffRow}>
+                                    <View style={styles.verdictDiffHeader}>
+                                      <Text style={styles.verdictDiffLabel}>{diff.label}</Text>
+                                      {diff.percent ? (
+                                        <Text style={styles.verdictDiffPercent}>{diff.percent}</Text>
+                                      ) : null}
+                                    </View>
+                                    {diff.explanation ? (
+                                      <Text style={styles.verdictDiffExplanation}>
+                                        {diff.explanation}
+                                      </Text>
                                     ) : null}
                                   </View>
-                                  {diff.explanation ? (
-                                    <Text style={styles.verdictDiffExplanation}>{diff.explanation}</Text>
-                                  ) : null}
-                                </View>
-                              ))}
-                            </View>
-                          ) : null}
-                          {lowDataWarning ? (
-                            <View style={styles.lowDataCard}>
-                              <View style={styles.lowDataBadge}>
-                                <Text style={styles.lowDataBadgeText}>Minimum údajov</Text>
+                                ))}
                               </View>
-                              <Text style={styles.lowDataText}>{lowDataWarning}</Text>
-                              <TouchableOpacity
-                                style={styles.lowDataButton}
-                                onPress={openCamera}
-                                activeOpacity={0.85}
-                              >
-                                <Text style={styles.lowDataButtonText}>Rescanovať etiketu</Text>
-                              </TouchableOpacity>
-                            </View>
-                          ) : null}
-                        </View>
-                      )}
+                            ) : null}
+                            {lowDataWarning ? (
+                              <View style={styles.lowDataCard}>
+                                <View style={styles.lowDataBadge}>
+                                  <Text style={styles.lowDataBadgeText}>Minimum údajov</Text>
+                                </View>
+                                <Text style={styles.lowDataText}>{lowDataWarning}</Text>
+                                <TouchableOpacity
+                                  style={styles.lowDataButton}
+                                  onPress={openCamera}
+                                  activeOpacity={0.85}
+                                >
+                                  <Text style={styles.lowDataButtonText}>Rescanovať etiketu</Text>
+                                </TouchableOpacity>
+                              </View>
+                            ) : null}
+                          </>
+                        )}
 
-                      {evaluationStatus === 'ok' ? (
-                        // AI evaluation sections are only shown when a complete profile exists.
-                        <View style={styles.compatibilityCardModern}>
-                          <View style={styles.sectionHeaderRow}>
-                            <Text style={styles.sectionTitle}>AI hodnotenie zhody</Text>
-                          </View>
-                          {evaluationIntroText ? (
-                            <Text style={styles.compatibilityIntro}>{evaluationIntroText}</Text>
-                          ) : null}
-                          {insightContent?.sections.length ? (
-                            <View style={styles.reasonBlocksWrapper}>
-                              {insightContent.sections.map((section, index) => (
-                                <View key={`${section.title}-${index}`} style={styles.reasonBlock}>
-                                  {section.title ? (
-                                    <Text style={styles.reasonTitle}>{section.title}</Text>
-                                  ) : null}
-                                  {section.bullets.map(bullet => (
-                                    <View key={bullet} style={styles.reasonRow}>
-                                      <View style={[styles.reasonBadge, insightBadgeStyle]}>
-                                        <Text style={styles.reasonBadgeText}>•</Text>
+                        {evaluationStatus === 'ok' ? (
+                          <View style={styles.aiSummarySection}>
+                            {evaluationIntroText ? (
+                              <Text style={styles.compatibilityIntro}>{evaluationIntroText}</Text>
+                            ) : null}
+                            {insightContent?.sections.length ? (
+                              <View style={styles.reasonBlocksWrapper}>
+                                {insightContent.sections.map((section, index) => (
+                                  <View key={`${section.title}-${index}`} style={styles.reasonBlock}>
+                                    {section.title ? (
+                                      <Text style={styles.reasonTitle}>{section.title}</Text>
+                                    ) : null}
+                                    {section.bullets.map(bullet => (
+                                      <View key={bullet} style={styles.reasonRow}>
+                                        <View style={[styles.reasonBadge, insightBadgeStyle]}>
+                                          <Text style={styles.reasonBadgeText}>•</Text>
+                                        </View>
+                                        <Text style={styles.reasonText}>{bullet}</Text>
                                       </View>
-                                      <Text style={styles.reasonText}>{bullet}</Text>
+                                    ))}
+                                  </View>
+                                ))}
+                              </View>
+                            ) : null}
+                          </View>
+                        ) : null}
+
+                        <View style={styles.aiSummarySection}>
+                          <Text style={styles.sectionSubtitle}>AI insight</Text>
+                          {insightStatusContent ? (
+                            <>
+                              {insightStatusContent.headline ? (
+                                <Text style={styles.verdictDescription}>
+                                  {insightStatusContent.headline}
+                                </Text>
+                              ) : null}
+                              <Text style={styles.verdictDescription}>{insightStatusContent.body}</Text>
+                              {insightStatusContent.ctaLabel ? (
+                                <TouchableOpacity
+                                  style={styles.profileMissingButton}
+                                  onPress={handleQuestionnaireCTA}
+                                  activeOpacity={0.85}
+                                >
+                                  <Text style={styles.profileMissingButtonText}>
+                                    {insightStatusContent.ctaLabel}
+                                  </Text>
+                                </TouchableOpacity>
+                              ) : null}
+                            </>
+                          ) : (
+                            <>
+                              {insightContent?.headline ? (
+                                <Text style={styles.verdictDescription}>{insightContent.headline}</Text>
+                              ) : null}
+                              {evaluationStatus !== 'ok' && insightContent?.sections.length ? (
+                                <View style={styles.reasonBlocksWrapper}>
+                                  {insightContent.sections.map((section, index) => (
+                                    <View key={`${section.title}-${index}`} style={styles.reasonBlock}>
+                                      {section.title ? (
+                                        <Text style={styles.reasonTitle}>{section.title}</Text>
+                                      ) : null}
+                                      {section.bullets.map(bullet => (
+                                        <View key={bullet} style={styles.reasonRow}>
+                                          <View style={[styles.reasonBadge, insightBadgeStyle]}>
+                                            <Text style={styles.reasonBadgeText}>•</Text>
+                                          </View>
+                                          <Text style={styles.reasonText}>{bullet}</Text>
+                                        </View>
+                                      ))}
                                     </View>
                                   ))}
                                 </View>
-                              ))}
-                            </View>
-                          ) : null}
+                              ) : null}
+                            </>
+                          )}
                         </View>
-                      ) : null}
+                      </View>
 
                       <View style={styles.ownershipCardModern}>
                         <View style={styles.sectionHeaderRow}>
@@ -3415,58 +3469,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                         </View>
                       </View>
 
-                      <LinearGradient colors={['#7FB069', '#00897B']} style={styles.insightCard}>
-                        <View style={styles.insightHeaderRow}>
-                          <View style={styles.insightIconWrapper}>
-                            <Text style={styles.insightIcon}>🤖</Text>
-                          </View>
-                          <Text style={styles.insightTitle}>AI insight</Text>
-                        </View>
-                        {insightStatusContent ? (
-                          <>
-                            {insightStatusContent.headline ? (
-                              <Text style={styles.insightText}>{insightStatusContent.headline}</Text>
-                            ) : null}
-                            <Text style={styles.insightText}>{insightStatusContent.body}</Text>
-                            {insightStatusContent.ctaLabel ? (
-                              <TouchableOpacity
-                                style={styles.profileMissingButton}
-                                onPress={handleQuestionnaireCTA}
-                                activeOpacity={0.85}
-                              >
-                                <Text style={styles.profileMissingButtonText}>
-                                  {insightStatusContent.ctaLabel}
-                                </Text>
-                              </TouchableOpacity>
-                            ) : null}
-                          </>
-                        ) : (
-                          <>
-                            {insightContent?.headline ? (
-                              <Text style={styles.insightText}>{insightContent.headline}</Text>
-                            ) : null}
-                            {insightContent?.sections.length ? (
-                              <View style={styles.reasonBlocksWrapper}>
-                                {insightContent.sections.map((section, index) => (
-                                  <View key={`${section.title}-${index}`} style={styles.reasonBlock}>
-                                    {section.title ? (
-                                      <Text style={styles.reasonTitle}>{section.title}</Text>
-                                    ) : null}
-                                    {section.bullets.map(bullet => (
-                                      <View key={bullet} style={styles.reasonRow}>
-                                        <View style={[styles.reasonBadge, insightBadgeStyle]}>
-                                          <Text style={styles.reasonBadgeText}>•</Text>
-                                        </View>
-                                        <Text style={styles.reasonText}>{bullet}</Text>
-                                      </View>
-                                    ))}
-                                  </View>
-                                ))}
-                              </View>
-                            ) : null}
-                          </>
-                        )}
-                      </LinearGradient>
 
                       <View style={styles.structuredCard}>
                         <View style={styles.sectionHeaderRow}>
