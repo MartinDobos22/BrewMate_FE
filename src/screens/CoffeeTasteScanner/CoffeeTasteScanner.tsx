@@ -1227,19 +1227,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     }
 
     await loadHistory();
-
-    const alertReason = (normalizedResult.recommendation || '')
-      .split(/[\.\n]/)
-      .map(sentence => sentence.trim())
-      .filter(Boolean)[0];
-
-    Alert.alert(
-      '✅ Skenovanie dokončené',
-      normalizedResult.isRecommended
-        ? alertReason || 'Podľa tvojho profilu by ti mohla chutiť.'
-        : alertReason || 'Vyzerá to, že nesedí na tvoje preferencie.',
-      [{ text: 'OK', style: 'default' }],
-    );
   };
 
   const handleConfirmNonCoffee = async () => {
