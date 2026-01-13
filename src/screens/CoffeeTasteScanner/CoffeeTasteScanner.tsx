@@ -2955,12 +2955,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     );
   }, [evaluation, evaluationStatus]);
 
-  const ratingDisplay =
-    userRating > 0
-      ? `${userRating}/5`
-      : isHistoryReadOnly
-        ? 'Bez hodnotenia'
-        : 'Ohodnoť';
   const editorHint = isHistoryReadOnly
     ? 'História je len na čítanie'
     : 'Uprav, ak niečo nesedí';
@@ -3751,52 +3745,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                         />
                       </View>
 
-                      <View style={styles.ratingCardModern}>
-                        <View style={styles.ratingHeaderRow}>
-                          <View>
-                            <Text style={styles.sectionTitle}>Tvoje hodnotenie</Text>
-                            <Text style={styles.sectionSubtitle}>Ako veľmi ti sedí?</Text>
-                          </View>
-                          <Text style={styles.ratingDisplay}>{ratingDisplay}</Text>
-                        </View>
-                        <View style={styles.ratingStarsRow}>
-                          {[1, 2, 3, 4, 5].map(star => (
-                            <TouchableOpacity
-                              key={star}
-                              style={[
-                                styles.ratingStarButton,
-                                isHistoryReadOnly && { opacity: 0.5 },
-                              ]}
-                              onPress={() => handleRating(star)}
-                              disabled={isHistoryReadOnly}
-                            >
-                              <Text
-                                style={[
-                                  styles.ratingStarIcon,
-                                  star <= userRating && styles.ratingStarIconActive,
-                                ]}
-                              >
-                                ⭐
-                              </Text>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                        <TouchableOpacity
-                          style={[
-                            styles.favoriteToggle,
-                            isFavorite && styles.favoriteToggleActive,
-                            isHistoryReadOnly && { opacity: 0.5 },
-                          ]}
-                          onPress={handleFavoriteToggle}
-                          disabled={isHistoryReadOnly}
-                        >
-                          <Text
-                            style={[styles.favoriteToggleText, isFavorite && styles.favoriteToggleTextActive]}
-                          >
-                            {isFavorite ? '❤️ Uložené medzi obľúbené' : '♡ Pridať medzi obľúbené'}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
                     </View>
 
                     <View style={styles.bottomSpacer} />

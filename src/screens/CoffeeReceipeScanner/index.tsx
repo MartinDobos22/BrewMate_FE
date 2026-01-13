@@ -158,7 +158,6 @@ const resolveTastePreferenceFromProfile = (
 const WELCOME_GRADIENT = ['#FF9966', '#A86B8C'];
 const COFFEE_GRADIENT = ['#8B6544', '#6B4423'];
 const WARM_GRADIENT = ['#FFA000', '#FF6B6B'];
-const RATING_GRADIENT = ['#FFFFFF', '#F5E6D3'];
 const TIP_GRADIENT = ['#9C27B0', '#FF6B6B'];
 
 const brewingMethodHints: Record<string, string> = {
@@ -787,12 +786,6 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
 
     return commaSegments;
   }, [scanResult]);
-  const ratingDisplay = useMemo(() => {
-    if (userRating > 0) {
-      return userRating.toFixed(1);
-    }
-    return '—';
-  }, [userRating]);
   const refreshControl =
     currentView === 'home'
       ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -1015,45 +1008,6 @@ const CoffeeReceipeScanner: React.FC<BrewScannerProps> = ({
                             textAlignVertical="top"
                           />
                         </View>
-                      </View>
-
-                      <View style={styles.scanRatingWrapper}>
-                        <LinearGradient colors={RATING_GRADIENT} style={styles.scanRatingCard}>
-                          <View style={styles.scanRatingHeader}>
-                            <Text style={styles.scanRatingTitle}>Ohodnoť kávu</Text>
-                            <Text style={styles.scanRatingValue}>{ratingDisplay}</Text>
-                          </View>
-                          <View style={styles.scanStarsRow}>
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <TouchableOpacity
-                                key={star}
-                                style={styles.scanStarButton}
-                                onPress={() => handleRating(star)}
-                                activeOpacity={0.85}
-                              >
-                                <Text
-                                  style={[
-                                    styles.scanStarIcon,
-                                    star <= userRating && styles.scanStarIconActive,
-                                  ]}
-                                >
-                                  ⭐
-                                </Text>
-                              </TouchableOpacity>
-                            ))}
-                          </View>
-                          <TouchableOpacity
-                            style={[styles.scanFavoriteButton, isFavorite && styles.scanFavoriteButtonActive]}
-                            onPress={handleFavoriteToggle}
-                            activeOpacity={0.85}
-                          >
-                            <Text
-                              style={[styles.scanFavoriteText, isFavorite && styles.scanFavoriteTextActive]}
-                            >
-                              {isFavorite ? '❤️ Uložené' : '♡ Obľúbené'}
-                            </Text>
-                          </TouchableOpacity>
-                        </LinearGradient>
                       </View>
 
                       <View style={styles.scanMethodSection}>
