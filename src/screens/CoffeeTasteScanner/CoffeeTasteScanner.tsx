@@ -2160,8 +2160,17 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       isProfileStale,
     ],
   );
-  // Suppress compatibility scoring whenever the AI verdict is available.
-  const shouldSuppressCompatibility = evaluationStatus === 'ok' || Boolean(evaluation?.verdict);
+  const hasCompatibilityInputs = Boolean(
+    scanResult
+      && (
+        typeof scanResult.matchPercentage === 'number'
+        || scanResult.isRecommended !== undefined
+        || Boolean(implicitSignals)
+        || (structuredMetadata && Object.keys(structuredMetadata).length > 0)
+      ),
+  );
+  // Only suppress compatibility when we truly have no data to base it on.
+  const shouldSuppressCompatibility = !hasCompatibilityInputs;
   const neutralVerdictCopy = 'Čakáme na AI hodnotenie';
   const didSendTasteProfile = Boolean(scanResult?.tasteProfileSent);
   const isProfileMissing = evaluationStatus === 'profile_missing' && !didSendTasteProfile;
@@ -2299,7 +2308,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   }, [recognizedText, structuredFields.roastLevel.value]);
 
   const compatibility = useMemo(() => {
-    // Skip compatibility scoring once the AI verdict is available.
+    // Skip compatibility scoring only when there is no meaningful input data.
     if (!scanResult || shouldSuppressCompatibility) {
       return null;
     }
@@ -2410,22 +2419,29 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     }
     return 'YES';
   }, [compatibility?.bucket, evaluation, evaluationStatus]);
-  const hasExplicitMatchPercentage =
-    typeof scanResult?.matchPercentage === 'number';
-  const shouldHideCompatibilityUI = evaluationStatus === 'ok' || Boolean(evaluation?.verdict);
-  const matchLabel = compatibility
-    ? hasExplicitMatchPercentage
-      ? `${compatibility.score}%`
-      : 'Neznáme'
-    : scanResult
-      ? isProfileMissing
-        ? undefined
-        : shouldHideCompatibilityUI
+  const aiMatchScore = useMemo(() => {
+    if (evaluationStatus !== 'ok') {
+      return null;
+    }
+    if (typeof evaluation?.confidence !== 'number') {
+      return null;
+    }
+    const normalized = evaluation.confidence <= 1 ? evaluation.confidence * 100 : evaluation.confidence;
+    return Math.round(Math.max(0, Math.min(100, normalized)));
+  }, [evaluation, evaluationStatus]);
+  const aiMatchLabel = aiMatchScore !== null ? `AI zhoda ${aiMatchScore}%` : null;
+  const shouldHideCompatibilityUI = !compatibility;
+  const matchLabel = aiMatchLabel
+    ? aiMatchLabel
+    : compatibility
+      ? `Kompatibilita ${compatibility.score}%`
+      : scanResult
+        ? isProfileMissing
           ? undefined
-        : scanResult.isRecommended === false
-          ? 'Mimo preferencií'
-          : 'Sedí k profilu'
-      : undefined;
+          : scanResult.isRecommended === false
+            ? 'Mimo preferencií'
+            : 'Sedí k profilu'
+        : undefined;
 
   // AI recommendation sentences coming from the scan response; reused for the insight section.
   const recommendationSentences = useMemo(() => {
