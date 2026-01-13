@@ -47,11 +47,9 @@ import {
   computeSignalWeight,
   CoffeeSignalRecord,
   loadCoffeeSignal,
-  QuickFeedback,
   recordConsumptionSignal,
   recordFavoriteSignal,
   recordIgnoreSignal,
-  recordQuickFeedbackSignal,
   recordScanSignal,
   SignalUpdateResult,
 } from '../../services/userSignals';
@@ -818,10 +816,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   const [confirmPayload, setConfirmPayload] = useState<StructuredConfirmPayload | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const [implicitSignals, setImplicitSignals] = useState<CoffeeSignalRecord | null>(null);
-  const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
-  const [pendingFeedbackReason, setPendingFeedbackReason] = useState<string | null>(null);
-  const [pendingFeedbackChoice, setPendingFeedbackChoice] = useState<QuickFeedback | null>(null);
-  const [pendingCoffee, setPendingCoffee] = useState<{ id: string; name: string } | null>(null);
   const [signalWarning, setSignalWarning] = useState<string | null>(null);
   const [preferenceSnapshot, setPreferenceSnapshot] = useState<CoffeePreferenceSnapshot | null>(null);
 
@@ -1217,10 +1211,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       try {
         const signalResult = await recordScanSignal(userId ?? null, identity.id, identity.name);
         handleSignalOutcome(signalResult, 'scan');
-        setPendingCoffee(identity);
-        setPendingFeedbackChoice(null);
-        setPendingFeedbackReason(null);
-        setFeedbackModalVisible(true);
       } catch (signalError) {
         console.warn('CoffeeTasteScanner: failed to record scan signal', signalError);
       }
@@ -1646,10 +1636,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
           try {
             const signalResult = await recordScanSignal(userId ?? null, identity.id, identity.name);
             handleSignalOutcome(signalResult, 'offline-scan');
-            setPendingCoffee(identity);
-            setPendingFeedbackChoice(null);
-            setPendingFeedbackReason(null);
-            setFeedbackModalVisible(true);
           } catch (signalError) {
             console.warn('CoffeeTasteScanner: failed to record offline scan signal', signalError);
           }
@@ -1936,48 +1922,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       console.error('Error toggling favorite:', error);
       setIsFavorite(!nextValue);
       Alert.alert('Chyba', 'Nepodarilo sa aktualizovať obľúbenú kávu');
-    }
-  };
-
-  const persistQuickFeedback = async (feedback: QuickFeedback, reason?: string) => {
-    if (!pendingCoffee && !scanResult) {
-      return;
-    }
-    const identity = pendingCoffee ?? resolveCoffeeIdentity(scanResult, coffeeName);
-    if (!identity) {
-      return;
-    }
-    try {
-      const signalResult = await recordQuickFeedbackSignal(
-        userId ?? null,
-        identity.id,
-        identity.name,
-        feedback,
-        reason,
-      );
-      handleSignalOutcome(signalResult, 'feedback');
-    } catch (error) {
-      console.warn('CoffeeTasteScanner: failed to persist quick feedback', error);
-    } finally {
-      setFeedbackModalVisible(false);
-      setPendingFeedbackChoice(null);
-      setPendingFeedbackReason(null);
-    }
-  };
-
-  const handleFeedbackSelect = (feedback: QuickFeedback) => {
-    setPendingFeedbackChoice(feedback);
-    if (feedback === 'bad') {
-      setPendingFeedbackReason(null);
-      return;
-    }
-    void persistQuickFeedback(feedback);
-  };
-
-  const handleFeedbackReasonSelect = (reason: string) => {
-    setPendingFeedbackReason(reason);
-    if (pendingFeedbackChoice === 'bad') {
-      void persistQuickFeedback('bad', reason);
     }
   };
 
@@ -3030,83 +2974,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                 )}
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={feedbackModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setFeedbackModalVisible(false)}
-      >
-        <View style={styles.feedbackOverlay}>
-          <View style={styles.feedbackCard}>
-            <Text style={styles.feedbackTitle}>Ako ti táto káva chutila?</Text>
-            <Text style={styles.feedbackSubtitle}>Rýchly checkpoint po skene – žiadne dlhé dotazníky.</Text>
-            <View style={styles.feedbackOptionsRow}>
-              <TouchableOpacity
-                style={styles.feedbackOption}
-                onPress={() => handleFeedbackSelect('perfect')}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.feedbackEmoji}>👍</Text>
-                <Text style={styles.feedbackOptionText}>Sadla perfektne</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.feedbackOption}
-                onPress={() => handleFeedbackSelect('ok')}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.feedbackEmoji}>🙂</Text>
-                <Text style={styles.feedbackOptionText}>Bola OK</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.feedbackOptionsRow}>
-              <TouchableOpacity
-                style={styles.feedbackOption}
-                onPress={() => handleFeedbackSelect('neutral')}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.feedbackEmoji}>😐</Text>
-                <Text style={styles.feedbackOptionText}>Neutrál</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.feedbackOption, styles.feedbackOptionDanger]}
-                onPress={() => handleFeedbackSelect('bad')}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.feedbackEmoji}>👎</Text>
-                <Text style={styles.feedbackOptionText}>Nesadla</Text>
-              </TouchableOpacity>
-            </View>
-
-            {pendingFeedbackChoice === 'bad' ? (
-              <View style={styles.feedbackFollowup}>
-                <Text style={styles.feedbackFollowupTitle}>Čo nesedelo?</Text>
-                {['príliš kyslá', 'príliš horká', 'slabá / vodová', 'príliš silná'].map(reason => (
-                  <TouchableOpacity
-                    key={reason}
-                    style={[
-                      styles.feedbackFollowupOption,
-                      pendingFeedbackReason === reason && styles.feedbackFollowupOptionActive,
-                    ]}
-                    onPress={() => handleFeedbackReasonSelect(reason)}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.feedbackFollowupText}>{reason}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ) : null}
-
-            <TouchableOpacity
-              style={styles.feedbackSkip}
-              onPress={() => setFeedbackModalVisible(false)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.feedbackSkipText}>Preskočiť teraz</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
