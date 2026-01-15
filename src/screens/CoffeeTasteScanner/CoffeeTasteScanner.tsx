@@ -2294,6 +2294,34 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       ? sections.join('\n')
       : 'Zatiaľ nemáme dôvody prečo je káva vhodná alebo nie.';
   }, [verdictReasonBuckets]);
+  const flavorNotesSummary = useMemo(() => {
+    const notes = structuredFields.flavorNotes.value;
+    if (!notes || notes.length === 0) {
+      return null;
+    }
+    const cleaned = notes.map(note => note.trim()).filter(Boolean);
+    return cleaned.length ? cleaned.join(', ') : null;
+  }, [structuredFields.flavorNotes.value]);
+  const tasteAttributesSummary = useMemo(() => {
+    if (!tasteAttributes || tasteAttributes.length === 0) {
+      return null;
+    }
+    return tasteAttributes
+      .map(attribute => `${attribute.label.toLowerCase()} ${Math.round(attribute.value)}/10`)
+      .join(', ');
+  }, [tasteAttributes]);
+  const tasteProfileSummary = useMemo(() => {
+    if (flavorNotesSummary && tasteAttributesSummary) {
+      return `Tóny: ${flavorNotesSummary}\nProfil: ${tasteAttributesSummary}`;
+    }
+    if (flavorNotesSummary) {
+      return `Tóny: ${flavorNotesSummary}`;
+    }
+    if (tasteAttributesSummary) {
+      return `Profil: ${tasteAttributesSummary}`;
+    }
+    return 'Chuťové tóny zatiaľ neboli rozpoznané.';
+  }, [flavorNotesSummary, tasteAttributesSummary]);
   const refreshControl =
     currentView === 'home'
       ? (
@@ -3034,6 +3062,10 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                               <Text style={styles.verdictConfidence}>{evaluationConfidenceLabel}</Text>
                             ) : null}
                             <Text style={styles.verdictDescription}>{verdictReasonText}</Text>
+                            <View style={styles.aiSummarySection}>
+                              <Text style={styles.sectionSubtitle}>Chuťové tóny / profil kávy</Text>
+                              <Text style={styles.verdictDescription}>{tasteProfileSummary}</Text>
+                            </View>
                             {lowDataWarning ? (
                               <View style={styles.lowDataCard}>
                                 <View style={styles.lowDataBadge}>
