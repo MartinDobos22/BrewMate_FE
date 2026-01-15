@@ -64,6 +64,7 @@ import { showToast } from '../../utils/toast';
 import { buildScanPreferenceComparison } from '../../utils/scanPreferenceComparison';
 import { API_URL } from '../../services/api';
 import { recognizeCoffee } from 'services/VisionService.ts';
+import { parseAIResponse } from '../../components/utils/AITextFormatter.ts';
 
 interface ScanResult {
   original: string;
@@ -437,6 +438,20 @@ const resolveVerdictExplanationText = (
     || payload.coffee_profile_summary
     || ''
   ).trim();
+};
+
+const extractSentenceBlocks = (text: string): string[] => {
+  if (!text) {
+    return [];
+  }
+  const parsed = parseAIResponse(text);
+  const parsedLines = parsed.sections.flatMap(section => [
+    ...(section.content ?? []),
+    ...(section.bullets ?? []),
+  ]);
+  const sourceLines = parsedLines.length ? parsedLines : text.split('\n');
+  const sentences = sourceLines.flatMap(line => line.split(/[.!?]+/));
+  return uniqueLines(sentences.map(sentence => sentence.trim()).filter(Boolean));
 };
 
 const resolveInsightHeadline = (insight: CoffeeEvaluationResult['insight'] | null | undefined): string => {
@@ -2294,6 +2309,36 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       ? sections.join('\n')
       : 'Zatiaľ nemáme dôvody prečo je káva vhodná alebo nie.';
   }, [verdictReasonBuckets]);
+  const verdictExplanationSections = useMemo(() => {
+    const verdictExplanation = evaluation?.verdict_explanation;
+    if (!verdictExplanation) {
+      return null;
+    }
+    if (typeof verdictExplanation === 'string') {
+      const sentences = extractSentenceBlocks(verdictExplanation);
+      return sentences.length ? [{ title: '', sentences }] : null;
+    }
+    const sections = [
+      {
+        title: 'Zhrnutie preferencií',
+        text: verdictExplanation.user_preferences_summary ?? '',
+      },
+      {
+        title: 'Profil kávy',
+        text: verdictExplanation.coffee_profile_summary ?? '',
+      },
+      {
+        title: 'Porovnanie',
+        text: verdictExplanation.comparison_summary ?? '',
+      },
+    ]
+      .map(section => ({
+        title: section.title,
+        sentences: extractSentenceBlocks(section.text),
+      }))
+      .filter(section => section.sentences.length > 0);
+    return sections.length ? sections : null;
+  }, [evaluation?.verdict_explanation]);
   const flavorNotesSummary = useMemo(() => {
     const notes = structuredFields.flavorNotes.value;
     if (!notes || notes.length === 0) {
@@ -3061,7 +3106,33 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                             {evaluationConfidenceLabel ? (
                               <Text style={styles.verdictConfidence}>{evaluationConfidenceLabel}</Text>
                             ) : null}
-                            <Text style={styles.verdictDescription}>{verdictReasonText}</Text>
+                            {verdictExplanationSections ? (
+                              <View style={styles.reasonBlocksWrapper}>
+                                {verdictExplanationSections.map((section, sectionIndex) => (
+                                  <View
+                                    key={`${section.title || 'section'}-${sectionIndex}`}
+                                    style={styles.reasonBlock}
+                                  >
+                                    {section.title ? (
+                                      <Text style={styles.reasonTitle}>{section.title}</Text>
+                                    ) : null}
+                                    {section.sentences.map((sentence, sentenceIndex) => (
+                                      <View
+                                        key={`${sentence}-${sentenceIndex}`}
+                                        style={styles.reasonRow}
+                                      >
+                                        <View style={[styles.reasonBadge, insightBadgeStyle]}>
+                                          <Text style={styles.reasonBadgeText}>•</Text>
+                                        </View>
+                                        <Text style={styles.reasonText}>{sentence}</Text>
+                                      </View>
+                                    ))}
+                                  </View>
+                                ))}
+                              </View>
+                            ) : (
+                              <Text style={styles.verdictDescription}>{verdictReasonText}</Text>
+                            )}
                             <View style={styles.aiSummarySection}>
                               <Text style={styles.sectionSubtitle}>Chuťové tóny / profil kávy</Text>
                               <Text style={styles.verdictDescription}>{tasteProfileSummary}</Text>
