@@ -120,7 +120,10 @@ const resolveTasteVector = (
   if (nestedVector && typeof nestedVector === 'object') {
     return nestedVector as TasteVector;
   }
-  return tasteVector ?? null;
+  if (tasteVector && typeof tasteVector === 'object') {
+    return tasteVector;
+  }
+  return null;
 };
 
 const scoreToLevel = (value: number): TasteLevel => {
@@ -327,13 +330,14 @@ export const buildScanPreferenceComparison = (
 ): ScanPreferenceComparisonResult => {
   const evaluation = input.evaluation ?? null;
   const tasteVector = resolveTasteVector(input.coffeePreferences, input.tasteVector);
-  const normalizedTasteVector = tasteVector
-    ? Object.fromEntries(
-        Object.entries(tasteVector)
-          .map(([key, value]) => [key, normalizeVectorValue(value)])
-          .filter(([, value]) => value != null),
-      )
-    : null;
+  const normalizedTasteVector =
+    tasteVector && typeof tasteVector === 'object'
+      ? Object.fromEntries(
+          Object.entries(tasteVector)
+            .map(([key, value]) => [key, normalizeVectorValue(value)])
+            .filter(([, value]) => value != null),
+        )
+      : null;
 
   const reasonLevelMap = buildReasonLevelMap(evaluation);
   fillFromVerdictExplanation(evaluation, reasonLevelMap);
