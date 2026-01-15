@@ -308,6 +308,31 @@ const buildComparisonText = (
     return 'Zatiaľ nemáme dôvody prečo by káva sedela alebo nie.';
   }
 
+  const verdictExplanation = evaluation?.verdict_explanation;
+  const comparisonSummary =
+    verdictExplanation && typeof verdictExplanation === 'object'
+      && typeof verdictExplanation.comparison_summary === 'string'
+      ? verdictExplanation.comparison_summary.trim()
+      : '';
+  const comparisonSummaryLines = comparisonSummary
+    ? extractSentenceBlocks(comparisonSummary)
+    : [];
+  const normalizedSummaryLines = comparisonSummaryLines.map(line =>
+    normalizeReasonLine(line).toLowerCase(),
+  );
+  const shouldOmitDuplicateLine = (line: string): boolean => {
+    if (!normalizedSummaryLines.length) {
+      return false;
+    }
+    const normalizedLine = normalizeReasonLine(line).toLowerCase();
+    if (!normalizedLine) {
+      return false;
+    }
+    return normalizedSummaryLines.some(summaryLine =>
+      summaryLine.includes(normalizedLine) || normalizedLine.includes(summaryLine),
+    );
+  };
+
   const comparison = buildScanPreferenceComparison({
     evaluation,
     coffeePreferences: preferenceSnapshot ?? coffeePreferences ?? null,
@@ -328,10 +353,17 @@ const buildComparisonText = (
     neutral: neutralInsights,
   } = splitReasonLines(comparison.reasons);
 
+  const filteredMatchLines = matchLines.filter(line => !shouldOmitDuplicateLine(line));
+  const filteredMismatchLines = mismatchLines.filter(line => !shouldOmitDuplicateLine(line));
+  const filteredPositiveInsights = positiveInsights.filter(line => !shouldOmitDuplicateLine(line));
+  const filteredCautionInsights = cautionInsights.filter(line => !shouldOmitDuplicateLine(line));
+  const filteredNeutralInsights = neutralInsights.filter(line => !shouldOmitDuplicateLine(line));
+
   const sections = [
-    formatReasonBlock('Prečo sedí', [...matchLines, ...positiveInsights]),
-    formatReasonBlock('Prečo nesedí', [...mismatchLines, ...cautionInsights]),
-    formatReasonBlock('Ďalšie zistenia', neutralInsights),
+    formatReasonBlock('Prehľad porovnania', comparisonSummaryLines),
+    formatReasonBlock('Prečo sedí', [...filteredMatchLines, ...filteredPositiveInsights]),
+    formatReasonBlock('Prečo nesedí', [...filteredMismatchLines, ...filteredCautionInsights]),
+    formatReasonBlock('Ďalšie zistenia', filteredNeutralInsights),
   ].filter((section): section is string => Boolean(section));
 
   return sections.length
