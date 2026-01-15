@@ -62,7 +62,6 @@ import type { TasteProfileVector, UserTasteProfile } from '../../types/Personali
 import { usePersonalization } from '../../hooks/usePersonalization';
 import { showToast } from '../../utils/toast';
 import { buildScanPreferenceComparison } from '../../utils/scanPreferenceComparison';
-import { buildPreferenceSummary } from '../../utils/preferenceSummary';
 import { API_URL } from '../../services/api';
 import { recognizeCoffee } from 'services/VisionService.ts';
 
@@ -226,111 +225,105 @@ const extractPreferenceSnapshot = (
   };
 };
 
+const normalizeReasonLine = (value: string): string => value.replace(/^•\s*/, '').trim();
+
+const uniqueLines = (lines: string[]): string[] => Array.from(new Set(lines));
+
+const splitReasonLines = (lines: string[]): { positive: string[]; caution: string[] } => {
+  const normalized = lines.map(normalizeReasonLine).filter(Boolean);
+  const isPositive = (line: string) => {
+    const lower = line.toLowerCase();
+    return POSITIVE_REASON_KEYWORDS.some(keyword => lower.includes(keyword))
+      || INSIGHT_POSITIVE_CLAIMS.some(keyword => lower.includes(keyword));
+  };
+  const isCaution = (line: string) => {
+    const lower = line.toLowerCase();
+    return CAUTION_REASON_KEYWORDS.some(keyword => lower.includes(keyword))
+      || INSIGHT_NEGATIVE_CLAIMS.some(keyword => lower.includes(keyword));
+  };
+
+  const positive = normalized.filter(isPositive);
+  const caution = normalized.filter(line => !isPositive(line) && isCaution(line));
+
+  return {
+    positive: uniqueLines(positive),
+    caution: uniqueLines(caution),
+  };
+};
+
+const formatReasonBlock = (title: string, lines: string[]): string | null => {
+  const cleaned = uniqueLines(lines.map(normalizeReasonLine).filter(Boolean));
+  if (!cleaned.length) {
+    return null;
+  }
+  return `${title}\n${cleaned.map(line => `• ${line}`).join('\n')}`;
+};
+
+const extractVerdictExplanationLines = (
+  payload: CoffeeEvaluationResult['verdict_explanation'] | null | undefined,
+): string[] => {
+  if (!payload) {
+    return [];
+  }
+  if (typeof payload === 'string') {
+    return [payload];
+  }
+  return [
+    payload.user_preferences_summary,
+    payload.coffee_profile_summary,
+    payload.comparison_summary,
+  ].filter((line): line is string => Boolean(line && line.trim()));
+};
+
+const extractInsightReasonLines = (
+  insight: CoffeeEvaluationResult['insight'] | null | undefined,
+): string[] => {
+  if (!insight) {
+    return [];
+  }
+  const sections = Array.isArray(insight.sections) ? insight.sections : [];
+  const bullets = sections.flatMap(section =>
+    Array.isArray(section?.bullets) ? section.bullets : [],
+  );
+  return bullets
+    .filter((bullet): bullet is string => typeof bullet === 'string')
+    .map(bullet => bullet.trim())
+    .filter(Boolean);
+};
+
 const buildComparisonText = (
   evaluation: CoffeeEvaluationResult | null | undefined,
   preferenceSnapshot: CoffeePreferenceSnapshot | null | undefined,
-  aiRecommendation: string | null | undefined,
-  profilePreferences: Record<string, unknown> | null | undefined,
   coffeePreferences: Record<string, unknown> | null | undefined,
-  isProfileStale: boolean,
 ): string => {
-  const truncateText = (value: string, maxLength: number): string => {
-    const trimmed = value.trim();
-    if (trimmed.length <= maxLength) {
-      return trimmed;
-    }
-    return `${trimmed.slice(0, maxLength).trimEnd()}…`;
-  };
-
-  const firstSentence = (value: string, maxLength = 160): string => {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return '';
-    }
-    const match = trimmed.match(/[^.!?\n]+[.!?]?/);
-    const sentence = match ? match[0] : trimmed;
-    return truncateText(sentence, maxLength);
-  };
-
-  const { summary: preferenceSummary, sourceLabel } = buildPreferenceSummary({
-    profilePreferences: isProfileStale ? null : profilePreferences,
-    preferenceSnapshot,
-    coffeePreferences,
-    isProfileStale,
-  });
-  const profileSentence = preferenceSummary
-    ? `Profil (${sourceLabel}): ${preferenceSummary}.`
-    : isProfileStale
-      ? 'Profil je zastaraný.'
-      : 'Profil ešte nemá uložené hodnoty.';
-
-  const hasAiText = typeof aiRecommendation === 'string' && aiRecommendation.trim().length > 0;
-  const aiSummary = hasAiText ? firstSentence(aiRecommendation) : '';
-
-  if (!evaluation) {
-    const sentences = [
-      profileSentence,
-      aiSummary ? `AI profil: ${aiSummary}.` : null,
-      'Zo skenu zatiaľ nemáme dostatok údajov na porovnanie.',
-    ].filter(Boolean);
-    return sentences.join(' ');
+  if (!evaluation && !preferenceSnapshot) {
+    return 'Zatiaľ nemáme dôvody prečo by káva sedela alebo nie.';
   }
 
   const comparison = buildScanPreferenceComparison({
     evaluation,
-    coffeePreferences: preferenceSnapshot ?? null,
+    coffeePreferences: preferenceSnapshot ?? coffeePreferences ?? null,
     tasteVector: preferenceSnapshot?.taste_vector ?? null,
   });
-  const dimensionLines = comparison.dimensions
+
+  const matchLines = comparison.dimensions
+    .filter(dimension => dimension.match === 'match')
     .map(dimension => dimension.line)
     .filter((line): line is string => Boolean(line));
+  const mismatchLines = comparison.dimensions
+    .filter(dimension => dimension.match === 'mismatch')
+    .map(dimension => dimension.line)
+    .filter((line): line is string => Boolean(line));
+  const { positive: positiveInsights, caution: cautionInsights } = splitReasonLines(comparison.reasons);
 
-  const verdictExplanation = evaluation.verdict_explanation;
-  const comparisonSummary =
-    verdictExplanation && typeof verdictExplanation === 'object'
-      ? verdictExplanation.comparison_summary ?? null
-      : null;
+  const sections = [
+    formatReasonBlock('Prečo sedí', [...matchLines, ...positiveInsights]),
+    formatReasonBlock('Prečo nesedí', [...mismatchLines, ...cautionInsights]),
+  ].filter((section): section is string => Boolean(section));
 
-  const resolveVerdictExplanationText = (
-    value: CoffeeEvaluationResult['verdict_explanation'] | null | undefined,
-  ): string => {
-    if (!value) {
-      return '';
-    }
-    if (typeof value === 'string') {
-      return value.trim();
-    }
-    return (
-      value.comparison_summary
-      || value.user_preferences_summary
-      || value.coffee_profile_summary
-      || ''
-    ).trim();
-  };
-  const verdictExplanationText = resolveVerdictExplanationText(verdictExplanation);
-  const insightHeadline = evaluation?.insight?.headline?.trim() ?? '';
-  const scanLines = [
-    verdictExplanationText ? `• ${verdictExplanationText}` : null,
-    insightHeadline && insightHeadline !== verdictExplanationText ? `• ${insightHeadline}` : null,
-  ].filter((line): line is string => Boolean(line));
-
-  const scanSummary = firstSentence(
-    verdictExplanationText || comparisonSummary || 'Zo skenu zatiaľ nemáme dostatok údajov.',
-  );
-  const sentences = [profileSentence, `Zo skenu: ${scanSummary}.`];
-
-  const bulletCandidates = [
-    aiSummary ? `AI profil: ${aiSummary}` : null,
-    ...scanLines,
-    ...dimensionLines,
-    ...comparison.reasons,
-  ].filter((line): line is string => Boolean(line));
-  const bullets = bulletCandidates
-    .map(line => line.replace(/^•\s*/, ''))
-    .filter((line, index, array) => array.indexOf(line) === index)
-    .slice(0, 3);
-
-  return bullets.length ? `${sentences.join(' ')}\n${bullets.map(line => `• ${line}`).join('\n')}` : sentences.join(' ');
+  return sections.length
+    ? sections.join('\n')
+    : 'Zatiaľ nemáme dôvody prečo by káva sedela alebo nie.';
 };
 
 const WELCOME_GRADIENT = ['#FF9966', '#A86B8C'];
@@ -415,26 +408,6 @@ const STRUCTURED_FIELD_LABELS: Record<StructuredFieldKey, string> = {
   flavorNotes: 'Chuťové tóny',
   roastDate: 'Dátum praženia',
   varietals: 'Odrody',
-};
-
-const hasVerdictExplanation = (
-  payload: CoffeeEvaluationResult['verdict_explanation'] | null | undefined,
-): boolean => {
-  if (!payload) {
-    return false;
-  }
-  if (typeof payload === 'string') {
-    return payload.trim().length > 0;
-  }
-  if (typeof payload === 'object') {
-    const record = payload as Record<string, unknown>;
-    return (
-      typeof record.user_preferences_summary === 'string' && record.user_preferences_summary.trim().length > 0
-      || typeof record.coffee_profile_summary === 'string' && record.coffee_profile_summary.trim().length > 0
-      || typeof record.comparison_summary === 'string' && record.comparison_summary.trim().length > 0
-    );
-  }
-  return false;
 };
 
 const resolveVerdictExplanationText = (
@@ -2294,36 +2267,16 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   const profileCoffeePreferences =
     (profile as unknown as { coffee_preferences?: Record<string, unknown> | null })
       ?.coffee_preferences ?? null;
-  const profileTimestamps = useMemo(() => {
-    if (!profile || typeof profile !== 'object') {
-      return { updatedAt: null, lastRecalculatedAt: null };
-    }
-    const record = profile as Partial<UserTasteProfile>;
-    const updatedAt = typeof record.updatedAt === 'string' ? record.updatedAt : null;
-    const lastRecalculatedAt =
-      typeof record.lastRecalculatedAt === 'string' ? record.lastRecalculatedAt : null;
-    return { updatedAt, lastRecalculatedAt };
-  }, [profile]);
-  const hasProfileTimestamps = Boolean(
-    profileTimestamps.updatedAt || profileTimestamps.lastRecalculatedAt,
-  );
-  const isProfileStale =
-    Boolean(scanResult?.tasteProfileRejectedAsStale) || (Boolean(profile) && !hasProfileTimestamps);
   const comparisonText = useMemo(
     () => buildComparisonText(
       evaluation,
       preferenceSnapshot,
-      preferenceSnapshot?.ai_recommendation ?? null,
-      profile?.preferences ?? null,
       profileCoffeePreferences,
-      isProfileStale,
     ),
     [
       evaluation,
       preferenceSnapshot,
-      profile?.preferences,
       profileCoffeePreferences,
-      isProfileStale,
     ],
   );
   const neutralVerdictCopy = 'Čakáme na AI hodnotenie';
@@ -2364,41 +2317,31 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     }
     return `${normalized}% istota`;
   }, [evaluation?.confidence]);
-  const dimensionDiffs = useMemo(() => {
-    const diffs = evaluation?.dimension_diffs ?? [];
-    const labelMap: Record<string, string> = {
-      acidity: 'Acidita',
-      sweetness: 'Sladkosť',
-      bitterness: 'Horkosť',
-      body: 'Telo',
+  const verdictReasonBuckets = useMemo(() => {
+    const verdictLines = [
+      ...extractVerdictExplanationLines(evaluation?.verdict_explanation),
+      ...extractInsightReasonLines(evaluation?.insight),
+    ];
+    const { positive: extractedPositive, caution: extractedCaution } = splitReasonLines(verdictLines);
+    return {
+      positive: uniqueLines([...positiveReasons, ...extractedPositive]),
+      caution: uniqueLines([...cautionReasons, ...extractedCaution]),
     };
-
-    return diffs
-      .map((diff, index) => {
-        if (!diff) {
-          return null;
-        }
-        const label = labelMap[diff.dimension] ?? diff.dimension;
-        const percent =
-          typeof diff.percent === 'number' ? `${Math.round(diff.percent)}%` : null;
-        const explanation = diff.explanation?.trim() ?? '';
-        if (!label || (!percent && !explanation)) {
-          return null;
-        }
-        return {
-          key: `${diff.dimension}-${index}`,
-          label,
-          percent,
-          explanation,
-        };
-      })
-      .filter(
-        (
-          entry
-        ): entry is { key: string; label: string; percent: string | null; explanation: string } =>
-          Boolean(entry),
-      );
-  }, [evaluation?.dimension_diffs]);
+  }, [
+    evaluation?.insight,
+    evaluation?.verdict_explanation,
+    positiveReasons,
+    cautionReasons,
+  ]);
+  const verdictReasonText = useMemo(() => {
+    const sections = [
+      formatReasonBlock('Prečo sedí', verdictReasonBuckets.positive),
+      formatReasonBlock('Prečo nesedí', verdictReasonBuckets.caution),
+    ].filter((section): section is string => Boolean(section));
+    return sections.length
+      ? sections.join('\n')
+      : 'Zatiaľ nemáme dôvody prečo je káva vhodná alebo nie.';
+  }, [verdictReasonBuckets]);
   const refreshControl =
     currentView === 'home'
       ? (
@@ -2756,119 +2699,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     return null;
   }, [didSendTasteProfile, evaluation, evaluationStatus, profileMissingCtaLabel, profileMissingText]);
 
-  const fallbackVerdictExplanation = useMemo(() => {
-    if (evaluationStatus !== 'ok') {
-      return null;
-    }
-    const summaryLines: string[] = [];
-    if (profile?.preferences) {
-      const { acidity, sweetness, bitterness, body } = profile.preferences;
-      summaryLines.push(
-        `Tvoje preferencie: Kyslosť ${Math.round(acidity)}/10, `
-          + `Sladkosť ${Math.round(sweetness)}/10, `
-          + `Horkosť ${Math.round(bitterness)}/10, `
-          + `Telo ${Math.round(body)}/10.`,
-      );
-    } else {
-      summaryLines.push('Tvoje preferencie: Chuťový profil nie je k dispozícii.');
-    }
-
-    const structuredDetails = [
-      structuredMetadata?.roastLevel ? `Praženie: ${structuredMetadata.roastLevel}` : null,
-      structuredMetadata?.origin ? `Pôvod: ${structuredMetadata.origin}` : null,
-      structuredMetadata?.processing ? `Spracovanie: ${structuredMetadata.processing}` : null,
-      structuredMetadata?.flavorNotes?.length
-        ? `Chuťové tóny: ${structuredMetadata.flavorNotes.join(', ')}`
-        : null,
-    ].filter((entry): entry is string => Boolean(entry));
-
-    if (structuredDetails.length) {
-      summaryLines.push(`Profil kávy: ${structuredDetails.join(' • ')}.`);
-    } else if (tasteAttributes.length) {
-      const tasteSummary = tasteAttributes
-        .map(attribute => `${attribute.label} ${Math.round(attribute.value)}/10`)
-        .join(', ');
-      summaryLines.push(`Profil kávy: odhadnuté chute z etikety ${tasteSummary}.`);
-    } else {
-      summaryLines.push('Profil kávy: máme len základné údaje zo skenu.');
-    }
-
-    summaryLines.push(
-      'Porovnanie s tvojím profilom: nemáme dostatok údajov na presné porovnanie.',
-    );
-
-    return summaryLines.join('\n');
-  }, [evaluationStatus, profile?.preferences, structuredMetadata, tasteAttributes]);
-
   const verdictLabel = evaluationVerdictLabel;
-  const verdictExplanation = useMemo(() => {
-    const verdictExplanationPayload = evaluation?.verdict_explanation;
-    if (evaluationStatus !== 'ok') {
-      return `${neutralVerdictCopy}.`;
-    }
-    if (evaluationStatus === 'ok') {
-      if (verdictExplanationPayload && typeof verdictExplanationPayload === 'object') {
-        const {
-          user_preferences_summary: userPreferencesSummary,
-          coffee_profile_summary: coffeeProfileSummary,
-          comparison_summary: comparisonSummary,
-        } = verdictExplanationPayload;
-        // 1) Zhrň preferencie používateľa.
-        // 2) Popíš profil kávy.
-        // 3) Jasne porovnaj oba profily v slovenčine.
-        const explanationLines = [
-          userPreferencesSummary,
-          coffeeProfileSummary,
-          comparisonSummary,
-        ].filter((line): line is string => Boolean(line));
-        if (explanationLines.length) {
-          return explanationLines.join('\n');
-        }
-      }
-      if (typeof verdictExplanationPayload === 'string' && verdictExplanationPayload) {
-        return verdictExplanationPayload;
-      }
-      if (!hasVerdictExplanation(verdictExplanationPayload) && fallbackVerdictExplanation) {
-        return fallbackVerdictExplanation;
-      }
-    }
-    if (compatibility) {
-      return compatibility.description;
-    }
-    if (!scanResult) {
-      return 'Najprv naskenuj etiketu kávy a ukážeme ti, ako ti sadne.';
-    }
-
-    if (scanResult.isRecommended === false) {
-      if (cautionReasons.length) {
-        return cautionReasons[0];
-      }
-      if (reasonSentences.length) {
-        return reasonSentences[0];
-      }
-      return 'Podľa tvojich posledných hodnotení táto chuť nemusí byť pre teba.';
-    }
-
-    if (positiveReasons.length) {
-      return positiveReasons[0];
-    }
-    if (reasonSentences.length) {
-      return reasonSentences[0];
-    }
-    if (typeof verdictExplanationPayload === 'string' && verdictExplanationPayload) {
-      return verdictExplanationPayload;
-    }
-    return 'Táto káva potrebuje viac informácií, aby sme ju vedeli vyhodnotiť.';
-  }, [
-    cautionReasons,
-    compatibility,
-    evaluation,
-    evaluationStatus,
-    positiveReasons,
-    reasonSentences,
-    scanResult,
-    fallbackVerdictExplanation,
-  ]);
   const evaluationIntroText = useMemo(() => {
     if (evaluationStatus !== 'ok') {
       return '';
@@ -3342,27 +3173,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                             {evaluationConfidenceLabel ? (
                               <Text style={styles.verdictConfidence}>{evaluationConfidenceLabel}</Text>
                             ) : null}
-                            <Text style={styles.verdictDescription}>{verdictExplanation}</Text>
-                            {dimensionDiffs.length ? (
-                              <View style={styles.verdictDiffs}>
-                                <Text style={styles.verdictDiffsTitle}>Rozdiely v chutiach</Text>
-                                {dimensionDiffs.map(diff => (
-                                  <View key={diff.key} style={styles.verdictDiffRow}>
-                                    <View style={styles.verdictDiffHeader}>
-                                      <Text style={styles.verdictDiffLabel}>{diff.label}</Text>
-                                      {diff.percent ? (
-                                        <Text style={styles.verdictDiffPercent}>{diff.percent}</Text>
-                                      ) : null}
-                                    </View>
-                                    {diff.explanation ? (
-                                      <Text style={styles.verdictDiffExplanation}>
-                                        {diff.explanation}
-                                      </Text>
-                                    ) : null}
-                                  </View>
-                                ))}
-                              </View>
-                            ) : null}
+                            <Text style={styles.verdictDescription}>{verdictReasonText}</Text>
                             {lowDataWarning ? (
                               <View style={styles.lowDataCard}>
                                 <View style={styles.lowDataBadge}>
