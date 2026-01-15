@@ -1696,12 +1696,12 @@ PRAVIDLÁ:
 - V prípade obmedzených údajov vždy uveď v coffee_profile_summary alebo disclaimer, že hodnotenie je orientačné.
 - Každé pole verdict_explanation musí byť presne jedna veta v tomto formáte:
   - user_preferences_summary začína "Tvoje preferencie:" a stručne zhrnie chuťový profil.
-  - coffee_profile_summary začína "Profil kávy:" a stručne zhrnie profil kávy.
+  - coffee_profile_summary začína "Profil kávy:" a stručne zhrnie profil kávy a vždy vysvetlí chuťové tendencie z praženia a spracovania (napr. "tmavé praženie → vyššia horkosť", "natural → ovocnejšie"), ak sú tieto polia dostupné.
   - comparison_summary začína "Porovnanie s tvojím profilom:" a jasne porovná oba profily.
 - comparison_summary musí vždy obsahovať:
-  - krátky chuťový profil kávy (sladkosť, acidita, horkosť, telo + 1–2 chuťové tóny),
-  - konkrétny dôvod nesúladu s preferenciami (napr. preferuje nízku horkosť, ale káva je horká),
-  - ak nie sú údaje, explicitne uveď „dáta chýbajú“ a navrhni, čo doplniť.
+  - 2 časti v jednej vete: (1) chuťová tendencia kávy + zdroj (praženie/spracovanie/odrody), (2) explicitné porovnanie s preferenciami z dotazníka (napr. "preferuješ nízku horkosť, táto káva má vyššiu horkosť, preto nesedí").
+  - krátky chuťový profil kávy (sladkosť, acidita, horkosť, telo + 1–2 chuťové tóny), ak sú dáta dostupné.
+  - ak nie sú údaje, explicitne uveď „dáta chýbajú“ a navrhni, čo doplniť (roast_level, processing, flavor_notes).
 - Ak sú v chuťovom profile dostupné intensity alebo experimentalism, explicitne ich zahrň do user_preferences_summary a comparison_summary.
 - Insight musí byť konzistentný s verdictom (bez protichodných tvrdení).
 - Použi jediný kontrakt: insight objekt s poliami zo schémy (žiadne top-level zoznamy).
