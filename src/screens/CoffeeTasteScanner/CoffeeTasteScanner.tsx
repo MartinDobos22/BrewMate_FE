@@ -267,6 +267,14 @@ const formatReasonBlock = (title: string, lines: string[]): string | null => {
   return `${title}\n${cleaned.map(line => `• ${line}`).join('\n')}`;
 };
 
+const formatSummaryBlock = (title: string, lines: string[]): string | null => {
+  const cleaned = uniqueLines(lines.map(normalizeReasonLine).filter(Boolean));
+  if (!cleaned.length) {
+    return null;
+  }
+  return `${title}\n${cleaned.join('\n')}`;
+};
+
 const extractVerdictExplanationLines = (
   payload: CoffeeEvaluationResult['verdict_explanation'] | null | undefined,
 ): string[] => {
@@ -360,10 +368,16 @@ const buildComparisonText = (
   const filteredNeutralInsights = neutralInsights.filter(line => !shouldOmitDuplicateLine(line));
 
   const sections = [
-    formatReasonBlock('Prehľad porovnania', comparisonSummaryLines),
-    formatReasonBlock('Prečo sedí', [...filteredMatchLines, ...filteredPositiveInsights]),
-    formatReasonBlock('Prečo nesedí', [...filteredMismatchLines, ...filteredCautionInsights]),
-    formatReasonBlock('Ďalšie zistenia', filteredNeutralInsights),
+    formatSummaryBlock('Zhrnutie porovnania', comparisonSummaryLines),
+    formatReasonBlock(
+      'Doplnkové dôvody prečo sedí',
+      [...filteredMatchLines, ...filteredPositiveInsights],
+    ),
+    formatReasonBlock(
+      'Doplnkové dôvody prečo nesedí',
+      [...filteredMismatchLines, ...filteredCautionInsights],
+    ),
+    formatReasonBlock('Doplnkové zistenia', filteredNeutralInsights),
   ].filter((section): section is string => Boolean(section));
 
   return sections.length
