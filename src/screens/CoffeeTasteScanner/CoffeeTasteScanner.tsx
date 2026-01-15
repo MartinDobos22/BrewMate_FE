@@ -275,38 +275,6 @@ const formatSummaryBlock = (title: string, lines: string[]): string | null => {
   return `${title}\n${cleaned.join('\n')}`;
 };
 
-const extractVerdictExplanationLines = (
-  payload: CoffeeEvaluationResult['verdict_explanation'] | null | undefined,
-): string[] => {
-  if (!payload) {
-    return [];
-  }
-  if (typeof payload === 'string') {
-    return [payload];
-  }
-  return [
-    payload.user_preferences_summary,
-    payload.coffee_profile_summary,
-    payload.comparison_summary,
-  ].filter((line): line is string => Boolean(line && line.trim()));
-};
-
-const extractInsightReasonLines = (
-  insight: CoffeeEvaluationResult['insight'] | null | undefined,
-): string[] => {
-  if (!insight) {
-    return [];
-  }
-  const sections = Array.isArray(insight.sections) ? insight.sections : [];
-  const bullets = sections.flatMap(section =>
-    Array.isArray(section?.bullets) ? section.bullets : [],
-  );
-  return bullets
-    .filter((bullet): bullet is string => typeof bullet === 'string')
-    .map(bullet => bullet.trim())
-    .filter(Boolean);
-};
-
 const buildComparisonText = (
   evaluation: CoffeeEvaluationResult | null | undefined,
   preferenceSnapshot: CoffeePreferenceSnapshot | null | undefined,
@@ -2283,78 +2251,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     }
     return `${normalized}% istota`;
   }, [evaluation?.confidence]);
-  // AI recommendation sentences coming from the scan response; reused for the insight section.
-  const recommendationSentences = useMemo(() => {
-    if (!scanResult?.recommendation) {
-      return [];
-    }
-    return scanResult.recommendation
-      .split(/[\.\n]/)
-      .map(sentence => sentence.trim())
-      .filter(Boolean);
-  }, [scanResult]);
-
-  const reasonSentences = recommendationSentences.slice(1);
-
-  const positiveReasons = useMemo(() => {
-    if (!reasonSentences.length && recommendationSentences.length) {
-      return recommendationSentences;
-    }
-
-    return reasonSentences.filter(sentence => {
-      return isPositiveReasonLine(sentence);
-    });
-  }, [reasonSentences, recommendationSentences]);
-
-  const cautionReasons = useMemo(() => {
-    if (!reasonSentences.length) {
-      return [];
-    }
-    return reasonSentences.filter(sentence => {
-      return !isPositiveReasonLine(sentence) && isCautionReasonLine(sentence);
-    });
-  }, [reasonSentences]);
-
-  const neutralReasons = useMemo(() => {
-    if (!reasonSentences.length) {
-      return [];
-    }
-    return reasonSentences.filter(
-      sentence => !isPositiveReasonLine(sentence) && !isCautionReasonLine(sentence),
-    );
-  }, [reasonSentences]);
-  const verdictReasonBuckets = useMemo(() => {
-    const verdictLines = [
-      ...extractVerdictExplanationLines(evaluation?.verdict_explanation),
-      ...extractInsightReasonLines(evaluation?.insight),
-    ];
-    const {
-      positive: extractedPositive,
-      caution: extractedCaution,
-      neutral: extractedNeutral,
-    } = splitReasonLines(verdictLines);
-    return {
-      positive: uniqueLines([...positiveReasons, ...extractedPositive]),
-      caution: uniqueLines([...cautionReasons, ...extractedCaution]),
-      neutral: uniqueLines([...neutralReasons, ...extractedNeutral]),
-    };
-  }, [
-    evaluation?.insight,
-    evaluation?.verdict_explanation,
-    positiveReasons,
-    cautionReasons,
-    neutralReasons,
-  ]);
-  const verdictReasonText = useMemo(() => {
-    const sections = [
-      formatReasonBlock('Prečo sedí', verdictReasonBuckets.positive),
-      formatReasonBlock('Prečo nesedí', verdictReasonBuckets.caution),
-      formatReasonBlock('Ďalšie zistenia', verdictReasonBuckets.neutral),
-    ].filter((section): section is string => Boolean(section));
-    return sections.length
-      ? sections.join('\n')
-      : 'Zatiaľ nemáme dôvody prečo je káva vhodná alebo nie.';
-  }, [verdictReasonBuckets]);
+  const verdictExplanationFallbackText = 'Zatiaľ nemáme dôvody prečo je káva vhodná alebo nie.';
   const verdictExplanationSections = useMemo(() => {
     const verdictExplanation = evaluation?.verdict_explanation;
     if (!verdictExplanation) {
@@ -2366,15 +2263,15 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     }
     const sections = [
       {
-        title: 'Zhrnutie preferencií',
+        title: 'Tvoje preferencie',
         text: verdictExplanation.user_preferences_summary ?? '',
       },
       {
-        title: 'Profil kávy',
+        title: 'Chuťový profil kávy a dôvod z praženia/spracovania',
         text: verdictExplanation.coffee_profile_summary ?? '',
       },
       {
-        title: 'Porovnanie',
+        title: 'Priame porovnanie a výsledok',
         text: verdictExplanation.comparison_summary ?? '',
       },
     ]
@@ -2628,16 +2525,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       ? ''
       : insightHeadline;
     // Fall back to verdict_explanation when filtered insight would conflict with the verdict.
-    const verdictExplanationText =
-      typeof evaluation?.verdict_explanation === 'string'
-        ? evaluation.verdict_explanation
-        : evaluation?.verdict_explanation?.comparison_summary
-          || evaluation?.verdict_explanation?.user_preferences_summary
-          || evaluation?.verdict_explanation?.coffee_profile_summary
-          || '';
     const resolvedHeadline =
       sanitizedHeadline
-      || verdictExplanationText
       || '';
     return {
       headline: resolvedHeadline,
@@ -3177,7 +3066,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                                 ))}
                               </View>
                             ) : (
-                              <Text style={styles.verdictDescription}>{verdictReasonText}</Text>
+                              <Text style={styles.verdictDescription}>
+                                {verdictExplanationFallbackText}
+                              </Text>
                             )}
                             <View style={styles.aiSummarySection}>
                               <Text style={styles.sectionSubtitle}>Chuťové tóny / profil kávy</Text>
