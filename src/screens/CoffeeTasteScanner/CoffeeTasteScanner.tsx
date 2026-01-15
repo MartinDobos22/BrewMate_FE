@@ -44,8 +44,6 @@ import {
 } from './services';
 import { getAuthToken } from '../../services/ocrServices';
 import {
-  computeSignalWeight,
-  CoffeeSignalRecord,
   loadCoffeeSignal,
   recordConsumptionSignal,
   recordFavoriteSignal,
@@ -840,6 +838,14 @@ const normalizeRoastLevel = (value?: string | null): RoastCategory => {
   return 'unknown';
 };
 
+const normalizeConfidenceScore = (confidence?: number | null): number | null => {
+  if (typeof confidence !== 'number') {
+    return null;
+  }
+  const normalized = confidence <= 1 ? confidence * 100 : confidence;
+  return Math.round(Math.max(0, Math.min(100, normalized)));
+};
+
 const buildTasteVectorFromStructuredMetadata = (
   metadata?: StructuredCoffeeMetadata | null,
 ): TasteProfileVector | null => {
@@ -977,7 +983,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
   const [confirmPayload, setConfirmPayload] = useState<StructuredConfirmPayload | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
-  const [implicitSignals, setImplicitSignals] = useState<CoffeeSignalRecord | null>(null);
   const [signalWarning, setSignalWarning] = useState<string | null>(null);
   const [preferenceSnapshot, setPreferenceSnapshot] = useState<CoffeePreferenceSnapshot | null>(null);
 
@@ -1052,7 +1057,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
 
   const handleSignalOutcome = useCallback(
     (result: SignalUpdateResult, context: string) => {
-      setImplicitSignals(result.record);
       if (!result.synced) {
         const message =
           result.error && result.error.length > 0
@@ -2322,17 +2326,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       isProfileStale,
     ],
   );
-  const hasCompatibilityInputs = Boolean(
-    scanResult
-      && (
-        typeof scanResult.matchPercentage === 'number'
-        || scanResult.isRecommended !== undefined
-        || Boolean(implicitSignals)
-        || (structuredMetadata && Object.keys(structuredMetadata).length > 0)
-      ),
-  );
-  // Only suppress compatibility when we truly have no data to base it on.
-  const shouldSuppressCompatibility = !hasCompatibilityInputs;
   const neutralVerdictCopy = 'Čakáme na AI hodnotenie';
   const didSendTasteProfile = Boolean(scanResult?.tasteProfileSent);
   const isProfileMissing = evaluationStatus === 'profile_missing' && !didSendTasteProfile;
@@ -2365,14 +2358,12 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   }, [evaluation, evaluationStatus]);
   // Normalize AI confidence to a readable percentage label for the verdict section.
   const evaluationConfidenceLabel = useMemo(() => {
-    if (!evaluation || typeof evaluation.confidence !== 'number') {
+    const normalized = normalizeConfidenceScore(evaluation?.confidence);
+    if (normalized === null) {
       return null;
     }
-    const raw = evaluation.confidence;
-    const normalized = raw <= 1 ? raw * 100 : raw;
-    const rounded = Math.round(Math.max(0, Math.min(100, normalized)));
-    return `${rounded}% istota`;
-  }, [evaluation]);
+    return `${normalized}% istota`;
+  }, [evaluation?.confidence]);
   const dimensionDiffs = useMemo(() => {
     const diffs = evaluation?.dimension_diffs ?? [];
     const labelMap: Record<string, string> = {
@@ -2447,7 +2438,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
 
   useEffect(() => {
     if (!scanResult) {
-      setImplicitSignals(null);
       return;
     }
     const identity = resolveCoffeeIdentity(scanResult, coffeeName);
@@ -2456,7 +2446,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     }
     loadCoffeeSignal(userId ?? null, identity.id, identity.name)
       .then(record => {
-        setImplicitSignals(record);
         if (signalWarning && record?.lastSyncedAt) {
           setSignalWarning(null);
         }
@@ -2464,84 +2453,44 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       .catch(error => console.warn('CoffeeTasteScanner: failed to load implicit signals', error));
   }, [coffeeName, scanResult, signalWarning, userId]);
 
-  const roastCategory = useMemo(() => {
-    const roastValue = structuredFields.roastLevel.value || recognizedText;
-    return normalizeRoastLevel(roastValue);
-  }, [recognizedText, structuredFields.roastLevel.value]);
-
   const compatibility = useMemo(() => {
-    // Skip compatibility scoring only when there is no meaningful input data.
-    if (!scanResult || shouldSuppressCompatibility) {
+    if (evaluationStatus !== 'ok') {
       return null;
     }
 
-    const baseMatch =
-      typeof scanResult.matchPercentage === 'number'
-        ? scanResult.matchPercentage
-        : scanResult.isRecommended === false
-          ? 55
-          : 78;
-
-    let adjusted = baseMatch;
-
-    if (implicitSignals) {
-      adjusted += computeSignalWeight(implicitSignals);
-    }
-
-    if (roastCategory === 'light' && profile?.preferences?.acidity !== undefined) {
-      if (profile.preferences.acidity <= 3) {
-        adjusted -= 12;
-      } else if (profile.preferences.acidity <= 4) {
-        adjusted -= 8;
-      }
-    }
-
-    if (roastCategory === 'dark' && profile?.preferences?.bitterness !== undefined) {
-      if (profile.preferences.bitterness >= 6) {
-        adjusted += 6;
-      }
-    }
-
-    const clamped = Math.max(0, Math.min(100, Math.round(adjusted)));
-    const hasConsistentCompatibilityData =
-      typeof scanResult.matchPercentage === 'number'
-      || Boolean(implicitSignals)
-      || (structuredMetadata && Object.keys(structuredMetadata).length > 0);
-    let bucket: CompatibilityBucket = clamped < 70 ? 'NO-GO' : clamped < 82 ? 'RISKY' : 'SAFE';
-    if (bucket === 'NO-GO' && !hasConsistentCompatibilityData) {
-      bucket = 'RISKY';
-    }
-
+    const score = normalizeConfidenceScore(evaluation?.confidence);
+    const bucket: CompatibilityBucket =
+      evaluation?.verdict === 'suitable'
+        ? 'SAFE'
+        : evaluation?.verdict === 'not_suitable'
+          ? 'NO-GO'
+          : 'RISKY';
+    const label =
+      evaluation?.verdict === 'suitable'
+        ? 'Vhodná'
+        : evaluation?.verdict === 'not_suitable'
+          ? 'Nevhodná'
+          : 'Neisté';
     const descriptionMap: Record<CompatibilityBucket, string> = {
-      SAFE: 'Veľmi dobrá zhoda s tvojím profilom',
-      RISKY: 'Chuťovo blízke, ale výraznejšie – nemusí sadnúť každému',
-      'NO-GO': 'Nízka zhoda – vysoké riziko, že ti nesadne',
+      SAFE: 'AI hodnotí zhodu ako vysokú',
+      RISKY: 'AI vidí zmiešanú zhodu',
+      'NO-GO': 'AI hodnotí zhodu ako nízku',
     } as const;
-
-    const labelMap: Record<CompatibilityBucket, string> = {
-      SAFE: 'Vysoká',
-      RISKY: 'Stredná',
-      'NO-GO': 'Nízka',
-    } as const;
+    const description =
+      resolveVerdictExplanationText(evaluation?.verdict_explanation)
+      || resolveInsightHeadline(evaluation?.insight)
+      || evaluation?.disclaimer
+      || descriptionMap[bucket];
 
     return {
-      score: clamped,
+      score,
       bucket,
-      badge: `${bucket} · ${clamped}%`,
-      description: descriptionMap[bucket],
-      label: labelMap[bucket],
+      badge: score !== null ? `AI · ${score}%` : 'AI verdikt',
+      description,
+      label,
     } as const;
-  }, [
-    implicitSignals,
-    shouldSuppressCompatibility,
-    profile?.preferences?.acidity,
-    profile?.preferences?.bitterness,
-    roastCategory,
-    scanResult,
-    structuredMetadata,
-  ]);
+  }, [evaluation, evaluationStatus]);
 
-  // Prefer the AI verdict when available; fall back to heuristic compatibility buckets otherwise.
   const evaluationVerdictLabel = useMemo(() => {
     if (evaluationStatus !== 'ok') {
       return neutralVerdictCopy;
@@ -2555,8 +2504,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     if (evaluation?.verdict === 'uncertain') {
       return 'Neisté';
     }
-    return compatibility?.bucket ?? 'Neisté';
-  }, [compatibility?.bucket, evaluation, evaluationStatus, neutralVerdictCopy]);
+    return 'Neisté';
+  }, [evaluation, evaluationStatus, neutralVerdictCopy]);
   // Map verdict intent to existing badge styles for consistent color cues.
   const evaluationVerdictTone = useMemo(() => {
     if (evaluationStatus !== 'ok') {
@@ -2573,37 +2522,19 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
         return 'YES';
       }
     }
-    if (compatibility?.bucket === 'NO-GO') {
-      return 'NO';
-    }
-    if (compatibility?.bucket === 'RISKY') {
-      return 'RISKY';
-    }
-    return 'YES';
-  }, [compatibility?.bucket, evaluation, evaluationStatus]);
+    return 'RISKY';
+  }, [evaluation, evaluationStatus]);
   const aiMatchScore = useMemo(() => {
     if (evaluationStatus !== 'ok') {
       return null;
     }
-    if (typeof evaluation?.confidence !== 'number') {
-      return null;
-    }
-    const normalized = evaluation.confidence <= 1 ? evaluation.confidence * 100 : evaluation.confidence;
-    return Math.round(Math.max(0, Math.min(100, normalized)));
-  }, [evaluation, evaluationStatus]);
+    return normalizeConfidenceScore(evaluation?.confidence);
+  }, [evaluation?.confidence, evaluationStatus]);
   const aiMatchLabel = aiMatchScore !== null ? `AI zhoda ${aiMatchScore}%` : null;
   const shouldHideCompatibilityUI = !compatibility;
   const matchLabel = aiMatchLabel
     ? aiMatchLabel
-    : compatibility
-      ? `Kompatibilita ${compatibility.score}%`
-      : scanResult
-        ? isProfileMissing
-          ? undefined
-          : scanResult.isRecommended === false
-            ? 'Mimo preferencií'
-            : 'Sedí k profilu'
-        : undefined;
+    : compatibility?.label ?? (evaluationStatus !== 'ok' ? neutralVerdictCopy : undefined);
 
   // AI recommendation sentences coming from the scan response; reused for the insight section.
   const recommendationSentences = useMemo(() => {
@@ -2969,8 +2900,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     : 'Uprav, ak niečo nesedí';
 
   const metrics = useMemo(
-    () => [{ icon: '🛡️', value: compatibility?.label ?? '—', label: 'Kompatibilita' }],
-    [compatibility?.label]
+    () => [{ icon: '🛡️', value: matchLabel ?? '—', label: 'Kompatibilita' }],
+    [matchLabel],
   );
 
   // Camera View
