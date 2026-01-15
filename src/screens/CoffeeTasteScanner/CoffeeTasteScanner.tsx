@@ -793,23 +793,7 @@ const resolveTasteProfile = (
   return null;
 };
 
-type RoastCategory = 'light' | 'medium' | 'dark' | 'unknown';
 type CompatibilityBucket = 'SAFE' | 'RISKY' | 'NO-GO';
-
-const normalizeRoastLevel = (value?: string | null): RoastCategory => {
-  if (!value) return 'unknown';
-  const normalized = value.toLowerCase();
-  if (normalized.includes('light') || normalized.includes('svetl')) {
-    return 'light';
-  }
-  if (normalized.includes('medium') || normalized.includes('stred')) {
-    return 'medium';
-  }
-  if (normalized.includes('dark') || normalized.includes('tmav')) {
-    return 'dark';
-  }
-  return 'unknown';
-};
 
 const normalizeConfidenceScore = (confidence?: number | null): number | null => {
   if (typeof confidence !== 'number') {
@@ -819,97 +803,6 @@ const normalizeConfidenceScore = (confidence?: number | null): number | null => 
   return Math.round(Math.max(0, Math.min(100, normalized)));
 };
 
-const buildTasteVectorFromStructuredMetadata = (
-  metadata?: StructuredCoffeeMetadata | null,
-): TasteProfileVector | null => {
-  if (!metadata) {
-    return null;
-  }
-
-  const roastCategory = normalizeRoastLevel(metadata.roastLevel);
-  const processing = metadata.processing?.toLowerCase() ?? '';
-  const flavorNotes = metadata.flavorNotes?.map(note => note.toLowerCase()) ?? [];
-  const hasStructuredSignals =
-    roastCategory !== 'unknown' || Boolean(processing) || flavorNotes.length > 0;
-
-  if (!hasStructuredSignals) {
-    return null;
-  }
-
-  const vector = {
-    sweetness: 5,
-    acidity: 5,
-    bitterness: 5,
-    body: 5,
-  };
-
-  switch (roastCategory) {
-    case 'light':
-      vector.acidity += 2;
-      vector.sweetness += 0.5;
-      vector.bitterness -= 1;
-      vector.body -= 0.5;
-      break;
-    case 'medium':
-      vector.acidity += 0.5;
-      vector.body += 0.5;
-      break;
-    case 'dark':
-      vector.bitterness += 2;
-      vector.body += 1;
-      vector.acidity -= 1.5;
-      vector.sweetness -= 0.5;
-      break;
-    default:
-      break;
-  }
-
-  if (processing) {
-    if (processing.includes('natural') || processing.includes('honey')) {
-      vector.sweetness += 1;
-      vector.body += 0.5;
-      vector.acidity -= 0.3;
-    } else if (processing.includes('washed')) {
-      vector.acidity += 1;
-      vector.body -= 0.3;
-    } else if (processing.includes('anaerobic')) {
-      vector.sweetness += 0.5;
-      vector.acidity += 0.5;
-    }
-  }
-
-  const noteMatches = (keywords: string[]) =>
-    flavorNotes.some(note => keywords.some(keyword => note.includes(keyword)));
-
-  if (noteMatches(['citr', 'citrus', 'lemon', 'lime', 'bergamot'])) {
-    vector.acidity += 1.2;
-    vector.sweetness += 0.3;
-  }
-  if (noteMatches(['berry', 'ovoc', 'fruit', 'cherry', 'jahod', 'malin'])) {
-    vector.acidity += 0.8;
-    vector.sweetness += 0.5;
-  }
-  if (noteMatches(['čokol', 'cocoa', 'kakao', 'karamel', 'toffee', 'nut', 'orie', 'mandl'])) {
-    vector.sweetness += 0.7;
-    vector.body += 0.6;
-    vector.bitterness += 0.4;
-  }
-  if (noteMatches(['spice', 'koreni', 'smok', 'dym'])) {
-    vector.bitterness += 0.8;
-    vector.body += 0.4;
-  }
-  if (noteMatches(['tea', 'čaj', 'flower', 'kvet'])) {
-    vector.acidity += 0.6;
-    vector.body -= 0.3;
-  }
-
-  return {
-    sweetness: clampTasteValue(vector.sweetness),
-    acidity: clampTasteValue(vector.acidity),
-    bitterness: clampTasteValue(vector.bitterness),
-    body: clampTasteValue(vector.body),
-  };
-};
 
 const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   onBack,
@@ -2514,20 +2407,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     });
   }, [reasonSentences]);
 
-  const combinedLowerText = useMemo(() => {
-    const combined = `${recognizedText}\n${scanResult?.recommendation ?? ''}`;
-    return combined.toLowerCase();
-  }, [recognizedText, scanResult]);
-
   const structuredTasteVector = useMemo(() => {
-    const aiVector =
-      extractTasteVectorFromPayload(scanResult?.structuredRaw) ??
-      extractTasteVectorFromPayload(scanResult?.evaluation?.raw);
-    if (aiVector) {
-      return aiVector;
-    }
-    return buildTasteVectorFromStructuredMetadata(structuredMetadata);
-  }, [scanResult?.evaluation?.raw, scanResult?.structuredRaw, structuredMetadata]);
+    return extractTasteVectorFromPayload(scanResult?.evaluation?.raw);
+  }, [scanResult?.evaluation?.raw]);
 
   const tasteAttributes = useMemo(() => {
     if (structuredTasteVector) {
@@ -2558,54 +2440,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
         },
       ];
     }
-
-    const computeScore = (
-      base: number,
-      positiveKeywords: string[],
-      negativeKeywords: string[] = []
-    ) => {
-      let score = base;
-      positiveKeywords.forEach(keyword => {
-        if (combinedLowerText.includes(keyword)) {
-          score += 1.5;
-        }
-      });
-      negativeKeywords.forEach(keyword => {
-        if (combinedLowerText.includes(keyword)) {
-          score -= 1.5;
-        }
-      });
-      return clampTasteValue(score);
-    };
-
-    return [
-      {
-        key: 'acidity',
-        label: 'Kyslosť',
-        value: computeScore(6, ['acid', 'kys', 'citr', 'jasn'], ['ploch', 'tlmen']),
-        style: styles.tasteFillAcidity,
-      },
-      {
-        key: 'sweetness',
-        label: 'Sladkosť',
-        value: computeScore(5, ['slad', 'med', 'karamel', 'cukr'], ['such', 'sviež']),
-        style: styles.tasteFillSweetness,
-      },
-      {
-        key: 'bitterness',
-        label: 'Horkosť',
-        value: computeScore(3, ['intenzívna horkosť', 'tmav', 'čokol'], ['nízka horkosť', 'jemná horkosť']),
-        style: styles.tasteFillBitterness,
-      },
-      {
-        key: 'body',
-        label: 'Telo',
-        value: computeScore(5, ['plné telo', 'krém', 'bohaté telo'], ['ľahké telo', 'jemné telo']),
-        style: styles.tasteFillBody,
-      },
-    ];
+    return null;
   }, [
-    combinedLowerText,
     structuredTasteVector,
     styles.tasteFillAcidity,
     styles.tasteFillSweetness,
@@ -3343,25 +3179,31 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                           ) : null}
                         </View>
                         <View style={styles.tasteAttributesGrid}>
-                          {tasteAttributes.map(attribute => (
-                            <View key={attribute.key} style={styles.tasteAttributeItem}>
-                              <View style={styles.tasteAttributeHeader}>
-                                <Text style={styles.tasteAttributeName}>{attribute.label}</Text>
-                                <Text style={styles.tasteAttributeValue}>
-                                  {Math.round(attribute.value)}/10
-                                </Text>
+                          {tasteAttributes ? (
+                            tasteAttributes.map(attribute => (
+                              <View key={attribute.key} style={styles.tasteAttributeItem}>
+                                <View style={styles.tasteAttributeHeader}>
+                                  <Text style={styles.tasteAttributeName}>{attribute.label}</Text>
+                                  <Text style={styles.tasteAttributeValue}>
+                                    {Math.round(attribute.value)}/10
+                                  </Text>
+                                </View>
+                                <View style={styles.tasteBar}>
+                                  <View
+                                    style={[
+                                      styles.tasteFill,
+                                      attribute.style,
+                                      { width: `${attribute.value * 10}%` },
+                                    ]}
+                                  />
+                                </View>
                               </View>
-                              <View style={styles.tasteBar}>
-                                <View
-                                  style={[
-                                    styles.tasteFill,
-                                    attribute.style,
-                                    { width: `${attribute.value * 10}%` },
-                                  ]}
-                                />
-                              </View>
-                            </View>
-                          ))}
+                            ))
+                          ) : (
+                            <Text style={styles.emptyTasteText}>
+                              Chuťový profil z AI hodnotenia zatiaľ nie je dostupný.
+                            </Text>
+                          )}
                         </View>
                       </View>
 

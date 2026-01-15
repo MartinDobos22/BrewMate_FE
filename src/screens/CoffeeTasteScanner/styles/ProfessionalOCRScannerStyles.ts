@@ -851,6 +851,11 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
       columnGap: 12,
       rowGap: 12,
     },
+    emptyTasteText: {
+      fontSize: 13,
+      color: palette.textSecondary,
+      lineHeight: 18,
+    },
     tasteAttributeItem: {
       width: '47%',
     },
