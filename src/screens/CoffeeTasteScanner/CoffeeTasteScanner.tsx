@@ -2739,21 +2739,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     styles.tasteFillBody,
   ]);
 
-  const flavorTags = useMemo(() => {
-    const structuredNotes = structuredFields.flavorNotes.value;
-    if (structuredNotes?.length) {
-      return structuredNotes;
-    }
-
-    const detected = FLAVOR_KEYWORDS.filter(item => combinedLowerText.includes(item.keyword)).map(
-      item => item.label
-    );
-    if (detected.length) {
-      return detected;
-    }
-    return ['N/A'];
-  }, [combinedLowerText, structuredFields.flavorNotes.value]);
-
   const insightBadgeStyle =
     evaluation?.verdict === 'not_suitable'
       ? styles.reasonBadgeNegative
@@ -3633,13 +3618,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                                   ]}
                                 />
                               </View>
-                            </View>
-                          ))}
-                        </View>
-                        <View style={styles.flavorTagsRow}>
-                          {flavorTags.map(tag => (
-                            <View key={tag} style={styles.flavorTag}>
-                              <Text style={styles.flavorTagText}>{tag}</Text>
                             </View>
                           ))}
                         </View>

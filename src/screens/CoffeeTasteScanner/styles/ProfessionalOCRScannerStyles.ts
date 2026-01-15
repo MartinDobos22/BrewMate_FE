@@ -892,26 +892,6 @@ export const scannerStyles = (_isDarkMode: boolean = false) => {
     tasteFillBody: {
       backgroundColor: palette.primary,
     },
-    flavorTagsRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      marginTop: 18,
-      columnGap: 10,
-      rowGap: 10,
-    },
-    flavorTag: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 999,
-      backgroundColor: palette.foam,
-      borderWidth: 1,
-      borderColor: 'rgba(200,168,130,0.35)',
-    },
-    flavorTagText: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: palette.textSecondary,
-    },
     structuredCard: {
       backgroundColor: palette.surface,
       borderRadius: 24,
