@@ -1694,12 +1694,15 @@ PRAVIDLÁ:
   zhrň len všeobecný charakter (napr. vyššia acidita pri light/omni roaste),
   nezadávaj konkrétne chuťové tóny, explicitne priznaj neistotu a nastav nižší confidence.
 - V prípade obmedzených údajov vždy uveď v coffee_profile_summary alebo disclaimer, že hodnotenie je orientačné.
-- Každé pole verdict_explanation musí byť presne jedna veta v tomto formáte:
-  - user_preferences_summary začína "Tvoje preferencie:" a stručne zhrnie chuťový profil.
-  - coffee_profile_summary začína "Profil kávy:" a stručne zhrnie profil kávy a vždy vysvetlí chuťové tendencie z praženia a spracovania (napr. "tmavé praženie → vyššia horkosť", "natural → ovocnejšie"), ak sú tieto polia dostupné.
-  - comparison_summary začína "Porovnanie s tvojím profilom:" a jasne porovná oba profily.
-- comparison_summary musí vždy obsahovať:
-  - 2 časti v jednej vete: (1) chuťová tendencia kávy + zdroj (praženie/spracovanie/odrody), (2) explicitné porovnanie s preferenciami z dotazníka (napr. "preferuješ nízku horkosť, táto káva má vyššiu horkosť, preto nesedí").
+- Každé pole verdict_explanation musí mať predpísaný formát:
+  - user_preferences_summary je presne jedna veta, začína "Tvoje preferencie:" a stručne zhrnie chuťový profil.
+  - coffee_profile_summary je presne jedna veta, začína "Profil kávy:" a stručne zhrnie profil kávy a vždy vysvetlí chuťové tendencie z praženia a spracovania (napr. "tmavé praženie → vyššia horkosť", "natural → ovocnejšie"), ak sú tieto polia dostupné.
+  - comparison_summary začína "Porovnanie s tvojím profilom:" a obsahuje presne dve vety.
+- comparison_summary musí vždy obsahovať vetu v tomto tvare:
+  „Táto káva má tendenciu byť <chuť>, pretože <atribút> (praženie/spracovanie/odroda). Na základe tvojich preferencií (<stručný profil>) ti bude/nebude chutiť.“
+- Ak sú dostupné roast_level alebo processing, dôvod musí byť explicitne uvedený (napr. „tmavé praženie → horkosť“, „natural → ovocnosť“).
+- Ak dáta chýbajú, explicitne uveď, že dôvod sa nedá určiť, a čo treba doplniť (napr. roast_level, processing, flavor_notes).
+- comparison_summary musí okrem toho vždy obsahovať:
   - krátky chuťový profil kávy (sladkosť, acidita, horkosť, telo + 1–2 chuťové tóny), ak sú dáta dostupné.
   - ak nie sú údaje, explicitne uveď „dáta chýbajú“ a navrhni, čo doplniť (roast_level, processing, flavor_notes).
 - Ak sú v chuťovom profile dostupné intensity alebo experimentalism, explicitne ich zahrň do user_preferences_summary a comparison_summary.
