@@ -2210,6 +2210,40 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     }
     return `${normalized}% istota`;
   }, [evaluation?.confidence]);
+  // AI recommendation sentences coming from the scan response; reused for the insight section.
+  const recommendationSentences = useMemo(() => {
+    if (!scanResult?.recommendation) {
+      return [];
+    }
+    return scanResult.recommendation
+      .split(/[\.\n]/)
+      .map(sentence => sentence.trim())
+      .filter(Boolean);
+  }, [scanResult]);
+
+  const reasonSentences = recommendationSentences.slice(1);
+
+  const positiveReasons = useMemo(() => {
+    if (!reasonSentences.length && recommendationSentences.length) {
+      return recommendationSentences;
+    }
+
+    return reasonSentences.filter(sentence => {
+      const lower = sentence.toLowerCase();
+      return POSITIVE_REASON_KEYWORDS.some(keyword => lower.includes(keyword));
+    });
+  }, [reasonSentences, recommendationSentences]);
+
+  const cautionReasons = useMemo(() => {
+    if (!reasonSentences.length) {
+      return [];
+    }
+    return reasonSentences.filter(sentence => {
+      const lower = sentence.toLowerCase();
+      const isPositive = POSITIVE_REASON_KEYWORDS.some(keyword => lower.includes(keyword));
+      return !isPositive && CAUTION_REASON_KEYWORDS.some(keyword => lower.includes(keyword));
+    });
+  }, [reasonSentences]);
   const verdictReasonBuckets = useMemo(() => {
     const verdictLines = [
       ...extractVerdictExplanationLines(evaluation?.verdict_explanation),
@@ -2371,41 +2405,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   const matchLabel = aiMatchLabel
     ? aiMatchLabel
     : compatibility?.label ?? (evaluationStatus !== 'ok' ? neutralVerdictCopy : undefined);
-
-  // AI recommendation sentences coming from the scan response; reused for the insight section.
-  const recommendationSentences = useMemo(() => {
-    if (!scanResult?.recommendation) {
-      return [];
-    }
-    return scanResult.recommendation
-      .split(/[\.\n]/)
-      .map(sentence => sentence.trim())
-      .filter(Boolean);
-  }, [scanResult]);
-
-  const reasonSentences = recommendationSentences.slice(1);
-
-  const positiveReasons = useMemo(() => {
-    if (!reasonSentences.length && recommendationSentences.length) {
-      return recommendationSentences;
-    }
-
-    return reasonSentences.filter(sentence => {
-      const lower = sentence.toLowerCase();
-      return POSITIVE_REASON_KEYWORDS.some(keyword => lower.includes(keyword));
-    });
-  }, [reasonSentences, recommendationSentences]);
-
-  const cautionReasons = useMemo(() => {
-    if (!reasonSentences.length) {
-      return [];
-    }
-    return reasonSentences.filter(sentence => {
-      const lower = sentence.toLowerCase();
-      const isPositive = POSITIVE_REASON_KEYWORDS.some(keyword => lower.includes(keyword));
-      return !isPositive && CAUTION_REASON_KEYWORDS.some(keyword => lower.includes(keyword));
-    });
-  }, [reasonSentences]);
 
   const structuredTasteVector = useMemo(() => {
     return extractTasteVectorFromPayload(scanResult?.evaluation?.raw);
