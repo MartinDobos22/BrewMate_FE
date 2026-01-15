@@ -18,10 +18,11 @@ const PROFILE_MISSING_RESPONSE = {
   confidence: null,
   verdict_explanation: {
     user_preferences_summary:
-      'Tvoje preferencie: chuťový profil nie je dokončený, takže nemáme kompletné preferencie.',
-    coffee_profile_summary: 'Profil kávy: údaje o káve sú dostupné, ale nie je s čím ich porovnať.',
+      'Tvoje preferencie: chuťový profil nie je dokončený, dáta chýbajú pre sladkosť, aciditu, horkosť a telo.',
+    coffee_profile_summary:
+      'Profil kávy: údaje o káve máme, ale bez preferencií nevieme zhrnúť chuťový profil pre sladkosť, aciditu, horkosť a telo.',
     comparison_summary:
-      'Porovnanie s tvojím profilom: dokonči chuťový profil, aby sme vedeli porovnať kávu s tvojimi preferenciami.',
+      'Porovnanie s tvojím profilom: dáta chýbajú, doplň sladkosť, aciditu, horkosť, telo a 1–2 obľúbené tóny.',
   },
   insight: {
     headline: 'Dokonči chuťový profil',
@@ -49,9 +50,9 @@ const INSUFFICIENT_COFFEE_DATA_RESPONSE = {
     user_preferences_summary:
       'Tvoje preferencie: chuťové preferencie máme uložené, ale chýbajú detaily o káve.',
     coffee_profile_summary:
-      'Profil kávy: z dostupných údajov nevieme spoľahlivo zhrnúť profil kávy, preto zostávame opatrní.',
+      'Profil kávy: dáta chýbajú pre chuťový profil (sladkosť, acidita, horkosť, telo a tóny), preto zostávame opatrní.',
     comparison_summary:
-      'Porovnanie s tvojím profilom: skús malý test (napr. cupping alebo jednu dávku) alebo rescan balenia a doplň pôvod, tóny a spracovanie.',
+      'Porovnanie s tvojím profilom: dáta chýbajú, doplň pôvod, chuťové tóny, praženie alebo spracovanie (napr. rescan alebo cupping).',
   },
   insight: {
     headline: 'Máme príliš málo údajov',
@@ -1697,6 +1698,10 @@ PRAVIDLÁ:
   - user_preferences_summary začína "Tvoje preferencie:" a stručne zhrnie chuťový profil.
   - coffee_profile_summary začína "Profil kávy:" a stručne zhrnie profil kávy.
   - comparison_summary začína "Porovnanie s tvojím profilom:" a jasne porovná oba profily.
+- comparison_summary musí vždy obsahovať:
+  - krátky chuťový profil kávy (sladkosť, acidita, horkosť, telo + 1–2 chuťové tóny),
+  - konkrétny dôvod nesúladu s preferenciami (napr. preferuje nízku horkosť, ale káva je horká),
+  - ak nie sú údaje, explicitne uveď „dáta chýbajú“ a navrhni, čo doplniť.
 - Ak sú v chuťovom profile dostupné intensity alebo experimentalism, explicitne ich zahrň do user_preferences_summary a comparison_summary.
 - Insight musí byť konzistentný s verdictom (bez protichodných tvrdení).
 - Použi jediný kontrakt: insight objekt s poliami zo schémy (žiadne top-level zoznamy).
