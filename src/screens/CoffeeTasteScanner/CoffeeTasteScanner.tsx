@@ -229,25 +229,32 @@ const normalizeReasonLine = (value: string): string => value.replace(/^•\s*/, 
 
 const uniqueLines = (lines: string[]): string[] => Array.from(new Set(lines));
 
-const splitReasonLines = (lines: string[]): { positive: string[]; caution: string[] } => {
-  const normalized = lines.map(normalizeReasonLine).filter(Boolean);
-  const isPositive = (line: string) => {
-    const lower = line.toLowerCase();
-    return POSITIVE_REASON_KEYWORDS.some(keyword => lower.includes(keyword))
-      || INSIGHT_POSITIVE_CLAIMS.some(keyword => lower.includes(keyword));
-  };
-  const isCaution = (line: string) => {
-    const lower = line.toLowerCase();
-    return CAUTION_REASON_KEYWORDS.some(keyword => lower.includes(keyword))
-      || INSIGHT_NEGATIVE_CLAIMS.some(keyword => lower.includes(keyword));
-  };
+const isPositiveReasonLine = (line: string): boolean => {
+  const lower = line.toLowerCase();
+  return POSITIVE_REASON_KEYWORDS.some(keyword => lower.includes(keyword))
+    || INSIGHT_POSITIVE_CLAIMS.some(keyword => lower.includes(keyword));
+};
 
-  const positive = normalized.filter(isPositive);
-  const caution = normalized.filter(line => !isPositive(line) && isCaution(line));
+const isCautionReasonLine = (line: string): boolean => {
+  const lower = line.toLowerCase();
+  return CAUTION_REASON_KEYWORDS.some(keyword => lower.includes(keyword))
+    || INSIGHT_NEGATIVE_CLAIMS.some(keyword => lower.includes(keyword));
+};
+
+const splitReasonLines = (
+  lines: string[],
+): { positive: string[]; caution: string[]; neutral: string[] } => {
+  const normalized = lines.map(normalizeReasonLine).filter(Boolean);
+  const positive = normalized.filter(isPositiveReasonLine);
+  const caution = normalized.filter(line => !isPositiveReasonLine(line) && isCautionReasonLine(line));
+  const neutral = normalized.filter(
+    line => !isPositiveReasonLine(line) && !isCautionReasonLine(line),
+  );
 
   return {
     positive: uniqueLines(positive),
     caution: uniqueLines(caution),
+    neutral: uniqueLines(neutral),
   };
 };
 
@@ -314,11 +321,16 @@ const buildComparisonText = (
     .filter(dimension => dimension.match === 'mismatch')
     .map(dimension => dimension.line)
     .filter((line): line is string => Boolean(line));
-  const { positive: positiveInsights, caution: cautionInsights } = splitReasonLines(comparison.reasons);
+  const {
+    positive: positiveInsights,
+    caution: cautionInsights,
+    neutral: neutralInsights,
+  } = splitReasonLines(comparison.reasons);
 
   const sections = [
     formatReasonBlock('Prečo sedí', [...matchLines, ...positiveInsights]),
     formatReasonBlock('Prečo nesedí', [...mismatchLines, ...cautionInsights]),
+    formatReasonBlock('Ďalšie zistenia', neutralInsights),
   ].filter((section): section is string => Boolean(section));
 
   return sections.length
@@ -2229,8 +2241,7 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     }
 
     return reasonSentences.filter(sentence => {
-      const lower = sentence.toLowerCase();
-      return POSITIVE_REASON_KEYWORDS.some(keyword => lower.includes(keyword));
+      return isPositiveReasonLine(sentence);
     });
   }, [reasonSentences, recommendationSentences]);
 
@@ -2239,31 +2250,45 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       return [];
     }
     return reasonSentences.filter(sentence => {
-      const lower = sentence.toLowerCase();
-      const isPositive = POSITIVE_REASON_KEYWORDS.some(keyword => lower.includes(keyword));
-      return !isPositive && CAUTION_REASON_KEYWORDS.some(keyword => lower.includes(keyword));
+      return !isPositiveReasonLine(sentence) && isCautionReasonLine(sentence);
     });
+  }, [reasonSentences]);
+
+  const neutralReasons = useMemo(() => {
+    if (!reasonSentences.length) {
+      return [];
+    }
+    return reasonSentences.filter(
+      sentence => !isPositiveReasonLine(sentence) && !isCautionReasonLine(sentence),
+    );
   }, [reasonSentences]);
   const verdictReasonBuckets = useMemo(() => {
     const verdictLines = [
       ...extractVerdictExplanationLines(evaluation?.verdict_explanation),
       ...extractInsightReasonLines(evaluation?.insight),
     ];
-    const { positive: extractedPositive, caution: extractedCaution } = splitReasonLines(verdictLines);
+    const {
+      positive: extractedPositive,
+      caution: extractedCaution,
+      neutral: extractedNeutral,
+    } = splitReasonLines(verdictLines);
     return {
       positive: uniqueLines([...positiveReasons, ...extractedPositive]),
       caution: uniqueLines([...cautionReasons, ...extractedCaution]),
+      neutral: uniqueLines([...neutralReasons, ...extractedNeutral]),
     };
   }, [
     evaluation?.insight,
     evaluation?.verdict_explanation,
     positiveReasons,
     cautionReasons,
+    neutralReasons,
   ]);
   const verdictReasonText = useMemo(() => {
     const sections = [
       formatReasonBlock('Prečo sedí', verdictReasonBuckets.positive),
       formatReasonBlock('Prečo nesedí', verdictReasonBuckets.caution),
+      formatReasonBlock('Ďalšie zistenia', verdictReasonBuckets.neutral),
     ].filter((section): section is string => Boolean(section));
     return sections.length
       ? sections.join('\n')
