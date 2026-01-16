@@ -230,51 +230,6 @@ const normalizeReasonLine = (value: string): string => value.replace(/^•\s*/, 
 
 const uniqueLines = (lines: string[]): string[] => Array.from(new Set(lines));
 
-const isPositiveReasonLine = (line: string): boolean => {
-  const lower = line.toLowerCase();
-  return POSITIVE_REASON_KEYWORDS.some(keyword => lower.includes(keyword))
-    || INSIGHT_POSITIVE_CLAIMS.some(keyword => lower.includes(keyword));
-};
-
-const isCautionReasonLine = (line: string): boolean => {
-  const lower = line.toLowerCase();
-  return CAUTION_REASON_KEYWORDS.some(keyword => lower.includes(keyword))
-    || INSIGHT_NEGATIVE_CLAIMS.some(keyword => lower.includes(keyword));
-};
-
-const splitReasonLines = (
-  lines: string[],
-): { positive: string[]; caution: string[]; neutral: string[] } => {
-  const normalized = lines.map(normalizeReasonLine).filter(Boolean);
-  const positive = normalized.filter(isPositiveReasonLine);
-  const caution = normalized.filter(line => !isPositiveReasonLine(line) && isCautionReasonLine(line));
-  const neutral = normalized.filter(
-    line => !isPositiveReasonLine(line) && !isCautionReasonLine(line),
-  );
-
-  return {
-    positive: uniqueLines(positive),
-    caution: uniqueLines(caution),
-    neutral: uniqueLines(neutral),
-  };
-};
-
-const formatReasonBlock = (title: string, lines: string[]): string | null => {
-  const cleaned = uniqueLines(lines.map(normalizeReasonLine).filter(Boolean));
-  if (!cleaned.length) {
-    return null;
-  }
-  return `${title}\n${cleaned.map(line => `• ${line}`).join('\n')}`;
-};
-
-const formatSummaryBlock = (title: string, lines: string[]): string | null => {
-  const cleaned = uniqueLines(lines.map(normalizeReasonLine).filter(Boolean));
-  if (!cleaned.length) {
-    return null;
-  }
-  return `${title}\n${cleaned.join('\n')}`;
-};
-
 const buildComparisonText = (
   evaluation: CoffeeEvaluationResult | null | undefined,
   preferenceSnapshot: CoffeePreferenceSnapshot | null | undefined,
@@ -309,6 +264,17 @@ const buildComparisonText = (
     );
   };
 
+  const shouldOmitGenericTip = (line: string): boolean => {
+    const lower = line.toLowerCase();
+    return [
+      'mlet',
+      'grind',
+      'podobn',
+      'podobné kávy',
+      'podobne kavy',
+    ].some(keyword => lower.includes(keyword));
+  };
+
   const comparison = buildScanPreferenceComparison({
     evaluation,
     coffeePreferences: preferenceSnapshot ?? coffeePreferences ?? null,
@@ -323,34 +289,24 @@ const buildComparisonText = (
     .filter(dimension => dimension.match === 'mismatch')
     .map(dimension => dimension.line)
     .filter((line): line is string => Boolean(line));
-  const {
-    positive: positiveInsights,
-    caution: cautionInsights,
-    neutral: neutralInsights,
-  } = splitReasonLines(comparison.reasons);
+  const filteredMatchLines = matchLines.filter(
+    line => !shouldOmitDuplicateLine(line) && !shouldOmitGenericTip(line),
+  );
+  const filteredMismatchLines = mismatchLines.filter(
+    line => !shouldOmitDuplicateLine(line) && !shouldOmitGenericTip(line),
+  );
+  const supplementalLines = uniqueLines([
+    ...filteredMatchLines,
+    ...filteredMismatchLines,
+  ]).slice(0, 2);
 
-  const filteredMatchLines = matchLines.filter(line => !shouldOmitDuplicateLine(line));
-  const filteredMismatchLines = mismatchLines.filter(line => !shouldOmitDuplicateLine(line));
-  const filteredPositiveInsights = positiveInsights.filter(line => !shouldOmitDuplicateLine(line));
-  const filteredCautionInsights = cautionInsights.filter(line => !shouldOmitDuplicateLine(line));
-  const filteredNeutralInsights = neutralInsights.filter(line => !shouldOmitDuplicateLine(line));
-
-  const sections = [
-    formatSummaryBlock('Zhrnutie porovnania', comparisonSummaryLines),
-    formatReasonBlock(
-      'Doplnkové dôvody prečo sedí',
-      [...filteredMatchLines, ...filteredPositiveInsights],
-    ),
-    formatReasonBlock(
-      'Doplnkové dôvody prečo nesedí',
-      [...filteredMismatchLines, ...filteredCautionInsights],
-    ),
-    formatReasonBlock('Doplnkové zistenia', filteredNeutralInsights),
-  ].filter((section): section is string => Boolean(section));
-
-  return sections.length
-    ? sections.join('\n')
+  const primaryText = comparisonSummary
+    ? comparisonSummary
     : 'Zatiaľ nemáme dôvody prečo by káva sedela alebo nie.';
+
+  return supplementalLines.length
+    ? `${primaryText}\n${supplementalLines.join('\n')}`
+    : primaryText;
 };
 
 const WELCOME_GRADIENT = ['#FF9966', '#A86B8C'];
@@ -368,24 +324,6 @@ const FLAVOR_KEYWORDS = [
   { keyword: 'ovoc', label: '🍒 Ovocná' },
 ];
 
-const POSITIVE_REASON_KEYWORDS = [
-  'vyhovuje',
-  'nízka horkosť',
-  'nízku horkosť',
-  'jemná',
-  'čistá',
-  'kvetin',
-  'citrus',
-  'čajov',
-  'sladk',
-  'doporuč',
-  'odporúč',
-  'ideál',
-];
-
-const CAUTION_REASON_KEYWORDS = ['pozor', 'ak preferuješ', 'môže', 'siln', 'hork', 'telo'];
-const INSIGHT_POSITIVE_CLAIMS = ['sedí', 'zhod', 'match', 'vhod', 'vyhovuje', 'ideál', 'odporúč'];
-const INSIGHT_NEGATIVE_CLAIMS = ['nevhod', 'nesedí', 'mimo', 'nezhod', 'neodporúč', 'rizik'];
 const MAX_IMAGE_DIMENSION = 1600;
 const IMAGE_QUALITY = 0.75;
 const MAX_BASE64_LENGTH = 1300000;
@@ -2810,6 +2748,16 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                           <Text style={styles.sectionTitle}>Porovnanie s dotazníkom</Text>
                         </View>
                         <Text style={styles.comparisonText}>{comparisonText}</Text>
+                      </View>
+
+                      <View style={styles.comparisonCard}>
+                        <View style={styles.sectionHeaderRow}>
+                          <Text style={styles.sectionTitle}>Čo môžeš skúsiť ďalej</Text>
+                        </View>
+                        <Text style={styles.comparisonText}>
+                          • Dolaď mletie podľa intenzity, ktorú preferuješ.
+                          {'\n'}• Pozri sa na podobné kávy v odporúčaniach.
+                        </Text>
                       </View>
 
                       <View style={styles.compatibilityCardModern}>
