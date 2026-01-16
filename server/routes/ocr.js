@@ -72,6 +72,88 @@ const INSUFFICIENT_COFFEE_DATA_RESPONSE = {
   disclaimer: 'Vyhodnotenie bude možné po doplnení údajov o káve.',
 };
 
+const resolveTasteHintLabel = (value) => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const normalized = value.toLowerCase().replace(/_/g, '-').trim();
+  if (normalized.includes('medium-dark') || normalized.includes('medium dark')) {
+    return 'medium-dark';
+  }
+  if (normalized.includes('dark')) {
+    return 'dark';
+  }
+  if (normalized.includes('light')) {
+    return 'light';
+  }
+  if (normalized.includes('medium')) {
+    return 'medium';
+  }
+  if (normalized.includes('washed') || normalized.includes('fully washed') || normalized.includes('wet')) {
+    return 'washed';
+  }
+  if (normalized.includes('natural') || normalized.includes('dry')) {
+    return 'natural';
+  }
+  return null;
+};
+
+const buildTasteMappingSentences = ({ roastLevel, processing } = {}) => {
+  const sentences = [];
+  const roastLabel = resolveTasteHintLabel(roastLevel);
+  const processingLabel = resolveTasteHintLabel(processing);
+
+  if (roastLabel === 'dark' || roastLabel === 'medium-dark') {
+    sentences.push('Tmavé alebo stredne tmavé praženie naznačuje vyššiu horkosť a nižšiu aciditu.');
+  }
+  if (roastLabel === 'light') {
+    sentences.push('Svetlé praženie zvyčajne prináša vyššiu aciditu a ovocnejšie tóny.');
+  }
+  if (processingLabel === 'natural') {
+    sentences.push('Natural spracovanie zvýrazňuje ovocnosť a sladkosť.');
+  }
+  if (processingLabel === 'washed') {
+    sentences.push('Washed spracovanie prináša čistotu a vyššiu aciditu.');
+  }
+
+  return sentences;
+};
+
+const summaryHasKeywords = (summary, keywords) =>
+  keywords.every((keyword) => summary.includes(keyword));
+
+const addTasteMappingFallbackToSummary = (summary, coffeeAttributes) => {
+  if (typeof summary !== 'string') {
+    return summary;
+  }
+  const roastLevel =
+    coffeeAttributes?.roast_level ?? coffeeAttributes?.roastLevel ?? coffeeAttributes?.structured_metadata?.roast_level;
+  const processing = coffeeAttributes?.processing ?? coffeeAttributes?.structured_metadata?.processing;
+  const mappingSentences = buildTasteMappingSentences({ roastLevel, processing });
+  if (mappingSentences.length === 0) {
+    return summary;
+  }
+
+  const loweredSummary = summary.toLowerCase();
+  const keywordSets = [
+    { sentence: mappingSentences.find((item) => item.includes('horkosť')) || null, keywords: ['horkosť', 'acidita'] },
+    { sentence: mappingSentences.find((item) => item.includes('Svetlé')) || null, keywords: ['acidita', 'ovoc'] },
+    { sentence: mappingSentences.find((item) => item.includes('Natural')) || null, keywords: ['ovoc', 'sladk'] },
+    { sentence: mappingSentences.find((item) => item.includes('Washed')) || null, keywords: ['čist', 'acidita'] },
+  ];
+
+  const sentencesToAppend = keywordSets
+    .filter(({ sentence }) => sentence)
+    .filter(({ keywords }) => !summaryHasKeywords(loweredSummary, keywords))
+    .map(({ sentence }) => sentence);
+
+  if (sentencesToAppend.length === 0) {
+    return summary;
+  }
+
+  return `${summary} ${sentencesToAppend.join(' ')}`.trim();
+};
+
 const buildDeterministicFallbackResponse = ({ preferences, coffeeAttributes, correctedText }) => {
   const structured =
     coffeeAttributes && typeof coffeeAttributes === 'object'
@@ -110,10 +192,14 @@ const buildDeterministicFallbackResponse = ({ preferences, coffeeAttributes, cor
       : null,
   ].filter(Boolean);
 
-  const coffeeProfileSummary =
+  const baseCoffeeProfileSummary =
     profileBits.length > 0
       ? `Profil kávy: obsahuje ${profileBits.join(', ')}.`
       : 'Profil kávy: máme len základné údaje z OCR textu a balenia.';
+  const coffeeProfileSummary = addTasteMappingFallbackToSummary(
+    baseCoffeeProfileSummary,
+    coffeeAttributes
+  );
 
   const formatPreference = (value) =>
     value === null || value === undefined || value === '' ? 'neznáme' : value;
@@ -628,6 +714,31 @@ const buildLowConfidenceFallbackResponse = ({ preferences, coffeeAttributes, cor
       ],
     },
     disclaimer: 'Výsledok je orientačný a založený na obmedzených údajoch z OCR.',
+  };
+};
+
+const applyTasteMappingFallback = (response, coffeeAttributes) => {
+  if (!response || typeof response !== 'object') {
+    return response;
+  }
+  const verdictExplanation = response.verdict_explanation;
+  if (!verdictExplanation || typeof verdictExplanation !== 'object') {
+    return response;
+  }
+  const coffeeProfileSummary = verdictExplanation.coffee_profile_summary;
+  const enrichedSummary = addTasteMappingFallbackToSummary(
+    coffeeProfileSummary,
+    coffeeAttributes
+  );
+  if (enrichedSummary === coffeeProfileSummary) {
+    return response;
+  }
+  return {
+    ...response,
+    verdict_explanation: {
+      ...verdictExplanation,
+      coffee_profile_summary: enrichedSummary,
+    },
   };
 };
 
@@ -1703,6 +1814,7 @@ PRAVIDLÁ:
   2. „Tvoje preferencie sú: <sladkosť/acidita/horkosť/telo + prípadné flavor_notes>.“
   3. „Keďže <konflikt/súlad>, bude/nebude ti chutiť.“
 - Ak sú dostupné roast_level alebo processing alebo odroda, dôvod musí byť explicitne uvedený (napr. „tmavé praženie → horkosť“, „natural → ovocnosť“).
+- Použi mapovanie: dark/medium-dark → vyššia horkosť, nižšia acidita; light → vyššia acidita, ovocnejšie tóny; natural → ovocnosť, sladkosť; washed → čistota, vyššia acidita.
 - Ak dáta chýbajú, explicitne uveď, že dôvod sa nedá určiť, a čo treba doplniť (napr. roast_level, processing, flavor_notes).
 - V 1. vete uveď krátky chuťový profil kávy (sladkosť, acidita, horkosť, telo + 1–2 chuťové tóny), ak sú dáta dostupné.
 - Ak nie sú údaje, v 1. vete explicitne uveď „dáta chýbajú“ a navrhni, čo doplniť (roast_level, processing, flavor_notes).
@@ -1793,7 +1905,10 @@ ${EVALUATION_RESPONSE_SCHEMA}
       );
     }
 
-    return res.json(hasMinimumData ? applyLowDataAdjustments(parsed) : parsed);
+    const enrichedResponse = applyTasteMappingFallback(parsed, coffeeAttributes);
+    return res.json(
+      hasMinimumData ? applyLowDataAdjustments(enrichedResponse) : enrichedResponse
+    );
   } catch (err) {
     console.error('❌ Chyba AI vyhodnotenia:', err);
     return res.json(
