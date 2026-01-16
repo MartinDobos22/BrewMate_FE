@@ -228,6 +228,14 @@ const extractPreferenceSnapshot = (
 
 const normalizeReasonLine = (value: string): string => value.replace(/^•\s*/, '').trim();
 
+const normalizeComparisonText = (value: string): string => {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+};
+
 const uniqueLines = (lines: string[]): string[] => Array.from(new Set(lines));
 
 const buildComparisonText = (
@@ -249,13 +257,16 @@ const buildComparisonText = (
     ? extractSentenceBlocks(comparisonSummary)
     : [];
   const normalizedSummaryLines = comparisonSummaryLines.map(line =>
-    normalizeReasonLine(line).toLowerCase(),
+    normalizeComparisonText(normalizeReasonLine(line)),
   );
+  const normalizedSummaryText = comparisonSummary
+    ? normalizeComparisonText(comparisonSummary)
+    : '';
   const shouldOmitDuplicateLine = (line: string): boolean => {
     if (!normalizedSummaryLines.length) {
       return false;
     }
-    const normalizedLine = normalizeReasonLine(line).toLowerCase();
+    const normalizedLine = normalizeComparisonText(normalizeReasonLine(line));
     if (!normalizedLine) {
       return false;
     }
@@ -295,10 +306,22 @@ const buildComparisonText = (
   const filteredMismatchLines = mismatchLines.filter(
     line => !shouldOmitDuplicateLine(line) && !shouldOmitGenericTip(line),
   );
-  const supplementalLines = uniqueLines([
-    ...filteredMatchLines,
-    ...filteredMismatchLines,
-  ]).slice(0, 2);
+  const summaryHasMatchSentence = matchLines.some(line => {
+    const normalizedLine = normalizeComparisonText(normalizeReasonLine(line));
+    if (!normalizedLine || !normalizedSummaryText) {
+      return false;
+    }
+    return (
+      normalizedSummaryText.includes(normalizedLine)
+      || normalizedLine.includes(normalizedSummaryText)
+    );
+  });
+  const supplementalLines = summaryHasMatchSentence
+    ? []
+    : uniqueLines([
+        ...filteredMatchLines,
+        ...filteredMismatchLines,
+      ]).slice(0, 2);
 
   const primaryText = comparisonSummary
     ? comparisonSummary
