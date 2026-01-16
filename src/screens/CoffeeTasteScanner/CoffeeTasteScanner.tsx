@@ -2186,15 +2186,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     }
   };
 
-  const handleQuestionnaireCTA = useCallback(() => {
-    // Keep a stable callback so the CTA does not trigger unnecessary re-renders.
-    if (onQuestionnairePress) {
-      onQuestionnairePress();
-      return;
-    }
-    showToast('Vyplň dotazník preferencií v profile.');
-  }, [onQuestionnairePress]);
-
   const showBackButton = currentView !== 'home';
   const evaluation = scanResult?.evaluation ?? null;
   const evaluationStatus = evaluation?.status ?? 'unknown';
@@ -2221,95 +2212,49 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     || resolveInsightHeadline(evaluation?.insight)
     || evaluation?.disclaimer
     || 'Vyplň krátky dotazník a získaš osobné hodnotenie zhody pre každú kávu.';
-  const profileMissingCtaLabel = evaluation?.cta?.label || 'Vyplniť dotazník';
-  const lowDataWarning = useMemo(() => {
-    if (evaluationStatus !== 'ok') {
-      return null;
-    }
-    const sources = [
-      evaluation?.disclaimer ?? '',
-      resolveVerdictExplanationText(evaluation?.verdict_explanation),
-    ];
-    const combined = sources.join(' ').toLowerCase();
-    if (!combined) {
-      return null;
-    }
-    const isLowData = /minimum údajov|obmedzených údajov|málo údajov|len (praženie|spracovanie)/i.test(
-      combined,
-    );
-    if (!isLowData) {
-      return null;
-    }
-    return evaluation?.disclaimer
-      || 'Máme len minimum údajov z etikety, odporúčame rescan alebo doplnenie detailov.';
-  }, [evaluation, evaluationStatus]);
-  // Normalize AI confidence to a readable percentage label for the verdict section.
-  const evaluationConfidenceLabel = useMemo(() => {
-    const normalized = normalizeConfidenceScore(evaluation?.confidence);
-    if (normalized === null) {
-      return null;
-    }
-    return `${normalized}% istota`;
-  }, [evaluation?.confidence]);
   const verdictExplanationFallbackText = 'Zatiaľ nemáme dôvody prečo je káva vhodná alebo nie.';
-  const verdictExplanationSections = useMemo(() => {
+  const aiVerdictSummaries = useMemo(() => {
     const verdictExplanation = evaluation?.verdict_explanation;
+    const profileMissingSentence =
+      extractSentenceBlocks(profileMissingText)[0] ?? profileMissingText;
+    const fallbackCoffeeProfile = 'Chuťový profil kávy zatiaľ nepoznáme.';
+    const fallbackUserPreferences = isProfileMissing
+      ? profileMissingSentence
+      : 'Tvoje preferencie zatiaľ nepoznáme.';
+    const fallbackComparison = 'Zatiaľ nemáme dostatok údajov na porovnanie.';
+    const getSentence = (text: string | null | undefined, fallback: string) => {
+      const sentences = extractSentenceBlocks(text ?? '');
+      return sentences[0] ?? fallback;
+    };
     if (!verdictExplanation) {
-      return null;
+      return {
+        coffeeProfile: fallbackCoffeeProfile,
+        userPreferences: fallbackUserPreferences,
+        comparison: fallbackComparison,
+      };
     }
     if (typeof verdictExplanation === 'string') {
-      const sentences = extractSentenceBlocks(verdictExplanation);
-      return sentences.length ? [{ title: '', sentences }] : null;
+      return {
+        coffeeProfile: fallbackCoffeeProfile,
+        userPreferences: fallbackUserPreferences,
+        comparison: getSentence(verdictExplanation, verdictExplanationFallbackText),
+      };
     }
-    const sections = [
-      {
-        title: 'Tvoje preferencie',
-        text: verdictExplanation.user_preferences_summary ?? '',
-      },
-      {
-        title: 'Chuťový profil kávy a dôvod z praženia/spracovania',
-        text: verdictExplanation.coffee_profile_summary ?? '',
-      },
-      {
-        title: 'Priame porovnanie a výsledok',
-        text: verdictExplanation.comparison_summary ?? '',
-      },
-    ]
-      .map(section => ({
-        title: section.title,
-        sentences: extractSentenceBlocks(section.text),
-      }))
-      .filter(section => section.sentences.length > 0);
-    return sections.length ? sections : null;
-  }, [evaluation?.verdict_explanation]);
-  const flavorNotesSummary = useMemo(() => {
-    const notes = structuredFields.flavorNotes.value;
-    if (!notes || notes.length === 0) {
-      return null;
-    }
-    const cleaned = notes.map(note => note.trim()).filter(Boolean);
-    return cleaned.length ? cleaned.join(', ') : null;
-  }, [structuredFields.flavorNotes.value]);
-  const tasteAttributesSummary = useMemo(() => {
-    if (!tasteAttributes || tasteAttributes.length === 0) {
-      return null;
-    }
-    return tasteAttributes
-      .map(attribute => `${attribute.label.toLowerCase()} ${Math.round(attribute.value)}/10`)
-      .join(', ');
-  }, [tasteAttributes]);
-  const tasteProfileSummary = useMemo(() => {
-    if (flavorNotesSummary && tasteAttributesSummary) {
-      return `Tóny: ${flavorNotesSummary}\nProfil: ${tasteAttributesSummary}`;
-    }
-    if (flavorNotesSummary) {
-      return `Tóny: ${flavorNotesSummary}`;
-    }
-    if (tasteAttributesSummary) {
-      return `Profil: ${tasteAttributesSummary}`;
-    }
-    return 'Chuťové tóny zatiaľ neboli rozpoznané.';
-  }, [flavorNotesSummary, tasteAttributesSummary]);
+    return {
+      coffeeProfile: getSentence(
+        verdictExplanation.coffee_profile_summary,
+        fallbackCoffeeProfile,
+      ),
+      userPreferences: getSentence(
+        verdictExplanation.user_preferences_summary,
+        fallbackUserPreferences,
+      ),
+      comparison: getSentence(
+        verdictExplanation.comparison_summary,
+        fallbackComparison,
+      ),
+    };
+  }, [evaluation?.verdict_explanation, isProfileMissing, profileMissingText, verdictExplanationFallbackText]);
   const refreshControl =
     currentView === 'home'
       ? (
@@ -2402,39 +2347,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     } as const;
   }, [evaluation, evaluationStatus]);
 
-  const evaluationVerdictLabel = useMemo(() => {
-    if (evaluationStatus !== 'ok') {
-      return neutralVerdictCopy;
-    }
-    if (evaluation?.verdict === 'suitable') {
-      return 'Vhodná';
-    }
-    if (evaluation?.verdict === 'not_suitable') {
-      return 'Nevhodná';
-    }
-    if (evaluation?.verdict === 'uncertain') {
-      return 'Neisté';
-    }
-    return 'Neisté';
-  }, [evaluation, evaluationStatus, neutralVerdictCopy]);
-  // Map verdict intent to existing badge styles for consistent color cues.
-  const evaluationVerdictTone = useMemo(() => {
-    if (evaluationStatus !== 'ok') {
-      return 'RISKY';
-    }
-    if (evaluationStatus === 'ok') {
-      if (evaluation?.verdict === 'not_suitable') {
-        return 'NO';
-      }
-      if (evaluation?.verdict === 'uncertain') {
-        return 'RISKY';
-      }
-      if (evaluation?.verdict === 'suitable') {
-        return 'YES';
-      }
-    }
-    return 'RISKY';
-  }, [evaluation, evaluationStatus]);
   const aiMatchScore = useMemo(() => {
     if (evaluationStatus !== 'ok') {
       return null;
@@ -2488,96 +2400,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     styles.tasteFillBitterness,
     styles.tasteFillBody,
   ]);
-
-  const insightBadgeStyle =
-    evaluation?.verdict === 'not_suitable'
-      ? styles.reasonBadgeNegative
-      : styles.reasonBadgePositive;
-  const insightContent = useMemo(() => {
-    if (evaluationStatus !== 'ok') {
-      return null;
-    }
-    const verdict = evaluation?.verdict ?? null;
-    const rawInsight = evaluation?.insight;
-    const insightHeadline = rawInsight?.headline ?? '';
-    const insightSections = rawInsight?.sections ?? [];
-    const isContradictoryClaim = (text: string) => {
-      const lower = text.toLowerCase();
-      if (verdict === 'not_suitable') {
-        return INSIGHT_POSITIVE_CLAIMS.some(keyword => lower.includes(keyword));
-      }
-      if (verdict === 'suitable') {
-        return INSIGHT_NEGATIVE_CLAIMS.some(keyword => lower.includes(keyword));
-      }
-      return false;
-    };
-    const filteredSections = insightSections
-      .map(section => {
-        if (section.title && isContradictoryClaim(section.title)) {
-          return null;
-        }
-        const bullets = section.bullets.filter(bullet => !isContradictoryClaim(bullet));
-        return bullets.length ? { title: section.title, bullets } : null;
-      })
-      .filter((section): section is typeof insightSections[number] => Boolean(section));
-    // If the verdict says "not_suitable", drop any "match" copy to avoid insight/verdict contradictions.
-    const sanitizedHeadline = insightHeadline && isContradictoryClaim(insightHeadline)
-      ? ''
-      : insightHeadline;
-    // Fall back to verdict_explanation when filtered insight would conflict with the verdict.
-    const resolvedHeadline =
-      sanitizedHeadline
-      || '';
-    return {
-      headline: resolvedHeadline,
-      sections: filteredSections,
-    };
-  }, [
-    evaluation,
-    evaluationStatus,
-  ]);
-  const insightStatusContent = useMemo(() => {
-    if (evaluationStatus === 'profile_missing' && !didSendTasteProfile) {
-      return {
-        headline: 'Získaj presnejší insight',
-        body: profileMissingText,
-        ctaLabel: profileMissingCtaLabel,
-      };
-    }
-    if (evaluationStatus === 'insufficient_coffee_data') {
-      return {
-        headline: 'Potrebujeme viac detailov',
-        body:
-          resolveVerdictExplanationText(evaluation?.verdict_explanation)
-          || resolveInsightHeadline(evaluation?.insight)
-          || evaluation?.disclaimer
-          || 'Z etikety sme nezískali dosť údajov na personalizovaný insight. Skús ostriejší záber alebo viac informácií.',
-      };
-    }
-    if (evaluationStatus && evaluationStatus !== 'ok') {
-      return {
-        headline: 'Insight zatiaľ nie je pripravený',
-        body:
-          resolveVerdictExplanationText(evaluation?.verdict_explanation)
-          || resolveInsightHeadline(evaluation?.insight)
-          || evaluation?.disclaimer
-          || 'Insight sa nepodarilo pripraviť, skús to prosím neskôr.',
-      };
-    }
-    return null;
-  }, [didSendTasteProfile, evaluation, evaluationStatus, profileMissingCtaLabel, profileMissingText]);
-
-  const verdictLabel = evaluationVerdictLabel;
-  const evaluationIntroText = useMemo(() => {
-    if (evaluationStatus !== 'ok') {
-      return '';
-    }
-    return (
-      resolveVerdictExplanationText(evaluation?.verdict_explanation)
-      || resolveInsightHeadline(evaluation?.insight)
-      || ''
-    );
-  }, [evaluation, evaluationStatus]);
 
   const editorHint = isHistoryReadOnly
     ? 'História je len na čítanie'
@@ -2994,179 +2816,23 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                         <View style={styles.sectionHeaderRow}>
                           <Text style={styles.sectionTitle}>AI hodnotenie zhody</Text>
                         </View>
-                        {isProfileMissing ? (
-                          <>
-                            <Text style={styles.profileMissingTitle}>Chýba chuťový profil</Text>
-                            <Text style={styles.profileMissingText}>
-                              {profileMissingText}
-                            </Text>
-                            <TouchableOpacity
-                              style={styles.profileMissingButton}
-                              onPress={handleQuestionnaireCTA}
-                              activeOpacity={0.85}
-                            >
-                              <Text style={styles.profileMissingButtonText}>
-                                {profileMissingCtaLabel}
-                              </Text>
-                            </TouchableOpacity>
-                          </>
-                        ) : (
-                          <>
-                            <View style={styles.sectionHeaderRow}>
-                              <Text style={styles.verdictDiffsTitle}>Verdikt</Text>
-                              <View
-                                style={[
-                                  styles.verdictBadge,
-                                  evaluationVerdictTone === 'NO'
-                                    ? styles.verdictBadgeNo
-                                    : evaluationVerdictTone === 'RISKY'
-                                      ? styles.verdictBadgeRisky
-                                      : styles.verdictBadgeYes,
-                                ]}
-                              >
-                                <Text
-                                  style={[
-                                    styles.verdictBadgeText,
-                                    evaluationVerdictTone === 'NO'
-                                      ? styles.verdictBadgeTextNo
-                                      : evaluationVerdictTone === 'RISKY'
-                                        ? styles.verdictBadgeTextRisky
-                                        : styles.verdictBadgeTextYes,
-                                  ]}
-                                >
-                                  {verdictLabel}
-                                </Text>
-                              </View>
-                            </View>
-                            {evaluationConfidenceLabel ? (
-                              <Text style={styles.verdictConfidence}>{evaluationConfidenceLabel}</Text>
-                            ) : null}
-                            {verdictExplanationSections ? (
-                              <View style={styles.reasonBlocksWrapper}>
-                                {verdictExplanationSections.map((section, sectionIndex) => (
-                                  <View
-                                    key={`${section.title || 'section'}-${sectionIndex}`}
-                                    style={styles.reasonBlock}
-                                  >
-                                    {section.title ? (
-                                      <Text style={styles.reasonTitle}>{section.title}</Text>
-                                    ) : null}
-                                    {section.sentences.map((sentence, sentenceIndex) => (
-                                      <View
-                                        key={`${sentence}-${sentenceIndex}`}
-                                        style={styles.reasonRow}
-                                      >
-                                        <View style={[styles.reasonBadge, insightBadgeStyle]}>
-                                          <Text style={styles.reasonBadgeText}>•</Text>
-                                        </View>
-                                        <Text style={styles.reasonText}>{sentence}</Text>
-                                      </View>
-                                    ))}
-                                  </View>
-                                ))}
-                              </View>
-                            ) : (
-                              <Text style={styles.verdictDescription}>
-                                {verdictExplanationFallbackText}
-                              </Text>
-                            )}
-                            <View style={styles.aiSummarySection}>
-                              <Text style={styles.sectionSubtitle}>Chuťové tóny / profil kávy</Text>
-                              <Text style={styles.verdictDescription}>{tasteProfileSummary}</Text>
-                            </View>
-                            {lowDataWarning ? (
-                              <View style={styles.lowDataCard}>
-                                <View style={styles.lowDataBadge}>
-                                  <Text style={styles.lowDataBadgeText}>Minimum údajov</Text>
-                                </View>
-                                <Text style={styles.lowDataText}>{lowDataWarning}</Text>
-                                <TouchableOpacity
-                                  style={styles.lowDataButton}
-                                  onPress={openCamera}
-                                  activeOpacity={0.85}
-                                >
-                                  <Text style={styles.lowDataButtonText}>Rescanovať etiketu</Text>
-                                </TouchableOpacity>
-                              </View>
-                            ) : null}
-                          </>
-                        )}
-
-                        {evaluationStatus === 'ok' ? (
-                          <View style={styles.aiSummarySection}>
-                            {evaluationIntroText ? (
-                              <Text style={styles.compatibilityIntro}>{evaluationIntroText}</Text>
-                            ) : null}
-                            {insightContent?.sections.length ? (
-                              <View style={styles.reasonBlocksWrapper}>
-                                {insightContent.sections.map((section, index) => (
-                                  <View key={`${section.title}-${index}`} style={styles.reasonBlock}>
-                                    {section.title ? (
-                                      <Text style={styles.reasonTitle}>{section.title}</Text>
-                                    ) : null}
-                                    {section.bullets.map(bullet => (
-                                      <View key={bullet} style={styles.reasonRow}>
-                                        <View style={[styles.reasonBadge, insightBadgeStyle]}>
-                                          <Text style={styles.reasonBadgeText}>•</Text>
-                                        </View>
-                                        <Text style={styles.reasonText}>{bullet}</Text>
-                                      </View>
-                                    ))}
-                                  </View>
-                                ))}
-                              </View>
-                            ) : null}
-                          </View>
-                        ) : null}
-
                         <View style={styles.aiSummarySection}>
-                          <Text style={styles.sectionSubtitle}>AI insight</Text>
-                          {insightStatusContent ? (
-                            <>
-                              {insightStatusContent.headline ? (
-                                <Text style={styles.verdictDescription}>
-                                  {insightStatusContent.headline}
-                                </Text>
-                              ) : null}
-                              <Text style={styles.verdictDescription}>{insightStatusContent.body}</Text>
-                              {insightStatusContent.ctaLabel ? (
-                                <TouchableOpacity
-                                  style={styles.profileMissingButton}
-                                  onPress={handleQuestionnaireCTA}
-                                  activeOpacity={0.85}
-                                >
-                                  <Text style={styles.profileMissingButtonText}>
-                                    {insightStatusContent.ctaLabel}
-                                  </Text>
-                                </TouchableOpacity>
-                              ) : null}
-                            </>
-                          ) : (
-                            <>
-                              {insightContent?.headline ? (
-                                <Text style={styles.verdictDescription}>{insightContent.headline}</Text>
-                              ) : null}
-                              {evaluationStatus !== 'ok' && insightContent?.sections.length ? (
-                                <View style={styles.reasonBlocksWrapper}>
-                                  {insightContent.sections.map((section, index) => (
-                                    <View key={`${section.title}-${index}`} style={styles.reasonBlock}>
-                                      {section.title ? (
-                                        <Text style={styles.reasonTitle}>{section.title}</Text>
-                                      ) : null}
-                                      {section.bullets.map(bullet => (
-                                        <View key={bullet} style={styles.reasonRow}>
-                                          <View style={[styles.reasonBadge, insightBadgeStyle]}>
-                                            <Text style={styles.reasonBadgeText}>•</Text>
-                                          </View>
-                                          <Text style={styles.reasonText}>{bullet}</Text>
-                                        </View>
-                                      ))}
-                                    </View>
-                                  ))}
-                                </View>
-                              ) : null}
-                            </>
-                          )}
+                          <Text style={styles.sectionSubtitle}>Chuťová tendencia kávy</Text>
+                          <Text style={styles.verdictDescription}>
+                            {aiVerdictSummaries.coffeeProfile}
+                          </Text>
+                        </View>
+                        <View style={styles.aiSummarySection}>
+                          <Text style={styles.sectionSubtitle}>Tvoje preferencie</Text>
+                          <Text style={styles.verdictDescription}>
+                            {aiVerdictSummaries.userPreferences}
+                          </Text>
+                        </View>
+                        <View style={styles.aiSummarySection}>
+                          <Text style={styles.sectionSubtitle}>Prečo ti to (ne)chutí</Text>
+                          <Text style={styles.verdictDescription}>
+                            {aiVerdictSummaries.comparison}
+                          </Text>
                         </View>
                       </View>
 
