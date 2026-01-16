@@ -1794,7 +1794,7 @@ Odpovedaj výhradne v slovenčine.
 Vráť striktne platný JSON podľa zadanej schémy, bez markdownu a bez dodatočného textu.
 Nikdy nehádaj chýbajúce dáta. Ak chýba profil alebo údaje o káve, priznaj neistotu podľa schémy.
 Verdict a insight musia vychádzať z toho istého porovnania preferencií a atribútov kávy a nesmú si odporovať.`;
-const userPrompt = `Vyhodnoť vhodnosť naskenovanej kávy pre používateľa.
+    const userPrompt = `Vyhodnoť vhodnosť naskenovanej kávy pre používateľa.
 
 PRAVIDLÁ:
 - Výstup musí byť STRICT JSON podľa schémy nižšie.
@@ -1807,12 +1807,13 @@ PRAVIDLÁ:
 - V prípade obmedzených údajov vždy uveď v coffee_profile_summary alebo disclaimer, že hodnotenie je orientačné.
 - Každé pole verdict_explanation musí mať predpísaný formát:
   - user_preferences_summary je presne jedna veta, začína "Tvoje preferencie:" a stručne zhrnie chuťový profil.
-  - coffee_profile_summary obsahuje presne tri vety v pevnom formáte (viď nižšie) a nesmie používať generické formulácie typu „textová zhoda“.
-  - comparison_summary začína "Porovnanie s tvojím profilom:" a obsahuje presne tri vety v pevnom formáte (viď nižšie) a nesmie používať generické formulácie typu „textová zhoda“.
+  - coffee_profile_summary obsahuje presne tri vety v pevnom formáte (viď nižšie) a nič iné.
+  - comparison_summary začína "Porovnanie s tvojím profilom:" a obsahuje presne tri vety v pevnom formáte (viď nižšie) a nič iné.
 - POVINNÝ TROJ-VETNÝ FORMÁT pre coffee_profile_summary aj comparison_summary (vždy presne tri vety, bez ďalších viet):
-  1. „Táto káva má tendenciu byť <chuť>, pretože <praženie/spracovanie/odroda>.“
-  2. „Tvoje preferencie sú: <sladkosť/acidita/horkosť/telo + prípadné flavor_notes>.“
-  3. „Keďže <konflikt/súlad>, bude/nebude ti chutiť.“
+  1. „Táto káva má tendenciu byť <horkejšia/ovocnejšia/sladšia>, pretože <praženie/spracovanie/odroda>.“
+  2. „Tvoje preferencie sú: <nižšia horkosť / vyššia acidita / …>.“
+  3. „Keďže <konflikt/súlad>, bude/nebude ti pravdepodobne chutiť.“
+- Zakázané sú generické frázy bez dôvodu (napr. „textová zhoda“, „celkové skóre“, „menej vhodnú“).
 - Ak sú dostupné roast_level alebo processing alebo odroda, dôvod musí byť explicitne uvedený (napr. „tmavé praženie → horkosť“, „natural → ovocnosť“).
 - Použi mapovanie: dark/medium-dark → vyššia horkosť, nižšia acidita; light → vyššia acidita, ovocnejšie tóny; natural → ovocnosť, sladkosť; washed → čistota, vyššia acidita.
 - Ak dáta chýbajú, explicitne uveď, že dôvod sa nedá určiť, a čo treba doplniť (napr. roast_level, processing, flavor_notes).
