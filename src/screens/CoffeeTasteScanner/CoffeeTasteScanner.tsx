@@ -30,7 +30,6 @@ import { COFFEE_GRADIENT, WELCOME_GRADIENT } from './constants';
 
 interface ProfessionalOCRScannerProps {
   onBack?: () => void;
-  onHistoryPress?: () => void;
   onQuestionnairePress?: () => void;
 }
 

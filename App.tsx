@@ -9,7 +9,6 @@ import AuthScreen from './src/components/auth/AuthVisual';
 import HomeScreen from './src/screens/HomeScreen';
 import CoffeeTasteScanner from './src/screens/CoffeeTasteScanner';
 import CoffeeReceipeScanner from './src/screens/CoffeeReceipeScanner';
-import RecipeHistoryDetailScreen from './src/screens/CoffeeReceipeScanner/RecipeHistoryDetailScreen';
 import { DiscoverCoffeesScreen, } from './src/screens/AllCoffeesScreen';
 import UserProfile from './src/screens/UserProfile';
 import EditUserProfile from './src/components/profile/EditUserProfile';
@@ -19,8 +18,6 @@ import RecipeStepsScreen from './src/screens/RecipeStepsScreen/RecipeStepsScreen
 import PersonalizationDashboard from './src/components/personalization/PersonalizationDashboard';
 import BrewHistoryScreen from './src/screens/BrewHistory';
 import BrewHistoryDetailScreen from './src/screens/BrewHistory/DetailScreen';
-import ScanHistoryScreen from './src/screens/ScanHistoryScreen';
-import ScanDetailScreen from './src/screens/ScanDetailScreen';
 import BrewLogForm from './src/components/brew/BrewLogForm';
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 import { scale } from './src/theme/responsive';
@@ -33,9 +30,8 @@ import SavedTipsScreen from './src/screens/SavedTipsScreen';
 import ScannedCoffeeDetailScreen from './src/screens/ScannedCoffeeDetailScreen';
 import TipsScreen from './src/screens/TipsScreen';
 
-import type { RecipeHistory } from './src/services/recipeServices';
 import { fetchRecipeHistory, fetchRecipes } from './src/services/recipeServices';
-import { fetchCoffees, fetchScanHistory } from './src/services/homePagesService';
+import { fetchCoffees } from './src/services/homePagesService';
 import { fetchRecentScans } from './src/services/coffeeServices';
 import EncryptedStorage from 'react-native-encrypted-storage';
 import { PreferenceLearningEngine } from './src/services/PreferenceLearningEngine';
@@ -59,7 +55,6 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL } from './src/config/env';
 import { API_URL } from './src/services/api';
 import type { BrewLog } from './src/types/BrewLog';
 import type { BrewDevice, Recipe } from './src/types/Recipe';
-import type { OCRHistory } from './src/services/ocrServices';
 import { hydrateUserSignals } from './src/services/userSignals';
 
 type ScreenName =
@@ -73,7 +68,6 @@ type ScreenName =
   | 'discover'
   | 'recipes'
   | 'recipe-steps'
-  | 'recipe-history-detail'
   | 'favorites'
   | 'inventory'
   | 'taste-quiz'
@@ -83,8 +77,6 @@ type ScreenName =
   | 'brew-log'
   | 'community-recipes'
   | 'saved-tips'
-  | 'scan-history'
-  | 'scan-detail'
   | 'coffee-detail';
 
 type AuthNotice = {
@@ -677,8 +669,6 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
   const [checkingTasteQuiz, setCheckingTasteQuiz] = useState(true);
 
   const [selectedBrewLog, setSelectedBrewLog] = useState<BrewLog | null>(null);
-  const [selectedRecipeHistory, setSelectedRecipeHistory] = useState<RecipeHistory | null>(null);
-  const [selectedScan, setSelectedScan] = useState<OCRHistory | null>(null);
   const [selectedCoffeeId, setSelectedCoffeeId] = useState<string | null>(null);
   const [authNotice] = useState<AuthNotice | null>(null);
   const { isDark, colors } = useTheme();
@@ -857,7 +847,6 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           fetchRecipes(),
           fetchCoffees(),
           fetchRecipeHistory(50),
-          fetchScanHistory(20),
           fetchRecentScans(20),
         ]);
       } catch (error) {
@@ -1263,15 +1252,6 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     setCurrentScreen('scanner');
   };
 
-  const handleScanHistoryPress = () => {
-    setCurrentScreen('scan-history');
-  };
-
-  const handleScanDetailPress = (scan: OCRHistory) => {
-    setSelectedScan(scan);
-    setCurrentScreen('scan-detail');
-  };
-
   // Open dedicated scanner for preparing a drink (same as scan for now)
   const handleBrewPress = () => {
     setCurrentScreen('brew');
@@ -1356,32 +1336,12 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
     setCurrentScreen('brew-history');
   };
 
-  const handleRecipeHistoryEntryPress = (entry: RecipeHistory) => {
-    setSelectedRecipeHistory(entry);
-    setCurrentScreen('recipe-history-detail');
-  };
-
-  const handleRecipeHistoryDetailBack = () => {
-    setSelectedRecipeHistory(null);
-    setCurrentScreen('brew');
-  };
-
   const handleCommunityRecipesPress = () => {
     setCurrentScreen('community-recipes');
   };
 
   const handleSavedTipsPress = () => {
     setCurrentScreen('saved-tips');
-  };
-
-  const handleScanHistoryBack = () => {
-    setSelectedScan(null);
-    setCurrentScreen('scanner');
-  };
-
-  const handleScanDetailBack = () => {
-    setSelectedScan(null);
-    setCurrentScreen('scan-history');
   };
 
   // Navigate to coffee detail when a card is tapped in "Moje kávy".
@@ -1398,8 +1358,6 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
 
   const handleBackPress = () => {
     setSelectedBrewLog(null);
-    setSelectedRecipeHistory(null);
-    setSelectedScan(null);
     setSelectedCoffeeId(null);
     setCurrentScreen('home');
   };
@@ -1492,69 +1450,8 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
           </TouchableOpacity>
         </View>
         <CoffeeTasteScanner
-          onHistoryPress={handleScanHistoryPress}
           onQuestionnairePress={handleScannerPreferencesPress}
         />
-        <BottomNav
-          active="home"
-          onHomePress={handleBackPress}
-          onDiscoverPress={handleDiscoverPress}
-          onRecipesPress={handleRecipesPress}
-          onFavoritesPress={handleFavoritesPress}
-          onProfilePress={handleProfilePress}
-        />
-      </ResponsiveWrapper>
-    );
-  }
-
-  if (currentScreen === 'scan-history') {
-    return (
-      <ResponsiveWrapper
-        backgroundColor={colors.background}
-        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
-        statusBarBackground={colors.background}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={[styles.backButton, { backgroundColor: colors.primary }]}
-            onPress={handleScanHistoryBack}
-          >
-            <Text style={styles.backButtonText}>← Späť</Text>
-          </TouchableOpacity>
-        </View>
-        <ScanHistoryScreen onBack={handleScanHistoryBack} onSelectScan={handleScanDetailPress} />
-        <BottomNav
-          active="home"
-          onHomePress={handleBackPress}
-          onDiscoverPress={handleDiscoverPress}
-          onRecipesPress={handleRecipesPress}
-          onFavoritesPress={handleFavoritesPress}
-          onProfilePress={handleProfilePress}
-        />
-      </ResponsiveWrapper>
-    );
-  }
-
-  if (currentScreen === 'scan-detail') {
-    if (!selectedScan) {
-      return null;
-    }
-
-    return (
-      <ResponsiveWrapper
-        backgroundColor={colors.background}
-        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
-        statusBarBackground={colors.background}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={[styles.backButton, { backgroundColor: colors.primary }]}
-            onPress={handleScanDetailBack}
-          >
-            <Text style={styles.backButtonText}>← Späť</Text>
-          </TouchableOpacity>
-        </View>
-        <ScanDetailScreen scan={selectedScan} onBack={handleScanDetailBack} />
         <BottomNav
           active="home"
           onHomePress={handleBackPress}
@@ -1619,7 +1516,6 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
             setRecipeStepsReturnTo('brew');
             setCurrentScreen('recipe-steps');
           }}
-          onRecipeHistoryPress={handleRecipeHistoryEntryPress}
           onSeeAllRecipes={handleSeeAllRecipes}
         />
         <BottomNav
@@ -1657,37 +1553,6 @@ const AppContent = ({ personalization, setPersonalization }: AppContentProps): R
         />
         <BottomNav
           active={recipeStepsReturnTo === 'recipes' ? 'recipes' : 'home'}
-          onHomePress={handleBackPress}
-          onDiscoverPress={handleDiscoverPress}
-          onRecipesPress={handleRecipesPress}
-          onFavoritesPress={handleFavoritesPress}
-          onProfilePress={handleProfilePress}
-        />
-      </ResponsiveWrapper>
-    );
-  }
-
-  if (currentScreen === 'recipe-history-detail') {
-    if (!selectedRecipeHistory) {
-      return null;
-    }
-
-    return (
-      <ResponsiveWrapper
-        backgroundColor={colors.background}
-        statusBarStyle={isDark ? 'light-content' : 'dark-content'}
-        statusBarBackground={colors.background}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={[styles.backButton, { backgroundColor: colors.primary }]}
-            onPress={handleRecipeHistoryDetailBack}>
-            <Text style={styles.backButtonText}>← Späť</Text>
-          </TouchableOpacity>
-        </View>
-        <RecipeHistoryDetailScreen entry={selectedRecipeHistory} />
-        <BottomNav
-          active="home"
           onHomePress={handleBackPress}
           onDiscoverPress={handleDiscoverPress}
           onRecipesPress={handleRecipesPress}
