@@ -99,21 +99,6 @@ interface DashboardData {
   dailyTip: string;
 }
 
-const COFFEE_CACHE_KEY = 'coffees:favorites';
-const SCAN_HISTORY_CACHE_KEY = 'scans:history';
-const CACHE_TTL_HOURS = 24;
-
-/**
- * Converts cached coffee item timestamps back into Date instances.
- *
- * @param {CoffeeData} item - Coffee item potentially containing a serialized timestamp.
- * @returns {CoffeeData} Coffee item with `timestamp` coerced to `Date` when present.
- */
-const normalizeCachedTimestamp = (item: CoffeeData): CoffeeData => ({
-  ...item,
-  timestamp: item.timestamp ? new Date(item.timestamp) : undefined,
-});
-
 /**
  * Detects network-related errors to decide when to fall back to offline behavior.
  *
@@ -338,7 +323,7 @@ export const fetchCoffeeById = async (coffeeId: string): Promise<CoffeeData | nu
 };
 
 /**
- * Retrieves recent OCR scan history entries, prioritizing cached data when offline.
+ * Retrieves recent OCR scan history entries from the backend.
  *
  * @param {number} [limit=5] - Maximum number of history items to fetch from the API.
  * @returns {Promise<CoffeeData[]>} Array of scanned coffee records ordered by recency.
@@ -358,7 +343,7 @@ export const fetchScanHistory = async (limit: number = 5): Promise<CoffeeData[]>
 
     if (!response.ok) {
       console.warn('Scan history API returned error:', response.status);
-      return ([]).map(normalizeCachedTimestamp);
+      return [];
     }
 
     const data = await response.json();
