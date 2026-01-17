@@ -31,7 +31,10 @@ export type ScanPreferenceComparisonResult = {
   reasons: string[];
 };
 
-// Placeholder implementation to disable comparisons while keeping exports stable.
+// Placeholder implementation disabled temporarily to keep exports stable.
+const warnScanComparisonDisabled = (caller: string): void => {
+  console.warn(`[ScanPreferenceComparison] ${caller} disabled temporarily.`);
+};
 const parseNumericValue = (value: unknown): number | null => {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
@@ -46,6 +49,7 @@ const parseNumericValue = (value: unknown): number | null => {
 };
 
 export const normalizeVectorValue = (value: unknown): number | null => {
+  warnScanComparisonDisabled('normalizeVectorValue');
   const parsed = parseNumericValue(value);
   if (parsed == null) {
     return null;
@@ -57,7 +61,10 @@ export const normalizeVectorValue = (value: unknown): number | null => {
 
 export const buildScanPreferenceComparison = (
   _input: ScanPreferenceComparisonInput,
-): ScanPreferenceComparisonResult => ({
-  dimensions: [],
-  reasons: [],
-});
+): ScanPreferenceComparisonResult => {
+  warnScanComparisonDisabled('buildScanPreferenceComparison');
+  return {
+    dimensions: [],
+    reasons: [],
+  };
+};
