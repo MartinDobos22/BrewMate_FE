@@ -2,6 +2,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LAST_KEY = 'ocr:last';
 
+const sanitizeRecommendationFields = (payload: any): any => {
+  if (!payload || typeof payload !== 'object') {
+    return payload;
+  }
+
+  if (Array.isArray(payload)) {
+    return payload.map((item) => sanitizeRecommendationFields(item));
+  }
+
+  const { matchPercentage, isRecommended, match_percentage, is_recommended, ...rest } = payload;
+  return rest;
+};
+
 /**
  * Persists an OCR parsing result in local encrypted storage and tracks the last
  * saved identifier for easy retrieval.
@@ -15,7 +28,8 @@ const LAST_KEY = 'ocr:last';
  */
 export const saveOCRResult = async (id: string, payload: any) => {
   try {
-    await AsyncStorage.setItem(`ocr:${id}`, JSON.stringify(payload));
+    const sanitizedPayload = sanitizeRecommendationFields(payload);
+    await AsyncStorage.setItem(`ocr:${id}`, JSON.stringify(sanitizedPayload));
     await AsyncStorage.setItem(LAST_KEY, id);
   } catch (error) {
     console.error('Error saving OCR result:', error);
@@ -39,7 +53,7 @@ export const loadOCRResult = async (id?: string) => {
       if (!key) return null;
     }
     const data = await AsyncStorage.getItem(`ocr:${key}`);
-    return data ? JSON.parse(data) : null;
+    return data ? sanitizeRecommendationFields(JSON.parse(data)) : null;
   } catch (error) {
     console.error('Error loading OCR result:', error);
     return null;
