@@ -102,6 +102,11 @@ const getIsoWeekday = (date: Date): number => {
   return weekday === 0 ? 7 : weekday;
 };
 
+const sanitizeMetadata = (metadata: Record<string, unknown>): Record<string, unknown> => {
+  const { matchPercentage, isRecommended, match_percentage, is_recommended, ...rest } = metadata;
+  return rest;
+};
+
 const buildBrewContext = (metadata?: Record<string, unknown>): BrewContext => {
   const now = new Date();
   const context: BrewContext = {
@@ -110,7 +115,10 @@ const buildBrewContext = (metadata?: Record<string, unknown>): BrewContext => {
   };
 
   if (metadata && Object.keys(metadata).length > 0) {
-    context.metadata = { ...metadata };
+    const sanitizedMetadata = sanitizeMetadata(metadata);
+    if (Object.keys(sanitizedMetadata).length > 0) {
+      context.metadata = { ...sanitizedMetadata };
+    }
   }
 
   return context;
