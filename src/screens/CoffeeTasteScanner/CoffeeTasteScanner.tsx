@@ -42,7 +42,6 @@ import {
   toggleFavorite,
   isCoffeeRelatedText,
 } from './services';
-import { getAuthToken } from '../../services/ocrServices';
 import {
   loadCoffeeSignal,
   recordConsumptionSignal,
@@ -51,22 +50,10 @@ import {
   recordScanSignal,
   SignalUpdateResult,
 } from '../../services/userSignals';
-import type {
-  OCRHistory,
-  StructuredCoffeeMetadata,
-  ConfirmStructuredPayload,
-  CoffeeEvaluationResult,
-} from './services';
+import type { OCRHistory, StructuredCoffeeMetadata, ConfirmStructuredPayload } from './services';
 import { usePersonalization } from '../../hooks/usePersonalization';
 import { showToast } from '../../utils/toast';
-import { API_URL } from '../../services/api';
 import { recognizeCoffee } from 'services/VisionService.ts';
-import {
-  buildComparisonText,
-  extractSentenceBlocks,
-  resolveInsightHeadline,
-  resolveVerdictExplanationText,
-} from './comparison';
 import {
   COFFEE_GRADIENT,
   IMAGE_QUALITY,
@@ -76,8 +63,6 @@ import {
   STRUCTURED_FIELD_ORDER,
   WELCOME_GRADIENT,
 } from './constants';
-import { extractPreferenceSnapshot } from './preference';
-import type { CoffeePreferenceSnapshot } from './preference';
 import {
   createStructuredFieldsFromMetadata,
   isStructuredValueFilled,
@@ -86,12 +71,6 @@ import {
   structuredFieldsToConfidence,
   structuredFieldsToMetadata,
 } from './structuredFields';
-import {
-  clampTasteValue,
-  extractTasteVectorFromPayload,
-  normalizeTasteVectorTo10,
-  resolveTasteProfile,
-} from './tasteProfile';
 import type {
   StructuredFieldKey,
   StructuredFieldsState,
@@ -102,7 +81,6 @@ import {
   buildBrewContext,
   ensureFileUri,
   isOfflineError,
-  normalizeConfidenceScore,
   stripFileUri,
 } from './utils';
 
@@ -110,8 +88,6 @@ interface ScanResult {
   original: string;
   corrected: string;
   recommendation: string;
-  matchPercentage?: number | null;
-  isRecommended?: boolean;
   scanId?: string;
   source?: 'offline' | 'online';
   isFavorite?: boolean;
@@ -123,9 +99,6 @@ interface ScanResult {
   structuredConfidence?: Record<string, unknown> | null;
   structuredUncertainty?: Record<string, unknown> | null;
   structuredRaw?: unknown;
-  evaluation?: CoffeeEvaluationResult | null;
-  tasteProfileSent?: boolean;
-  tasteProfileRejectedAsStale?: boolean;
 }
 
 type ScanResultLike = ScanResult & { rawStructuredResponse?: unknown };
@@ -140,8 +113,6 @@ interface ProfessionalOCRScannerProps {
   onHistoryPress?: () => void;
   onQuestionnairePress?: () => void;
 }
-type CompatibilityBucket = 'SAFE' | 'RISKY' | 'NO-GO';
-
 const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   onBack,
   onHistoryPress,
@@ -150,7 +121,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   const {
     coffeeDiary: personalizationDiary,
     refreshInsights,
-    profile,
     userId,
     ready: personalizationReady,
   } = usePersonalization();
@@ -188,7 +158,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   const [confirmPayload, setConfirmPayload] = useState<StructuredConfirmPayload | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const [signalWarning, setSignalWarning] = useState<string | null>(null);
-  const [preferenceSnapshot, setPreferenceSnapshot] = useState<CoffeePreferenceSnapshot | null>(null);
 
   const camera = useRef<Camera>(null);
   const device = useCameraDevice('back');
@@ -204,60 +173,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     [],
   );
 
-  const contextPreferenceSnapshot = useMemo(() => {
-    const profileRecord = profile as unknown as {
-      coffee_preferences?: Record<string, unknown> | null;
-    };
-    return extractPreferenceSnapshot(profileRecord?.coffee_preferences ?? null);
-  }, [profile]);
-
-  const preferenceSnapshotVector = useMemo(
-    () => normalizeTasteVectorTo10(preferenceSnapshot?.taste_vector ?? null),
-    [preferenceSnapshot],
-  );
-  const preferenceSnapshotProfile = useMemo(() => {
-    if (!preferenceSnapshotVector) {
-      return null;
-    }
-    const updatedAt = preferenceSnapshot?.updatedAt ?? null;
-    const lastRecalculatedAt = preferenceSnapshot?.lastRecalculatedAt ?? null;
-    if (!updatedAt && !lastRecalculatedAt) {
-      return preferenceSnapshotVector;
-    }
-    return {
-      ...preferenceSnapshotVector,
-      updatedAt: updatedAt ?? undefined,
-      lastRecalculatedAt: lastRecalculatedAt ?? undefined,
-    };
-  }, [preferenceSnapshot, preferenceSnapshotVector]);
-
-  const loadPreferenceSnapshot = useCallback(async () => {
-    try {
-      const token = await getAuthToken();
-      if (!token) {
-        showToast('Prihlás sa, prosím.');
-        return;
-      }
-      const response = await fetch(`${API_URL}/profile`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!response.ok) {
-        console.warn('CoffeeTasteScanner: Failed to load preference profile', response.status);
-        return;
-      }
-      const data = (await response.json()) as Record<string, unknown> | null;
-      const coffeePreferences =
-        (data?.coffee_preferences as Record<string, unknown> | null) ?? null;
-      const snapshot = extractPreferenceSnapshot(coffeePreferences);
-      if (snapshot) {
-        setPreferenceSnapshot(snapshot);
-      }
-    } catch (error) {
-      console.warn('CoffeeTasteScanner: Failed to load preference profile', error);
-    }
-  }, []);
 
   const handleSignalOutcome = useCallback(
     (result: SignalUpdateResult, context: string) => {
@@ -425,7 +340,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
         structuredConfidence: result.structuredConfidence ?? null,
         structuredUncertainty: result.structuredUncertainty ?? null,
         structuredRaw,
-        evaluation: result.evaluation ?? null,
       };
 
       setScanResult(normalizedResult);
@@ -471,14 +385,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       setIsConnected(null);
     };
   }, []);
-
-  useEffect(() => {
-    if (contextPreferenceSnapshot) {
-      setPreferenceSnapshot(contextPreferenceSnapshot);
-      return;
-    }
-    loadPreferenceSnapshot();
-  }, [contextPreferenceSnapshot, loadPreferenceSnapshot]);
 
   const closeNonCoffeeModal = () => {
     setNonCoffeeModalVisible(false);
@@ -829,10 +735,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       setOverlayText('Analyzujem...');
       setOverlayVisible(true);
 
-      const tasteProfile = resolveTasteProfile(profile, preferenceSnapshotProfile);
       const result = await processOCR(base64image, {
         imagePath: extra?.imagePath,
-        tasteProfile,
       });
 
       if (result) {
@@ -1066,9 +970,9 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
     const historyResult: ScanResultLike = {
       original: item.original_text,
       corrected: item.corrected_text,
-      recommendation: '',
-      matchPercentage: item.match_percentage,
-      isRecommended: item.is_recommended,
+      recommendation: item.corrected_text
+        ? `AI opis: ${item.corrected_text}`
+        : 'AI opis kávy zatiaľ nie je dostupný.',
       isFavorite: item.is_favorite,
       structuredMetadata: historyMetadata,
       structuredConfidence: null,
@@ -1185,8 +1089,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       const metadata: Record<string, unknown> = {
         source: 'taste-scanner',
         scanId: scanResult.scanId,
-        matchPercentage: scanResult.matchPercentage,
-        isRecommended: scanResult.isRecommended,
       };
 
       if (scanResult.recommendation) {
@@ -1484,74 +1386,8 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
   };
 
   const showBackButton = currentView !== 'home';
-  const evaluation = scanResult?.evaluation ?? null;
-  const evaluationStatus = evaluation?.status ?? 'unknown';
-  const profileCoffeePreferences =
-    (profile as unknown as { coffee_preferences?: Record<string, unknown> | null })
-      ?.coffee_preferences ?? null;
-  const comparisonText = useMemo(
-    () => buildComparisonText(
-      evaluation,
-      preferenceSnapshot,
-      profileCoffeePreferences,
-    ),
-    [
-      evaluation,
-      preferenceSnapshot,
-      profileCoffeePreferences,
-    ],
-  );
-  const neutralVerdictCopy = 'Čakáme na AI hodnotenie';
-  const didSendTasteProfile = Boolean(scanResult?.tasteProfileSent);
-  const isProfileMissing = evaluationStatus === 'profile_missing' && !didSendTasteProfile;
-  const profileMissingText =
-    resolveVerdictExplanationText(evaluation?.verdict_explanation)
-    || resolveInsightHeadline(evaluation?.insight)
-    || evaluation?.disclaimer
-    || 'Vyplň krátky dotazník a získaš osobné hodnotenie zhody pre každú kávu.';
-  const verdictExplanationFallbackText = 'Zatiaľ nemáme dôvody prečo je káva vhodná alebo nie.';
-  const aiVerdictSummaries = useMemo(() => {
-    const verdictExplanation = evaluation?.verdict_explanation;
-    const profileMissingSentence =
-      extractSentenceBlocks(profileMissingText)[0] ?? profileMissingText;
-    const fallbackCoffeeProfile = 'Chuťový profil kávy zatiaľ nepoznáme.';
-    const fallbackUserPreferences = isProfileMissing
-      ? profileMissingSentence
-      : 'Tvoje preferencie zatiaľ nepoznáme.';
-    const fallbackComparison = 'Zatiaľ nemáme dostatok údajov na porovnanie.';
-    const getSentence = (text: string | null | undefined, fallback: string) => {
-      const sentences = extractSentenceBlocks(text ?? '');
-      return sentences[0] ?? fallback;
-    };
-    if (!verdictExplanation) {
-      return {
-        coffeeProfile: fallbackCoffeeProfile,
-        userPreferences: fallbackUserPreferences,
-        comparison: fallbackComparison,
-      };
-    }
-    if (typeof verdictExplanation === 'string') {
-      return {
-        coffeeProfile: fallbackCoffeeProfile,
-        userPreferences: fallbackUserPreferences,
-        comparison: getSentence(verdictExplanation, verdictExplanationFallbackText),
-      };
-    }
-    return {
-      coffeeProfile: getSentence(
-        verdictExplanation.coffee_profile_summary,
-        fallbackCoffeeProfile,
-      ),
-      userPreferences: getSentence(
-        verdictExplanation.user_preferences_summary,
-        fallbackUserPreferences,
-      ),
-      comparison: getSentence(
-        verdictExplanation.comparison_summary,
-        fallbackComparison,
-      ),
-    };
-  }, [evaluation?.verdict_explanation, isProfileMissing, profileMissingText, verdictExplanationFallbackText]);
+  const aiDescription = scanResult?.recommendation?.trim() ?? '';
+  const aiDescriptionFallback = 'AI opis kávy zatiaľ nie je dostupný.';
   const refreshControl =
     currentView === 'home'
       ? (
@@ -1606,106 +1442,10 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
       .catch(error => console.warn('CoffeeTasteScanner: failed to load implicit signals', error));
   }, [coffeeName, scanResult, signalWarning, userId]);
 
-  const compatibility = useMemo(() => {
-    if (evaluationStatus !== 'ok') {
-      return null;
-    }
-
-    const score = normalizeConfidenceScore(evaluation?.confidence);
-    const bucket: CompatibilityBucket =
-      evaluation?.verdict === 'suitable'
-        ? 'SAFE'
-        : evaluation?.verdict === 'not_suitable'
-          ? 'NO-GO'
-          : 'RISKY';
-    const label =
-      evaluation?.verdict === 'suitable'
-        ? 'Vhodná'
-        : evaluation?.verdict === 'not_suitable'
-          ? 'Nevhodná'
-          : 'Neisté';
-    const descriptionMap: Record<CompatibilityBucket, string> = {
-      SAFE: 'AI hodnotí zhodu ako vysokú',
-      RISKY: 'AI vidí zmiešanú zhodu',
-      'NO-GO': 'AI hodnotí zhodu ako nízku',
-    } as const;
-    const description =
-      resolveVerdictExplanationText(evaluation?.verdict_explanation)
-      || resolveInsightHeadline(evaluation?.insight)
-      || evaluation?.disclaimer
-      || descriptionMap[bucket];
-
-    return {
-      score,
-      bucket,
-      badge: score !== null ? `AI · ${score}%` : 'AI verdikt',
-      description,
-      label,
-    } as const;
-  }, [evaluation, evaluationStatus]);
-
-  const aiMatchScore = useMemo(() => {
-    if (evaluationStatus !== 'ok') {
-      return null;
-    }
-    return normalizeConfidenceScore(evaluation?.confidence);
-  }, [evaluation?.confidence, evaluationStatus]);
-  const aiMatchLabel = aiMatchScore !== null ? `AI zhoda ${aiMatchScore}%` : null;
-  const shouldHideCompatibilityUI = !compatibility;
-  const matchLabel = aiMatchLabel
-    ? aiMatchLabel
-    : compatibility?.label ?? (evaluationStatus !== 'ok' ? neutralVerdictCopy : undefined);
-
-  const structuredTasteVector = useMemo(() => {
-    return extractTasteVectorFromPayload(scanResult?.evaluation?.raw);
-  }, [scanResult?.evaluation?.raw]);
-
-  const tasteAttributes = useMemo(() => {
-    if (structuredTasteVector) {
-      return [
-        {
-          key: 'acidity',
-          label: 'Kyslosť',
-          value: clampTasteValue(structuredTasteVector.acidity),
-          style: styles.tasteFillAcidity,
-        },
-        {
-          key: 'sweetness',
-          label: 'Sladkosť',
-          value: clampTasteValue(structuredTasteVector.sweetness),
-          style: styles.tasteFillSweetness,
-        },
-        {
-          key: 'bitterness',
-          label: 'Horkosť',
-          value: clampTasteValue(structuredTasteVector.bitterness),
-          style: styles.tasteFillBitterness,
-        },
-        {
-          key: 'body',
-          label: 'Telo',
-          value: clampTasteValue(structuredTasteVector.body),
-          style: styles.tasteFillBody,
-        },
-      ];
-    }
-    return null;
-  }, [
-    structuredTasteVector,
-    styles.tasteFillAcidity,
-    styles.tasteFillSweetness,
-    styles.tasteFillBitterness,
-    styles.tasteFillBody,
-  ]);
-
   const editorHint = isHistoryReadOnly
     ? 'História je len na čítanie'
     : 'Uprav, ak niečo nesedí';
 
-  const metrics = useMemo(
-    () => [{ icon: '🛡️', value: matchLabel ?? '—', label: 'Kompatibilita' }],
-    [matchLabel],
-  );
 
   // Camera View
   if (showCamera && device) {
@@ -2076,71 +1816,15 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                         <Text style={styles.scanHeroSubtitle} numberOfLines={2}>
                           {coffeeSubtitle}
                         </Text>
-                        <View style={styles.scanMetricsRow}>
-                          {metrics.map(metric => (
-                            <View key={metric.label} style={styles.scanMetricCard}>
-                              <Text style={styles.scanMetricIcon}>{metric.icon}</Text>
-                              <Text style={styles.scanMetricValue}>{metric.value}</Text>
-                              <Text style={styles.scanMetricLabel}>{metric.label}</Text>
-                            </View>
-                          ))}
-                        </View>
-                        {compatibility && !shouldHideCompatibilityUI ? (
-                          <View
-                            style={[
-                              styles.compatibilityBanner,
-                              compatibility.bucket === 'SAFE'
-                                ? styles.compatibilitySafe
-                                : compatibility.bucket === 'RISKY'
-                                  ? styles.compatibilityRisky
-                                  : styles.compatibilityNogo,
-                            ]}
-                          >
-                            <Text style={styles.compatibilityBadgeText}>{compatibility.badge}</Text>
-                            <Text style={styles.compatibilityCopy}>{compatibility.description}</Text>
-                          </View>
-                        ) : null}
                       </LinearGradient>
 
                       <View style={styles.comparisonCard}>
                         <View style={styles.sectionHeaderRow}>
-                          <Text style={styles.sectionTitle}>Porovnanie s dotazníkom</Text>
-                        </View>
-                        <Text style={styles.comparisonText}>{comparisonText}</Text>
-                      </View>
-
-                      <View style={styles.comparisonCard}>
-                        <View style={styles.sectionHeaderRow}>
-                          <Text style={styles.sectionTitle}>Čo môžeš skúsiť ďalej</Text>
+                          <Text style={styles.sectionTitle}>AI opis kávy</Text>
                         </View>
                         <Text style={styles.comparisonText}>
-                          • Dolaď mletie podľa intenzity, ktorú preferuješ.
-                          {'\n'}• Pozri sa na podobné kávy v odporúčaniach.
+                          {aiDescription || aiDescriptionFallback}
                         </Text>
-                      </View>
-
-                      <View style={styles.compatibilityCardModern}>
-                        <View style={styles.sectionHeaderRow}>
-                          <Text style={styles.sectionTitle}>AI hodnotenie zhody</Text>
-                        </View>
-                        <View style={styles.aiSummarySection}>
-                          <Text style={styles.sectionSubtitle}>Chuťová tendencia kávy</Text>
-                          <Text style={styles.verdictDescription}>
-                            {aiVerdictSummaries.coffeeProfile}
-                          </Text>
-                        </View>
-                        <View style={styles.aiSummarySection}>
-                          <Text style={styles.sectionSubtitle}>Tvoje preferencie</Text>
-                          <Text style={styles.verdictDescription}>
-                            {aiVerdictSummaries.userPreferences}
-                          </Text>
-                        </View>
-                        <View style={styles.aiSummarySection}>
-                          <Text style={styles.sectionSubtitle}>Prečo ti to (ne)chutí</Text>
-                          <Text style={styles.verdictDescription}>
-                            {aiVerdictSummaries.comparison}
-                          </Text>
-                        </View>
                       </View>
 
                       <View style={styles.ownershipCardModern}>
@@ -2207,43 +1891,6 @@ const CoffeeTasteScanner: React.FC<ProfessionalOCRScannerProps> = ({
                           </TouchableOpacity>
                         </View>
                       </View>
-
-                      <View style={styles.tasteProfileCard}>
-                        <View style={styles.profileHeaderRow}>
-                          <Text style={styles.sectionTitle}>Chuťový profil</Text>
-                          {matchLabel ? (
-                            <Text style={styles.profileScore}>{matchLabel}</Text>
-                          ) : null}
-                        </View>
-                        <View style={styles.tasteAttributesGrid}>
-                          {tasteAttributes ? (
-                            tasteAttributes.map(attribute => (
-                              <View key={attribute.key} style={styles.tasteAttributeItem}>
-                                <View style={styles.tasteAttributeHeader}>
-                                  <Text style={styles.tasteAttributeName}>{attribute.label}</Text>
-                                  <Text style={styles.tasteAttributeValue}>
-                                    {Math.round(attribute.value)}/10
-                                  </Text>
-                                </View>
-                                <View style={styles.tasteBar}>
-                                  <View
-                                    style={[
-                                      styles.tasteFill,
-                                      attribute.style,
-                                      { width: `${attribute.value * 10}%` },
-                                    ]}
-                                  />
-                                </View>
-                              </View>
-                            ))
-                          ) : (
-                            <Text style={styles.emptyTasteText}>
-                              Chuťový profil z AI hodnotenia zatiaľ nie je dostupný.
-                            </Text>
-                          )}
-                        </View>
-                      </View>
-
 
                       <View style={styles.structuredCard}>
                         <View style={styles.sectionHeaderRow}>

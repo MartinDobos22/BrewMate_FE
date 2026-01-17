@@ -646,6 +646,14 @@ router.post('/api/ocr/evaluate', async (req, res) => {
     }
     correctedText = resolvedCorrectedText;
 
+    const structured = structured_metadata || structuredMetadata || null;
+    const summary =
+      formatCoffeeAttributesSummary({
+        corrected_text: correctedText,
+        structured_metadata: structured,
+      }) || `Text z etikety: ${correctedText.slice(0, 240)}`;
+    return res.json({ summary });
+
     const result = await db.query(
       `SELECT * FROM user_taste_profiles_with_completion WHERE user_id = $1 LIMIT 1`,
       [uid]
