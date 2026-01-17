@@ -1,15 +1,9 @@
 export { getAuthToken } from './ocr/auth';
-export { fixTextWithAI, getBrewRecipe, suggestBrewingMethods } from './ocr/aiServices';
+export { fixTextWithAI } from './ocr/aiServices';
 export { normalizeEvaluationResponse } from './ocr/evaluation';
 export { ensureOnline, loggedFetch, loggedFetchWithStatusRetry, retryableFetch } from './ocr/network';
 export { processOCR } from './ocr/processOCR';
-export {
-  confirmStructuredScan,
-  deleteOCRRecord,
-  fetchOCRHistory,
-  markCoffeePurchased,
-  rateOCRResult,
-} from './ocr/records';
+export { deleteOCRRecord } from './ocr/records';
 export { extractCoffeeName } from './ocr/textHelpers';
 export { isCoffeeRelatedText } from './ocr/textDetection';
 export {
@@ -28,9 +22,6 @@ export type {
   CoffeeEvaluationResult,
   CoffeeEvaluationStatus,
   CoffeeEvaluationVerdict,
-  ConfirmStructuredPayload,
-  OCRHistory,
   OCRResult,
-  StructuredCoffeeMetadata,
   VerdictExplanation,
 } from './ocr/types';

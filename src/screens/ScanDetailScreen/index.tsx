@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { type OCRHistory } from '../../services/ocrServices';
+import type { OCRHistory } from '../../services/ocr/types';
 import { useTheme } from '../../theme/ThemeProvider';
 
 interface ScanDetailScreenProps {

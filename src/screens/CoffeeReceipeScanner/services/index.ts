@@ -1,10 +1,6 @@
 export {
   processOCR,
-  fetchOCRHistory,
   deleteOCRRecord,
-  getBrewRecipe,
-  suggestBrewingMethods,
-  rateOCRResult,
   isCoffeeRelatedText,
 } from '../../../services/ocrServices';
 export { saveRecipe, fetchRecipeHistory } from '../../../services/recipeServices';
