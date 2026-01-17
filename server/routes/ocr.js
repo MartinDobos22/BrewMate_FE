@@ -12,8 +12,6 @@ import {
   formatCoffeeAttributesSummary,
 } from './ocr/coffee-attributes.js';
 import { extractStructuredMetadataFromText } from './ocr/structured-metadata.js';
-import { formatTasteProfileSummary } from './ocr/taste-profile.js';
-import { isValidEvaluationResponse, resolveCorrectedText } from './ocr/evaluation.js';
 
 const router = express.Router();
 
@@ -245,8 +243,7 @@ router.post('/api/ocr/brewing-methods', async (req, res) => {
  * Vygeneruje recept na kávu podľa zvolenej metódy a preferovanej chuti.
  */
 router.post('/api/ocr/brew-recipe', async (req, res) => {
-  const { method, taste, taste_profile: tasteProfile, coffee_attributes: coffeeAttributes } =
-    req.body ?? {};
+  const { method, taste, coffee_attributes: coffeeAttributes } = req.body ?? {};
   if (!method || typeof method !== 'string') {
     return res.status(400).json({ error: 'Chýba metóda prípravy' });
   }
@@ -255,7 +252,6 @@ router.post('/api/ocr/brew-recipe', async (req, res) => {
     return res.status(200).json({ recipe: '' });
   }
 
-  const tasteProfileSummary = formatTasteProfileSummary(tasteProfile);
   const coffeeSummary = formatCoffeeAttributesSummary(coffeeAttributes);
   const correctedText =
     typeof coffeeAttributes?.corrected_text === 'string'
@@ -266,7 +262,6 @@ router.post('/api/ocr/brew-recipe', async (req, res) => {
   const promptSections = [
     `Priprav detailný recept na kávu pomocou metódy ${method}.`,
     `Používateľ preferuje ${taste || 'vyvážená'} chuť.`,
-    tasteProfileSummary ? `Chuťový profil používateľa: ${tasteProfileSummary}.` : null,
     coffeeSummary ? `Profil kávy: ${coffeeSummary}.` : null,
     correctedTextSnippet ? `Text z etikety: "${correctedTextSnippet}".` : null,
     'Uveď ideálny pomer kávy k vode, teplotu vody a ďalšie dôležité kroky. Odpovedz stručne.',
@@ -851,5 +846,4 @@ router.post('/api/ocr/purchase', async (req, res) => {
   }
 });
 
-export { isValidEvaluationResponse, resolveCorrectedText, formatTasteProfileSummary };
 export default router;
