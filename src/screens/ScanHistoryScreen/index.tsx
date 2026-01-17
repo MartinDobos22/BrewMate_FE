@@ -1,15 +1,14 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   Image,
-  RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { fetchOCRHistory, type OCRHistory } from '../../services/ocrServices';
+import type { OCRHistory } from '../../services/ocr/types';
 import { useTheme } from '../../theme/ThemeProvider';
 
 interface ScanHistoryScreenProps {
@@ -19,34 +18,8 @@ interface ScanHistoryScreenProps {
 
 const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ onSelectScan }) => {
   const { colors } = useTheme();
-  const [history, setHistory] = useState<OCRHistory[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const loadHistory = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await fetchOCRHistory(200);
-      const sorted = data.sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-      );
-      setHistory(sorted);
-    } catch (error) {
-      console.warn('ScanHistoryScreen: failed to load history', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadHistory();
-  }, [loadHistory]);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadHistory();
-    setRefreshing(false);
-  };
+  const [history] = useState<OCRHistory[]>([]);
+  const [loading] = useState(false);
 
   const renderItem = ({ item }: { item: OCRHistory }) => (
     <TouchableOpacity
@@ -89,7 +62,6 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ onSelectScan }) =
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderItem}
         contentContainerStyle={styles.listContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Text style={[styles.emptyIcon, { color: colors.primary }]}>📷</Text>
