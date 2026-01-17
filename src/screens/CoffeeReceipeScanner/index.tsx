@@ -31,7 +31,6 @@ import { showToast } from '../../utils/toast';
 interface BrewScannerProps {
   onBack?: () => void;
   onRecipeGenerated?: (recipe: string) => void;
-  onRecipeHistoryPress?: (entry: unknown) => void;
   onSeeAllRecipes?: () => void;
 }
 

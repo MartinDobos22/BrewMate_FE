@@ -1,28 +1,7 @@
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import type { RecipeHistory } from '../../services/recipeServices';
 import { useTheme } from '../../theme/ThemeProvider';
 import type { Colors } from '../../theme/colors';
-
-type RecipeHistoryDetailScreenProps = {
-  entry: RecipeHistory;
-};
-
-const formatDate = (iso: string): string => {
-  try {
-    const date = new Date(iso);
-    if (Number.isNaN(date.getTime())) {
-      return iso;
-    }
-    return date.toLocaleDateString('sk-SK', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  } catch (error) {
-    return iso;
-  }
-};
 
 const createStyles = (colors: Colors) =>
   StyleSheet.create({
@@ -53,11 +32,6 @@ const createStyles = (colors: Colors) =>
       fontSize: 14,
       color: colors.textSecondary,
     },
-    heroDevice: {
-      fontSize: 14,
-      color: colors.textSecondary,
-      marginTop: 8,
-    },
     section: {
       backgroundColor: colors.cardBackground,
       borderRadius: 16,
@@ -80,41 +54,36 @@ const createStyles = (colors: Colors) =>
       lineHeight: 20,
       color: colors.textSecondary,
     },
-    recipeLine: {
+    messageText: {
       fontSize: 14,
-      lineHeight: 22,
-      color: colors.text,
-      marginBottom: 8,
+      lineHeight: 20,
+      color: colors.textSecondary,
     },
   });
 
-const RecipeHistoryDetailScreen: React.FC<RecipeHistoryDetailScreenProps> = ({ entry }) => {
+const RecipeHistoryDetailScreen: React.FC = () => {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const recipeLines = useMemo(() => entry.recipe.split('\n'), [entry.recipe]);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.heroCard}>
-        <Text style={styles.heroTitle}>{entry.method}</Text>
-        <Text style={styles.heroMeta}>{formatDate(entry.created_at)}</Text>
-        {entry.brewDevice ? (
-          <Text style={styles.heroDevice}>Zariadenie: {entry.brewDevice}</Text>
-        ) : null}
+        <Text style={styles.heroTitle}>História receptov</Text>
+        <Text style={styles.heroMeta}>Podrobnosti receptu sú momentálne skryté.</Text>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Chuťový profil</Text>
-        <Text style={styles.sectionText}>{entry.taste || 'Neuvedené'}</Text>
+        <Text style={styles.sectionText}>
+          Obsah receptov a chuťové poznámky sa momentálne nezobrazujú.
+        </Text>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Recept</Text>
-        {recipeLines.map((line, index) => (
-          <Text key={`${line}-${index}`} style={styles.recipeLine}>
-            {line.trim().length > 0 ? line : '\u00A0'}
-          </Text>
-        ))}
+        <Text style={styles.messageText}>
+          Táto obrazovka zostáva dostupná, no bez výsledkov skenovania alebo uložených údajov.
+        </Text>
       </View>
     </ScrollView>
   );
