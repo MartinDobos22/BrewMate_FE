@@ -13,6 +13,7 @@ import {
 } from './ocr/coffee-attributes.js';
 import { extractStructuredMetadataFromText } from './ocr/structured-metadata.js';
 import { formatTasteProfileSummary } from './ocr/taste-profile.js';
+import { isValidEvaluationResponse, resolveCorrectedText } from './ocr/evaluation.js';
 
 const router = express.Router();
 
