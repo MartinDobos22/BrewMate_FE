@@ -64,31 +64,9 @@ const ScanHistoryScreen: React.FC<ScanHistoryScreenProps> = ({ onSelectScan }) =
         <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
           {item.coffee_name || 'Neznáma káva'}
         </Text>
-        {item.brand ? (
-          <Text style={[styles.meta, { color: colors.text }]} numberOfLines={1}>
-            {item.brand}
-          </Text>
-        ) : null}
-        {item.origin ? (
-          <Text style={[styles.meta, { color: colors.text }]} numberOfLines={1}>
-            {item.origin}
-          </Text>
-        ) : null}
         <Text style={[styles.date, { color: colors.textSecondary  }]}>
           {new Date(item.created_at).toLocaleString('sk-SK')}
         </Text>
-        <View style={styles.metaRow}>
-          {typeof item.rating === 'number' ? (
-            <Text style={[styles.chip, { backgroundColor: colors.cardBackground , color: colors.text }]}>
-              ⭐ {item.rating}
-            </Text>
-          ) : null}
-          {item.is_recommended !== undefined || typeof item.match_percentage === 'number' ? (
-            <Text style={[styles.chip, { backgroundColor: colors.cardBackground , color: colors.text }]}>
-              🎯 {item.is_recommended === false ? 'Mimo preferencií' : 'Sedí k profilu'}
-            </Text>
-          ) : null}
-        </View>
       </View>
     </TouchableOpacity>
   );
@@ -185,17 +163,6 @@ const styles = StyleSheet.create({
   date: {
     fontSize: 13,
     marginBottom: 8,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  chip: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    overflow: 'hidden',
-    fontSize: 12,
   },
   loaderContainer: {
     flex: 1,
