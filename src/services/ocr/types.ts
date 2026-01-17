@@ -89,37 +89,8 @@ export interface CoffeeEvaluationResult {
 export interface OCRResult {
   original: string;
   corrected: string;
-  recommendation: string;
-  matchPercentage?: number | null;
-  isRecommended?: boolean;
-  scanId?: string;
-  brewingMethods?: string[];
-  source?: 'offline' | 'online';
   isCoffee?: boolean;
   nonCoffeeReason?: string;
-  /**
-   * Labels returned by Vision label detection (e.g., "coffee", "espresso").
-   * Optional when the backend does not return label annotations.
-   */
-  detectionLabels?: string[];
-  /**
-   * Confidence score derived from label detection for coffee-related labels.
-   * Optional and may be undefined when label detection is unavailable.
-   */
-  detectionConfidence?: number;
-  /**
-   * Structured metadata extracted from OCR text when available (e.g., origin, roast, notes).
-   */
-  structuredMetadata?: StructuredCoffeeMetadata | null;
-  /**
-   * Confidence flags for structured metadata extraction when provided by the backend.
-   */
-  structuredConfidence?: Record<string, unknown> | null;
-  structuredUncertainty?: Record<string, unknown> | null;
-  rawStructuredResponse?: unknown;
-  evaluation?: CoffeeEvaluationResult | null;
-  tasteProfileSent?: boolean;
-  tasteProfileRejectedAsStale?: boolean;
 }
 
 export interface OCRHistory {
